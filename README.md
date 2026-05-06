@@ -9,20 +9,26 @@ AgentPulse is not a public SaaS, not multi-user, not an execution sandbox, and n
 1. Install dependencies with `npm install`.
 2. Copy `.env.example` to `.env.local`.
 3. Set `GITHUB_TOKEN` to a read-only GitHub token that can access the repositories you want to audit.
-4. Run `npm run dev`.
-5. Open `http://localhost:3000/dashboard`.
+4. Set `AGENTPULSE_ACCESS_KEY` to a long random value.
+5. Run `npm run dev`.
+6. Open `http://localhost:3000/dashboard` and enter the access key when prompted.
 
 Without `GITHUB_TOKEN`, the dashboard and API routes return mock data.
 
 ## Environment Variables
 
 - `GITHUB_TOKEN`: server-side read-only GitHub token. Never prefix this with `NEXT_PUBLIC_`.
+- `AGENTPULSE_ACCESS_KEY`: server-side dashboard/API access key. Never prefix this with `NEXT_PUBLIC_`.
+
+The dashboard stores the access key in `sessionStorage` only and sends it to protected API routes with the `x-agentpulse-key` header.
 
 ## Security Posture
 
 - Repository code is never executed.
 - Repository dependencies are never installed.
 - GitHub token access stays server-side.
+- `/api/repos` and `/api/scan` require `x-agentpulse-key`.
+- Private deployments must configure `AGENTPULSE_ACCESS_KEY`; do not rely on obscurity or public environment variables.
 - `.env`, `.env.local`, private keys, generated folders, dependency folders, large files, and binary files are ignored.
 - Secret-like strings are redacted before reports and before any future LLM auditor input.
 - Repository contents are treated as untrusted evidence and may contain prompt injection.

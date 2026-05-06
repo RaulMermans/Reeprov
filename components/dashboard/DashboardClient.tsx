@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AgentCard } from "@/components/dashboard/AgentCard";
 import { FindingTable } from "@/components/dashboard/FindingTable";
 import { HealthOverview } from "@/components/dashboard/HealthOverview";
@@ -10,12 +10,59 @@ import { Card } from "@/components/ui/Card";
 import type { FormEvent } from "react";
 import type { ScanReport } from "@/lib/scanner/types";
 
+interface RepositorySummary {
+  owner: string;
+  name: string;
+  fullName: string;
+  private?: boolean;
+  defaultBranch?: string;
+}
+
 export function DashboardClient({ initialReport }: { initialReport: ScanReport }) {
   const [report, setReport] = useState<ScanReport>(initialReport);
   const [loading, setLoading] = useState(false);
+  const [loadingRepos, setLoadingRepos] = useState(false);
   const [accessKey, setAccessKey] = useState<string | null>(() => getStoredAccessKey());
   const [accessKeyInput, setAccessKeyInput] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [repositories, setRepositories] = useState<RepositorySummary[]>([]);
+
+  useEffect(() => {
+    if (!accessKey) {
+      return;
+    }
+
+    async function loadRepositories() {
+      setLoadingRepos(true);
+      setErrorMessage(null);
+
+      try {
+        const body = await fetchApi<{
+          mode: "mock" | "github";
+          repos: RepositorySummary[];
+        }>("/api/repos", {
+          headers: {
+            "x-agentpulse-key": accessKey ?? "",
+          },
+        });
+
+        setRepositories(body.repos);
+        setSuccessMessage(
+          body.mode === "mock"
+            ? "Using mock repositories because GITHUB_TOKEN is not configured."
+            : `Loaded ${body.repos.length} repositories.`,
+        );
+      } catch (error) {
+        setSuccessMessage(null);
+        setErrorMessage(apiMessage(error, "Repository loading failed."));
+      } finally {
+        setLoadingRepos(false);
+      }
+    }
+
+    void loadRepositories();
+  }, [accessKey]);
 
   function saveAccessKey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,14 +76,25 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
     sessionStorage.setItem("agentpulse_access_key", trimmed);
     setAccessKey(trimmed);
     setErrorMessage(null);
+    setSuccessMessage(null);
+  }
+
+  function clearAccessKey() {
+    sessionStorage.removeItem("agentpulse_access_key");
+    setAccessKey(null);
+    setAccessKeyInput("");
+    setRepositories([]);
+    setErrorMessage(null);
+    setSuccessMessage(null);
   }
 
   async function scan(repo: { owner?: string; name?: string; mock?: boolean }) {
     setLoading(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     try {
-      const response = await fetch("/api/scan", {
+      const body = await fetchApi<ScanReport>("/api/scan", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -44,15 +102,11 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
         },
         body: JSON.stringify(repo),
       });
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.message ?? "Scan failed.");
-      }
 
       setReport(body);
+      setSuccessMessage(`Scan complete for ${body.repoName}.`);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Scan failed.");
+      setErrorMessage(apiMessage(error, "Scan failed."));
     } finally {
       setLoading(false);
     }
@@ -102,13 +156,27 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
           <p className="text-sm font-medium text-teal-700">AgentPulse</p>
           <h1 className="text-2xl font-semibold text-slate-950">Private repository audit</h1>
         </div>
+        <button className="text-sm font-medium text-slate-600 hover:text-slate-950" onClick={clearAccessKey} type="button">
+          Change access key
+        </button>
       </div>
 
-      <RepoSelector onScan={scan} />
+      <RepoSelector
+        loading={loading}
+        loadingRepos={loadingRepos}
+        onScan={scan}
+        repositories={repositories}
+      />
 
       {errorMessage ? (
         <Card className="border-red-200 bg-red-50 p-5 text-sm text-red-800 shadow-none">
           {errorMessage}
+        </Card>
+      ) : null}
+
+      {successMessage ? (
+        <Card className="border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-800 shadow-none">
+          {successMessage}
         </Card>
       ) : null}
 
@@ -157,4 +225,38 @@ function getStoredAccessKey() {
   }
 
   return sessionStorage.getItem("agentpulse_access_key");
+}
+
+async function fetchApi<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
+  const response = await fetch(input, init);
+  const body = await readJson(response);
+
+  if (!response.ok) {
+    throw new Error(apiMessageFromBody(body, "Request failed."));
+  }
+
+  return body as T;
+}
+
+async function readJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+function apiMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function apiMessageFromBody(body: unknown, fallback: string) {
+  if (typeof body === "object" && body !== null && "message" in body) {
+    const message = (body as { message?: unknown }).message;
+    if (typeof message === "string" && message.length > 0) {
+      return message;
+    }
+  }
+
+  return fallback;
 }

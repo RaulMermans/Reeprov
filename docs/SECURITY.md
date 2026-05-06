@@ -10,9 +10,15 @@ Scanned repository code is never executed. AgentPulse does not run scripts, impo
 
 GitHub access uses `GITHUB_TOKEN` on the server. Use a read-only token with the minimum repository permissions needed.
 
+## Dashboard Access Key
+
+Private deployments must set `AGENTPULSE_ACCESS_KEY` on the server. The dashboard asks for this value, stores it in `sessionStorage` only, and sends it to `/api/repos` and `/api/scan` as the `x-agentpulse-key` header. The key is never read from `localStorage`.
+
 ## Token Handling
 
-Never expose `GITHUB_TOKEN` to client components or browser JavaScript. Do not create `NEXT_PUBLIC_` variables for secrets.
+Never expose `GITHUB_TOKEN` or `AGENTPULSE_ACCESS_KEY` to client components or browser JavaScript. Do not create `NEXT_PUBLIC_` variables for secrets.
+
+Before deploying, confirm `/dashboard`, `/api/repos`, and `/api/scan` are protected by the private access-key flow and deployment-level access controls appropriate for the Vercel project.
 
 ## Secret Redaction
 

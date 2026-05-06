@@ -41,9 +41,21 @@ export function classifyFile(path: string, content = ""): FileClassification {
 
   if (name === ".env.example") return "environment";
   if (packageNames.has(name)) return "package_config";
-  if (name === "agents.md") return "documentation";
-  if (configNames.has(name) || normalized.includes("/agents/")) {
+  if (
+    name === "agents.md" ||
+    name === "claude.md" ||
+    name === "readme.md" ||
+    normalized.includes("/docs/")
+  ) {
+    return "documentation";
+  }
+  if (configNames.has(name)) {
     return "agent_config";
+  }
+  if (normalized.includes("/agents/")) {
+    return sourceExtensions.has(extension) || /\b(export|function|class|import|def)\b/.test(content)
+      ? "source_code"
+      : "agent_config";
   }
   if (
     normalized.includes("/prompts/") ||
@@ -85,7 +97,7 @@ export function classifyFile(path: string, content = ""): FileClassification {
   ) {
     return "workflow";
   }
-  if (name === "readme.md" || normalized.includes("/docs/") || name.endsWith(".md")) {
+  if (name.endsWith(".md")) {
     return "documentation";
   }
   if (sourceExtensions.has(extension)) return "source_code";

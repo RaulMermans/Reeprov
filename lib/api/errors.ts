@@ -30,6 +30,10 @@ export function invalidRequest(message = "Invalid request body.") {
   return new ApiError(400, "invalid_request", message, true);
 }
 
+export function githubError(message = "GitHub API request failed.") {
+  return new ApiError(502, "github_error", message, true);
+}
+
 export function normalizeApiError(error: unknown): ApiError {
   if (error instanceof ApiError) {
     return error;
@@ -50,12 +54,7 @@ export function normalizeApiError(error: unknown): ApiError {
     }
 
     if (error.status === 401 || error.status === 403) {
-      return new ApiError(
-        error.status,
-        "github_auth_error",
-        "GitHub authentication failed. Check the server-side GITHUB_TOKEN.",
-        false,
-      );
+      return githubError("GitHub authentication failed. Check the server-side GITHUB_TOKEN.");
     }
 
     if (error.status === 404) {
@@ -66,6 +65,8 @@ export function normalizeApiError(error: unknown): ApiError {
         true,
       );
     }
+
+    return githubError("GitHub API request failed. Try again later or check repository access.");
   }
 
   console.error(error);

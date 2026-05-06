@@ -57,15 +57,17 @@ export function staticScan(
       findings.push(finding(`ignored-env-${hashId(file.path)}`, "security", "high", "Sensitive environment file present", `${file.path} was ignored and should not be committed to source control.`, [file.path], "Remove committed environment files and rotate any exposed credentials.", 0.95));
     }
     if (file.redacted) {
-      const secretTypes = file.secretMatches?.join(", ") ?? "unknown secret type";
-      findings.push(finding(`redacted-secret-${hashId(file.path)}`, "security", "high", "Secret-like value redacted", `Secret-like content was detected and redacted in ${file.path}. Matched types: ${secretTypes}.`, [file.path], "Remove the value from the repository and rotate it if it was real.", 0.85));
+      const secretTypes = file.secretMatches?.length
+        ? file.secretMatches.join(", ")
+        : "unknown secret type";
+      findings.push(finding(`redacted-secret-${hashId(file.path)}`, "security", "high", "Secret-like value redacted", `${secretTypes} detected and redacted in ${file.path}.`, [file.path], "Remove the value from the repository and rotate it if it was real.", 0.85));
     }
   }
 
   const writeToolPaths = scannedFiles.filter(hasWriteToolRisk);
 
   const hasApprovalPolicy = scannedFiles.some((file) =>
-    /\b(approval policy|human approval|requires approval|confirm before|dry-run|dry run)\b/i.test(
+    /\b(human approval|approval_required|requiresApproval|requires approval|confirm before|dry-run|dry run|approval gate)\b/i.test(
       file.content ?? "",
     ),
   );
@@ -205,14 +207,16 @@ function hasWriteToolRisk(file: RepoFile) {
   }
 
   const content = file.content ?? "";
-  const writeVerb = "(?:send_email|sendEmail|delete|remove|update|create|post|publish|write|dispatch)";
-  const snakeWriteTool = "(?:send_email|delete_[a-zA-Z0-9_-]+|remove_[a-zA-Z0-9_-]+|update_[a-zA-Z0-9_-]+|create_[a-zA-Z0-9_-]+|post_[a-zA-Z0-9_-]+|publish_[a-zA-Z0-9_-]+|write_[a-zA-Z0-9_-]+|dispatch_[a-zA-Z0-9_-]+)";
+  const writeVerb = "(?:send_email|delete|remove|update|create|post|publish|refund|cancel|disable)";
+  const writeToolName = "(?:send_email|delete(?:_[a-zA-Z0-9_-]+)?|remove(?:_[a-zA-Z0-9_-]+)?|update(?:_[a-zA-Z0-9_-]+)?|create(?:_[a-zA-Z0-9_-]+)?|post(?:_[a-zA-Z0-9_-]+)?|publish(?:_[a-zA-Z0-9_-]+)?|refund(?:_[a-zA-Z0-9_-]+)?|cancel(?:_[a-zA-Z0-9_-]+)?|disable(?:_[a-zA-Z0-9_-]+)?)";
 
   return (
     new RegExp(`\\b(?:export\\s+)?(?:async\\s+)?function\\s+${writeVerb}[a-zA-Z0-9_]*\\s*\\(`, "i").test(content) ||
     new RegExp(`\\b(?:const|let|var)\\s+${writeVerb}[a-zA-Z0-9_]*\\s*=`, "i").test(content) ||
-    new RegExp(`\\b(?:tool|function_tool|toolName|name)\\s*[:=]\\s*["'\`]${snakeWriteTool}["'\`]`, "i").test(content) ||
-    new RegExp(`\\btype\\s*[:=]\\s*["'\`]function["'\`][\\s\\S]{0,300}\\bname\\s*[:=]\\s*["'\`]${snakeWriteTool}["'\`]`, "i").test(content)
+    new RegExp(`\\b(?:tool|function_tool|toolName|name)\\s*[:=]\\s*["'\`]${writeToolName}["'\`]`, "i").test(content) ||
+    new RegExp(`\\bexport\\s+const\\s+tool\\s*=\\s*\\{[\\s\\S]{0,300}\\bname\\s*[:=]\\s*["'\`]${writeToolName}["'\`]`, "i").test(content) ||
+    new RegExp(`\\btools\\s*[:=]\\s*\\[[\\s\\S]{0,300}["'\`]${writeToolName}["'\`]`, "i").test(content) ||
+    new RegExp(`\\btype\\s*[:=]\\s*["'\`]function["'\`][\\s\\S]{0,300}\\bname\\s*[:=]\\s*["'\`]${writeToolName}["'\`]`, "i").test(content)
   );
 }
 

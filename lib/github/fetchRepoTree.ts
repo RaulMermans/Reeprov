@@ -8,7 +8,7 @@ export interface RepoTreeFile {
 
 export interface RepoTreeResult {
   files: RepoTreeFile[];
-  truncated: boolean;
+  treeTruncated: boolean;
 }
 
 export async function fetchRepoTree(
@@ -38,6 +38,6 @@ export async function fetchRepoTree(
         sha: item.sha ?? "",
         size: item.size ?? 0,
       })),
-    truncated: tree.data.truncated,
+    treeTruncated: tree.data.truncated,
   };
 }

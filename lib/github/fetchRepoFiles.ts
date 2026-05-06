@@ -75,7 +75,7 @@ export async function fetchRepoFiles(
     },
   );
 
-  return { files, treeTruncated: tree.truncated };
+  return { files, treeTruncated: tree.treeTruncated };
 }
 
 function selectFiles<T extends { path: string }>(files: T[]) {
@@ -95,8 +95,8 @@ function priority(path: string) {
   const extension = extensionIndex > 0 ? name.slice(extensionIndex) : "";
 
   if (name === "agents.md") return 0;
-  if (/^agents\.(ya?ml|json)$/.test(name)) return 1;
-  if (/^\.env(\.|$)/.test(name)) return 2;
+  if (name === "claude.md") return 1;
+  if (/^agents\.(ya?ml|json)$/.test(name)) return 2;
   if (normalized.includes("/agents/")) return 3;
   if (normalized.includes("/prompts/")) return 4;
   if (normalized.includes("/tools/")) return 5;
@@ -106,6 +106,7 @@ function priority(path: string) {
   if (normalized.includes("/docs/")) return 9;
   if (packageConfigNames.has(name)) return 10;
   if (sourceExtensions.has(extension)) return 11;
+  if (/^\.env(\.|$)/.test(name)) return 12;
 
   return 20;
 }

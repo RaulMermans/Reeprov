@@ -4,11 +4,25 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
-interface RepoSelectorProps {
-  onScan: (repo: { owner?: string; name?: string; mock?: boolean }) => void;
+interface RepositorySummary {
+  owner: string;
+  name: string;
+  fullName: string;
 }
 
-export function RepoSelector({ onScan }: RepoSelectorProps) {
+interface RepoSelectorProps {
+  loading?: boolean;
+  loadingRepos?: boolean;
+  onScan: (repo: { owner?: string; name?: string; mock?: boolean }) => void | Promise<void>;
+  repositories?: RepositorySummary[];
+}
+
+export function RepoSelector({
+  loading = false,
+  loadingRepos = false,
+  onScan,
+  repositories = [],
+}: RepoSelectorProps) {
   const [repo, setRepo] = useState("");
 
   function submit() {
@@ -27,14 +41,21 @@ export function RepoSelector({ onScan }: RepoSelectorProps) {
       </label>
       <input
         className="min-h-10 flex-1 rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-100"
+        disabled={loading}
+        list="agentpulse-repositories"
         id="repo"
         onChange={(event) => setRepo(event.target.value)}
-        placeholder="owner/repo"
+        placeholder={loadingRepos ? "Loading repositories..." : "owner/repo"}
         value={repo}
       />
-      <Button onClick={submit} type="button">
+      <datalist id="agentpulse-repositories">
+        {repositories.map((repository) => (
+          <option key={repository.fullName} value={repository.fullName} />
+        ))}
+      </datalist>
+      <Button disabled={loading} onClick={submit} type="button">
         <Search className="mr-2 h-4 w-4" />
-        Scan
+        {loading ? "Scanning" : "Scan"}
       </Button>
     </div>
   );
