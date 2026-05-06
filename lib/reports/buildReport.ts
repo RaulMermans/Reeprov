@@ -10,10 +10,13 @@ interface BuildReportInput {
     size: number;
     content?: string;
   }>;
+  githubTreeTruncated?: boolean;
 }
 
 export function buildReport(input: BuildReportInput): ScanReport {
-  const staticReport = staticScan(input.repoName, input.files);
+  const staticReport = staticScan(input.repoName, input.files, {
+    githubTreeTruncated: input.githubTreeTruncated,
+  });
   const report = runAuditors(staticReport);
   return scanReportSchema.parse(report);
 }

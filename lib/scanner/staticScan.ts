@@ -11,7 +11,15 @@ interface RawRepoFile {
   content?: string;
 }
 
-export function staticScan(repoName: string, rawFiles: RawRepoFile[]): ScanReport {
+interface StaticScanOptions {
+  githubTreeTruncated?: boolean;
+}
+
+export function staticScan(
+  repoName: string,
+  rawFiles: RawRepoFile[],
+  options: StaticScanOptions = {},
+): ScanReport {
   const files = rawFiles.map(toRepoFile);
   const scannedFiles = files.filter((file) => !file.ignored);
   const findings: Finding[] = [];
@@ -40,19 +48,21 @@ export function staticScan(repoName: string, rawFiles: RawRepoFile[]): ScanRepor
     findings.push(finding("missing-evals", "evalCoverage", "medium", "No evals directory detected", "The repository does not appear to include a dedicated eval suite.", [], "Add eval cases for core prompts, tools, and failure modes.", 0.85));
   }
 
+  if (options.githubTreeTruncated) {
+    findings.push(finding("github-tree-truncated", "architecture", "medium", "GitHub tree response truncated", "GitHub reported that the recursive repository tree response was truncated, so this scan may not include every file.", [], "Scan a narrower repository scope or add pagination-aware tree traversal before relying on this report for full coverage.", 0.95));
+  }
+
   for (const file of files) {
     if (file.ignored && /^\.env(\.|$)|(^|\/)\.env(\.|$)/i.test(file.path)) {
       findings.push(finding(`ignored-env-${hashId(file.path)}`, "security", "high", "Sensitive environment file present", `${file.path} was ignored and should not be committed to source control.`, [file.path], "Remove committed environment files and rotate any exposed credentials.", 0.95));
     }
     if (file.redacted) {
-      findings.push(finding(`redacted-secret-${hashId(file.path)}`, "security", "high", "Secret-like value redacted", `Secret-like content was detected and redacted in ${file.path}.`, [file.path], "Remove the value from the repository and rotate it if it was real.", 0.85));
+      const secretTypes = file.secretMatches?.join(", ") ?? "unknown secret type";
+      findings.push(finding(`redacted-secret-${hashId(file.path)}`, "security", "high", "Secret-like value redacted", `Secret-like content was detected and redacted in ${file.path}. Matched types: ${secretTypes}.`, [file.path], "Remove the value from the repository and rotate it if it was real.", 0.85));
     }
   }
 
-  const writeToolPaths = scannedFiles.filter((file) => {
-    const text = `${file.path}\n${file.content ?? ""}`;
-    return /\b(send_email|delete|update|create|post|publish)\b/i.test(text);
-  });
+  const writeToolPaths = scannedFiles.filter(hasWriteToolRisk);
 
   const hasApprovalPolicy = scannedFiles.some((file) =>
     /\b(approval policy|human approval|requires approval|confirm before|dry-run|dry run)\b/i.test(
@@ -87,7 +97,9 @@ function toRepoFile(raw: RawRepoFile): RepoFile {
   const ignored = shouldIgnorePath(raw.path, raw.size);
   const initialContent = ignored.ignored ? undefined : raw.content;
   const classification = classifyFile(raw.path, initialContent);
-  const redaction = ignored.ignored ? { content: "", redacted: false } : redactSecrets(initialContent);
+  const redaction = ignored.ignored
+    ? { content: "", redacted: false, matches: [] }
+    : redactSecrets(initialContent);
 
   return {
     path: raw.path,
@@ -97,6 +109,7 @@ function toRepoFile(raw: RawRepoFile): RepoFile {
     content: ignored.ignored ? undefined : redaction.content,
     classification,
     redacted: redaction.redacted,
+    secretMatches: redaction.matches,
     ignored: ignored.ignored,
     reason: ignored.reason,
   };
@@ -184,6 +197,35 @@ function detectTools(files: RepoFile[]) {
   }
 
   return [...toolNames];
+}
+
+function hasWriteToolRisk(file: RepoFile) {
+  if (!isLikelyToolOrAgentFile(file)) {
+    return false;
+  }
+
+  const content = file.content ?? "";
+  const writeVerb = "(?:send_email|sendEmail|delete|remove|update|create|post|publish|write|dispatch)";
+  const snakeWriteTool = "(?:send_email|delete_[a-zA-Z0-9_-]+|remove_[a-zA-Z0-9_-]+|update_[a-zA-Z0-9_-]+|create_[a-zA-Z0-9_-]+|post_[a-zA-Z0-9_-]+|publish_[a-zA-Z0-9_-]+|write_[a-zA-Z0-9_-]+|dispatch_[a-zA-Z0-9_-]+)";
+
+  return (
+    new RegExp(`\\b(?:export\\s+)?(?:async\\s+)?function\\s+${writeVerb}[a-zA-Z0-9_]*\\s*\\(`, "i").test(content) ||
+    new RegExp(`\\b(?:const|let|var)\\s+${writeVerb}[a-zA-Z0-9_]*\\s*=`, "i").test(content) ||
+    new RegExp(`\\b(?:tool|function_tool|toolName|name)\\s*[:=]\\s*["'\`]${snakeWriteTool}["'\`]`, "i").test(content) ||
+    new RegExp(`\\btype\\s*[:=]\\s*["'\`]function["'\`][\\s\\S]{0,300}\\bname\\s*[:=]\\s*["'\`]${snakeWriteTool}["'\`]`, "i").test(content)
+  );
+}
+
+function isLikelyToolOrAgentFile(file: RepoFile) {
+  const normalized = `/${file.path.toLowerCase()}`;
+
+  return (
+    file.classification === "tool" ||
+    file.classification === "agent_config" ||
+    normalized.includes("/tools/") ||
+    normalized.includes("/agents/") ||
+    /\btool(s)?\.(ts|tsx|js|jsx|py|ya?ml|json)$/i.test(file.name)
+  );
 }
 
 function finding(

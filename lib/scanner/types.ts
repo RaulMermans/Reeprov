@@ -21,6 +21,7 @@ export interface RepoFile {
   content?: string;
   classification: FileClassification;
   redacted: boolean;
+  secretMatches?: string[];
   ignored: boolean;
   reason?: string;
 }

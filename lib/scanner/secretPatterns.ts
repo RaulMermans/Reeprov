@@ -4,10 +4,10 @@ export interface SecretPattern {
 }
 
 export const secretPatterns: SecretPattern[] = [
+  { name: "Anthropic API key", regex: /sk-ant-[A-Za-z0-9_-]{20,}/g },
   { name: "OpenAI API key", regex: /sk-[A-Za-z0-9_-]{20,}/g },
   { name: "GitHub token", regex: /ghp_[A-Za-z0-9_]{20,}/g },
   { name: "GitHub fine-grained token", regex: /github_pat_[A-Za-z0-9_]{40,}/g },
-  { name: "Anthropic API key", regex: /sk-ant-[A-Za-z0-9_-]{20,}/g },
   {
     name: "Database URL",
     regex: /(postgres|postgresql|mysql|mongodb|redis):\/\/[^\s"'`]+/gi,

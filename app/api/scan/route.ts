@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
+import { requireAccessKey } from "@/lib/auth/requireAccessKey";
 import { getGitHubClient } from "@/lib/github/client";
 import { fetchRepoFiles } from "@/lib/github/fetchRepoFiles";
 import { buildReport, mockReport } from "@/lib/reports/buildReport";
@@ -11,18 +13,47 @@ const scanRequestSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const body = scanRequestSchema.parse(await request.json().catch(() => ({})));
-  const octokit = getGitHubClient();
+  try {
+    requireAccessKey(request);
 
-  if (body.mock || !octokit || !body.owner || !body.name) {
-    return NextResponse.json(mockReport());
+    const body = await parseScanBody(request);
+    const octokit = getGitHubClient();
+
+    if (body.mock || !octokit) {
+      return NextResponse.json(mockReport());
+    }
+
+    if (!body.owner || !body.name) {
+      throw invalidRequest("Scan requests must include owner and name, or set mock to true.");
+    }
+
+    const scan = await fetchRepoFiles(octokit, body.owner, body.name);
+    const report = buildReport({
+      repoName: `${body.owner}/${body.name}`,
+      files: scan.files,
+      githubTreeTruncated: scan.treeTruncated,
+    });
+
+    return NextResponse.json(report);
+  } catch (error) {
+    return apiErrorResponse(error);
+  }
+}
+
+async function parseScanBody(request: Request) {
+  let json: unknown;
+
+  try {
+    json = await request.json();
+  } catch {
+    throw invalidRequest("Request body must be valid JSON.");
   }
 
-  const files = await fetchRepoFiles(octokit, body.owner, body.name);
-  const report = buildReport({
-    repoName: `${body.owner}/${body.name}`,
-    files,
-  });
+  const parsed = scanRequestSchema.safeParse(json);
 
-  return NextResponse.json(report);
+  if (!parsed.success) {
+    throw invalidRequest("Request body must include valid scan parameters.");
+  }
+
+  return parsed.data;
 }

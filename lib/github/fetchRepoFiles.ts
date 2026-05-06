@@ -1,5 +1,6 @@
 import type { Octokit } from "@octokit/rest";
 import { shouldIgnorePath } from "@/lib/scanner/ignoreRules";
+import { mapLimit } from "@/lib/utils/mapLimit";
 import { fetchRepoTree } from "./fetchRepoTree";
 
 export interface FetchedRepoFile {
@@ -8,18 +9,48 @@ export interface FetchedRepoFile {
   content?: string;
 }
 
+export interface FetchedRepoFilesResult {
+  files: FetchedRepoFile[];
+  treeTruncated: boolean;
+}
+
 const maxFiles = 300;
+const maxBlobConcurrency = 8;
+const sourceExtensions = new Set([
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".py",
+  ".go",
+  ".rs",
+  ".java",
+  ".rb",
+  ".php",
+]);
+
+const packageConfigNames = new Set([
+  "package.json",
+  "pnpm-lock.yaml",
+  "package-lock.json",
+  "yarn.lock",
+  "requirements.txt",
+  "pyproject.toml",
+  "uv.lock",
+]);
 
 export async function fetchRepoFiles(
   octokit: Octokit,
   owner: string,
   repo: string,
-): Promise<FetchedRepoFile[]> {
+): Promise<FetchedRepoFilesResult> {
   const tree = await fetchRepoTree(octokit, owner, repo);
-  const selected = tree.slice(0, maxFiles);
+  const selected = selectFiles(tree.files);
 
-  return Promise.all(
-    selected.map(async (file) => {
+  const files = await mapLimit(
+    selected,
+    maxBlobConcurrency,
+    async (file): Promise<FetchedRepoFile> => {
       const ignore = shouldIgnorePath(file.path, file.size);
       if (ignore.ignored) {
         return { path: file.path, size: file.size };
@@ -41,6 +72,40 @@ export async function fetchRepoFiles(
         size: file.size,
         content,
       };
-    }),
+    },
   );
+
+  return { files, treeTruncated: tree.truncated };
+}
+
+function selectFiles<T extends { path: string }>(files: T[]) {
+  return [...files]
+    .sort(
+      (left, right) =>
+        priority(left.path) - priority(right.path) || left.path.localeCompare(right.path),
+    )
+    .slice(0, maxFiles);
+}
+
+function priority(path: string) {
+  const lower = path.toLowerCase();
+  const normalized = `/${lower}`;
+  const name = lower.split("/").pop() ?? lower;
+  const extensionIndex = name.lastIndexOf(".");
+  const extension = extensionIndex > 0 ? name.slice(extensionIndex) : "";
+
+  if (name === "agents.md") return 0;
+  if (/^agents\.(ya?ml|json)$/.test(name)) return 1;
+  if (/^\.env(\.|$)/.test(name)) return 2;
+  if (normalized.includes("/agents/")) return 3;
+  if (normalized.includes("/prompts/")) return 4;
+  if (normalized.includes("/tools/")) return 5;
+  if (normalized.includes("/evals/") || normalized.includes("/evaluations/")) return 6;
+  if (normalized.includes("/workflows/") || normalized.includes("/.github/workflows/")) return 7;
+  if (name === "readme.md") return 8;
+  if (normalized.includes("/docs/")) return 9;
+  if (packageConfigNames.has(name)) return 10;
+  if (sourceExtensions.has(extension)) return 11;
+
+  return 20;
 }

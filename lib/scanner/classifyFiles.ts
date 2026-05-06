@@ -41,7 +41,8 @@ export function classifyFile(path: string, content = ""): FileClassification {
 
   if (name === ".env.example") return "environment";
   if (packageNames.has(name)) return "package_config";
-  if (configNames.has(name) || name === "agents.md" || normalized.includes("/agents/")) {
+  if (name === "agents.md") return "documentation";
+  if (configNames.has(name) || normalized.includes("/agents/")) {
     return "agent_config";
   }
   if (

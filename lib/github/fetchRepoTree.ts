@@ -6,11 +6,16 @@ export interface RepoTreeFile {
   size: number;
 }
 
+export interface RepoTreeResult {
+  files: RepoTreeFile[];
+  truncated: boolean;
+}
+
 export async function fetchRepoTree(
   octokit: Octokit,
   owner: string,
   repo: string,
-): Promise<RepoTreeFile[]> {
+): Promise<RepoTreeResult> {
   const repoResponse = await octokit.rest.repos.get({ owner, repo });
   const branch = repoResponse.data.default_branch;
   const ref = await octokit.rest.git.getRef({
@@ -25,11 +30,14 @@ export async function fetchRepoTree(
     recursive: "true",
   });
 
-  return tree.data.tree
-    .filter((item) => item.type === "blob" && item.path && item.sha)
-    .map((item) => ({
-      path: item.path ?? "",
-      sha: item.sha ?? "",
-      size: item.size ?? 0,
-    }));
+  return {
+    files: tree.data.tree
+      .filter((item) => item.type === "blob" && item.path && item.sha)
+      .map((item) => ({
+        path: item.path ?? "",
+        sha: item.sha ?? "",
+        size: item.size ?? 0,
+      })),
+    truncated: tree.data.truncated,
+  };
 }
