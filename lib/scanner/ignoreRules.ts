@@ -8,13 +8,6 @@ const ignoredSegments = [
   "__pycache__",
 ];
 
-const ignoredExact = new Set([
-  ".env",
-  ".env.local",
-  ".env.production",
-  ".env.development",
-]);
-
 const ignoredExtensions = new Set([
   ".7z",
   ".avif",
@@ -51,6 +44,11 @@ export function getExtension(path: string) {
   return index > 0 ? name.slice(index).toLowerCase() : "";
 }
 
+export function isEnvFileName(name: string) {
+  const lower = name.toLowerCase();
+  return lower.startsWith(".env") && lower !== ".env.example";
+}
+
 export function shouldIgnorePath(path: string, size = 0) {
   const normalized = path.replaceAll("\\", "/");
   const lower = normalized.toLowerCase();
@@ -58,7 +56,7 @@ export function shouldIgnorePath(path: string, size = 0) {
   const segments = lower.split("/");
   const extension = getExtension(lower);
 
-  if (ignoredExact.has(name)) {
+  if (isEnvFileName(name)) {
     return { ignored: true, reason: "Sensitive environment file is never scanned." };
   }
 

@@ -22,11 +22,21 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
   const [report, setReport] = useState<ScanReport>(initialReport);
   const [loading, setLoading] = useState(false);
   const [loadingRepos, setLoadingRepos] = useState(false);
-  const [accessKey, setAccessKey] = useState<string | null>(() => getStoredAccessKey());
+  const [mounted, setMounted] = useState(false);
+  const [accessKey, setAccessKey] = useState<string | null>(null);
   const [accessKeyInput, setAccessKeyInput] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [repositories, setRepositories] = useState<RepositorySummary[]>([]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setAccessKey(getStoredAccessKey());
+      setMounted(true);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!accessKey) {
@@ -110,6 +120,14 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
     } finally {
       setLoading(false);
     }
+  }
+
+  if (!mounted) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-4 py-6 sm:px-6 lg:px-8">
+        <Card className="p-6 text-sm text-slate-600">Loading dashboard...</Card>
+      </main>
+    );
   }
 
   if (!accessKey) {

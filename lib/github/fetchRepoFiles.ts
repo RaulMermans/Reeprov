@@ -1,5 +1,5 @@
 import type { Octokit } from "@octokit/rest";
-import { shouldIgnorePath } from "@/lib/scanner/ignoreRules";
+import { isEnvFileName, shouldIgnorePath } from "@/lib/scanner/ignoreRules";
 import { mapLimit } from "@/lib/utils/mapLimit";
 import { fetchRepoTree } from "./fetchRepoTree";
 
@@ -106,7 +106,7 @@ function priority(path: string) {
   if (normalized.includes("/docs/")) return 9;
   if (packageConfigNames.has(name)) return 10;
   if (sourceExtensions.has(extension)) return 11;
-  if (/^\.env(\.|$)/.test(name)) return 12;
+  if (isEnvFileName(name)) return 12;
 
   return 20;
 }

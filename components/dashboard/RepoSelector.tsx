@@ -24,6 +24,7 @@ export function RepoSelector({
   repositories = [],
 }: RepoSelectorProps) {
   const [repo, setRepo] = useState("");
+  const hasRepositories = repositories.length > 0;
 
   function submit() {
     const [owner, name] = repo.split("/");
@@ -35,7 +36,26 @@ export function RepoSelector({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 md:flex-row">
+    <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 lg:flex-row">
+      {hasRepositories ? (
+        <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-slate-600" htmlFor="repo-select">
+          Accessible repositories
+          <select
+            className="min-h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-100"
+            disabled={loading}
+            id="repo-select"
+            onChange={(event) => setRepo(event.target.value)}
+            value={repo}
+          >
+            <option value="">Select a repository</option>
+            {repositories.map((repository) => (
+              <option key={repository.fullName} value={repository.fullName}>
+                {repository.fullName}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <label className="sr-only" htmlFor="repo">
         Repository
       </label>
@@ -45,7 +65,7 @@ export function RepoSelector({
         list="agentpulse-repositories"
         id="repo"
         onChange={(event) => setRepo(event.target.value)}
-        placeholder={loadingRepos ? "Loading repositories..." : "owner/repo"}
+        placeholder={loadingRepos ? "Loading repositories..." : "owner/repo manual fallback"}
         value={repo}
       />
       <datalist id="agentpulse-repositories">

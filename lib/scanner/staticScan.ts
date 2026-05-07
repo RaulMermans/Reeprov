@@ -1,6 +1,6 @@
 import yaml from "js-yaml";
 import { classifyFile } from "./classifyFiles";
-import { getExtension, getFileName, shouldIgnorePath } from "./ignoreRules";
+import { getExtension, getFileName, isEnvFileName, shouldIgnorePath } from "./ignoreRules";
 import { redactSecrets } from "./redactSecrets";
 import { scoreScan } from "./scoreScan";
 import type { DetectedAgent, Finding, RepoFile, ScanReport } from "./types";
@@ -53,7 +53,7 @@ export function staticScan(
   }
 
   for (const file of files) {
-    if (file.ignored && /^\.env(\.|$)|(^|\/)\.env(\.|$)/i.test(file.path)) {
+    if (file.ignored && isEnvFileName(file.name)) {
       findings.push(finding(`ignored-env-${hashId(file.path)}`, "security", "high", "Sensitive environment file present", `${file.path} was ignored and should not be committed to source control.`, [file.path], "Remove committed environment files and rotate any exposed credentials.", 0.95));
     }
     if (file.redacted) {
@@ -64,13 +64,11 @@ export function staticScan(
     }
   }
 
-  const writeToolPaths = scannedFiles.filter(hasWriteToolRisk);
+  const writeToolPaths = scannedFiles.filter((file) => findWriteToolNames(file).length > 0);
 
-  const hasApprovalPolicy = scannedFiles.some((file) =>
-    /\b(human approval|approval_required|requiresApproval|requires approval|confirm before|dry-run|dry run|approval gate)\b/i.test(
-      file.content ?? "",
-    ),
-  );
+  const hasApprovalPolicy = scannedFiles
+    .filter(isLikelyToolOrAgentFile)
+    .some((file) => approvalPolicyPattern.test(file.content ?? ""));
 
   if (writeToolPaths.length > 0 && !hasApprovalPolicy) {
     findings.push(finding("write-tools-without-approval", "toolGovernance", "high", "Possible write tools without approval policy", "The scanner found write-like tool names but did not find an approval or dry-run policy.", writeToolPaths.map((file) => file.path), "Document and enforce approval gates for tools that create, update, publish, post, email, or delete.", 0.7));
@@ -142,42 +140,91 @@ function detectAgents(
     ];
   }
 
-  return configs.map((file, index) => ({
+  const detected = configs.flatMap((file, configIndex) =>
+    agentsFromConfig(file, configIndex, promptPaths, toolNames, evalPaths),
+  );
+
+  return detected.length > 0 ? detected : configs.map((file, index) => ({
     id: `agent-${index + 1}`,
-    name: agentNameFromConfig(file) ?? file.name.replace(/\.[^.]+$/, ""),
+    name: file.name.replace(/\.[^.]+$/, ""),
     promptPaths,
     toolNames,
     evalPaths,
     configPath: file.path,
-    risks: [],
+    risks: ["Agent config could not be parsed, so scanner used repository-level evidence."],
   }));
 }
 
-function agentNameFromConfig(file: RepoFile) {
+function agentsFromConfig(
+  file: RepoFile,
+  configIndex: number,
+  defaultPromptPaths: string[],
+  defaultToolNames: string[],
+  defaultEvalPaths: string[],
+) {
+  const parsed = parseStructuredConfig(file);
+
+  if (!parsed) {
+    return [];
+  }
+
+  const entries = agentConfigEntries(parsed);
+
+  return entries.map((entry, entryIndex) => {
+    const record = isRecord(entry) ? entry : {};
+    const id = firstString(record.id);
+    const name = firstString(record.name);
+    const promptPaths = collectFieldStrings(record, ["prompt_path", "promptPath", "prompt"]);
+    const toolNames = collectFieldStrings(record, ["tools"]);
+    const evalPaths = collectFieldStrings(record, ["evals"]);
+    const missing = [
+      id ? undefined : "id",
+      name ? undefined : "name",
+      promptPaths.length > 0 ? undefined : "prompt_path",
+      toolNames.length > 0 ? undefined : "tools",
+      evalPaths.length > 0 ? undefined : "evals",
+    ].filter(Boolean);
+
+    return {
+      id: slug(id ?? name ?? `${file.name}-${entryIndex + 1}`),
+      name: name ?? id ?? `Agent ${configIndex + 1}.${entryIndex + 1}`,
+      promptPaths: promptPaths.length > 0 ? promptPaths : defaultPromptPaths,
+      toolNames: toolNames.length > 0 ? toolNames : defaultToolNames,
+      evalPaths: evalPaths.length > 0 ? evalPaths : defaultEvalPaths,
+      configPath: file.path,
+      risks:
+        missing.length > 0
+          ? [`Agent config is missing ${missing.join(", ")}.`]
+          : [],
+    };
+  });
+}
+
+function parseStructuredConfig(file: RepoFile) {
   if (!file.content) return undefined;
 
   try {
-    const parsed = /\.(ya?ml)$/i.test(file.path)
+    return /\.(ya?ml)$/i.test(file.path)
       ? yaml.load(file.content)
       : JSON.parse(file.content);
-
-    if (isRecord(parsed) && typeof parsed.name === "string") {
-      return parsed.name;
-    }
-
-    if (
-      isRecord(parsed) &&
-      Array.isArray(parsed.agents) &&
-      isRecord(parsed.agents[0]) &&
-      typeof parsed.agents[0].name === "string"
-    ) {
-      return parsed.agents[0].name;
-    }
   } catch {
     return undefined;
   }
+}
 
-  return undefined;
+function agentConfigEntries(parsed: unknown) {
+  if (Array.isArray(parsed)) return parsed;
+  if (!isRecord(parsed)) return [];
+
+  if (Array.isArray(parsed.agents)) {
+    return parsed.agents;
+  }
+
+  if (isRecord(parsed.agents)) {
+    return Object.values(parsed.agents);
+  }
+
+  return [parsed];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -188,36 +235,136 @@ function detectTools(files: RepoFile[]) {
   const toolNames = new Set<string>();
 
   for (const file of files) {
-    if (file.classification === "tool") {
-      toolNames.add(file.path);
+    if (!isToolExtractionCandidate(file)) {
+      continue;
     }
 
-    const matches = file.content?.matchAll(/\b(?:tool|function_tool|toolName|name)\s*[:=]\s*["'`]([a-zA-Z0-9_-]+)["'`]/g);
-    for (const match of matches ?? []) {
-      toolNames.add(match[1]);
+    const names = extractToolNames(file);
+
+    for (const name of names) {
+      toolNames.add(name);
+    }
+
+    if (names.length === 0 && file.classification === "tool") {
+      toolNames.add(file.path);
     }
   }
 
   return [...toolNames];
 }
 
-function hasWriteToolRisk(file: RepoFile) {
-  if (!isLikelyToolOrAgentFile(file)) {
-    return false;
+function isToolExtractionCandidate(file: RepoFile) {
+  const normalized = `/${file.path.toLowerCase()}`;
+
+  return (
+    file.classification === "tool" ||
+    file.classification === "agent_config" ||
+    normalized.includes("/tools/") ||
+    normalized.includes("/agents/")
+  );
+}
+
+function extractToolNames(file: RepoFile) {
+  if (file.classification === "agent_config") {
+    const parsed = parseStructuredConfig(file);
+    return parsed ? uniqueStrings(collectStructuredToolNames(parsed)) : [];
   }
 
   const content = file.content ?? "";
-  const writeVerb = "(?:send_email|delete|remove|update|create|post|publish|refund|cancel|disable)";
-  const writeToolName = "(?:send_email|delete(?:_[a-zA-Z0-9_-]+)?|remove(?:_[a-zA-Z0-9_-]+)?|update(?:_[a-zA-Z0-9_-]+)?|create(?:_[a-zA-Z0-9_-]+)?|post(?:_[a-zA-Z0-9_-]+)?|publish(?:_[a-zA-Z0-9_-]+)?|refund(?:_[a-zA-Z0-9_-]+)?|cancel(?:_[a-zA-Z0-9_-]+)?|disable(?:_[a-zA-Z0-9_-]+)?)";
+  const names = [
+    ...matchAll(content, /\b(?:tool|function_tool|toolName|name)\s*[:=]\s*["'`]([a-zA-Z0-9_-]+)["'`]/g),
+    ...toolArrayNames(content),
+    ...matchAll(content, /\b(?:export\s+)?(?:async\s+)?function\s+([a-zA-Z_$][\w$]*)\s*\(/g),
+    ...matchAll(content, /\b(?:export\s+)?(?:const|let|var)\s+([a-zA-Z_$][\w$]*)\s*=\s*tool\s*\(/g),
+  ];
 
-  return (
-    new RegExp(`\\b(?:export\\s+)?(?:async\\s+)?function\\s+${writeVerb}[a-zA-Z0-9_]*\\s*\\(`, "i").test(content) ||
-    new RegExp(`\\b(?:const|let|var)\\s+${writeVerb}[a-zA-Z0-9_]*\\s*=`, "i").test(content) ||
-    new RegExp(`\\b(?:tool|function_tool|toolName|name)\\s*[:=]\\s*["'\`]${writeToolName}["'\`]`, "i").test(content) ||
-    new RegExp(`\\bexport\\s+const\\s+tool\\s*=\\s*\\{[\\s\\S]{0,300}\\bname\\s*[:=]\\s*["'\`]${writeToolName}["'\`]`, "i").test(content) ||
-    new RegExp(`\\btools\\s*[:=]\\s*\\[[\\s\\S]{0,300}["'\`]${writeToolName}["'\`]`, "i").test(content) ||
-    new RegExp(`\\btype\\s*[:=]\\s*["'\`]function["'\`][\\s\\S]{0,300}\\bname\\s*[:=]\\s*["'\`]${writeToolName}["'\`]`, "i").test(content)
-  );
+  return uniqueStrings(names);
+}
+
+function collectStructuredToolNames(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap(collectStructuredToolNames);
+  }
+
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  const names: string[] = [];
+
+  for (const [key, child] of Object.entries(value)) {
+    if (key === "tools" || key === "tool") {
+      names.push(...collectToolValueNames(child));
+      continue;
+    }
+
+    if ((key === "toolName" || key === "tool_name") && typeof child === "string") {
+      names.push(child);
+      continue;
+    }
+
+    names.push(...collectStructuredToolNames(child));
+  }
+
+  return names;
+}
+
+function collectToolValueNames(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(collectToolValueNames);
+  if (!isRecord(value)) return [];
+
+  return [
+    ...collectFieldStrings(value, ["name", "id", "toolName", "tool_name"]),
+    ...collectStructuredToolNames(value),
+  ];
+}
+
+function collectFieldStrings(record: Record<string, unknown>, keys: string[]) {
+  return uniqueStrings(keys.flatMap((key) => valueStrings(record[key])));
+}
+
+function firstString(value: unknown) {
+  return valueStrings(value)[0];
+}
+
+function valueStrings(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(valueStrings);
+  return [];
+}
+
+function matchAll(content: string, pattern: RegExp) {
+  return [...content.matchAll(pattern)].map((match) => match[1]).filter(Boolean);
+}
+
+function toolArrayNames(content: string) {
+  const names: string[] = [];
+
+  for (const match of content.matchAll(/\btools\s*[:=]\s*\[([\s\S]{0,500}?)\]/g)) {
+    names.push(...matchAll(match[1], /["'`]([a-zA-Z0-9_-]+)["'`]/g));
+  }
+
+  return names;
+}
+
+function uniqueStrings(values: string[]) {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function slug(value: string) {
+  const next = value.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-|-$/g, "");
+  return next || "agent";
+}
+
+function findWriteToolNames(file: RepoFile) {
+  if (!isLikelyToolOrAgentFile(file)) return [];
+  return extractToolNames(file).filter(isWriteToolName);
+}
+
+function isWriteToolName(name: string) {
+  const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return writeToolTerms.some((term) => normalized.startsWith(term));
 }
 
 function isLikelyToolOrAgentFile(file: RepoFile) {
@@ -231,6 +378,27 @@ function isLikelyToolOrAgentFile(file: RepoFile) {
     /\btool(s)?\.(ts|tsx|js|jsx|py|ya?ml|json)$/i.test(file.name)
   );
 }
+
+const approvalPolicyPattern =
+  /\b(?:human approval|approval_required|approvalRequired|requiresApproval|requires_approval|requireApproval|confirm before|confirmationRequired|dry run|dry-run|dryRun|dry_run|approval gate|approvalGate|human_in_the_loop|humanInTheLoop)\b/i;
+
+const writeToolTerms = [
+  "sendemail",
+  "delete",
+  "update",
+  "create",
+  "post",
+  "publish",
+  "refund",
+  "cancel",
+  "remove",
+  "disable",
+  "overwrite",
+  "archive",
+  "trash",
+  "invite",
+  "revoke",
+];
 
 function finding(
   id: string,

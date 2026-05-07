@@ -8,8 +8,15 @@ AgentPulse is not a public SaaS, not multi-user, not an execution sandbox, and n
 
 1. Install dependencies with `npm install`.
 2. Copy `.env.example` to `.env.local`.
-3. Set `GITHUB_TOKEN` to a read-only GitHub token that can access the repositories you want to audit.
-4. Set `AGENTPULSE_ACCESS_KEY` to a long random value.
+   ```bash
+   cp .env.example .env.local
+   ```
+3. Set the local environment values:
+   ```bash
+   GITHUB_TOKEN=...
+   AGENTPULSE_ACCESS_KEY=...
+   ```
+4. Use a read-only GitHub token that can access the repositories you want to audit.
 5. Run `npm run dev`.
 6. Open `http://localhost:3000/dashboard` and enter the access key when prompted.
 
@@ -22,6 +29,8 @@ Without `GITHUB_TOKEN`, the dashboard and API routes return mock data.
 
 The dashboard stores the access key in `sessionStorage` only and sends it to protected API routes with the `x-agentpulse-key` header.
 
+If `AGENTPULSE_ACCESS_KEY` is missing in a deployed environment, the private tool is not properly configured. Do not deploy the dashboard publicly without API protection.
+
 ## Security Posture
 
 - Repository code is never executed.
@@ -32,6 +41,13 @@ The dashboard stores the access key in `sessionStorage` only and sends it to pro
 - `.env`, `.env.local`, private keys, generated folders, dependency folders, large files, and binary files are ignored.
 - Secret-like strings are redacted before reports and before any future LLM auditor input.
 - Repository contents are treated as untrusted evidence and may contain prompt injection.
+
+## Private Deployment
+
+- Configure `GITHUB_TOKEN` and `AGENTPULSE_ACCESS_KEY` as Vercel environment variables.
+- Enable Vercel Deployment Protection if it is available for the project.
+- Keep the GitHub token read-only and scoped only to the repositories AgentPulse needs.
+- Do not deploy publicly without the access-key API protection in place.
 
 ## MVP Scope
 
