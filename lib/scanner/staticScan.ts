@@ -20,7 +20,18 @@ export function staticScan(
   rawFiles: RawRepoFile[],
   options: StaticScanOptions = {},
 ): ScanReport {
-  const files = rawFiles.map(toRepoFile);
+  return staticScanFromFiles(repoName, prepareRepoFiles(rawFiles), options);
+}
+
+export function prepareRepoFiles(rawFiles: RawRepoFile[]): RepoFile[] {
+  return rawFiles.map(toRepoFile);
+}
+
+export function staticScanFromFiles(
+  repoName: string,
+  files: RepoFile[],
+  options: StaticScanOptions = {},
+): ScanReport {
   const scannedFiles = files.filter((file) => !file.ignored);
   const findings: Finding[] = [];
 

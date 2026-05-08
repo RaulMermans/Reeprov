@@ -1,5 +1,5 @@
 import { scoreScan } from "@/lib/scanner/scoreScan";
-import type { ScanReport } from "@/lib/scanner/types";
+import type { RepoFile, ScanReport } from "@/lib/scanner/types";
 import { architectureAuditor } from "./architectureAuditor";
 import { documentationAuditor } from "./documentationAuditor";
 import { evalAuditor } from "./evalAuditor";
@@ -16,8 +16,25 @@ const auditors = [
   documentationAuditor,
 ];
 
-export function runAuditors(report: ScanReport): ScanReport {
-  const auditorFindings = auditors.flatMap((auditor) => auditor({ report }).findings);
+interface RunAuditorsOptions {
+  allowLlmAuditors?: boolean;
+}
+
+export async function runAuditors(
+  report: ScanReport,
+  files: RepoFile[],
+  options: RunAuditorsOptions = {},
+): Promise<ScanReport> {
+  const results = await Promise.all(
+    auditors.map((auditor) =>
+      auditor({
+        report,
+        files,
+        allowLlmAuditors: options.allowLlmAuditors,
+      }),
+    ),
+  );
+  const auditorFindings = results.flatMap((result) => result.findings);
   const deduped = new Map(report.findings.map((finding) => [finding.id, finding]));
 
   for (const finding of auditorFindings) {
@@ -25,14 +42,33 @@ export function runAuditors(report: ScanReport): ScanReport {
   }
 
   const findings = [...deduped.values()];
+  const scores = scoreScan(findings);
+  const promptAuditorResult = results.find((result) => result.auditor === "prompt");
+
+  if (promptAuditorResult?.promptQualityScore !== undefined) {
+    scores.promptQuality = Math.round(promptAuditorResult.promptQualityScore);
+    scores.overall = overallScore(scores);
+  }
 
   return {
     ...report,
     findings,
-    scores: scoreScan(findings),
+    scores,
     recommendations: findings
       .filter((finding) => finding.severity !== "info")
       .slice(0, 5)
       .map((finding) => finding.recommendation),
+    auditorStatus: promptAuditorResult?.auditorStatus,
   };
+}
+
+function overallScore(scores: ScanReport["scores"]) {
+  return Math.round(
+    scores.architecture * 0.2 +
+      scores.promptQuality * 0.2 +
+      scores.toolGovernance * 0.2 +
+      scores.evalCoverage * 0.15 +
+      scores.security * 0.15 +
+      scores.documentation * 0.1,
+  );
 }

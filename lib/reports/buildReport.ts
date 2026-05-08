@@ -1,5 +1,5 @@
 import { runAuditors } from "@/lib/auditors/runAuditors";
-import { staticScan } from "@/lib/scanner/staticScan";
+import { prepareRepoFiles, staticScanFromFiles } from "@/lib/scanner/staticScan";
 import type { ScanReport } from "@/lib/scanner/types";
 import { scanReportSchema } from "./reportSchema";
 
@@ -11,19 +11,24 @@ interface BuildReportInput {
     content?: string;
   }>;
   githubTreeTruncated?: boolean;
+  allowLlmAuditors?: boolean;
 }
 
-export function buildReport(input: BuildReportInput): ScanReport {
-  const staticReport = staticScan(input.repoName, input.files, {
+export async function buildReport(input: BuildReportInput): Promise<ScanReport> {
+  const files = prepareRepoFiles(input.files);
+  const staticReport = staticScanFromFiles(input.repoName, files, {
     githubTreeTruncated: input.githubTreeTruncated,
   });
-  const report = runAuditors(staticReport);
+  const report = await runAuditors(staticReport, files, {
+    allowLlmAuditors: input.allowLlmAuditors,
+  });
   return scanReportSchema.parse(report);
 }
 
-export function mockReport(): ScanReport {
+export function mockReport(options: { allowLlmAuditors?: boolean } = {}): Promise<ScanReport> {
   return buildReport({
     repoName: "mock-owner/mock-agent-repo",
+    allowLlmAuditors: options.allowLlmAuditors,
     files: [
       {
         path: "README.md",

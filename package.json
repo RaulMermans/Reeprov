@@ -4,7 +4,7 @@
   "description": "Private dashboard for auditing personal GitHub AI-agent repositories.",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",

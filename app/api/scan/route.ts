@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const octokit = getGitHubClient();
 
     if (body.mock || !octokit) {
-      return NextResponse.json(mockReport());
+      return NextResponse.json(await mockReport({ allowLlmAuditors: true }));
     }
 
     if (!body.owner || !body.name) {
@@ -28,10 +28,11 @@ export async function POST(request: Request) {
     }
 
     const scan = await fetchRepoFiles(octokit, body.owner, body.name);
-    const report = buildReport({
+    const report = await buildReport({
       repoName: `${body.owner}/${body.name}`,
       files: scan.files,
       githubTreeTruncated: scan.treeTruncated,
+      allowLlmAuditors: true,
     });
 
     return NextResponse.json(report);

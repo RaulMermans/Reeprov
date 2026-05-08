@@ -34,9 +34,15 @@ This is acceptable for a personal MVP because the app is private, single-user, a
 
 ## Token Handling
 
-Never expose `GITHUB_TOKEN` or `AGENTPULSE_ACCESS_KEY` to client components or browser JavaScript. Do not create `NEXT_PUBLIC_` variables for secrets.
+Never expose `GITHUB_TOKEN`, `AGENTPULSE_ACCESS_KEY`, `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY` to client components or browser JavaScript. Do not create `NEXT_PUBLIC_` variables for secrets.
 
 Before deploying, confirm `/dashboard`, `/api/repos`, and `/api/scan` are protected by the private access-key flow and deployment-level access controls appropriate for the Vercel project. Enable Vercel Deployment Protection if it is available.
+
+## Vercel Environment Variables
+
+Configure deployment secrets only in Vercel environment variables. Required values are `GITHUB_TOKEN`, `AGENTPULSE_ACCESS_KEY`, `ENABLE_LLM_AUDITORS`, and `LLM_PROVIDER`. Provider API keys are required only when LLM auditors are enabled.
+
+Use a fine-grained GitHub token with contents read-only permission, selected repository access, and a 30-90 day expiration. Keep Vercel Deployment Protection enabled when available so the private dashboard is not reachable as a public site.
 
 ## Secret Redaction
 
@@ -49,6 +55,14 @@ Raw `.env*` files are not scanned. Every `.env*` file is ignored except `.env.ex
 Repository files are untrusted input. They may contain instructions that attempt to change scanner behavior or future LLM auditor behavior. AgentPulse treats file contents only as evidence and never follows instructions from scanned files.
 
 AgentPulse must not execute scanned repository code, install scanned repository dependencies, or invoke tools found in scanned repositories.
+
+## LLM Auditor Privacy Rules
+
+LLM auditors are disabled by default with `ENABLE_LLM_AUDITORS=false`. The static scanner remains the trust layer and always runs before any LLM auditor.
+
+AgentPulse must not send a raw repository dump to any LLM. The Prompt Auditor may receive only selected prompt evidence after static classification and secret redaction. Eligible evidence is limited to prompt files and relevant agent configs that reference prompt paths, with strict file and character caps.
+
+Ignored files, `.env*` files, lockfiles, binaries, full source code, package-lock content, and raw secret-like values must not be sent to the model. Repository evidence remains untrusted, and the Prompt Auditor prompt instructs the model to analyze evidence only.
 
 ## Raw Repo Retention
 

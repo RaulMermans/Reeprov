@@ -16,9 +16,18 @@ Improve detectors for agents, prompts, tools, evals, workflows, approval policie
 
 Add real LLM auditor calls using redacted evidence, structured schemas, evidence citations, and prompt-injection defenses.
 
+Commit 4 is complete when private Vercel deployment readiness is documented and the first real Prompt Auditor runs behind `ENABLE_LLM_AUDITORS`.
+
 ## Phase 4: Dashboard Polish
 
 Add filtering, severity grouping, evidence drilldowns, score explanations, and comparison between scans.
+
+Next commits:
+
+- Commit 5: dashboard polish + export report.
+- Commit 6: Tool Auditor LLM implementation.
+- Commit 7: scan history.
+- Commit 8: GitHub OAuth or GitHub App.
 
 ## Phase 5: Scan History
 

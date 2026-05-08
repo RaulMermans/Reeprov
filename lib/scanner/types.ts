@@ -70,4 +70,11 @@ export interface ScanReport {
   findings: Finding[];
   scores: Scores;
   recommendations: string[];
+  auditorStatus?: {
+    llmAuditorsEnabled: boolean;
+    promptAuditorRan: boolean;
+    provider?: string;
+    model?: string;
+    error?: string;
+  };
 }

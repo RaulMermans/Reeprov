@@ -4,6 +4,11 @@ import type { ScanReport } from "@/lib/scanner/types";
 import { formatScore, scoreEntries } from "@/lib/utils/format";
 
 export function ScanSummary({ report }: { report: ScanReport }) {
+  const auditorStatus = report.auditorStatus;
+  const auditorMode =
+    auditorStatus?.llmAuditorsEnabled && auditorStatus.promptAuditorRan
+      ? "Static + LLM Prompt Auditor"
+      : "Static only";
   const stats = [
     ["Agents", report.detectedAgents.length, Bot],
     ["Prompts", report.detectedPrompts.length, FileCheck2],
@@ -12,7 +17,7 @@ export function ScanSummary({ report }: { report: ScanReport }) {
   ] as const;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-4 lg:grid-cols-3">
       <Card className="p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Detected</h2>
         <div className="mt-4 grid grid-cols-2 gap-3">
@@ -35,6 +40,21 @@ export function ScanSummary({ report }: { report: ScanReport }) {
             </div>
           ))}
         </div>
+      </Card>
+      <Card className="p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Auditor Mode</h2>
+        <div className="mt-4 text-lg font-semibold text-slate-950">{auditorMode}</div>
+        {auditorStatus?.provider ? (
+          <p className="mt-2 text-sm text-slate-600">
+            Provider: {auditorStatus.provider}
+            {auditorStatus.model ? ` / ${auditorStatus.model}` : ""}
+          </p>
+        ) : null}
+        {auditorStatus?.error ? (
+          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            {auditorStatus.error}
+          </div>
+        ) : null}
       </Card>
     </div>
   );

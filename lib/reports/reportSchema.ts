@@ -44,4 +44,13 @@ export const scanReportSchema = z.object({
     overall: z.number(),
   }),
   recommendations: z.array(z.string()),
+  auditorStatus: z
+    .object({
+      llmAuditorsEnabled: z.boolean(),
+      promptAuditorRan: z.boolean(),
+      provider: z.string().optional(),
+      model: z.string().optional(),
+      error: z.string().optional(),
+    })
+    .optional(),
 });

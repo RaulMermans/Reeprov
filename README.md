@@ -15,6 +15,8 @@ AgentPulse is not a public SaaS, not multi-user, not an execution sandbox, and n
    ```bash
    GITHUB_TOKEN=...
    AGENTPULSE_ACCESS_KEY=...
+   ENABLE_LLM_AUDITORS=false
+   LLM_PROVIDER=openai
    ```
 4. Use a read-only GitHub token that can access the repositories you want to audit.
 5. Run `npm run dev`.
@@ -26,6 +28,10 @@ Without `GITHUB_TOKEN`, the dashboard and API routes return mock data.
 
 - `GITHUB_TOKEN`: server-side read-only GitHub token. Never prefix this with `NEXT_PUBLIC_`.
 - `AGENTPULSE_ACCESS_KEY`: server-side dashboard/API access key. Never prefix this with `NEXT_PUBLIC_`.
+- `ENABLE_LLM_AUDITORS`: server-side feature flag for LLM auditors. Defaults to `false`.
+- `LLM_PROVIDER`: server-side provider selector. `openai` is implemented first; Anthropic is documented for future support.
+- `OPENAI_API_KEY`: server-side only. Required only when `ENABLE_LLM_AUDITORS=true` and `LLM_PROVIDER=openai`.
+- `ANTHROPIC_API_KEY`: server-side only. Reserved for future Anthropic support.
 
 The dashboard stores the access key in `sessionStorage` only and sends it to protected API routes with the `x-agentpulse-key` header.
 
@@ -42,12 +48,38 @@ If `AGENTPULSE_ACCESS_KEY` is missing in a deployed environment, the private too
 - Secret-like strings are redacted before reports and before any future LLM auditor input.
 - Repository contents are treated as untrusted evidence and may contain prompt injection.
 
-## Private Deployment
+## Private Vercel Deployment
 
-- Configure `GITHUB_TOKEN` and `AGENTPULSE_ACCESS_KEY` as Vercel environment variables.
-- Enable Vercel Deployment Protection if it is available for the project.
-- Keep the GitHub token read-only and scoped only to the repositories AgentPulse needs.
-- Do not deploy publicly without the access-key API protection in place.
+Required Vercel environment variables:
+
+- `GITHUB_TOKEN`
+- `AGENTPULSE_ACCESS_KEY`
+- `ENABLE_LLM_AUDITORS`
+- `LLM_PROVIDER`
+- `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` only if LLM auditors are enabled
+
+Recommended Vercel settings:
+
+- Enable Vercel Deployment Protection if available.
+- Use a fine-grained GitHub token.
+- Token permissions: contents read-only.
+- Token repository access: selected repos only.
+- Token expiration: 30-90 days.
+- Do not expose any token with `NEXT_PUBLIC_`.
+
+Deployment validation:
+
+- `npm run lint`
+- `npx tsc --noEmit`
+- `npm run test`
+- `npm run build`
+
+Post-deploy checks:
+
+- `/api/repos` without `x-agentpulse-key` returns 401.
+- `/api/scan` without `x-agentpulse-key` returns 401.
+- Dashboard does not expose secrets in page source.
+- First scan should be done on a low-risk sample repo.
 
 ## MVP Scope
 
