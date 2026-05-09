@@ -38,11 +38,23 @@ Never use `NEXT_PUBLIC_` for tokens, access keys, or provider API keys.
 
 ## LLM Auditor Feature Flag
 
-- Keep `ENABLE_LLM_AUDITORS=false` for the first staging deploy.
-- Set `LLM_PROVIDER=openai` when enabling the first Prompt Auditor.
-- Add `OPENAI_API_KEY` only when `ENABLE_LLM_AUDITORS=true`.
-- Confirm the dashboard reports `Static only` when disabled.
-- Confirm the dashboard reports `Static + LLM Prompt Auditor` only when the prompt audit actually runs.
+The first Vercel deployment must use `ENABLE_LLM_AUDITORS=false`. Do not enable the Prompt Auditor until the static scan is confirmed working in production.
+
+Staged rollout:
+1. Deploy with `ENABLE_LLM_AUDITORS=false`. Confirm `/api/scan` returns results and the dashboard shows `Static only`.
+2. Scan at least one repo in production and verify findings are correct with no secrets leaking in responses.
+3. Only then set `ENABLE_LLM_AUDITORS=true` and add `OPENAI_API_KEY` (or `ANTHROPIC_API_KEY` for the Anthropic provider).
+4. Set `LLM_PROVIDER=openai` (or `anthropic`) to match the key provided.
+5. Confirm the dashboard reports `Static + LLM Prompt Auditor` only when the prompt audit actually runs.
+6. Roll back to `ENABLE_LLM_AUDITORS=false` immediately if LLM calls produce unexpected output or costs.
+
+## Webpack Build Workaround
+
+The `build` script uses `next build --webpack` instead of the default Turbopack bundler. This is required because Turbopack attempts to read from a local filesystem cache that times out in some environments (ETIMEDOUT on `.next/cache/webpack/*.pack`).
+
+The webpack build succeeded despite a cache restore timeout on the first run — subsequent builds use a warm cache and are faster. Do not remove the `--webpack` flag or switch to `next build` without testing in the target environment first.
+
+Vercel builds run in a clean environment each time, so the cache restore timeout is expected on every cold deploy. The webpack build still completes successfully.
 
 ## Private Deployment Checklist
 
