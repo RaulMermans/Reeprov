@@ -14,13 +14,26 @@ const sourceExtensions = new Set([
   ".php",
 ]);
 
-const configNames = new Set([
+const agentConfigNames = new Set([
   "agents.yaml",
   "agents.yml",
   "agents.json",
   "agent.yaml",
   "agent.yml",
   "agent.json",
+]);
+
+// Structured workflow manifest filenames (analogous to agents.yaml for agent projects).
+const workflowConfigNames = new Set([
+  "workflow.yaml",
+  "workflow.yml",
+  "workflow.json",
+  "workflows.yaml",
+  "workflows.yml",
+  "workflows.json",
+  "pipeline.yaml",
+  "pipeline.yml",
+  "pipeline.json",
 ]);
 
 const packageNames = new Set([
@@ -49,8 +62,12 @@ export function classifyFile(path: string, content = ""): FileClassification {
   ) {
     return "documentation";
   }
-  if (configNames.has(name)) {
+  if (agentConfigNames.has(name)) {
     return "agent_config";
+  }
+  // Structured workflow config manifests (e.g. workflow.yaml, workflows.json).
+  if (workflowConfigNames.has(name)) {
+    return "workflow_config";
   }
   if (normalized.includes("/agents/")) {
     return sourceExtensions.has(extension) || /\b(export|function|class|import|def)\b/.test(content)

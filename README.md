@@ -1,6 +1,8 @@
 # AgentPulse
 
-AgentPulse is a private Vercel dashboard for auditing personal GitHub AI-agent repositories. It scans repository files through a server-side GitHub token, builds a static manifest, redacts secret-like values, detects agent architecture signals, and returns a health report with findings and recommended fixes.
+AgentPulse is a private Vercel dashboard for auditing personal GitHub AI-agent and AI-workflow repositories. It scans repository files through a server-side GitHub token, builds a static manifest, redacts secret-like values, detects agent and workflow architecture signals, and returns a health report with findings and recommended fixes.
+
+AgentPulse supports both agent-based and workflow-based AI project layouts. It detects `workflow.yaml`, `workflows.yaml`, `workflow.json`, and similar manifests as first-class structured inventory, alongside `agents.yaml` and agent configs.
 
 AgentPulse is not a public SaaS, not multi-user, not an execution sandbox, and not allowed to install or run code from scanned repositories.
 

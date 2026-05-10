@@ -6,6 +6,7 @@ import { FindingTable } from "@/components/dashboard/FindingTable";
 import { HealthOverview } from "@/components/dashboard/HealthOverview";
 import { RepoSelector } from "@/components/dashboard/RepoSelector";
 import { ScanSummary } from "@/components/dashboard/ScanSummary";
+import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import { Card } from "@/components/ui/Card";
 import type { FormEvent } from "react";
 import type { ScanReport } from "@/lib/scanner/types";
@@ -215,6 +216,17 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
               )}
             </div>
           </section>
+
+          {report.detectedWorkflowsDetailed.length > 0 ? (
+            <section>
+              <h2 className="mb-3 text-lg font-semibold text-slate-950">Detected workflows</h2>
+              <div className="grid gap-4 lg:grid-cols-2">
+                {report.detectedWorkflowsDetailed.map((workflow) => (
+                  <WorkflowCard key={workflow.id} workflow={workflow} />
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <section>
             <h2 className="mb-3 text-lg font-semibold text-slate-950">Findings</h2>

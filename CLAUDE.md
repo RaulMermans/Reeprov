@@ -2,11 +2,11 @@
 
 ## Project
 
-AgentPulse is a private personal dashboard for auditing AI-agent repositories.
+AgentPulse is a private personal dashboard for auditing AI-agent and AI-workflow repositories.
 
 ## Current Phase
 
-Static scanner hardening. Real LLM auditor calls are intentionally not implemented yet.
+Scanner precision + workflow support (Commit 5 complete). Real LLM auditor calls are intentionally not implemented yet.
 
 ## Architecture
 
@@ -64,12 +64,18 @@ Reference:
 
 - AGENTS.md and CLAUDE.md are documentation, not agent configs.
 - agents.yaml, agents.yml, and agents.json are structured agent configs.
+- workflow.yaml, workflows.yaml, workflow.json, workflows.json, pipeline.yaml, pipeline.yml, and pipeline.json are structured workflow configs (workflow_config classification).
+- Workflow projects are first-class. Missing agents.yaml is NOT a flaw if workflow.yaml or a workflow manifest is present.
 - Ignored files should not have content fetched or analyzed.
 - All .env* files are ignored except .env.example.
-- Secret matches must be redacted and preserved as metadata.
+- Secret matches must be classified into high/medium/low confidence before scoring.
+- Low-confidence matches (generic token words, loop variables, short values) must NOT create findings or score penalties.
+- Generic token words such as `for token in (...)`, `token: string`, or "computed-fact token" are NOT secrets.
+- Only high/medium-confidence secret matches are redacted and preserved as metadata.
 - Write-tool risk should be evaluated only in likely tool or agent files.
 - Documentation mentioning "create," "update," or "post" must not trigger write-tool findings.
 - Multiple agents in agents.yaml/json must be detected separately.
+- Multiple workflows in workflows.yaml/json must be detected separately.
 
 ## What Not To Build Yet
 

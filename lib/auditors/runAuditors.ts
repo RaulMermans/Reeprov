@@ -54,12 +54,38 @@ export async function runAuditors(
     ...report,
     findings,
     scores,
-    recommendations: findings
-      .filter((finding) => finding.severity !== "info")
-      .slice(0, 5)
-      .map((finding) => finding.recommendation),
+    recommendations: buildRecommendations(findings),
     auditorStatus: promptAuditorResult?.auditorStatus,
   };
+}
+
+function buildRecommendations(findings: ScanReport["findings"]): string[] {
+  const actionable = findings.filter((f) => f.severity !== "info");
+  const secretRotation = actionable.filter((f) =>
+    f.recommendation.toLowerCase().includes("rotate"),
+  );
+  const other = actionable.filter(
+    (f) => !f.recommendation.toLowerCase().includes("rotate"),
+  );
+  const deduped: string[] = [];
+
+  if (secretRotation.length === 1) {
+    deduped.push(secretRotation[0].recommendation);
+  } else if (secretRotation.length > 1) {
+    deduped.push(
+      `Review and rotate any confirmed secret-like values flagged in ${secretRotation.length} files.`,
+    );
+  }
+
+  const seen = new Set<string>(deduped);
+  for (const f of other) {
+    if (!seen.has(f.recommendation)) {
+      seen.add(f.recommendation);
+      deduped.push(f.recommendation);
+    }
+  }
+
+  return deduped.slice(0, 6);
 }
 
 function overallScore(scores: ScanReport["scores"]) {

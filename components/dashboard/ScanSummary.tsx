@@ -1,7 +1,7 @@
 import { Bot, FileCheck2, GitBranch, Wrench } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import type { ScanReport } from "@/lib/scanner/types";
-import { formatScore, scoreEntries } from "@/lib/utils/format";
+import { formatScore, projectTypeLabel, scoreEntries } from "@/lib/utils/format";
 
 export function ScanSummary({ report }: { report: ScanReport }) {
   const auditorStatus = report.auditorStatus;
@@ -42,19 +42,27 @@ export function ScanSummary({ report }: { report: ScanReport }) {
         </div>
       </Card>
       <Card className="p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Auditor Mode</h2>
-        <div className="mt-4 text-lg font-semibold text-slate-950">{auditorMode}</div>
-        {auditorStatus?.provider ? (
-          <p className="mt-2 text-sm text-slate-600">
-            Provider: {auditorStatus.provider}
-            {auditorStatus.model ? ` / ${auditorStatus.model}` : ""}
-          </p>
-        ) : null}
-        {auditorStatus?.error ? (
-          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            {auditorStatus.error}
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Project</h2>
+        <div className="mt-4">
+          <div className="text-base font-semibold text-slate-950">
+            {projectTypeLabel(report.projectType)}
           </div>
-        ) : null}
+        </div>
+        <div className="mt-4 border-t border-slate-100 pt-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Auditor Mode</h3>
+          <div className="mt-2 text-sm font-medium text-slate-950">{auditorMode}</div>
+          {auditorStatus?.provider ? (
+            <p className="mt-1 text-sm text-slate-600">
+              Provider: {auditorStatus.provider}
+              {auditorStatus.model ? ` / ${auditorStatus.model}` : ""}
+            </p>
+          ) : null}
+          {auditorStatus?.error ? (
+            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              {auditorStatus.error}
+            </div>
+          ) : null}
+        </div>
       </Card>
     </div>
   );

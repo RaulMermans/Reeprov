@@ -1,4 +1,4 @@
-import type { Scores } from "@/lib/scanner/types";
+import type { ProjectType, Scores } from "@/lib/scanner/types";
 
 export function formatScore(score: number) {
   return `${Math.round(score)}/100`;
@@ -14,6 +14,15 @@ export function statusTone(score: number) {
   if (score >= 80) return "success";
   if (score >= 60) return "warning";
   return "danger";
+}
+
+export function projectTypeLabel(type: ProjectType): string {
+  switch (type) {
+    case "agent_system": return "Agent system";
+    case "workflow_system": return "Workflow system";
+    case "hybrid_workflow_agent": return "Hybrid workflow-agent system";
+    case "unknown_ai_project": return "Unknown AI project";
+  }
 }
 
 export function scoreEntries(scores: Scores) {
