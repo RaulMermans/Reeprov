@@ -56,7 +56,11 @@ ZIP files are untrusted input. AgentPulse parses ZIP uploads in memory, does not
 
 ZIP entries are normalized with Windows backslashes converted to `/`. Absolute paths, drive-letter paths, `../` traversal, and paths longer than 240 characters are rejected. GitHub ZIP top-level folders such as `repo-main/` are stripped after path validation.
 
-Default ZIP limits are 15 MB compressed, 50 MB uncompressed, 500 files, and 1 MB per analyzed text file. Binary files, ignored paths, `.env*` files except `.env.example`, generated folders, dependency folders, and lockfiles are not analyzed.
+Direct ZIP upload is limited to 4 MB on Vercel so requests stay below serverless function body limits. Larger repositories should use GitHub repository scanning.
+
+Post-upload ZIP extraction limits are 50 MB uncompressed, 500 files, and 1 MB per analyzed text file. Binary files, ignored paths, `.env*` files except `.env.example`, generated folders, dependency folders, and lockfiles are not analyzed.
+
+Future larger-ZIP options are client-side ZIP extraction, Vercel Blob client upload with temporary scan/delete, or a local CLI scanner.
 
 ## Prompt Injection
 

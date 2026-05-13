@@ -9,8 +9,12 @@ import { ScanSummary } from "@/components/dashboard/ScanSummary";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import { Card } from "@/components/ui/Card";
 import { exportReportMarkdown } from "@/lib/reports/exportMarkdown";
+import { DIRECT_ZIP_UPLOAD_MAX_BYTES, DIRECT_ZIP_UPLOAD_MAX_MB } from "@/lib/zip/limits";
 import type { FormEvent } from "react";
 import type { ScanReport } from "@/lib/scanner/types";
+
+const ZIP_TOO_LARGE_CLIENT_MESSAGE = `This ZIP is too large for direct Vercel upload. Direct ZIP upload supports files up to ${DIRECT_ZIP_UPLOAD_MAX_MB} MB. Use GitHub repository scanning for larger repos.`;
+const ZIP_TOO_LARGE_RECOMMENDATION = "For larger codebases, paste the GitHub repo URL or select the repository from the GitHub tab. GitHub scanning avoids the direct upload body limit.";
 
 interface RepositorySummary {
   owner: string;
@@ -137,8 +141,8 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
       return;
     }
 
-    if (zipFile.size > 15 * 1024 * 1024) {
-      setErrorMessage("ZIP file is too large. Maximum size is 15 MB.");
+    if (zipFile.size > DIRECT_ZIP_UPLOAD_MAX_BYTES) {
+      setErrorMessage(ZIP_TOO_LARGE_CLIENT_MESSAGE);
       return;
     }
 
@@ -171,6 +175,18 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
     setZipFile(null);
     setErrorMessage(null);
     setSuccessMessage(null);
+  }
+
+  function handleZipFileChange(file: File | null) {
+    setZipFile(file);
+    setSuccessMessage(null);
+
+    if (file && file.size > DIRECT_ZIP_UPLOAD_MAX_BYTES) {
+      setErrorMessage(ZIP_TOO_LARGE_CLIENT_MESSAGE);
+      return;
+    }
+
+    setErrorMessage(null);
   }
 
   function downloadJson() {
@@ -236,6 +252,8 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
     );
   }
 
+  const zipTooLarge = Boolean(zipFile && zipFile.size > DIRECT_ZIP_UPLOAD_MAX_BYTES);
+
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -273,40 +291,58 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
             repositories={repositories}
           />
         ) : (
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-            <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-slate-600" htmlFor="zip-upload">
-              ZIP file
-              <input
-                accept=".zip,application/zip"
-                className="min-h-10 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 outline-none file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:font-medium focus:border-teal-700 focus:ring-2 focus:ring-teal-100"
-                disabled={loading}
-                id="zip-upload"
-                onChange={(event) => setZipFile(event.target.files?.[0] ?? null)}
-                type="file"
-              />
-            </label>
-            {zipFile ? (
-              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                <div className="max-w-80 truncate font-medium text-slate-950">{zipFile.name}</div>
-                <div>{formatBytes(zipFile.size)}</div>
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-slate-600">
+              Upload a GitHub-downloaded ZIP for small repos. Direct ZIP upload is limited to {DIRECT_ZIP_UPLOAD_MAX_MB} MB on Vercel. For larger repositories, use GitHub repository scanning.
+            </p>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+              <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-slate-600" htmlFor="zip-upload">
+                ZIP file
+                <input
+                  accept=".zip,application/zip"
+                  className="min-h-10 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 outline-none file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:font-medium focus:border-teal-700 focus:ring-2 focus:ring-teal-100"
+                  disabled={loading}
+                  id="zip-upload"
+                  onChange={(event) => handleZipFileChange(event.target.files?.[0] ?? null)}
+                  type="file"
+                />
+              </label>
+              {zipFile ? (
+                <div className={`rounded-md border px-3 py-2 text-sm ${
+                  zipTooLarge
+                    ? "border-red-200 bg-red-50 text-red-800"
+                    : "border-slate-200 bg-slate-50 text-slate-700"
+                }`}>
+                  <div className="max-w-80 truncate font-medium text-slate-950">
+                    Selected file: {zipFile.name} - {formatBytes(zipFile.size)}
+                  </div>
+                  {zipTooLarge ? (
+                    <div className="mt-1 font-medium">Too large for direct upload - use GitHub scan.</div>
+                  ) : null}
+                </div>
+              ) : null}
+              <button
+                className="inline-flex min-h-10 items-center justify-center rounded-md bg-teal-700 px-3 py-2 text-sm font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={loading || !zipFile || zipTooLarge}
+                onClick={scanZip}
+                type="button"
+              >
+                {loading ? "Scanning" : "Scan ZIP"}
+              </button>
+              <button
+                className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                disabled={loading || !zipFile}
+                onClick={clearZip}
+                type="button"
+              >
+                Clear
+              </button>
+            </div>
+            {zipTooLarge ? (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                {ZIP_TOO_LARGE_RECOMMENDATION}
               </div>
             ) : null}
-            <button
-              className="inline-flex min-h-10 items-center justify-center rounded-md bg-teal-700 px-3 py-2 text-sm font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-              disabled={loading || !zipFile}
-              onClick={scanZip}
-              type="button"
-            >
-              {loading ? "Scanning" : "Scan ZIP"}
-            </button>
-            <button
-              className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-              disabled={loading || !zipFile}
-              onClick={clearZip}
-              type="button"
-            >
-              Clear
-            </button>
           </div>
         )}
       </Card>

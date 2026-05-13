@@ -2,14 +2,25 @@ import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
 import { runScanPipeline } from "@/lib/reports/runScanPipeline";
-import { defaultZipExtractLimits } from "@/lib/zip/types";
+import { DIRECT_ZIP_UPLOAD_MAX_BYTES, DIRECT_ZIP_UPLOAD_MAX_MB } from "@/lib/zip/limits";
 import { safeExtractZip, ZipExtractionError } from "@/lib/zip/safeExtractZip";
 
 export async function POST(request: Request) {
   try {
     requireAccessKey(request);
 
-    const formData = await request.formData();
+    const contentType = request.headers.get("content-type") ?? "";
+    if (!contentType.toLowerCase().includes("multipart/form-data")) {
+      throw invalidRequest('Upload a ZIP file as multipart/form-data in the field named "zip".');
+    }
+
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch {
+      throw invalidRequest('Upload a ZIP file as multipart/form-data in the field named "zip".');
+    }
+
     const value = formData.get("zip");
 
     if (!(value instanceof File)) {
@@ -21,8 +32,10 @@ export async function POST(request: Request) {
       throw invalidRequest("Uploaded file must have a .zip filename.");
     }
 
-    if (value.size > defaultZipExtractLimits.maxZipBytes) {
-      throw invalidRequest("Uploaded ZIP is too large. Maximum size is 15 MB.");
+    if (value.size > DIRECT_ZIP_UPLOAD_MAX_BYTES) {
+      throw invalidRequest(
+        `Uploaded ZIP is too large for direct Vercel upload. Maximum size is ${DIRECT_ZIP_UPLOAD_MAX_MB} MB. Use GitHub repository scanning for larger repositories.`,
+      );
     }
 
     const extracted = await safeExtractZip(await value.arrayBuffer());

@@ -39,10 +39,18 @@ Commit 4 is complete when private Vercel deployment readiness is documented and 
 - Score explanations and per-category drilldowns.
 - Evidence snippet expansion improvement.
 
-**Commit 7: Scan history or deployment-runtime hardening**
+**Commit 6A: Vercel ZIP limit alignment (complete)**
 
-- Fix Vercel runtime limits if ZIP scans expose payload, memory, or timeout issues.
-- Add scan history only if persistence becomes necessary.
+- Direct ZIP upload aligned with Vercel request body limits at 4 MB.
+- Dashboard and `/api/scan-zip` both direct larger repositories to GitHub scanning.
+- ZIP safety limits remain in place after upload: 50 MB uncompressed, 500 files, 1 MB per analyzed text file, and 240-character paths.
+- Larger-ZIP options deferred: client-side extraction, Vercel Blob temporary upload/scan/delete, or local CLI scanner.
+
+**Commit 7: deployed smoke-test fixes + dashboard/report polish**
+
+- Run deployed staging smoke tests and fix any Vercel-specific route, rendering, timeout, or response-size issues.
+- Polish dashboard and report UX based on real deployed scans.
+- Add scan history only if persistence becomes necessary in a later commit.
 
 **Commit 8: Scan history**
 

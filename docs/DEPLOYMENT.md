@@ -36,6 +36,18 @@ Never use `NEXT_PUBLIC_` for tokens, access keys, or provider API keys.
 - Enter it in the dashboard when prompted.
 - Confirm `/api/repos` and `/api/scan` reject requests without `x-agentpulse-key`.
 
+## ZIP Uploads on Vercel
+
+Direct ZIP upload is limited to 4 MB on Vercel so `/api/scan-zip` stays below serverless function request body limits. Use GitHub repository scanning for larger repositories.
+
+Uploaded ZIPs are parsed in memory, never persisted, and treated as untrusted input. AgentPulse never executes uploaded code, never installs uploaded dependencies, and blocks path traversal before scanning entries.
+
+Future larger-ZIP options are:
+
+1. Client-side ZIP extraction.
+2. Vercel Blob client upload with temporary scan/delete.
+3. Local CLI scanner.
+
 ## LLM Auditor Feature Flag
 
 The first Vercel deployment must use `ENABLE_LLM_AUDITORS=false`. Do not enable the Prompt Auditor until the static scan is confirmed working in production.
@@ -71,10 +83,12 @@ Vercel builds run in a clean environment each time, so the cache restore timeout
 3. Confirm `/api/repos` loads or returns mock repos if no GitHub token.
 4. Call `/api/repos` without header and confirm 401.
 5. Scan a sample repo.
-6. Confirm `.env*` files are ignored.
-7. Confirm no secrets appear in the browser devtools response.
-8. If `ENABLE_LLM_AUDITORS=false`, confirm no LLM call is made.
-9. If `ENABLE_LLM_AUDITORS=true` and API key exists, confirm Prompt Auditor runs only on prompt evidence.
+6. Upload a ZIP under 4 MB and confirm it scans.
+7. Select a ZIP over 4 MB and confirm the dashboard recommends GitHub scanning before upload.
+8. Confirm `.env*` files are ignored.
+9. Confirm no secrets appear in the browser devtools response.
+10. If `ENABLE_LLM_AUDITORS=false`, confirm no LLM call is made.
+11. If `ENABLE_LLM_AUDITORS=true` and API key exists, confirm Prompt Auditor runs only on prompt evidence.
 
 ## Rollback Advice
 

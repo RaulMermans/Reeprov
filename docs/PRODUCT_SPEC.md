@@ -52,3 +52,11 @@ Workflow projects are first-class. A missing `agents.yaml` is not flagged as a p
 - Report schema is typed and validated.
 - Dashboard communicates health, project type, findings with evidence snippets, and de-duplicated next actions.
 - ZIP scans reuse the same static scanner, redaction, workflow detection, scoring, and report pipeline as GitHub scans.
+- Direct ZIP uploads are honest about Vercel limits: compressed uploads are capped at 4 MB, larger repositories are directed to GitHub repository scanning, and uploaded archives are never persisted.
+- ZIP entries are treated as untrusted input: path traversal is blocked, uploaded code is never executed, and uploaded dependencies are never installed.
+
+## Future Larger-ZIP Options
+
+1. Client-side ZIP extraction.
+2. Vercel Blob client upload with temporary scan/delete.
+3. Local CLI scanner.

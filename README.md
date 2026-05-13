@@ -31,7 +31,11 @@ Without `GITHUB_TOKEN`, the dashboard and API routes return mock data for GitHub
 - GitHub repository: select or enter `owner/repo`; AgentPulse fetches files with the server-side read-only token.
 - ZIP upload: upload a `.zip` downloaded from GitHub; AgentPulse parses it in memory, strips the top-level GitHub folder, normalizes file paths, and runs the same static scanner and report pipeline.
 
-ZIP limits are 15 MB compressed, 50 MB uncompressed, 500 files, 1 MB per analyzed text file, and 240 characters per path. Uploaded ZIPs are not persisted, uploaded code is never executed, and uploaded dependencies are never installed.
+Direct ZIP upload is limited to 4 MB on Vercel so requests stay below serverless function body limits. Larger repositories should use GitHub repository scanning, which avoids the direct upload body limit.
+
+Post-upload ZIP extraction limits are 50 MB uncompressed, 500 files, 1 MB per analyzed text file, and 240 characters per path. Uploaded ZIPs are parsed in memory and are never persisted. Uploaded code is never executed, uploaded dependencies are never installed, ZIP entries are treated as untrusted input, and path traversal is blocked.
+
+Future larger-ZIP options are client-side ZIP extraction, Vercel Blob client upload with temporary scan/delete, or a local CLI scanner.
 
 ## Environment Variables
 

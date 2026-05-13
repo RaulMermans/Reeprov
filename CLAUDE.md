@@ -6,7 +6,7 @@ AgentPulse is a private personal dashboard for auditing AI-agent and AI-workflow
 
 ## Current Phase
 
-ZIP upload + report export + dashboard polish (Commit 6). Real LLM auditor calls remain feature-flagged and disabled by default.
+Vercel ZIP upload limit alignment + deployment hardening (Commit 6A). Real LLM auditor calls remain feature-flagged and disabled by default.
 
 ## Architecture
 
@@ -36,6 +36,9 @@ Reference:
 - ZIP entries must be normalized and checked for path traversal.
 - Uploaded code is never executed.
 - GitHub scans and ZIP scans must share the same scanner pipeline.
+- Direct ZIP uploads must remain aligned with Vercel request body limits.
+- GitHub scanning is preferred for larger repositories.
+- Do not silently raise ZIP upload limits without changing infrastructure.
 
 ## Development Workflow
 
@@ -82,6 +85,8 @@ Reference:
 - Multiple agents in agents.yaml/json must be detected separately.
 - Multiple workflows in workflows.yaml/json must be detected separately.
 - ZIP scans must not persist uploaded archives.
+- Direct ZIP uploads are capped at 4 MB for Vercel.
+- ZIP extraction still enforces 50 MB uncompressed, 500 files, 1 MB per analyzed text file, and 240-character paths.
 
 ## What Not To Build Yet
 
@@ -93,6 +98,8 @@ Reference:
 - No automatic repo edits.
 - No code execution.
 - No dependency installation.
+- No Vercel Blob upload path yet.
+- No client-side ZIP extraction yet.
 
 ## Memory Rule
 
