@@ -4,6 +4,17 @@
 
 Represents one repository file after manifest construction. It includes `path`, `name`, `extension`, `size`, optional redacted `content`, `classification`, `redacted`, optional `secretMatches` (pattern names list), optional `secretMatchDetails` (structured match objects), `ignored`, and optional `reason`.
 
+## ScanSource
+
+Identifies where a scan came from:
+
+- `type`: `"github"`, `"zip"`, or `"mock"`.
+- `label`: display label such as `owner/repo`, `repo-main.zip`, or `Mock scan`.
+- `owner` and `repo`: GitHub metadata when available.
+- `filename`: uploaded ZIP filename when available.
+
+ZIP extraction also tracks ignored-file metadata internally: normalized path, reason, and size.
+
 ## FileClassification
 
 One of `agent_config`, `workflow_config`, `prompt`, `tool`, `eval`, `workflow`, `documentation`, `environment`, `package_config`, `source_code`, `test`, or `unknown`.
@@ -69,4 +80,4 @@ Represents category scores for architecture, prompt quality, tool governance, ev
 
 ## ScanReport
 
-Represents the complete audit output: repository name, scan timestamp, scanned and ignored file counts, `projectType`, `detectedAgents`, `detectedWorkflowsDetailed`, detected prompts/tools/evals/workflow paths, findings, scores, recommendations, and optional auditor status.
+Represents the complete audit output: repository name, optional `scanSource`, scan timestamp, scanned and ignored file counts, `projectType`, `detectedAgents`, `detectedWorkflowsDetailed`, detected prompts/tools/evals/workflow paths, findings, scores, recommendations, and optional auditor status.

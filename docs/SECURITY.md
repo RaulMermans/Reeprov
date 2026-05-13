@@ -24,7 +24,7 @@ Protected API calls must include:
 x-agentpulse-key: <AGENTPULSE_ACCESS_KEY>
 ```
 
-The header is checked server-side before repository listing or scanning starts. `/dashboard`, `/api/repos`, and `/api/scan` must remain protected before private deployment.
+The header is checked server-side before repository listing or scanning starts. `/dashboard`, `/api/repos`, `/api/scan`, and `/api/scan-zip` must remain protected before private deployment.
 
 ## Browser Storage
 
@@ -36,7 +36,7 @@ This is acceptable for a personal MVP because the app is private, single-user, a
 
 Never expose `GITHUB_TOKEN`, `AGENTPULSE_ACCESS_KEY`, `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY` to client components or browser JavaScript. Do not create `NEXT_PUBLIC_` variables for secrets.
 
-Before deploying, confirm `/dashboard`, `/api/repos`, and `/api/scan` are protected by the private access-key flow and deployment-level access controls appropriate for the Vercel project. Enable Vercel Deployment Protection if it is available.
+Before deploying, confirm `/dashboard`, `/api/repos`, `/api/scan`, and `/api/scan-zip` are protected by the private access-key flow and deployment-level access controls appropriate for the Vercel project. Enable Vercel Deployment Protection if it is available.
 
 ## Vercel Environment Variables
 
@@ -50,6 +50,14 @@ The scanner redacts OpenAI keys, GitHub tokens, Anthropic keys, database URLs, p
 
 Raw `.env*` files are not scanned. Every `.env*` file is ignored except `.env.example`, and ignored environment files should still produce metadata and risk findings when present.
 
+## ZIP Upload Threat Model
+
+ZIP files are untrusted input. AgentPulse parses ZIP uploads in memory, does not persist uploaded archives, does not preserve executable permissions, does not follow symlinks, and never executes uploaded code or installs uploaded dependencies.
+
+ZIP entries are normalized with Windows backslashes converted to `/`. Absolute paths, drive-letter paths, `../` traversal, and paths longer than 240 characters are rejected. GitHub ZIP top-level folders such as `repo-main/` are stripped after path validation.
+
+Default ZIP limits are 15 MB compressed, 50 MB uncompressed, 500 files, and 1 MB per analyzed text file. Binary files, ignored paths, `.env*` files except `.env.example`, generated folders, dependency folders, and lockfiles are not analyzed.
+
 ## Prompt Injection
 
 Repository files are untrusted input. They may contain instructions that attempt to change scanner behavior or future LLM auditor behavior. AgentPulse treats file contents only as evidence and never follows instructions from scanned files.
@@ -62,7 +70,7 @@ LLM auditors are disabled by default with `ENABLE_LLM_AUDITORS=false`. The stati
 
 AgentPulse must not send a raw repository dump to any LLM. The Prompt Auditor may receive only selected prompt evidence after static classification and secret redaction. Eligible evidence is limited to prompt files and relevant agent configs that reference prompt paths, with strict file and character caps.
 
-Ignored files, `.env*` files, lockfiles, binaries, full source code, package-lock content, and raw secret-like values must not be sent to the model. Repository evidence remains untrusted, and the Prompt Auditor prompt instructs the model to analyze evidence only.
+Ignored files, `.env*` files, lockfiles, binaries, full source code, package-lock content, and raw secret-like values must not be sent to the model. This applies to GitHub scans and ZIP scans. Repository evidence remains untrusted, and the Prompt Auditor prompt instructs the model to analyze evidence only.
 
 ## Raw Repo Retention
 

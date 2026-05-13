@@ -4,7 +4,8 @@ import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
 import { getGitHubClient } from "@/lib/github/client";
 import { fetchRepoFiles } from "@/lib/github/fetchRepoFiles";
-import { buildReport, mockReport } from "@/lib/reports/buildReport";
+import { mockReport } from "@/lib/reports/buildReport";
+import { runScanPipeline } from "@/lib/reports/runScanPipeline";
 
 const scanRequestSchema = z.object({
   owner: z.string().min(1).optional(),
@@ -28,10 +29,16 @@ export async function POST(request: Request) {
     }
 
     const scan = await fetchRepoFiles(octokit, body.owner, body.name);
-    const report = await buildReport({
+    const report = await runScanPipeline({
       repoName: `${body.owner}/${body.name}`,
       files: scan.files,
       githubTreeTruncated: scan.treeTruncated,
+      scanSource: {
+        type: "github",
+        label: `${body.owner}/${body.name}`,
+        owner: body.owner,
+        repo: body.name,
+      },
       allowLlmAuditors: true,
     });
 

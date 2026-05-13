@@ -10,7 +10,7 @@ AI-agent and AI-workflow repositories become hard to trust when prompts are impl
 
 ## Core Use Case
 
-The user opens a private dashboard, selects or enters a GitHub repository, runs a scan, and receives a health report with evidence-backed findings and recommended fixes.
+The user opens a private dashboard, selects or enters a GitHub repository or uploads a GitHub ZIP archive, runs a scan, and receives a health report with evidence-backed findings and recommended fixes.
 
 ## Supported Project Types
 
@@ -25,7 +25,7 @@ Workflow projects are first-class. A missing `agents.yaml` is not flagged as a p
 
 ## Main Screens
 
-- Dashboard: repository selector, health score, project type label, detected asset counts, score cards, agent cards, workflow cards, findings table, and recommendations.
+- Dashboard: GitHub/ZIP scan mode selector, repository selector, ZIP upload control, health score, project type label, detected asset counts, score cards, agent cards, workflow cards, findings table, report export, and recommendations.
 - Future scan detail: evidence drilldowns and score explanations.
 - Future history: previous scans and trend comparison.
 
@@ -40,6 +40,7 @@ Workflow projects are first-class. A missing `agents.yaml` is not flagged as a p
 - GitHub App integration.
 - PR comments.
 - Real LLM calls in the scaffold.
+- Persisting uploaded ZIPs.
 
 ## Success Criteria
 
@@ -50,3 +51,4 @@ Workflow projects are first-class. A missing `agents.yaml` is not flagged as a p
 - Workflow projects are detected and shown; missing agent config is not flagged for them.
 - Report schema is typed and validated.
 - Dashboard communicates health, project type, findings with evidence snippets, and de-duplicated next actions.
+- ZIP scans reuse the same static scanner, redaction, workflow detection, scoring, and report pipeline as GitHub scans.

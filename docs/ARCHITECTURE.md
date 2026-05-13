@@ -1,20 +1,25 @@
 # Architecture
 
-AgentPulse has five layers: dashboard, API routes, GitHub ingestion, static scanner, and auditor layer.
+AgentPulse has five layers: dashboard, API routes, ingestion, static scanner, and auditor layer.
 
 ## Workflow
 
-1. The dashboard requests a scan for `owner/repo`.
-2. `/api/scan` reads `GITHUB_TOKEN` server-side.
-3. GitHub ingestion loads the default branch tree and selected text blobs.
-4. Ignore rules remove dependency folders, generated outputs, binaries, private keys, and environment files.
-5. The static scanner classifies files and redacts secret-like values.
-6. Placeholder auditors review the static report and add structured findings.
-7. Scores are calculated and returned to the dashboard.
+1. The dashboard requests a scan for `owner/repo` or uploads a GitHub ZIP.
+2. `/api/scan` reads `GITHUB_TOKEN` server-side, while `/api/scan-zip` accepts multipart ZIP input.
+3. GitHub ingestion loads selected text blobs, or ZIP ingestion parses entries in memory.
+4. Both ingestion paths normalize files into the same `RepoFile[]` pipeline.
+5. Ignore rules remove dependency folders, generated outputs, binaries, private keys, and environment files.
+6. The static scanner classifies files and redacts secret-like values.
+7. Placeholder auditors review the static report and add structured findings.
+8. Scores are calculated and returned to the dashboard.
 
 ## Repo Ingestion
 
 The GitHub layer uses Octokit. It fetches repository tree metadata first, applies ignore rules, then fetches text blob content for eligible files.
+
+ZIP ingestion accepts `.zip` uploads through `/api/scan-zip`, validates size limits, rejects unsafe paths, strips the common GitHub top-level folder, ignores binaries and scanner-ignored files, and returns normalized file entries without writing the archive to permanent storage.
+
+Both paths converge through `runScanPipeline`: `files -> prepareRepoFiles -> staticScanFromFiles -> runAuditors -> ScanReport`.
 
 ## Static Scan
 
@@ -48,4 +53,4 @@ Scores cover architecture, prompt quality, tool governance, eval coverage, secur
 
 ## Dashboard
 
-The dashboard shows overall score, status, project type label, counts, score cards, agent cards, workflow cards, findings with expandable evidence snippets, and de-duplicated recommended next actions.
+The dashboard shows scan source, overall score, status, project type label, counts, score cards with explanations, agent cards, workflow cards, findings with filters and expandable evidence snippets, export controls, and de-duplicated recommended next actions.

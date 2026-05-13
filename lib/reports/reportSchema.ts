@@ -40,8 +40,17 @@ export const projectTypeSchema = z.enum([
   "unknown_ai_project",
 ]);
 
+export const scanSourceSchema = z.object({
+  type: z.enum(["github", "zip", "mock"]),
+  label: z.string(),
+  owner: z.string().optional(),
+  repo: z.string().optional(),
+  filename: z.string().optional(),
+});
+
 export const scanReportSchema = z.object({
   repoName: z.string(),
+  scanSource: scanSourceSchema.optional(),
   scannedAt: z.string(),
   filesScanned: z.number(),
   ignoredFiles: z.number(),

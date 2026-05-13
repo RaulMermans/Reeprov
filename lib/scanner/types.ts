@@ -85,8 +85,17 @@ export interface Scores {
   overall: number;
 }
 
+export interface ScanSource {
+  type: "github" | "zip" | "mock";
+  label: string;
+  owner?: string;
+  repo?: string;
+  filename?: string;
+}
+
 export interface ScanReport {
   repoName: string;
+  scanSource?: ScanSource;
   scannedAt: string;
   filesScanned: number;
   ignoredFiles: number;

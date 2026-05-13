@@ -2,7 +2,7 @@
 
 AgentPulse is a private Vercel dashboard for auditing personal GitHub AI-agent and AI-workflow repositories. It scans repository files through a server-side GitHub token, builds a static manifest, redacts secret-like values, detects agent and workflow architecture signals, and returns a health report with findings and recommended fixes.
 
-AgentPulse supports both agent-based and workflow-based AI project layouts. It detects `workflow.yaml`, `workflows.yaml`, `workflow.json`, and similar manifests as first-class structured inventory, alongside `agents.yaml` and agent configs.
+AgentPulse supports both agent-based and workflow-based AI project layouts. It detects `workflow.yaml`, `workflows.yaml`, `workflow.json`, and similar manifests as first-class structured inventory, alongside `agents.yaml` and agent configs. Repositories can be scanned from the GitHub API or from a GitHub-generated ZIP archive.
 
 AgentPulse is not a public SaaS, not multi-user, not an execution sandbox, and not allowed to install or run code from scanned repositories.
 
@@ -24,7 +24,14 @@ AgentPulse is not a public SaaS, not multi-user, not an execution sandbox, and n
 5. Run `npm run dev`.
 6. Open `http://localhost:3000/dashboard` and enter the access key when prompted.
 
-Without `GITHUB_TOKEN`, the dashboard and API routes return mock data.
+Without `GITHUB_TOKEN`, the dashboard and API routes return mock data for GitHub scans. ZIP upload scans still require `AGENTPULSE_ACCESS_KEY`.
+
+## Scan Modes
+
+- GitHub repository: select or enter `owner/repo`; AgentPulse fetches files with the server-side read-only token.
+- ZIP upload: upload a `.zip` downloaded from GitHub; AgentPulse parses it in memory, strips the top-level GitHub folder, normalizes file paths, and runs the same static scanner and report pipeline.
+
+ZIP limits are 15 MB compressed, 50 MB uncompressed, 500 files, 1 MB per analyzed text file, and 240 characters per path. Uploaded ZIPs are not persisted, uploaded code is never executed, and uploaded dependencies are never installed.
 
 ## Environment Variables
 
@@ -44,11 +51,12 @@ If `AGENTPULSE_ACCESS_KEY` is missing in a deployed environment, the private too
 - Repository code is never executed.
 - Repository dependencies are never installed.
 - GitHub token access stays server-side.
-- `/api/repos` and `/api/scan` require `x-agentpulse-key`.
+- `/api/repos`, `/api/scan`, and `/api/scan-zip` require `x-agentpulse-key`.
 - Private deployments must configure `AGENTPULSE_ACCESS_KEY`; do not rely on obscurity or public environment variables.
 - `.env`, `.env.local`, private keys, generated folders, dependency folders, large files, and binary files are ignored.
 - Secret-like strings are redacted before reports and before any future LLM auditor input.
 - Repository contents are treated as untrusted evidence and may contain prompt injection.
+- ZIP entries are untrusted input and are checked for path traversal before scanning.
 
 ## Private Vercel Deployment
 

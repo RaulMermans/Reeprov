@@ -8,6 +8,7 @@ import { RepoSelector } from "@/components/dashboard/RepoSelector";
 import { ScanSummary } from "@/components/dashboard/ScanSummary";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import { Card } from "@/components/ui/Card";
+import { exportReportMarkdown } from "@/lib/reports/exportMarkdown";
 import type { FormEvent } from "react";
 import type { ScanReport } from "@/lib/scanner/types";
 
@@ -21,6 +22,8 @@ interface RepositorySummary {
 
 export function DashboardClient({ initialReport }: { initialReport: ScanReport }) {
   const [report, setReport] = useState<ScanReport>(initialReport);
+  const [scanMode, setScanMode] = useState<"github" | "zip">("github");
+  const [zipFile, setZipFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -115,11 +118,76 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
       });
 
       setReport(body);
-      setSuccessMessage(`Scan complete for ${body.repoName}.`);
+      setSuccessMessage(`Scan complete for ${body.scanSource?.label ?? body.repoName}.`);
     } catch (error) {
       setErrorMessage(apiMessage(error, "Scan failed."));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function scanZip() {
+    if (!zipFile) {
+      setErrorMessage("Choose a ZIP file to scan.");
+      return;
+    }
+
+    if (!zipFile.name.toLowerCase().endsWith(".zip")) {
+      setErrorMessage("Choose a file with a .zip filename.");
+      return;
+    }
+
+    if (zipFile.size > 15 * 1024 * 1024) {
+      setErrorMessage("ZIP file is too large. Maximum size is 15 MB.");
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const formData = new FormData();
+      formData.set("zip", zipFile);
+
+      const body = await fetchApi<ScanReport>("/api/scan-zip", {
+        method: "POST",
+        headers: {
+          "x-agentpulse-key": accessKey ?? "",
+        },
+        body: formData,
+      });
+
+      setReport(body);
+      setSuccessMessage(`ZIP scan complete for ${body.scanSource?.label ?? body.repoName}.`);
+    } catch (error) {
+      setErrorMessage(apiMessage(error, "ZIP scan failed."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function clearZip() {
+    setZipFile(null);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+  }
+
+  function downloadJson() {
+    downloadText(`${safeFilename(report.scanSource?.label ?? report.repoName)}-agentpulse-report.json`, JSON.stringify(report, null, 2), "application/json");
+  }
+
+  function downloadMarkdown() {
+    downloadText(`${safeFilename(report.scanSource?.label ?? report.repoName)}-agentpulse-report.md`, exportReportMarkdown(report), "text/markdown");
+  }
+
+  async function copyMarkdown() {
+    try {
+      await navigator.clipboard.writeText(exportReportMarkdown(report));
+      setSuccessMessage("Markdown report copied to clipboard.");
+      setErrorMessage(null);
+    } catch {
+      setErrorMessage("Could not copy Markdown report to clipboard.");
     }
   }
 
@@ -180,12 +248,68 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
         </button>
       </div>
 
-      <RepoSelector
-        loading={loading}
-        loadingRepos={loadingRepos}
-        onScan={scan}
-        repositories={repositories}
-      />
+      <Card className="p-4">
+        <div className="mb-4 inline-flex rounded-md border border-slate-200 bg-slate-50 p-1">
+          {(["github", "zip"] as const).map((mode) => (
+            <button
+              className={`min-h-9 rounded px-3 text-sm font-medium ${
+                scanMode === mode
+                  ? "bg-white text-slate-950 shadow-sm"
+                  : "text-slate-600 hover:text-slate-950"
+              }`}
+              key={mode}
+              onClick={() => setScanMode(mode)}
+              type="button"
+            >
+              {mode === "github" ? "GitHub repository" : "ZIP upload"}
+            </button>
+          ))}
+        </div>
+        {scanMode === "github" ? (
+          <RepoSelector
+            loading={loading}
+            loadingRepos={loadingRepos}
+            onScan={scan}
+            repositories={repositories}
+          />
+        ) : (
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+            <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-slate-600" htmlFor="zip-upload">
+              ZIP file
+              <input
+                accept=".zip,application/zip"
+                className="min-h-10 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 outline-none file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:font-medium focus:border-teal-700 focus:ring-2 focus:ring-teal-100"
+                disabled={loading}
+                id="zip-upload"
+                onChange={(event) => setZipFile(event.target.files?.[0] ?? null)}
+                type="file"
+              />
+            </label>
+            {zipFile ? (
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                <div className="max-w-80 truncate font-medium text-slate-950">{zipFile.name}</div>
+                <div>{formatBytes(zipFile.size)}</div>
+              </div>
+            ) : null}
+            <button
+              className="inline-flex min-h-10 items-center justify-center rounded-md bg-teal-700 px-3 py-2 text-sm font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+              disabled={loading || !zipFile}
+              onClick={scanZip}
+              type="button"
+            >
+              {loading ? "Scanning" : "Scan ZIP"}
+            </button>
+            <button
+              className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+              disabled={loading || !zipFile}
+              onClick={clearZip}
+              type="button"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+      </Card>
 
       {errorMessage ? (
         <Card className="border-red-200 bg-red-50 p-5 text-sm text-red-800 shadow-none">
@@ -204,6 +328,23 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
       ) : (
         <>
           <HealthOverview report={report} />
+          <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Export report</h2>
+              <p className="mt-1 text-sm text-slate-600">Download or copy the current redacted scan report.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" onClick={downloadJson} type="button">
+                Download JSON
+              </button>
+              <button className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" onClick={downloadMarkdown} type="button">
+                Download Markdown
+              </button>
+              <button className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800" onClick={copyMarkdown} type="button">
+                Copy Markdown
+              </button>
+            </div>
+          </Card>
           <ScanSummary report={report} />
 
           <section>
@@ -212,21 +353,48 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
               {report.detectedAgents.length > 0 ? (
                 report.detectedAgents.map((agent) => <AgentCard agent={agent} key={agent.id} />)
               ) : (
-                <Card className="p-5 text-sm text-slate-600">No agents detected.</Card>
+                <Card className="p-5 text-sm text-slate-600">
+                  {report.projectType === "workflow_system"
+                    ? "No explicit agents detected. This appears to be a workflow project."
+                    : "No agents detected."}
+                </Card>
               )}
             </div>
           </section>
 
-          {report.detectedWorkflowsDetailed.length > 0 ? (
-            <section>
-              <h2 className="mb-3 text-lg font-semibold text-slate-950">Detected workflows</h2>
+          <section>
+            <h2 className="mb-3 text-lg font-semibold text-slate-950">Detected workflows</h2>
+            {report.detectedWorkflowsDetailed.length > 0 ? (
               <div className="grid gap-4 lg:grid-cols-2">
                 {report.detectedWorkflowsDetailed.map((workflow) => (
                   <WorkflowCard key={workflow.id} workflow={workflow} />
                 ))}
               </div>
-            </section>
-          ) : null}
+            ) : (
+              <Card className="p-5 text-sm text-slate-600">
+                {report.projectType === "agent_system"
+                  ? "No workflow manifest detected."
+                  : "No workflows detected."}
+              </Card>
+            )}
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-lg font-semibold text-slate-950">Detected prompts</h2>
+            <Card className="p-5">
+              {report.detectedPrompts.length > 0 ? (
+                <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+                  {report.detectedPrompts.map((prompt) => (
+                    <li className="break-all" key={prompt}>{prompt}</li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-sm text-slate-600">
+                  No versioned prompt files detected. Add prompts/ or reference prompt_path in agents.yaml.
+                </div>
+              )}
+            </Card>
+          </section>
 
           <section>
             <h2 className="mb-3 text-lg font-semibold text-slate-950">Findings</h2>
@@ -289,4 +457,26 @@ function apiMessageFromBody(body: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024 * 1024) {
+    return `${Math.round(bytes / 1024)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function safeFilename(value: string) {
+  return value.replace(/[^a-z0-9._-]+/gi, "-").replace(/^-|-$/g, "") || "scan";
+}
+
+function downloadText(filename: string, content: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }

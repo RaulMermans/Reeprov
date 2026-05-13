@@ -11,6 +11,7 @@ import type {
   ProjectType,
   RepoFile,
   ScanReport,
+  ScanSource,
 } from "./types";
 
 interface RawRepoFile {
@@ -21,6 +22,7 @@ interface RawRepoFile {
 
 interface StaticScanOptions {
   githubTreeTruncated?: boolean;
+  scanSource?: ScanSource;
 }
 
 export function staticScan(
@@ -141,7 +143,10 @@ export function staticScanFromFiles(
         "Sensitive environment file present",
         `${file.path} was ignored and should not be committed to source control.`,
         [file.path],
-        "Remove committed environment files and rotate any exposed credentials.",
+        secretRecommendation(
+          options.scanSource?.type,
+          "Remove committed environment files and rotate any exposed credentials.",
+        ),
         0.95,
       ));
     }
@@ -170,7 +175,10 @@ export function staticScanFromFiles(
           "Secret-like value redacted",
           `${secretTypes} detected and redacted in ${file.path}.`,
           [file.path],
-          "Remove the value from the repository and rotate it if it was real.",
+          secretRecommendation(
+            options.scanSource?.type,
+            "Remove the value from the repository and rotate it if it was real.",
+          ),
           confidenceValue,
         ),
         evidenceSnippets: snippets,
@@ -184,7 +192,10 @@ export function staticScanFromFiles(
         "Secret-like value redacted",
         `Secret-like value detected and redacted in ${file.path}.`,
         [file.path],
-        "Remove the value from the repository and rotate it if it was real.",
+        secretRecommendation(
+          options.scanSource?.type,
+          "Remove the value from the repository and rotate it if it was real.",
+        ),
         0.85,
       ));
     }
@@ -214,6 +225,7 @@ export function staticScanFromFiles(
 
   return {
     repoName,
+    scanSource: options.scanSource,
     scannedAt: new Date().toISOString(),
     filesScanned: scannedFiles.length,
     ignoredFiles: files.length - scannedFiles.length,
@@ -228,6 +240,14 @@ export function staticScanFromFiles(
     scores,
     recommendations: buildRecommendations(findings),
   };
+}
+
+function secretRecommendation(sourceType: ScanSource["type"] | undefined, fallback: string) {
+  if (sourceType === "zip") {
+    return "If this ZIP came from a real repo, remove and rotate confirmed secrets.";
+  }
+
+  return fallback;
 }
 
 // -- Project type --

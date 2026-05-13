@@ -31,17 +31,18 @@ Commit 4 is complete when private Vercel deployment readiness is documented and 
 - Recommendations are de-duplicated: multiple secret findings collapse into one rotation message.
 - Dashboard shows project type (Agent system / Workflow system / Hybrid / Unknown) and a Detected workflows section.
 
-**Commit 6: Report export + dashboard polish**
+**Commit 6: ZIP upload + report export + dashboard polish**
 
-- Export scan report as JSON or PDF.
+- ZIP upload support for GitHub archives, converging into the shared `RepoFile[]` scanner pipeline.
+- Export scan report as JSON or Markdown.
 - Finding severity grouping and filtering.
 - Score explanations and per-category drilldowns.
 - Evidence snippet expansion improvement.
 
-**Commit 7: Tool Auditor LLM implementation**
+**Commit 7: Scan history or deployment-runtime hardening**
 
-- Real LLM tool governance auditor behind `ENABLE_LLM_AUDITORS`.
-- Redacted tool evidence only; no raw source sent to model.
+- Fix Vercel runtime limits if ZIP scans expose payload, memory, or timeout issues.
+- Add scan history only if persistence becomes necessary.
 
 **Commit 8: Scan history**
 
