@@ -48,9 +48,19 @@ export const scanSourceSchema = z.object({
   filename: z.string().optional(),
 });
 
+export const zipStatsSchema = z.object({
+  totalEntries: z.number(),
+  totalFiles: z.number(),
+  candidateFiles: z.number(),
+  scannedFiles: z.number(),
+  skippedByFileLimit: z.number(),
+  strippedRootFolder: z.string().optional(),
+});
+
 export const scanReportSchema = z.object({
   repoName: z.string(),
   scanSource: scanSourceSchema.optional(),
+  zipStats: zipStatsSchema.optional(),
   scannedAt: z.string(),
   filesScanned: z.number(),
   ignoredFiles: z.number(),

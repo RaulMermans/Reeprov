@@ -1,7 +1,8 @@
 export const DIRECT_ZIP_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
 export const DIRECT_ZIP_UPLOAD_MAX_MB = 4;
+export const MAX_ZIP_ENTRIES = 2000;
+export const MAX_SCANNED_ZIP_FILES = 800;
 export const MAX_UNCOMPRESSED_ZIP_BYTES = 50 * 1024 * 1024;
 export const MAX_UNCOMPRESSED_ZIP_MB = 50;
-export const MAX_ZIP_FILES = 500;
 export const MAX_ZIP_TEXT_FILE_BYTES = 1 * 1024 * 1024;
 export const MAX_ZIP_PATH_LENGTH = 240;

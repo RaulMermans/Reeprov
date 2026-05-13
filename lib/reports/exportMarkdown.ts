@@ -15,6 +15,7 @@ export function exportReportMarkdown(report: ScanReport) {
     `- Auditor mode: ${auditorMode(report)}`,
     `- Files scanned: ${report.filesScanned}`,
     `- Files ignored: ${report.ignoredFiles}`,
+    ...zipStatsMarkdown(report),
     "",
     "## Detected Counts",
     "",
@@ -66,6 +67,17 @@ export function exportReportMarkdown(report: ScanReport) {
   ];
 
   return lines.join("\n");
+}
+
+function zipStatsMarkdown(report: ScanReport) {
+  if (!report.zipStats) return [];
+
+  return [
+    `- ZIP entries: ${report.zipStats.totalEntries}`,
+    `- ZIP candidate files: ${report.zipStats.candidateFiles}`,
+    `- ZIP scanned files: ${report.zipStats.scannedFiles}`,
+    `- ZIP skipped files: ${report.zipStats.skippedByFileLimit}`,
+  ];
 }
 
 function findingsMarkdown(findings: Finding[]) {

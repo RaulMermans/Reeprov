@@ -12,6 +12,7 @@ import type {
   RepoFile,
   ScanReport,
   ScanSource,
+  ZipScanStats,
 } from "./types";
 
 interface RawRepoFile {
@@ -23,6 +24,7 @@ interface RawRepoFile {
 interface StaticScanOptions {
   githubTreeTruncated?: boolean;
   scanSource?: ScanSource;
+  zipStats?: ZipScanStats;
 }
 
 export function staticScan(
@@ -132,6 +134,19 @@ export function staticScanFromFiles(
     ));
   }
 
+  if (options.zipStats && options.zipStats.skippedByFileLimit > 0) {
+    findings.push(finding(
+      "zip-scan-prioritized-subset",
+      "ingestion",
+      options.zipStats.skippedByFileLimit > 200 ? "medium" : "low",
+      "ZIP scan analyzed prioritized subset",
+      `ZIP contained ${options.zipStats.candidateFiles} candidate files. AgentPulse scanned the top ${options.zipStats.scannedFiles} prioritized files and skipped ${options.zipStats.skippedByFileLimit} lower-priority files.`,
+      [],
+      "Use GitHub repository scanning for a complete scan, or reduce the ZIP size.",
+      0.95,
+    ));
+  }
+
   // -- Security findings --
 
   for (const file of files) {
@@ -226,6 +241,7 @@ export function staticScanFromFiles(
   return {
     repoName,
     scanSource: options.scanSource,
+    zipStats: options.zipStats,
     scannedAt: new Date().toISOString(),
     filesScanned: scannedFiles.length,
     ignoredFiles: files.length - scannedFiles.length,

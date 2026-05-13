@@ -33,9 +33,9 @@ Without `GITHUB_TOKEN`, the dashboard and API routes return mock data for GitHub
 
 Direct ZIP upload is limited to 4 MB on Vercel so requests stay below serverless function body limits. Larger repositories should use GitHub repository scanning, which avoids the direct upload body limit.
 
-Post-upload ZIP extraction limits are 50 MB uncompressed, 500 files, 1 MB per analyzed text file, and 240 characters per path. Uploaded ZIPs are parsed in memory and are never persisted. Uploaded code is never executed, uploaded dependencies are never installed, ZIP entries are treated as untrusted input, and path traversal is blocked.
+Post-upload ZIP extraction limits are 2,000 total ZIP entries, 800 prioritized scanned text files, 50 MB uncompressed, 1 MB per analyzed text file, and 240 characters per path. File count is not an automatic rejection unless the hard entry limit is exceeded; large file-count archives are scanned as a prioritized subset and the report records how many lower-priority files were skipped. Uploaded ZIPs are parsed in memory and are never persisted. Uploaded code is never executed, uploaded dependencies are never installed, ZIP entries are treated as untrusted input, and path traversal is blocked.
 
-Future larger-ZIP options are client-side ZIP extraction, Vercel Blob client upload with temporary scan/delete, or a local CLI scanner.
+GitHub repository scanning is preferred for complete scans of larger repositories because it avoids the direct upload body limit and ZIP subset cap.
 
 ## Environment Variables
 

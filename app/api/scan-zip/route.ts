@@ -47,6 +47,7 @@ export async function POST(request: Request) {
         label: filename,
         filename,
       },
+      zipStats: extracted.zipStats,
       allowLlmAuditors: true,
     });
 

@@ -43,8 +43,13 @@ Commit 4 is complete when private Vercel deployment readiness is documented and 
 
 - Direct ZIP upload aligned with Vercel request body limits at 4 MB.
 - Dashboard and `/api/scan-zip` both direct larger repositories to GitHub scanning.
-- ZIP safety limits remain in place after upload: 50 MB uncompressed, 500 files, 1 MB per analyzed text file, and 240-character paths.
-- Larger-ZIP options deferred: client-side extraction, Vercel Blob temporary upload/scan/delete, or local CLI scanner.
+- ZIP safety limits remain in place after upload: 50 MB uncompressed, 1 MB per analyzed text file, and 240-character paths.
+
+**Commit 6B: ZIP file-count handling + failed-scan UX**
+
+- ZIP entry safety limit split from scanned-file limit: 2,000 total entries and 800 prioritized scanned text files.
+- Reasonable GitHub ZIPs with more than 500 files scan instead of failing by file count alone.
+- Dashboard shows ZIP stats and labels retained reports as the last successful scan after a failed scan.
 
 **Commit 7: deployed smoke-test fixes + dashboard/report polish**
 

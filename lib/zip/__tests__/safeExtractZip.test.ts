@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { runScanPipeline } from "@/lib/reports/runScanPipeline";
+import { MAX_SCANNED_ZIP_FILES, MAX_ZIP_ENTRIES } from "../limits";
 import { safeExtractZip, ZipExtractionError } from "../safeExtractZip";
 
 async function zipBuffer(entries: Record<string, string | Uint8Array>) {
@@ -32,16 +33,26 @@ describe("safeExtractZip", () => {
     expect(result.files.map((file) => file.path)).toEqual(["README.md", "src/index.ts"]);
   });
 
-  it("rejects path traversal entries", async () => {
-    await expect(safeExtractZip(await zipBuffer({
+  it("ignores path traversal entries", async () => {
+    const result = await safeExtractZip(await zipBuffer({
       "../escape.ts": "export const bad = true;",
-    }))).rejects.toBeInstanceOf(ZipExtractionError);
+      "src/index.ts": "export const ok = true;",
+      "README.md": "# ok",
+    }));
+
+    expect(result.files.map((file) => file.path)).toContain("src/index.ts");
+    expect(result.ignoredFiles.some((file) => file.reason === "Unsafe ZIP entry path is ignored.")).toBe(true);
   });
 
-  it("rejects absolute paths", async () => {
-    await expect(safeExtractZip(await zipBuffer({
+  it("ignores absolute paths", async () => {
+    const result = await safeExtractZip(await zipBuffer({
       "/tmp/escape.ts": "export const bad = true;",
-    }))).rejects.toBeInstanceOf(ZipExtractionError);
+      "src/index.ts": "export const ok = true;",
+      "README.md": "# ok",
+    }));
+
+    expect(result.files.map((file) => file.path)).toContain("src/index.ts");
+    expect(result.ignoredFiles.some((file) => file.reason === "Unsafe ZIP entry path is ignored.")).toBe(true);
   });
 
   it("ignores .env files except .env.example", async () => {
@@ -67,13 +78,99 @@ describe("safeExtractZip", () => {
     expect(result.ignoredFiles.some((file) => file.path === "data/blob.dat")).toBe(true);
   });
 
-  it("enforces maxFiles", async () => {
+  it("allows a 537-file ZIP under the byte limits", async () => {
+    const entries = Object.fromEntries(
+      Array.from({ length: 537 }, (_, index) => [`src/file-${index}.ts`, `export const value${index} = ${index};`]),
+    );
+
+    const result = await safeExtractZip(await zipBuffer(entries));
+
+    expect(result.files).toHaveLength(537);
+    expect(result.zipStats.candidateFiles).toBe(537);
+    expect(result.zipStats.scannedFiles).toBe(537);
+    expect(result.zipStats.skippedByFileLimit).toBe(0);
+  });
+
+  it("enforces max entries", async () => {
+    const entries = Object.fromEntries(
+      Array.from({ length: MAX_ZIP_ENTRIES + 1 }, (_, index) => [`src/file-${index}.ts`, "export {};"]),
+    );
+
+    await expect(safeExtractZip(await zipBuffer(entries))).rejects.toThrow(
+      "ZIP contains too many entries to inspect safely. Maximum entries: 2,000. Use GitHub repository scanning or reduce the archive.",
+    );
+  });
+
+  it("scans a prioritized subset when candidates exceed max scanned files", async () => {
+    const entries = Object.fromEntries(
+      Array.from({ length: MAX_SCANNED_ZIP_FILES + 5 }, (_, index) => [`src/file-${index}.ts`, "export {};"]),
+    );
+
+    const result = await safeExtractZip(await zipBuffer(entries));
+
+    expect(result.files).toHaveLength(MAX_SCANNED_ZIP_FILES);
+    expect(result.zipStats.candidateFiles).toBe(MAX_SCANNED_ZIP_FILES + 5);
+    expect(result.zipStats.scannedFiles).toBe(MAX_SCANNED_ZIP_FILES);
+    expect(result.zipStats.skippedByFileLimit).toBe(5);
+    expect(result.ignoredFiles.filter((file) => file.reason.includes("Lower-priority text file skipped"))).toHaveLength(5);
+  });
+
+  it("prioritizes agent and workflow manifests before slicing", async () => {
+    const lowPriorityEntries = Object.fromEntries(
+      Array.from({ length: 20 }, (_, index) => [`misc/file-${index}.txt`, `notes ${index}`]),
+    );
+
+    const result = await safeExtractZip(await zipBuffer({
+      ...lowPriorityEntries,
+      "misc/late.txt": "notes",
+      "AGENTS.md": "Agent operating guide.",
+      "workflow.yaml": "workflow:\n  id: main\n",
+    }), {
+      limits: { maxScannedFiles: 2 },
+    });
+
+    expect(result.files.map((file) => file.path)).toEqual(["AGENTS.md", "workflow.yaml"]);
+    expect(result.zipStats.candidateFiles).toBe(23);
+    expect(result.zipStats.scannedFiles).toBe(2);
+    expect(result.zipStats.skippedByFileLimit).toBe(21);
+  });
+
+  it("adds a warning finding when ZIP candidates are truncated", async () => {
+    const extracted = await safeExtractZip(await zipBuffer({
+      "AGENTS.md": "Agent operating guide.",
+      "src/a.ts": "export const a = 1;",
+      "src/b.ts": "export const b = 2;",
+    }), {
+      limits: { maxScannedFiles: 2 },
+    });
+
+    const report = await runScanPipeline({
+      repoName: "truncated.zip",
+      files: extracted.files,
+      scanSource: { type: "zip", label: "truncated.zip", filename: "truncated.zip" },
+      zipStats: extracted.zipStats,
+    });
+
+    const warning = report.findings.find((finding) => finding.id === "zip-scan-prioritized-subset");
+    expect(warning?.title).toBe("ZIP scan analyzed prioritized subset");
+    expect(warning?.summary).toBe(
+      "ZIP contained 3 candidate files. AgentPulse scanned the top 2 prioritized files and skipped 1 lower-priority files.",
+    );
+  });
+
+  it("supports smaller scanned-file limits for tests", async () => {
     await expect(safeExtractZip(await zipBuffer({
       "a.ts": "a",
       "b.ts": "b",
     }), {
-      limits: { maxFiles: 1 },
-    })).rejects.toBeInstanceOf(ZipExtractionError);
+      limits: { maxScannedFiles: 1 },
+    })).resolves.toMatchObject({
+      zipStats: {
+        candidateFiles: 2,
+        scannedFiles: 1,
+        skippedByFileLimit: 1,
+      },
+    });
   });
 
   it("enforces max uncompressed size", async () => {

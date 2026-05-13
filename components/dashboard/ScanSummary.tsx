@@ -16,6 +16,7 @@ export function ScanSummary({ report }: { report: ScanReport }) {
     ["Evals", report.detectedEvals.length, GitBranch],
   ] as const;
   const source = report.scanSource;
+  const zipStats = report.zipStats;
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -75,6 +76,28 @@ export function ScanSummary({ report }: { report: ScanReport }) {
               <div className="mt-1 font-medium text-slate-950">{report.ignoredFiles}</div>
             </div>
           </div>
+          {source?.type === "zip" && zipStats ? (
+            <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-sm">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">ZIP entries</div>
+                <div className="mt-1 font-medium text-slate-950">{zipStats.totalEntries}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Candidates</div>
+                <div className="mt-1 font-medium text-slate-950">{zipStats.candidateFiles}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">ZIP scanned</div>
+                <div className="mt-1 font-medium text-slate-950">{zipStats.scannedFiles}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Skipped</div>
+                <div className={`mt-1 font-medium ${zipStats.skippedByFileLimit > 0 ? "text-amber-700" : "text-slate-950"}`}>
+                  {zipStats.skippedByFileLimit}
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
         <div className="mt-4 border-t border-slate-100 pt-4">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Auditor Mode</h3>

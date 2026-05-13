@@ -42,11 +42,7 @@ Direct ZIP upload is limited to 4 MB on Vercel so `/api/scan-zip` stays below se
 
 Uploaded ZIPs are parsed in memory, never persisted, and treated as untrusted input. AgentPulse never executes uploaded code, never installs uploaded dependencies, and blocks path traversal before scanning entries.
 
-Future larger-ZIP options are:
-
-1. Client-side ZIP extraction.
-2. Vercel Blob client upload with temporary scan/delete.
-3. Local CLI scanner.
+ZIP extraction has a hard safety limit of 2,000 total entries and 50 MB uncompressed content. Candidate text files are prioritized and capped at 800 scanned files; archives with more candidates still scan, but the report warns that lower-priority files were skipped. GitHub scanning is preferred for complete scans of larger repositories.
 
 ## LLM Auditor Feature Flag
 
@@ -84,11 +80,12 @@ Vercel builds run in a clean environment each time, so the cache restore timeout
 4. Call `/api/repos` without header and confirm 401.
 5. Scan a sample repo.
 6. Upload a ZIP under 4 MB and confirm it scans.
-7. Select a ZIP over 4 MB and confirm the dashboard recommends GitHub scanning before upload.
-8. Confirm `.env*` files are ignored.
-9. Confirm no secrets appear in the browser devtools response.
-10. If `ENABLE_LLM_AUDITORS=false`, confirm no LLM call is made.
-11. If `ENABLE_LLM_AUDITORS=true` and API key exists, confirm Prompt Auditor runs only on prompt evidence.
+7. Upload a ZIP with more than 500 files but fewer than 800 candidate text files and confirm it scans without a file-count error.
+8. Select a ZIP over 4 MB and confirm the dashboard recommends GitHub scanning before upload.
+9. Confirm `.env*` files are ignored.
+10. Confirm no secrets appear in the browser devtools response.
+11. If `ENABLE_LLM_AUDITORS=false`, confirm no LLM call is made.
+12. If `ENABLE_LLM_AUDITORS=true` and API key exists, confirm Prompt Auditor runs only on prompt evidence.
 
 ## Rollback Advice
 

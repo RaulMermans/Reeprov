@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { defaultZipExtractLimits } from "../types";
 import {
   DIRECT_ZIP_UPLOAD_MAX_BYTES,
+  MAX_SCANNED_ZIP_FILES,
   MAX_UNCOMPRESSED_ZIP_BYTES,
-  MAX_ZIP_FILES,
+  MAX_ZIP_ENTRIES,
 } from "../limits";
 
 describe("ZIP limit constants", () => {
@@ -13,6 +14,7 @@ describe("ZIP limit constants", () => {
 
   it("keeps default safe extraction limits unchanged", () => {
     expect(defaultZipExtractLimits.maxUncompressedBytes).toBe(MAX_UNCOMPRESSED_ZIP_BYTES);
-    expect(defaultZipExtractLimits.maxFiles).toBe(MAX_ZIP_FILES);
+    expect(defaultZipExtractLimits.maxEntries).toBe(MAX_ZIP_ENTRIES);
+    expect(defaultZipExtractLimits.maxScannedFiles).toBe(MAX_SCANNED_ZIP_FILES);
   });
 });

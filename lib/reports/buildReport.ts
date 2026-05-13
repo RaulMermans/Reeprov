@@ -1,4 +1,4 @@
-import type { ScanReport, ScanSource } from "@/lib/scanner/types";
+import type { ScanReport, ScanSource, ZipScanStats } from "@/lib/scanner/types";
 import { runScanPipeline } from "./runScanPipeline";
 
 interface BuildReportInput {
@@ -9,6 +9,7 @@ interface BuildReportInput {
     content?: string;
   }>;
   scanSource?: ScanSource;
+  zipStats?: ZipScanStats;
   githubTreeTruncated?: boolean;
   allowLlmAuditors?: boolean;
 }

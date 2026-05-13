@@ -35,6 +35,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
   const [accessKeyInput, setAccessKeyInput] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [failedScanReportLabel, setFailedScanReportLabel] = useState<string | null>(null);
   const [repositories, setRepositories] = useState<RepositorySummary[]>([]);
 
   useEffect(() => {
@@ -66,6 +67,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
         });
 
         setRepositories(body.repos);
+        setFailedScanReportLabel(null);
         setSuccessMessage(
           body.mode === "mock"
             ? "Using mock repositories because GITHUB_TOKEN is not configured."
@@ -73,6 +75,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
         );
       } catch (error) {
         setSuccessMessage(null);
+        setFailedScanReportLabel(null);
         setErrorMessage(apiMessage(error, "Repository loading failed."));
       } finally {
         setLoadingRepos(false);
@@ -88,6 +91,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
 
     if (!trimmed) {
       setErrorMessage("Enter your AgentPulse access key.");
+      setFailedScanReportLabel(null);
       return;
     }
 
@@ -95,6 +99,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
     setAccessKey(trimmed);
     setErrorMessage(null);
     setSuccessMessage(null);
+    setFailedScanReportLabel(null);
   }
 
   function clearAccessKey() {
@@ -104,12 +109,14 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
     setRepositories([]);
     setErrorMessage(null);
     setSuccessMessage(null);
+    setFailedScanReportLabel(null);
   }
 
   async function scan(repo: { owner?: string; name?: string; mock?: boolean }) {
     setLoading(true);
     setErrorMessage(null);
     setSuccessMessage(null);
+    setFailedScanReportLabel(null);
 
     try {
       const body = await fetchApi<ScanReport>("/api/scan", {
@@ -124,7 +131,9 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
       setReport(body);
       setSuccessMessage(`Scan complete for ${body.scanSource?.label ?? body.repoName}.`);
     } catch (error) {
-      setErrorMessage(apiMessage(error, "Scan failed."));
+      const target = repo.mock ? "Mock scan" : [repo.owner, repo.name].filter(Boolean).join("/");
+      setErrorMessage(`Scan failed${target ? ` for ${target}` : ""}: ${apiMessage(error, "Scan failed.")}`);
+      setFailedScanReportLabel(report.scanSource?.label ?? report.repoName);
     } finally {
       setLoading(false);
     }
@@ -133,22 +142,26 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
   async function scanZip() {
     if (!zipFile) {
       setErrorMessage("Choose a ZIP file to scan.");
+      setFailedScanReportLabel(null);
       return;
     }
 
     if (!zipFile.name.toLowerCase().endsWith(".zip")) {
       setErrorMessage("Choose a file with a .zip filename.");
+      setFailedScanReportLabel(null);
       return;
     }
 
     if (zipFile.size > DIRECT_ZIP_UPLOAD_MAX_BYTES) {
       setErrorMessage(ZIP_TOO_LARGE_CLIENT_MESSAGE);
+      setFailedScanReportLabel(null);
       return;
     }
 
     setLoading(true);
     setErrorMessage(null);
     setSuccessMessage(null);
+    setFailedScanReportLabel(null);
 
     try {
       const formData = new FormData();
@@ -165,7 +178,8 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
       setReport(body);
       setSuccessMessage(`ZIP scan complete for ${body.scanSource?.label ?? body.repoName}.`);
     } catch (error) {
-      setErrorMessage(apiMessage(error, "ZIP scan failed."));
+      setErrorMessage(`ZIP scan failed for ${zipFile.name}: ${apiMessage(error, "ZIP scan failed.")}`);
+      setFailedScanReportLabel(report.scanSource?.label ?? report.repoName);
     } finally {
       setLoading(false);
     }
@@ -175,6 +189,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
     setZipFile(null);
     setErrorMessage(null);
     setSuccessMessage(null);
+    setFailedScanReportLabel(null);
   }
 
   function handleZipFileChange(file: File | null) {
@@ -183,10 +198,12 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
 
     if (file && file.size > DIRECT_ZIP_UPLOAD_MAX_BYTES) {
       setErrorMessage(ZIP_TOO_LARGE_CLIENT_MESSAGE);
+      setFailedScanReportLabel(null);
       return;
     }
 
     setErrorMessage(null);
+    setFailedScanReportLabel(null);
   }
 
   function downloadJson() {
@@ -204,6 +221,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
       setErrorMessage(null);
     } catch {
       setErrorMessage("Could not copy Markdown report to clipboard.");
+      setFailedScanReportLabel(null);
     }
   }
 
@@ -253,6 +271,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
   }
 
   const zipTooLarge = Boolean(zipFile && zipFile.size > DIRECT_ZIP_UPLOAD_MAX_BYTES);
+  const showLastSuccessfulScanLabel = Boolean(errorMessage && failedScanReportLabel);
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -363,6 +382,16 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
         <Card className="p-6 text-sm text-slate-600">Loading scan report...</Card>
       ) : (
         <>
+          {showLastSuccessfulScanLabel ? (
+            <div>
+              <div className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Last successful scan
+              </div>
+              <div className="mt-1 break-all text-lg font-semibold text-slate-950">
+                {failedScanReportLabel}
+              </div>
+            </div>
+          ) : null}
           <HealthOverview report={report} />
           <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>

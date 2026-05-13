@@ -93,9 +93,19 @@ export interface ScanSource {
   filename?: string;
 }
 
+export interface ZipScanStats {
+  totalEntries: number;
+  totalFiles: number;
+  candidateFiles: number;
+  scannedFiles: number;
+  skippedByFileLimit: number;
+  strippedRootFolder?: string;
+}
+
 export interface ScanReport {
   repoName: string;
   scanSource?: ScanSource;
+  zipStats?: ZipScanStats;
   scannedAt: string;
   filesScanned: number;
   ignoredFiles: number;

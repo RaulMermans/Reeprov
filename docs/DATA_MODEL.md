@@ -15,6 +15,10 @@ Identifies where a scan came from:
 
 ZIP extraction also tracks ignored-file metadata internally: normalized path, reason, and size.
 
+## ZipScanStats
+
+Attached to ZIP scan reports as `zipStats`. It includes `totalEntries`, `totalFiles`, `candidateFiles`, `scannedFiles`, `skippedByFileLimit`, and optional `strippedRootFolder`. These fields distinguish the hard ZIP entry safety limit from the prioritized scanned-file cap.
+
 ## FileClassification
 
 One of `agent_config`, `workflow_config`, `prompt`, `tool`, `eval`, `workflow`, `documentation`, `environment`, `package_config`, `source_code`, `test`, or `unknown`.
@@ -80,4 +84,4 @@ Represents category scores for architecture, prompt quality, tool governance, ev
 
 ## ScanReport
 
-Represents the complete audit output: repository name, optional `scanSource`, scan timestamp, scanned and ignored file counts, `projectType`, `detectedAgents`, `detectedWorkflowsDetailed`, detected prompts/tools/evals/workflow paths, findings, scores, recommendations, and optional auditor status.
+Represents the complete audit output: repository name, optional `scanSource`, optional ZIP stats, scan timestamp, scanned and ignored file counts, `projectType`, `detectedAgents`, `detectedWorkflowsDetailed`, detected prompts/tools/evals/workflow paths, findings, scores, recommendations, and optional auditor status.

@@ -54,13 +54,13 @@ Raw `.env*` files are not scanned. Every `.env*` file is ignored except `.env.ex
 
 ZIP files are untrusted input. AgentPulse parses ZIP uploads in memory, does not persist uploaded archives, does not preserve executable permissions, does not follow symlinks, and never executes uploaded code or installs uploaded dependencies.
 
-ZIP entries are normalized with Windows backslashes converted to `/`. Absolute paths, drive-letter paths, `../` traversal, and paths longer than 240 characters are rejected. GitHub ZIP top-level folders such as `repo-main/` are stripped after path validation.
+ZIP entries are normalized with Windows backslashes converted to `/`. Absolute paths, drive-letter paths, `../` traversal, and paths longer than 240 characters are ignored before scanning. GitHub ZIP top-level folders such as `repo-main/` are stripped after path validation.
 
 Direct ZIP upload is limited to 4 MB on Vercel so requests stay below serverless function body limits. Larger repositories should use GitHub repository scanning.
 
-Post-upload ZIP extraction limits are 50 MB uncompressed, 500 files, and 1 MB per analyzed text file. Binary files, ignored paths, `.env*` files except `.env.example`, generated folders, dependency folders, and lockfiles are not analyzed.
+Post-upload ZIP extraction limits are 2,000 total ZIP entries, 800 prioritized scanned text files, 50 MB uncompressed, and 1 MB per analyzed text file. File count is no longer an automatic rejection unless the hard 2,000-entry safety limit is exceeded. When a ZIP has more than 800 candidate text files, AgentPulse scans the highest-priority files first and reports how many lower-priority files were skipped.
 
-Future larger-ZIP options are client-side ZIP extraction, Vercel Blob client upload with temporary scan/delete, or a local CLI scanner.
+Binary files, ignored paths, `.env*` files except `.env.example`, generated folders, dependency folders, and lockfiles are not analyzed. GitHub repository scanning is preferred for complete scans of larger repositories.
 
 ## Prompt Injection
 
