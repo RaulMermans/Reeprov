@@ -59,6 +59,7 @@ export const projectTypeSchema = z.enum([
   "agent_system",
   "workflow_system",
   "hybrid_workflow_agent",
+  "ai_application",
   "unknown_ai_project",
 ]);
 

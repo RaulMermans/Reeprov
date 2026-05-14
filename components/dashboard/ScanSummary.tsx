@@ -1,7 +1,8 @@
 import { Bot, FileCheck2, GitBranch, Terminal, Wrench } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { buildScoreExplanations } from "@/lib/reports/scoreExplanations";
 import type { ScanReport } from "@/lib/scanner/types";
-import { formatScore, projectTypeLabel, scoreEntries } from "@/lib/utils/format";
+import { formatScore, projectTypeDescription, projectTypeLabel, scoreEntries } from "@/lib/utils/format";
 
 export function ScanSummary({ report }: { report: ScanReport }) {
   const auditorStatus = report.auditorStatus;
@@ -18,6 +19,7 @@ export function ScanSummary({ report }: { report: ScanReport }) {
   ] as const;
   const source = report.scanSource;
   const zipStats = report.zipStats;
+  const scoreExplanations = buildScoreExplanations(report);
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -45,17 +47,39 @@ export function ScanSummary({ report }: { report: ScanReport }) {
       <Card className="p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Scores</h2>
         <div className="mt-4 space-y-3">
-          {scoreEntries(report.scores).map(([label, value]) => (
-            <details className="group" key={label}>
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-                <span className="text-sm text-slate-700">{label}</span>
-                <span className="font-medium text-slate-950">{formatScore(value)}</span>
-              </summary>
-              <p className="mt-1 text-xs leading-5 text-slate-600">
-                {scoreExplanation(label, report)}
-              </p>
-            </details>
-          ))}
+          {scoreEntries(report.scores).map(([label, value]) => {
+            const explanation = scoreExplanations.find((e) => e.label === label);
+            return (
+              <details className="group" key={label}>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+                  <span className="text-sm text-slate-700">{label}</span>
+                  <span className="font-medium text-slate-950">{formatScore(value)}</span>
+                </summary>
+                {explanation ? (
+                  <div className="mt-2 space-y-1.5 text-xs leading-5 text-slate-600">
+                    <p>{explanation.summary}</p>
+                    {explanation.positives.length > 0 && (
+                      <div>
+                        <span className="font-medium text-emerald-700">Positive: </span>
+                        {explanation.positives.join(" ")}
+                      </div>
+                    )}
+                    {explanation.penalties.length > 0 && (
+                      <div>
+                        <span className="font-medium text-amber-700">Penalties: </span>
+                        {explanation.penalties.join("; ")}.
+                      </div>
+                    )}
+                    {explanation.relatedFindingIds.length > 0 && (
+                      <div className="text-slate-400">
+                        {explanation.relatedFindingIds.length} related finding(s).
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </details>
+            );
+          })}
         </div>
       </Card>
       <Card className="p-5">
@@ -72,9 +96,12 @@ export function ScanSummary({ report }: { report: ScanReport }) {
           </div>
           <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Project type</div>
-          <div className="text-base font-semibold text-slate-950">
-            {projectTypeLabel(report.projectType)}
-          </div>
+            <div className="text-base font-semibold text-slate-950">
+              {projectTypeLabel(report.projectType)}
+            </div>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              {projectTypeDescription(report.projectType)}
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
@@ -134,42 +161,5 @@ function sourceLabel(type: NonNullable<ScanReport["scanSource"]>["type"]) {
     case "github": return "GitHub";
     case "zip": return "ZIP upload";
     case "mock": return "Mock";
-  }
-}
-
-function scoreExplanation(label: string, report: ScanReport) {
-  const category = scoreCategory(label);
-  const related = category
-    ? report.findings.filter((finding) => finding.category === category).map((finding) => finding.title).slice(0, 2)
-    : [];
-  const loweredBy = related.length > 0 ? ` Lowered by: ${related.join("; ")}.` : " No direct findings lowered this score.";
-
-  switch (label) {
-    case "Architecture":
-      return `Measures whether agent or workflow boundaries are documented with structured manifests.${loweredBy}`;
-    case "Prompt quality":
-      return `Measures prompt inventory, versioned prompt files, and prompt-auditor results when enabled.${loweredBy}`;
-    case "Tool governance":
-      return `Measures approval and dry-run policy for tools that can write or publish data.${loweredBy}`;
-    case "Eval coverage":
-      return `Measures whether dedicated AI evals cover core agent, prompt, tool, and workflow behavior. Software tests are counted separately.${loweredBy}`;
-    case "Security":
-      return `Measures secret exposure and sensitive file hygiene after redaction. Severity is calibrated by file context (production vs. test/docs).${loweredBy}`;
-    case "Documentation":
-      return `Measures README, AGENTS.md, and operational documentation coverage.${loweredBy}`;
-    default:
-      return "Weighted scanner score across the report.";
-  }
-}
-
-function scoreCategory(label: string) {
-  switch (label) {
-    case "Architecture": return "architecture";
-    case "Prompt quality": return "promptQuality";
-    case "Tool governance": return "toolGovernance";
-    case "Eval coverage": return "evalCoverage";
-    case "Security": return "security";
-    case "Documentation": return "documentation";
-    default: return undefined;
   }
 }

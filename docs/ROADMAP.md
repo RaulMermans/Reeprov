@@ -67,13 +67,28 @@ Commit 4 is complete when private Vercel deployment readiness is documented and 
 - Markdown export includes CI workflows, evals vs. tests, and agent/workflow source/confidence.
 - 116 tests pass. Lint, tsc, and build all pass.
 
-**Commit 8: Scan history**
+**Commit 8: Dashboard semantics + report readability (complete)**
+
+- `ai_application` project type added. Repos with AI SDK imports, AI API env names, or AI function patterns but no explicit manifest are now correctly typed as `ai_application` instead of `unknown_ai_project`.
+- `projectTypeDescription()` added to format utils. Dashboard Project card shows a short description below the project type label.
+- `lib/reports/recommendations.ts` created. `buildRecommendations()` is now project-type-aware: inventory recommendations adapt to `agent_system`, `workflow_system`, `ai_application`, etc. Duplicate inventory recommendations collapse into one.
+- `lib/reports/findingSummary.ts` created. Provides severity counts, category counts, and secret-context breakdown for the finding table header.
+- `lib/reports/scoreExplanations.ts` created. Each score category produces positives, penalties, and related finding count for the expandable score row.
+- `FindingTable.tsx` updated: severity summary bar above filters, category badge and context label per finding, evidence paths as monospace list, "No findings match filters" empty state.
+- `ScanSummary.tsx` updated: score rows now expand with summary, positives, penalties, and finding count. Project card shows type description.
+- `DashboardClient.tsx` updated: agent/workflow empty messages adapt to `ai_application`. Prompt section message adapts to project type. Footer shows `AgentPulse <version>`.
+- Markdown export updated: project type description inline, Score Explanations section, Findings Summary section (by severity, category, secret context), CI provider labels.
+- `NEXT_PUBLIC_AGENTPULSE_VERSION` env var supported. Defaults to "local".
+- CLAUDE.md invariants updated: ai_application, recommendation de-dup, score explanations, report semantics.
+- Tests added: ai_application detection, recommendation de-dup by project type, finding summary counts, score explanation behavior, markdown export.
+
+**Commit 9: Scan history**
 
 - Persist redacted reports in a simple store.
 - Score trend chart per repository.
 - Finding diff between scans.
 
-**Commit 9: GitHub OAuth or GitHub App**
+**Commit 10: GitHub OAuth or GitHub App**
 
 - Replace shared access key with GitHub OAuth restricted to the repo owner.
 - Or: GitHub App installation for personal repos.

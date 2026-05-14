@@ -21,7 +21,18 @@ export function projectTypeLabel(type: ProjectType): string {
     case "agent_system": return "Agent system";
     case "workflow_system": return "Workflow system";
     case "hybrid_workflow_agent": return "Hybrid workflow-agent system";
+    case "ai_application": return "AI application";
     case "unknown_ai_project": return "Unknown AI project";
+  }
+}
+
+export function projectTypeDescription(type: ProjectType): string {
+  switch (type) {
+    case "agent_system": return "Explicit or file-based agents detected.";
+    case "workflow_system": return "AI/product workflow structure detected.";
+    case "hybrid_workflow_agent": return "Both agent and workflow structures detected.";
+    case "ai_application": return "AI-related code detected, but no explicit agent or workflow manifest found.";
+    case "unknown_ai_project": return "No clear AI agent, workflow, or AI application structure detected.";
   }
 }
 

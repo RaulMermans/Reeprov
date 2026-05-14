@@ -419,9 +419,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
                 report.detectedAgents.map((agent) => <AgentCard agent={agent} key={agent.id} />)
               ) : (
                 <Card className="p-5 text-sm text-slate-600">
-                  {report.projectType === "workflow_system"
-                    ? "No explicit agents detected. This appears to be a workflow project."
-                    : "No agents detected."}
+                  {noAgentsMessage(report.projectType)}
                 </Card>
               )}
             </div>
@@ -440,8 +438,8 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
                 {report.projectType === "agent_system"
                   ? "No AI/product workflow manifest detected."
                   : report.detectedCIWorkflows.length > 0
-                    ? "No AI/product workflow manifest detected. CI workflows are shown below."
-                    : "No AI/product workflows detected."}
+                    ? "No AI/product workflow manifest detected. CI workflows are shown separately."
+                    : "No AI/product workflow manifest detected."}
               </Card>
             )}
           </section>
@@ -475,7 +473,10 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
                 </ul>
               ) : (
                 <div className="text-sm text-slate-600">
-                  No versioned prompt files detected. Add prompts/ or reference prompt_path in agents.yaml.
+                  No versioned prompt files detected.{" "}
+                  {report.projectType === "ai_application"
+                    ? "Prompt-related source files may exist but are not counted as prompt assets."
+                    : "Add prompts/ directory or reference prompt_path in agents.yaml."}
                 </div>
               )}
             </Card>
@@ -489,13 +490,21 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
           <section>
             <h2 className="mb-3 text-lg font-semibold text-slate-950">Recommended next actions</h2>
             <Card className="p-5">
-              <ul className="list-disc space-y-2 pl-5 text-sm text-slate-700">
-                {report.recommendations.map((recommendation) => (
-                  <li key={recommendation}>{recommendation}</li>
-                ))}
-              </ul>
+              {report.recommendations.length > 0 ? (
+                <ul className="list-disc space-y-2 pl-5 text-sm text-slate-700">
+                  {report.recommendations.map((recommendation) => (
+                    <li key={recommendation}>{recommendation}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-slate-600">No recommended actions at this time.</p>
+              )}
             </Card>
           </section>
+
+          <footer className="border-t border-slate-100 pt-4 text-center text-xs text-slate-400">
+            AgentPulse {appVersion()} · Static scanner · Redacted report
+          </footer>
         </>
       )}
     </main>
@@ -573,4 +582,22 @@ function ciProviderLabel(provider: string) {
     case "circleci": return "CircleCI";
     default: return "CI";
   }
+}
+
+function noAgentsMessage(projectType: ScanReport["projectType"]): string {
+  switch (projectType) {
+    case "workflow_system":
+      return "No explicit agents detected. This appears to be a workflow project.";
+    case "ai_application":
+      return "No explicit agents detected. AI-related application code was found.";
+    default:
+      return "No agents detected.";
+  }
+}
+
+function appVersion(): string {
+  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_AGENTPULSE_VERSION) {
+    return process.env.NEXT_PUBLIC_AGENTPULSE_VERSION;
+  }
+  return "local";
 }

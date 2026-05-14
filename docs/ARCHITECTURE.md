@@ -52,7 +52,14 @@ Inferred agents (no manifest) do not have repo-level prompts, tools, or evals au
 
 **CI workflows**: `.github/workflows/*`, `.gitlab-ci.yml`, `.circleci/` are classified as `ci` and reported separately in `detectedCIWorkflows`. CI workflows do NOT contribute to `detectedWorkflowsDetailed` and do NOT set the project type to `workflow_system`.
 
-Project type is derived from agents and AI/product workflows only: `agent_system`, `workflow_system`, `hybrid_workflow_agent`, or `unknown_ai_project`.
+Project type is derived from agents, AI/product workflows, and AI signals:
+- `agent_system`: explicit or file-based agents detected.
+- `workflow_system`: AI/product workflow manifest detected, no agents.
+- `hybrid_workflow_agent`: both agents and product workflows detected.
+- `ai_application`: AI-related code detected (model imports, AI env vars, AI function patterns) but no explicit agent or workflow manifest found.
+- `unknown_ai_project`: no AI signals detected.
+
+`ai_application` is set when the scanner finds AI SDK imports (`openai`, `@anthropic-ai`, `langchain`, etc.), AI API env variable names, or AI function call patterns without an explicit manifest. This covers repos with model-powered features that haven't been structured as agent or workflow systems.
 
 ### Eval vs Test Detection
 

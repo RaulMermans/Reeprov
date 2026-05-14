@@ -6,7 +6,7 @@ AgentPulse is a private personal dashboard for auditing AI-agent and AI-workflow
 
 ## Current Phase
 
-ZIP file-count handling + failed-scan UX (Commit 6B). Real LLM auditor calls remain feature-flagged and disabled by default.
+Dashboard semantics + report readability (Commit 8). Real LLM auditor calls remain feature-flagged and disabled by default.
 
 ## Architecture
 
@@ -97,6 +97,12 @@ Reference:
 - Inferred agents must not have repo-level prompts/tools/evals auto-attributed to them as mapped relationships.
 - Test files with "prompt" in the filename (e.g., prompt-input.test.ts) must not be classified as prompt files.
 - Only files in /prompts/, named system-prompt*, or with actual prompt language in content should be classified as "prompt".
+- Not every AI repo is an agent or workflow system. repos with AI SDK imports, AI API env names, or AI function patterns but no explicit manifest are ai_application, not unknown_ai_project.
+- Recommendations must be project-type-aware. Inventory recommendations should adapt to agent_system vs workflow_system vs ai_application vs unknown_ai_project.
+- Overlapping inventory recommendations (agents.yaml / workflow.yaml / agent inventory) must collapse into one project-type-aware recommendation.
+- Reports must distinguish raw findings from interpreted scores. Score explanations (positives, penalties, related findings count) must be surfaced separately from the raw finding table.
+- Exported reports must stay redacted. No raw secret values in markdown or JSON exports.
+- AI applications are first-class project types. Do not overstate inferred agent or workflow structure.
 
 ## What Not To Build Yet
 

@@ -1,4 +1,5 @@
 import yaml from "js-yaml";
+import { buildRecommendations } from "@/lib/reports/recommendations";
 import { classifyFile } from "./classifyFiles";
 import { deriveFileContext } from "./fileContext";
 import { getExtension, getFileName, isEnvFileName, shouldIgnorePath } from "./ignoreRules";
@@ -86,7 +87,8 @@ export function staticScanFromFiles(
   // CI workflows alone do not make a project a workflow_system.
   const hasAgents = detectedAgents.length > 0;
   const hasProductWorkflows = detectedWorkflowsDetailed.length > 0;
-  const projectType = deriveProjectType(hasAgents, hasProductWorkflows);
+  const hasAiSignals = hasAgents || hasProductWorkflows || detectAiSignals(scannedFiles);
+  const projectType = deriveProjectType(hasAgents, hasProductWorkflows, hasAiSignals);
 
   // -- Structural findings --
 
@@ -107,14 +109,19 @@ export function staticScanFromFiles(
   const hasWorkflowConfig = files.some((file) => file.classification === "workflow_config");
 
   if (!hasAgentConfig && !hasProductWorkflows && !hasWorkflowConfig) {
+    const configRec = projectType === "ai_application"
+      ? "If this project contains agent-like or workflow-like behavior, add agents.yaml or workflow.yaml. Otherwise, document AI model calls, prompts, tools, and evals in an ai-system.yaml inventory."
+      : "Add an agents.yaml or workflow.yaml inventory to document agents, workflows, prompts, tools, evals, ownership, and safety boundaries.";
     findings.push(finding(
       "missing-agent-config",
       "architecture",
-      "low",
-      "Missing structured agent config",
-      "No agents.yaml, agents.yml, agents.json, or workflow manifest was found.",
+      projectType === "ai_application" ? "info" : "low",
+      projectType === "ai_application" ? "No agent or workflow manifest found" : "Missing structured agent config",
+      projectType === "ai_application"
+        ? "AI-related code detected but no agents.yaml or workflow.yaml manifest was found."
+        : "No agents.yaml, agents.yml, agents.json, or workflow manifest was found.",
       [],
-      "Add an agents.yaml or workflow.yaml inventory so scanners and reviewers can reason about agent or workflow boundaries.",
+      configRec,
       0.75,
     ));
   } else if (!hasAgentConfig && (hasProductWorkflows || hasWorkflowConfig) && !files.some((file) => file.classification === "workflow_config")) {
@@ -275,7 +282,7 @@ export function staticScanFromFiles(
     detectedWorkflows: detectedWorkflowPaths,
     findings,
     scores,
-    recommendations: buildRecommendations(findings),
+    recommendations: buildRecommendations(findings, { projectType }),
   };
 }
 
@@ -397,11 +404,43 @@ function secretRecommendation(sourceType: ScanSource["type"] | undefined, fallba
 
 // -- Project type --
 
-function deriveProjectType(hasAgents: boolean, hasProductWorkflows: boolean): ProjectType {
+function deriveProjectType(hasAgents: boolean, hasProductWorkflows: boolean, hasAiSignals: boolean): ProjectType {
   if (hasAgents && hasProductWorkflows) return "hybrid_workflow_agent";
   if (hasAgents) return "agent_system";
   if (hasProductWorkflows) return "workflow_system";
+  if (hasAiSignals) return "ai_application";
   return "unknown_ai_project";
+}
+
+// AI signals: model/provider imports, AI-related env names, AI function patterns — but no
+// explicit agent or workflow manifest. Used to distinguish ai_application from unknown_ai_project.
+function detectAiSignals(files: RepoFile[]): boolean {
+  const aiProviderPattern =
+    /\b(?:openai|anthropic|gemini|cohere|mistral|llm|langchain|llamaindex|vertexai|bedrock|groq|together)\b/i;
+  const aiEnvPattern =
+    /\b(?:OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY|COHERE_API_KEY|TOGETHER_API_KEY|MISTRAL_API_KEY|LLM_PROVIDER|AI_MODEL|MODEL_PROVIDER|OPENAI_BASE_URL)\b/;
+  const aiFunctionPattern =
+    /\b(?:generateText|generateContent|createCompletion|chat\.completions|messages\.create|generate|summarize|classify|extract|enrich|embed|completion|streamText|generateObject)\b/;
+  const aiImportPattern =
+    /\b(?:from\s+["'](?:openai|@anthropic-ai|@google\/generative-ai|langchain|@langchain|llamaindex|groq-sdk|cohere-ai|together-ai)|import\s+OpenAI|import\s+Anthropic|require\(["']openai["']\))\b/;
+
+  for (const file of files) {
+    if (!file.content) continue;
+
+    // High-signal: AI SDK imports
+    if (aiImportPattern.test(file.content)) return true;
+
+    // High-signal: AI API env names
+    if (aiEnvPattern.test(file.content)) return true;
+
+    // Medium-signal: AI provider names + AI function patterns together
+    if (aiProviderPattern.test(file.content) && aiFunctionPattern.test(file.content)) return true;
+  }
+
+  // File-path signals: files named after AI providers or LLM concepts
+  const aiPathPattern =
+    /\b(?:openai|anthropic|gemini|llm|model[-_]provider|ai[-_]service|ai[-_]client|prompt[-_]builder|prompt[-_]service|ai[-_]utils?|modelService)\b/i;
+  return files.some((f) => aiPathPattern.test(f.name));
 }
 
 // -- File preparation --
@@ -888,35 +927,3 @@ function hashId(value: string) {
   return Math.abs(hash).toString(36);
 }
 
-// -- Recommendation de-duplication --
-
-function buildRecommendations(findings: Finding[]): string[] {
-  const actionable = findings.filter((f) => f.severity !== "info");
-
-  const secretRotationFindings = actionable.filter((f) =>
-    f.recommendation.toLowerCase().includes("rotate"),
-  );
-  const otherFindings = actionable.filter(
-    (f) => !f.recommendation.toLowerCase().includes("rotate"),
-  );
-
-  const deduped: string[] = [];
-
-  if (secretRotationFindings.length === 1) {
-    deduped.push(secretRotationFindings[0].recommendation);
-  } else if (secretRotationFindings.length > 1) {
-    deduped.push(
-      `Review and rotate any confirmed secret-like values flagged in ${secretRotationFindings.length} files.`,
-    );
-  }
-
-  const seen = new Set<string>(deduped);
-  for (const f of otherFindings) {
-    if (!seen.has(f.recommendation)) {
-      seen.add(f.recommendation);
-      deduped.push(f.recommendation);
-    }
-  }
-
-  return deduped.slice(0, 6);
-}

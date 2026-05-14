@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
+import { buildFindingSummary, categoryLabel, SEVERITY_ORDER } from "@/lib/reports/findingSummary";
 import type { Finding } from "@/lib/scanner/types";
 
 const severityTone = {
@@ -11,6 +12,18 @@ const severityTone = {
   high: "danger",
   critical: "danger",
 } as const;
+
+// Derive a short file-context label from a finding's summary text.
+function findingContextLabel(finding: Finding): string | null {
+  const summary = finding.summary;
+  if (summary.includes("(documentation)")) return "documentation";
+  if (summary.includes("(example/fixture)")) return "example";
+  if (summary.includes("(test file)")) return "test file";
+  if (summary.includes("(migration file)")) return "migration";
+  if (summary.includes("(CI configuration)")) return "CI configuration";
+  if (summary.includes("(production)")) return "production";
+  return null;
+}
 
 function EvidenceSnippets({ finding }: { finding: Finding }) {
   const [open, setOpen] = useState(false);
@@ -48,6 +61,45 @@ function EvidenceSnippets({ finding }: { finding: Finding }) {
   );
 }
 
+function FindingSummaryBar({ findings }: { findings: Finding[] }) {
+  const summary = useMemo(() => buildFindingSummary(findings), [findings]);
+
+  const severityColors = {
+    critical: "text-red-700 font-semibold",
+    high: "text-orange-700 font-semibold",
+    medium: "text-amber-700",
+    low: "text-slate-600",
+    info: "text-slate-400",
+  } as const;
+
+  const nonZero = SEVERITY_ORDER.filter((s) => summary.bySeverity[s] > 0);
+
+  if (findings.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-100 bg-slate-50 px-4 py-2 text-xs">
+      <span className="font-medium text-slate-500">Summary:</span>
+      {nonZero.map((s) => (
+        <span className={severityColors[s]} key={s}>
+          {summary.bySeverity[s]} {s}
+        </span>
+      ))}
+      {nonZero.length === 0 && <span className="text-slate-400">No findings.</span>}
+      {summary.secretContexts.length > 0 && (
+        <>
+          <span className="mx-1 text-slate-300">|</span>
+          <span className="font-medium text-slate-500">Secrets:</span>
+          {summary.secretContexts.map((sc) => (
+            <span className="text-slate-500" key={sc.context}>
+              {sc.count} {sc.label.toLowerCase()}
+            </span>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function FindingTable({ findings }: { findings: Finding[] }) {
   const [severity, setSeverity] = useState<Finding["severity"] | "all">("all");
   const [category, setCategory] = useState("all");
@@ -65,6 +117,7 @@ export function FindingTable({ findings }: { findings: Finding[] }) {
 
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <FindingSummaryBar findings={findings} />
       <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 md:flex-row md:items-center">
         <label className="flex flex-col gap-1 text-xs font-medium text-slate-600" htmlFor="severity-filter">
           Severity
@@ -89,7 +142,7 @@ export function FindingTable({ findings }: { findings: Finding[] }) {
           >
             <option value="all">all</option>
             {categories.map((value) => (
-              <option key={value} value={value}>{value}</option>
+              <option key={value} value={value}>{categoryLabel(value)}</option>
             ))}
           </select>
         </label>
@@ -121,22 +174,45 @@ export function FindingTable({ findings }: { findings: Finding[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {visibleFindings.map((finding) => (
-              <tr key={finding.id} className="align-top">
-                <td className="px-4 py-4">
-                  <Badge tone={severityTone[finding.severity]}>{finding.severity}</Badge>
-                </td>
-                <td className="px-4 py-4">
-                  <div className="font-medium text-slate-950">{finding.title}</div>
-                  <div className="mt-1 text-slate-600">{finding.summary}</div>
-                  <EvidenceSnippets finding={finding} />
-                </td>
-                <td className="px-4 py-4 text-slate-600">
-                  {finding.evidencePaths.length > 0 ? finding.evidencePaths.join(", ") : "None"}
-                </td>
-                <td className="px-4 py-4 text-slate-700">{finding.recommendation}</td>
-              </tr>
-            ))}
+            {visibleFindings.map((finding) => {
+              const contextLabel = findingContextLabel(finding);
+              return (
+                <tr key={finding.id} className="align-top">
+                  <td className="px-4 py-4">
+                    <Badge tone={severityTone[finding.severity]}>{finding.severity}</Badge>
+                    <div className="mt-1">
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
+                        {categoryLabel(finding.category)}
+                      </span>
+                    </div>
+                    {contextLabel ? (
+                      <div className="mt-1">
+                        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-600">
+                          {contextLabel}
+                        </span>
+                      </div>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="font-medium text-slate-950">{finding.title}</div>
+                    <div className="mt-1 text-slate-600">{finding.summary}</div>
+                    <EvidenceSnippets finding={finding} />
+                  </td>
+                  <td className="px-4 py-4 text-slate-600">
+                    {finding.evidencePaths.length > 0 ? (
+                      <ul className="space-y-0.5">
+                        {finding.evidencePaths.map((p) => (
+                          <li className="break-all font-mono text-xs" key={p}>{p}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span className="text-slate-400">None</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-4 text-slate-700">{finding.recommendation}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

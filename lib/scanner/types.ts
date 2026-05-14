@@ -32,6 +32,7 @@ export type ProjectType =
   | "agent_system"
   | "workflow_system"
   | "hybrid_workflow_agent"
+  | "ai_application"
   | "unknown_ai_project";
 
 export interface RepoFile {
