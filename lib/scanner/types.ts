@@ -7,11 +7,23 @@ export type FileClassification =
   | "tool"
   | "eval"
   | "workflow"
+  | "ci"
   | "documentation"
   | "environment"
   | "package_config"
   | "source_code"
   | "test"
+  | "unknown";
+
+// Operational context of a file — used to calibrate secret severity.
+export type FileContext =
+  | "production"
+  | "test"
+  | "documentation"
+  | "ci"
+  | "example"
+  | "config"
+  | "migration"
   | "unknown";
 
 export type Severity = "info" | "low" | "medium" | "high" | "critical";
@@ -29,6 +41,7 @@ export interface RepoFile {
   size: number;
   content?: string;
   classification: FileClassification;
+  fileContext?: FileContext;
   redacted: boolean;
   secretMatches?: string[];
   secretMatchDetails?: SecretMatch[];
@@ -44,6 +57,9 @@ export interface DetectedAgent {
   evalPaths: string[];
   configPath?: string;
   risks: string[];
+  source: "explicit" | "inferred";
+  confidence: "low" | "medium" | "high";
+  evidenceReason?: string;
 }
 
 export interface DetectedWorkflow {
@@ -55,6 +71,15 @@ export interface DetectedWorkflow {
   evals?: string[];
   configPath?: string;
   risks?: string[];
+  source: "explicit" | "inferred";
+  confidence: "low" | "medium" | "high";
+  evidenceReason?: string;
+}
+
+export interface DetectedCIWorkflow {
+  name: string;
+  path: string;
+  provider: "github_actions" | "gitlab" | "circleci" | "unknown";
 }
 
 export interface EvidenceSnippet {
@@ -112,9 +137,11 @@ export interface ScanReport {
   projectType: ProjectType;
   detectedAgents: DetectedAgent[];
   detectedWorkflowsDetailed: DetectedWorkflow[];
+  detectedCIWorkflows: DetectedCIWorkflow[];
   detectedPrompts: string[];
   detectedTools: string[];
   detectedEvals: string[];
+  detectedTests: string[];
   detectedWorkflows: string[];
   findings: Finding[];
   scores: Scores;

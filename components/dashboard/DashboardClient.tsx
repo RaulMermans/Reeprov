@@ -428,7 +428,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
           </section>
 
           <section>
-            <h2 className="mb-3 text-lg font-semibold text-slate-950">Detected workflows</h2>
+            <h2 className="mb-3 text-lg font-semibold text-slate-950">Detected AI/product workflows</h2>
             {report.detectedWorkflowsDetailed.length > 0 ? (
               <div className="grid gap-4 lg:grid-cols-2">
                 {report.detectedWorkflowsDetailed.map((workflow) => (
@@ -438,11 +438,31 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
             ) : (
               <Card className="p-5 text-sm text-slate-600">
                 {report.projectType === "agent_system"
-                  ? "No workflow manifest detected."
-                  : "No workflows detected."}
+                  ? "No AI/product workflow manifest detected."
+                  : report.detectedCIWorkflows.length > 0
+                    ? "No AI/product workflow manifest detected. CI workflows are shown below."
+                    : "No AI/product workflows detected."}
               </Card>
             )}
           </section>
+
+          {report.detectedCIWorkflows.length > 0 ? (
+            <section>
+              <h2 className="mb-3 text-lg font-semibold text-slate-950">CI workflows</h2>
+              <Card className="p-5">
+                <ul className="space-y-2 text-sm text-slate-700">
+                  {report.detectedCIWorkflows.map((w) => (
+                    <li className="flex items-center justify-between gap-3" key={w.path}>
+                      <span className="break-all font-mono text-xs text-slate-600">{w.path}</span>
+                      <span className="shrink-0 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                        {ciProviderLabel(w.provider)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            </section>
+          ) : null}
 
           <section>
             <h2 className="mb-3 text-lg font-semibold text-slate-950">Detected prompts</h2>
@@ -544,4 +564,13 @@ function downloadText(filename: string, content: string, type: string) {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function ciProviderLabel(provider: string) {
+  switch (provider) {
+    case "github_actions": return "GitHub Actions";
+    case "gitlab": return "GitLab CI";
+    case "circleci": return "CircleCI";
+    default: return "CI";
+  }
 }

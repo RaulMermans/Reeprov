@@ -1,4 +1,4 @@
-import { Bot, FileCheck2, GitBranch, Wrench } from "lucide-react";
+import { Bot, FileCheck2, GitBranch, Terminal, Wrench } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import type { ScanReport } from "@/lib/scanner/types";
 import { formatScore, projectTypeLabel, scoreEntries } from "@/lib/utils/format";
@@ -13,7 +13,8 @@ export function ScanSummary({ report }: { report: ScanReport }) {
     ["Agents", report.detectedAgents.length, Bot],
     ["Prompts", report.detectedPrompts.length, FileCheck2],
     ["Tools", report.detectedTools.length, Wrench],
-    ["Evals", report.detectedEvals.length, GitBranch],
+    ["AI Evals", report.detectedEvals.length, GitBranch],
+    ["Tests", report.detectedTests.length, Terminal],
   ] as const;
   const source = report.scanSource;
   const zipStats = report.zipStats;
@@ -30,6 +31,15 @@ export function ScanSummary({ report }: { report: ScanReport }) {
               <div className="text-sm text-slate-600">{label}</div>
             </div>
           ))}
+          {report.detectedCIWorkflows.length > 0 ? (
+            <div className="rounded-md border border-slate-200 p-3">
+              <GitBranch className="h-4 w-4 text-slate-400" />
+              <div className="mt-2 text-2xl font-semibold text-slate-950">
+                {report.detectedCIWorkflows.length}
+              </div>
+              <div className="text-sm text-slate-600">CI workflows</div>
+            </div>
+          ) : null}
         </div>
       </Card>
       <Card className="p-5">
@@ -142,9 +152,9 @@ function scoreExplanation(label: string, report: ScanReport) {
     case "Tool governance":
       return `Measures approval and dry-run policy for tools that can write or publish data.${loweredBy}`;
     case "Eval coverage":
-      return `Measures whether evals or tests cover core agent, prompt, tool, and workflow behavior.${loweredBy}`;
+      return `Measures whether dedicated AI evals cover core agent, prompt, tool, and workflow behavior. Software tests are counted separately.${loweredBy}`;
     case "Security":
-      return `Measures secret exposure and sensitive file hygiene after redaction.${loweredBy}`;
+      return `Measures secret exposure and sensitive file hygiene after redaction. Severity is calibrated by file context (production vs. test/docs).${loweredBy}`;
     case "Documentation":
       return `Measures README, AGENTS.md, and operational documentation coverage.${loweredBy}`;
     default:

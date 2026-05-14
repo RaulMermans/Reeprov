@@ -1,4 +1,5 @@
 import { GitBranch } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import type { DetectedWorkflow } from "@/lib/scanner/types";
 
@@ -10,12 +11,26 @@ const typeLabels: Record<NonNullable<DetectedWorkflow["type"]>, string> = {
 };
 
 export function WorkflowCard({ workflow }: { workflow: DetectedWorkflow }) {
+  const isInferred = workflow.source === "inferred";
+  const isLowConfidence = workflow.confidence === "low";
+
   return (
     <Card className="p-5">
       <div className="flex items-start gap-3">
         <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" />
         <div className="min-w-0 flex-1">
-          <div className="font-medium text-slate-950">{workflow.name}</div>
+          <div className="flex items-start justify-between gap-2">
+            <div className="font-medium text-slate-950">{workflow.name}</div>
+            <div className="flex shrink-0 flex-wrap gap-1">
+              {isInferred ? (
+                <Badge tone={isLowConfidence ? "warning" : "neutral"}>
+                  {isLowConfidence ? "Low confidence" : "Inferred"}
+                </Badge>
+              ) : (
+                <Badge tone="success">Explicit</Badge>
+              )}
+            </div>
+          </div>
           {workflow.type ? (
             <div className="mt-0.5 text-xs text-slate-500">{typeLabels[workflow.type]}</div>
           ) : null}

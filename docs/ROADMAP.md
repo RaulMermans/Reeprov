@@ -51,11 +51,21 @@ Commit 4 is complete when private Vercel deployment readiness is documented and 
 - Reasonable GitHub ZIPs with more than 500 files scan instead of failing by file count alone.
 - Dashboard shows ZIP stats and labels retained reports as the last successful scan after a failed scan.
 
-**Commit 7: deployed smoke-test fixes + dashboard/report polish**
+**Commit 7: scanner calibration + report semantics (complete)**
 
-- Run deployed staging smoke tests and fix any Vercel-specific route, rendering, timeout, or response-size issues.
-- Polish dashboard and report UX based on real deployed scans.
-- Add scan history only if persistence becomes necessary in a later commit.
+- `FileContext` type added (`production`, `test`, `documentation`, `ci`, `example`, `config`, `migration`, `unknown`).
+- Secret finding severity is now calibrated by file context. README/test/example DB URLs no longer drive security to 0.
+- Placeholder values (`ci-stub`, `changeme`, etc.) produce `info` severity findings.
+- `detectedEvals` now contains only explicit AI eval files; `detectedTests` is a new field for software tests.
+- "No evals" finding is now context-aware: "No dedicated AI eval suite detected" when tests exist, "No tests or evals detected" when neither exists.
+- `.github/workflows/*` is now classified as `ci` (not product workflow). CI workflows appear in `detectedCIWorkflows` and do not set project type to `workflow_system`.
+- `DetectedAgent` and `DetectedWorkflow` now include `source` (explicit/inferred), `confidence` (low/medium/high), and `evidenceReason`.
+- Inferred agents no longer have repo-level prompts/tools/evals auto-attributed. Dashboard shows "Not mapped" for unlinked attributes.
+- Prompt classification tightened: test files with "prompt" in the name are `test`, not `prompt`. Files only in `/prompts/` or with explicit prompt language count.
+- Agent/workflow cards show Explicit/Inferred/Low-confidence badges.
+- Dashboard has separate "AI/product workflows" and "CI workflows" sections.
+- Markdown export includes CI workflows, evals vs. tests, and agent/workflow source/confidence.
+- 116 tests pass. Lint, tsc, and build all pass.
 
 **Commit 8: Scan history**
 

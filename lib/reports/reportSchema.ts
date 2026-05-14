@@ -20,6 +20,19 @@ export const findingSchema = z.object({
   evidenceSnippets: z.array(evidenceSnippetSchema).optional(),
 });
 
+export const detectedAgentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  promptPaths: z.array(z.string()),
+  toolNames: z.array(z.string()),
+  evalPaths: z.array(z.string()),
+  configPath: z.string().optional(),
+  risks: z.array(z.string()),
+  source: z.enum(["explicit", "inferred"]),
+  confidence: z.enum(["low", "medium", "high"]),
+  evidenceReason: z.string().optional(),
+});
+
 export const detectedWorkflowSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -31,6 +44,15 @@ export const detectedWorkflowSchema = z.object({
   evals: z.array(z.string()).optional(),
   configPath: z.string().optional(),
   risks: z.array(z.string()).optional(),
+  source: z.enum(["explicit", "inferred"]),
+  confidence: z.enum(["low", "medium", "high"]),
+  evidenceReason: z.string().optional(),
+});
+
+export const detectedCIWorkflowSchema = z.object({
+  name: z.string(),
+  path: z.string(),
+  provider: z.enum(["github_actions", "gitlab", "circleci", "unknown"]),
 });
 
 export const projectTypeSchema = z.enum([
@@ -65,21 +87,13 @@ export const scanReportSchema = z.object({
   filesScanned: z.number(),
   ignoredFiles: z.number(),
   projectType: projectTypeSchema,
-  detectedAgents: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      promptPaths: z.array(z.string()),
-      toolNames: z.array(z.string()),
-      evalPaths: z.array(z.string()),
-      configPath: z.string().optional(),
-      risks: z.array(z.string()),
-    }),
-  ),
+  detectedAgents: z.array(detectedAgentSchema),
   detectedWorkflowsDetailed: z.array(detectedWorkflowSchema),
+  detectedCIWorkflows: z.array(detectedCIWorkflowSchema),
   detectedPrompts: z.array(z.string()),
   detectedTools: z.array(z.string()),
   detectedEvals: z.array(z.string()),
+  detectedTests: z.array(z.string()),
   detectedWorkflows: z.array(z.string()),
   findings: z.array(findingSchema),
   scores: z.object({

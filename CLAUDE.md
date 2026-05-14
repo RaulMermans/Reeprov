@@ -89,6 +89,14 @@ Reference:
 - ZIP extraction enforces 2,000 total entries, 800 prioritized scanned text files, 50 MB uncompressed, 1 MB per analyzed text file, and 240-character paths.
 - File count is not an automatic ZIP rejection unless the hard entry limit is exceeded.
 - Large ZIPs may scan a prioritized subset and should report skipped lower-priority files.
+- .github/workflows/* is CI infrastructure, NOT an AI/product workflow. It must be classified as "ci" and appear in detectedCIWorkflows, not detectedWorkflowsDetailed.
+- CI workflows alone do not set the project type to workflow_system.
+- Generic test files (*.test.ts, tests/*) are detectedTests, not detectedEvals. Only /evals/, /evaluations/, promptfoo configs, and eval manifests are detectedEvals.
+- Secret findings must be calibrated by file context (production vs. test vs. docs vs. example vs. ci). A README database URL example should not be high severity.
+- Placeholder/stub values (ci-stub, changeme, your-key-here, etc.) must produce info severity findings, not high.
+- Inferred agents must not have repo-level prompts/tools/evals auto-attributed to them as mapped relationships.
+- Test files with "prompt" in the filename (e.g., prompt-input.test.ts) must not be classified as prompt files.
+- Only files in /prompts/, named system-prompt*, or with actual prompt language in content should be classified as "prompt".
 
 ## What Not To Build Yet
 

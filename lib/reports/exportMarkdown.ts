@@ -20,10 +20,12 @@ export function exportReportMarkdown(report: ScanReport) {
     "## Detected Counts",
     "",
     `- Agents: ${report.detectedAgents.length}`,
-    `- Workflows: ${report.detectedWorkflowsDetailed.length}`,
-    `- Prompts: ${report.detectedPrompts.length}`,
+    `- AI/product workflows: ${report.detectedWorkflowsDetailed.length}`,
+    `- CI workflows: ${report.detectedCIWorkflows.length}`,
+    `- Prompt files: ${report.detectedPrompts.length}`,
     `- Tools: ${report.detectedTools.length}`,
-    `- Evals: ${report.detectedEvals.length}`,
+    `- Dedicated AI evals: ${report.detectedEvals.length}`,
+    `- Software tests: ${report.detectedTests.length}`,
     "",
     "## Scores",
     "",
@@ -33,29 +35,38 @@ export function exportReportMarkdown(report: ScanReport) {
     "",
     ...listOrEmpty(
       report.detectedAgents.map((agent) => {
+        const sourceLabel = agent.source === "explicit" ? "explicit" : `inferred (${agent.confidence} confidence)`;
         const details = [
           agent.configPath ? `config: ${agent.configPath}` : undefined,
-          agent.promptPaths.length ? `prompts: ${agent.promptPaths.join(", ")}` : undefined,
-          agent.toolNames.length ? `tools: ${agent.toolNames.join(", ")}` : undefined,
+          agent.source === "explicit" && agent.promptPaths.length
+            ? `prompts: ${agent.promptPaths.join(", ")}`
+            : undefined,
+          agent.source === "explicit" && agent.toolNames.length
+            ? `tools: ${agent.toolNames.join(", ")}`
+            : undefined,
+          `source: ${sourceLabel}`,
         ].filter(Boolean);
         return `- ${agent.name}${details.length ? ` (${details.join("; ")})` : ""}`;
       }),
       "- None detected.",
     ),
     "",
-    "## Detected Workflows",
+    "## Detected AI/Product Workflows",
     "",
     ...listOrEmpty(
       report.detectedWorkflowsDetailed.map((workflow) => {
+        const sourceLabel = workflow.source === "explicit" ? "explicit" : `inferred (${workflow.confidence} confidence)`;
         const details = [
           workflow.type ? `type: ${workflow.type}` : undefined,
           workflow.configPath ? `config: ${workflow.configPath}` : undefined,
+          `source: ${sourceLabel}`,
         ].filter(Boolean);
         return `- ${workflow.name}${details.length ? ` (${details.join("; ")})` : ""}`;
       }),
       "- None detected.",
     ),
     "",
+    ...ciWorkflowsMarkdown(report),
     "## Findings",
     "",
     ...findingsMarkdown(report.findings),
@@ -67,6 +78,16 @@ export function exportReportMarkdown(report: ScanReport) {
   ];
 
   return lines.join("\n");
+}
+
+function ciWorkflowsMarkdown(report: ScanReport) {
+  if (report.detectedCIWorkflows.length === 0) return [];
+  return [
+    "## CI Workflows",
+    "",
+    ...report.detectedCIWorkflows.map((w) => `- ${w.name} (${w.path}, ${w.provider})`),
+    "",
+  ];
 }
 
 function zipStatsMarkdown(report: ScanReport) {

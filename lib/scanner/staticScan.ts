@@ -1,12 +1,20 @@
 import yaml from "js-yaml";
 import { classifyFile } from "./classifyFiles";
+import { deriveFileContext } from "./fileContext";
 import { getExtension, getFileName, isEnvFileName, shouldIgnorePath } from "./ignoreRules";
 import { redactSecrets } from "./redactSecrets";
 import { scoreScan } from "./scoreScan";
+import {
+  hasDbCredentials,
+  isLocalDbUrl,
+  looksLikePlaceholder,
+} from "./secretPatterns";
 import type {
   DetectedAgent,
+  DetectedCIWorkflow,
   DetectedWorkflow,
   EvidenceSnippet,
+  FileContext,
   Finding,
   ProjectType,
   RepoFile,
@@ -47,22 +55,38 @@ export function staticScanFromFiles(
   const scannedFiles = files.filter((file) => !file.ignored);
   const findings: Finding[] = [];
 
+  // -- File-level counts (separated by kind) --
+
   const detectedPrompts = scannedFiles
     .filter((file) => file.classification === "prompt")
     .map((file) => file.path);
+
+  // Explicit AI evals: /evals/, /evaluations/, promptfoo configs.
   const detectedEvals = scannedFiles
-    .filter((file) => file.classification === "eval" || file.classification === "test")
+    .filter((file) => file.classification === "eval")
     .map((file) => file.path);
+
+  // Software tests: separate from AI evals.
+  const detectedTests = scannedFiles
+    .filter((file) => file.classification === "test")
+    .map((file) => file.path);
+
   const detectedWorkflowPaths = scannedFiles
-    .filter((file) => file.classification === "workflow" || file.classification === "workflow_config")
+    .filter(
+      (file) =>
+        file.classification === "workflow" || file.classification === "workflow_config",
+    )
     .map((file) => file.path);
+
   const detectedTools = detectTools(scannedFiles);
   const detectedAgents = detectAgents(scannedFiles, detectedPrompts, detectedTools, detectedEvals);
   const detectedWorkflowsDetailed = detectWorkflows(scannedFiles);
+  const detectedCIWorkflows = detectCIWorkflows(scannedFiles);
 
+  // CI workflows alone do not make a project a workflow_system.
   const hasAgents = detectedAgents.length > 0;
-  const hasWorkflows = detectedWorkflowsDetailed.length > 0;
-  const projectType = deriveProjectType(hasAgents, hasWorkflows);
+  const hasProductWorkflows = detectedWorkflowsDetailed.length > 0;
+  const projectType = deriveProjectType(hasAgents, hasProductWorkflows);
 
   // -- Structural findings --
 
@@ -79,11 +103,10 @@ export function staticScanFromFiles(
     ));
   }
 
-  // Only flag missing agent config when the project is not workflow-based.
   const hasAgentConfig = files.some((file) => /(^|\/)agents\.(ya?ml|json)$/i.test(file.path));
   const hasWorkflowConfig = files.some((file) => file.classification === "workflow_config");
 
-  if (!hasAgentConfig && !hasWorkflows && !hasWorkflowConfig) {
+  if (!hasAgentConfig && !hasProductWorkflows && !hasWorkflowConfig) {
     findings.push(finding(
       "missing-agent-config",
       "architecture",
@@ -94,8 +117,7 @@ export function staticScanFromFiles(
       "Add an agents.yaml or workflow.yaml inventory so scanners and reviewers can reason about agent or workflow boundaries.",
       0.75,
     ));
-  } else if (!hasAgentConfig && (hasWorkflows || hasWorkflowConfig) && !files.some((file) => file.classification === "workflow_config")) {
-    // Workflow code exists but no manifest — suggest adding workflow.yaml.
+  } else if (!hasAgentConfig && (hasProductWorkflows || hasWorkflowConfig) && !files.some((file) => file.classification === "workflow_config")) {
     findings.push(finding(
       "missing-workflow-config",
       "architecture",
@@ -108,16 +130,42 @@ export function staticScanFromFiles(
     ));
   }
 
-  if (!files.some((file) => /(^|\/)(evals|evaluations)\//i.test(file.path))) {
+  // Eval vs test distinction: only flag missing AI evals, not missing generic tests.
+  if (detectedEvals.length === 0 && detectedTests.length > 0) {
     findings.push(finding(
       "missing-evals",
       "evalCoverage",
       "medium",
-      "No evals directory detected",
-      "The repository does not appear to include a dedicated eval suite.",
+      "No dedicated AI eval suite detected",
+      "Software tests were found, but no explicit AI eval suite or eval manifest was detected.",
       [],
-      "Add eval cases for core prompts, tools, and failure modes.",
+      "Add eval cases for prompts, tool selection, grounding, refusal behavior, and failure modes.",
       0.85,
+    ));
+  } else if (detectedEvals.length === 0 && detectedTests.length === 0) {
+    findings.push(finding(
+      "missing-evals",
+      "evalCoverage",
+      "high",
+      "No tests or evals detected",
+      "Neither software tests nor a dedicated AI eval suite were found in this repository.",
+      [],
+      "Add tests for core behavior and dedicated AI eval cases for prompts, tool selection, and failure modes.",
+      0.85,
+    ));
+  }
+
+  // CI workflow finding when only CI workflows exist.
+  if (detectedCIWorkflows.length > 0 && !hasProductWorkflows) {
+    findings.push(finding(
+      "ci-only-no-ai-workflow",
+      "architecture",
+      "info",
+      "CI workflows detected; AI workflow manifest missing",
+      `${detectedCIWorkflows.length} CI workflow(s) detected, but no AI/product workflow manifest was found.`,
+      detectedCIWorkflows.map((w) => w.path).slice(0, 3),
+      "Add workflow.yaml only if this repository contains an AI/product workflow that should be audited.",
+      0.7,
     ));
   }
 
@@ -167,37 +215,8 @@ export function staticScanFromFiles(
     }
 
     if (file.redacted && file.secretMatchDetails && file.secretMatchDetails.length > 0) {
-      // Derive severity and confidence from the highest-confidence match.
-      const highestConfidence = file.secretMatchDetails.reduce((best, m) => {
-        if (m.confidence === "high") return "high";
-        if (best === "high") return "high";
-        if (m.confidence === "medium") return "medium";
-        return best;
-      }, "low" as "low" | "medium" | "high");
-
-      const severity = highestConfidence === "high" ? "high" : highestConfidence === "medium" ? "medium" : "low";
-      // Confidence value influences scoring (1.0 = high, 0.75 = medium, 0.5 = low).
-      const confidenceValue = highestConfidence === "high" ? 0.95 : highestConfidence === "medium" ? 0.75 : 0.5;
-
-      const secretTypes = file.secretMatchDetails.map((m) => m.kind).join(", ");
-      const snippets = buildSecretSnippets(file);
-
-      findings.push({
-        ...finding(
-          `redacted-secret-${hashId(file.path)}`,
-          "security",
-          severity,
-          "Secret-like value redacted",
-          `${secretTypes} detected and redacted in ${file.path}.`,
-          [file.path],
-          secretRecommendation(
-            options.scanSource?.type,
-            "Remove the value from the repository and rotate it if it was real.",
-          ),
-          confidenceValue,
-        ),
-        evidenceSnippets: snippets,
-      });
+      const f = buildSecretFinding(file, options.scanSource?.type);
+      if (f) findings.push(f);
     } else if (file.redacted) {
       // Fallback for backward compat: no detail available.
       findings.push(finding(
@@ -248,14 +267,124 @@ export function staticScanFromFiles(
     projectType,
     detectedAgents,
     detectedWorkflowsDetailed,
+    detectedCIWorkflows,
     detectedPrompts,
     detectedTools,
     detectedEvals,
+    detectedTests,
     detectedWorkflows: detectedWorkflowPaths,
     findings,
     scores,
     recommendations: buildRecommendations(findings),
   };
+}
+
+// -- Secret finding calibration --
+
+function buildSecretFinding(
+  file: RepoFile,
+  scanSourceType: ScanSource["type"] | undefined,
+): Finding | null {
+  const details = file.secretMatchDetails;
+  if (!details || details.length === 0) return null;
+
+  const context: FileContext = file.fileContext ?? "unknown";
+
+  const highestConfidence = details.reduce(
+    (best, m) => {
+      if (m.confidence === "high") return "high";
+      if (best === "high") return "high";
+      if (m.confidence === "medium") return "medium";
+      return best;
+    },
+    "low" as "low" | "medium" | "high",
+  );
+
+  // Placeholder detection: stub/example/changeme values are always info.
+  const hasPlaceholder = details.some(
+    (m) => m.matchedPreview && looksLikePlaceholder(m.matchedPreview),
+  );
+
+  // Credential-free database URL detection.
+  const allDbUrl = details.every((m) => m.kind === "Database URL");
+  const hasRealDbCredentials = details.some(
+    (m) => m.kind === "Database URL" && m.matchedPreview && hasDbCredentials(m.matchedPreview),
+  );
+  const hasLocalDbUrl = details.some(
+    (m) => m.kind === "Database URL" && m.matchedPreview && isLocalDbUrl(m.matchedPreview),
+  );
+  const isCredentialFreeOrLocalDb = allDbUrl && (!hasRealDbCredentials || hasLocalDbUrl);
+
+  let severity: Finding["severity"];
+  let confidenceValue: number;
+  let recommendation: string;
+
+  if (hasPlaceholder) {
+    severity = "info";
+    confidenceValue = 0.25;
+    recommendation =
+      "Placeholder/stub value detected; no rotation required unless this represents a real credential.";
+  } else if (isCredentialFreeOrLocalDb) {
+    severity = "info";
+    confidenceValue = 0.25;
+    recommendation =
+      "Non-credentialed or local database URL detected. If it contains real credentials, move them to environment variables.";
+  } else if (context === "documentation" || context === "example") {
+    // Docs and examples with apparent secret values — likely illustrative.
+    severity = highestConfidence === "high" ? "medium" : "low";
+    confidenceValue = highestConfidence === "high" ? 0.6 : 0.45;
+    recommendation =
+      "Review this documentation/example value. If it is real, move it to environment variables and rotate it.";
+  } else if (context === "test" || context === "migration") {
+    // Test files may use realistic-looking values but are not production risk.
+    severity = highestConfidence === "high" ? "medium" : "low";
+    confidenceValue = highestConfidence === "high" ? 0.6 : 0.45;
+    recommendation =
+      "Review this test value. If it is real, move it to environment variables and rotate it.";
+  } else if (context === "ci") {
+    // CI config secrets are real risk if the file is committed.
+    severity = highestConfidence === "high" ? "medium" : "low";
+    confidenceValue = 0.65;
+    recommendation =
+      "Move CI secrets to your CI provider's secrets management. Do not commit them to the repository.";
+  } else {
+    // Production, config, or unknown context: full severity.
+    severity = highestConfidence === "high" ? "high" : highestConfidence === "medium" ? "medium" : "low";
+    confidenceValue =
+      highestConfidence === "high" ? 0.95 : highestConfidence === "medium" ? 0.75 : 0.5;
+    recommendation = scanSourceType === "zip"
+      ? "If this ZIP came from a real repo, remove and rotate confirmed secrets."
+      : "Remove this value from the repository and rotate it if it was real.";
+  }
+
+  const secretTypes = details.map((m) => m.kind).join(", ");
+  const contextLabel = fileContextLabel(context);
+  const snippets = buildSecretSnippets(file);
+
+  return {
+    ...finding(
+      `redacted-secret-${hashId(file.path)}`,
+      "security",
+      severity,
+      "Secret-like value redacted",
+      `${secretTypes} detected and redacted in ${file.path}${contextLabel}.`,
+      [file.path],
+      recommendation,
+      confidenceValue,
+    ),
+    evidenceSnippets: snippets,
+  };
+}
+
+function fileContextLabel(context: FileContext): string {
+  switch (context) {
+    case "documentation": return " (documentation)";
+    case "test": return " (test file)";
+    case "example": return " (example/fixture)";
+    case "ci": return " (CI configuration)";
+    case "migration": return " (migration file)";
+    default: return "";
+  }
 }
 
 function secretRecommendation(sourceType: ScanSource["type"] | undefined, fallback: string) {
@@ -268,10 +397,10 @@ function secretRecommendation(sourceType: ScanSource["type"] | undefined, fallba
 
 // -- Project type --
 
-function deriveProjectType(hasAgents: boolean, hasWorkflows: boolean): ProjectType {
-  if (hasAgents && hasWorkflows) return "hybrid_workflow_agent";
+function deriveProjectType(hasAgents: boolean, hasProductWorkflows: boolean): ProjectType {
+  if (hasAgents && hasProductWorkflows) return "hybrid_workflow_agent";
   if (hasAgents) return "agent_system";
-  if (hasWorkflows) return "workflow_system";
+  if (hasProductWorkflows) return "workflow_system";
   return "unknown_ai_project";
 }
 
@@ -281,6 +410,7 @@ function toRepoFile(raw: RawRepoFile): RepoFile {
   const ignored = shouldIgnorePath(raw.path, raw.size);
   const initialContent = ignored.ignored ? undefined : raw.content;
   const classification = classifyFile(raw.path, initialContent);
+  const fileContext = deriveFileContext(raw.path);
   const redaction = ignored.ignored
     ? { content: "", redacted: false, matches: [], secretMatches: [] }
     : redactSecrets(initialContent);
@@ -292,12 +422,33 @@ function toRepoFile(raw: RawRepoFile): RepoFile {
     size: raw.size,
     content: ignored.ignored ? undefined : redaction.content,
     classification,
+    fileContext,
     redacted: redaction.redacted,
     secretMatches: redaction.matches,
     secretMatchDetails: redaction.secretMatches,
     ignored: ignored.ignored,
     reason: ignored.reason,
   };
+}
+
+// -- CI workflow detection --
+
+function detectCIWorkflows(files: RepoFile[]): DetectedCIWorkflow[] {
+  return files
+    .filter((f) => f.classification === "ci" && !f.ignored)
+    .map((f) => ({
+      name: getFileName(f.path).replace(/\.[^.]+$/, ""),
+      path: f.path,
+      provider: ciProvider(f.path),
+    }));
+}
+
+function ciProvider(path: string): DetectedCIWorkflow["provider"] {
+  const normalized = `/${path.toLowerCase()}`;
+  if (normalized.includes("/.github/workflows/")) return "github_actions";
+  if (normalized.includes(".gitlab-ci")) return "gitlab";
+  if (normalized.includes("/.circleci/")) return "circleci";
+  return "unknown";
 }
 
 // -- Workflow detection --
@@ -309,12 +460,14 @@ function detectWorkflows(files: RepoFile[]): DetectedWorkflow[] {
   for (const file of configFiles) {
     const parsed = parseStructuredConfig(file);
     if (!parsed) {
-      // Config file present but unparseable — create a placeholder.
       workflows.push({
         id: slug(file.name.replace(/\.[^.]+$/, "")),
         name: file.name.replace(/\.[^.]+$/, ""),
         configPath: file.path,
         risks: ["Workflow manifest could not be parsed."],
+        source: "explicit",
+        confidence: "medium",
+        evidenceReason: `Found ${file.path}`,
       });
       continue;
     }
@@ -325,16 +478,25 @@ function detectWorkflows(files: RepoFile[]): DetectedWorkflow[] {
     }
   }
 
-  // If no config files but workflows/ directory exists, infer a workflow.
-  const hasWorkflowDir = files.some((f) => `/${f.path.toLowerCase()}`.includes("/workflows/") && !f.ignored);
-  if (configFiles.length === 0 && hasWorkflowDir) {
-    const workflowFiles = files.filter((f) => `/${f.path.toLowerCase()}`.includes("/workflows/") && !f.ignored);
+  // If no config files but /workflows/ directory exists outside .github, infer a workflow.
+  const hasProductWorkflowDir = files.some((f) => {
+    const n = `/${f.path.toLowerCase()}`;
+    return n.includes("/workflows/") && !n.includes("/.github/") && !f.ignored;
+  });
+  if (configFiles.length === 0 && hasProductWorkflowDir) {
+    const workflowFiles = files.filter((f) => {
+      const n = `/${f.path.toLowerCase()}`;
+      return n.includes("/workflows/") && !n.includes("/.github/") && !f.ignored;
+    });
     workflows.push({
       id: "inferred-workflow",
       name: "Inferred Workflow",
       type: "unknown",
       configPath: workflowFiles[0]?.path,
       risks: ["Workflow inferred from /workflows/ directory; no manifest found."],
+      source: "inferred",
+      confidence: "medium",
+      evidenceReason: "Found /workflows/ directory without a manifest",
     });
   }
 
@@ -351,7 +513,6 @@ function workflowConfigEntries(parsed: unknown): unknown[] {
     const w = parsed.workflow;
     if (w !== null && typeof w === "object") return [w];
   }
-  // Single workflow object at root.
   if ("id" in parsed || "name" in parsed) return [parsed];
   return [];
 }
@@ -374,6 +535,9 @@ function workflowFromEntry(entry: unknown, configPath: string): DetectedWorkflow
     tools: tools.length > 0 ? tools : undefined,
     evals: evals.length > 0 ? evals : undefined,
     configPath,
+    source: "explicit",
+    confidence: "high",
+    evidenceReason: `Defined in ${configPath}`,
   };
 }
 
@@ -396,19 +560,27 @@ function detectAgents(
 ): DetectedAgent[] {
   const configs = files.filter((file) => file.classification === "agent_config");
 
+  // If no agent configs and no prompts, no agents detected.
   if (configs.length === 0 && promptPaths.length === 0) {
     return [];
   }
 
-  if (configs.length === 0) {
+  // Inferred agent from prompts only — low confidence, no attribute mapping.
+  if (configs.length === 0 && promptPaths.length > 0) {
     return [
       {
         id: "inferred-agent",
-        name: "Inferred Agent",
-        promptPaths,
-        toolNames,
-        evalPaths,
-        risks: ["Agent inferred from prompts because no explicit agent config was found."],
+        name: "Inferred agent candidate",
+        promptPaths: [],
+        toolNames: [],
+        evalPaths: [],
+        risks: [
+          "Agent inferred from prompt files. No explicit agent config was found.",
+          "Prompt, tool, and eval links are not mapped without an agent config.",
+        ],
+        source: "inferred",
+        confidence: "low",
+        evidenceReason: `Inferred from ${promptPaths.length} prompt file(s); no agents.yaml found`,
       },
     ];
   }
@@ -425,6 +597,9 @@ function detectAgents(
     evalPaths,
     configPath: file.path,
     risks: ["Agent config could not be parsed, so scanner used repository-level evidence."],
+    source: "explicit" as const,
+    confidence: "medium" as const,
+    evidenceReason: `Found ${file.path} but could not parse it`,
   }));
 }
 
@@ -434,7 +609,7 @@ function agentsFromConfig(
   defaultPromptPaths: string[],
   defaultToolNames: string[],
   defaultEvalPaths: string[],
-) {
+): DetectedAgent[] {
   const parsed = parseStructuredConfig(file);
   if (!parsed) return [];
 
@@ -455,19 +630,46 @@ function agentsFromConfig(
       evalPaths.length > 0 ? undefined : "evals",
     ].filter(Boolean);
 
+    // For explicit agents: only use manifest-mapped paths, not repo-level fallbacks.
+    // If the manifest doesn't map prompts/tools/evals, show empty (not mapped).
     return {
       id: slug(id ?? name ?? `${file.name}-${entryIndex + 1}`),
       name: name ?? id ?? `Agent ${configIndex + 1}.${entryIndex + 1}`,
-      promptPaths: promptPaths.length > 0 ? promptPaths : defaultPromptPaths,
-      toolNames: toolNames.length > 0 ? toolNames : defaultToolNames,
-      evalPaths: evalPaths.length > 0 ? evalPaths : defaultEvalPaths,
+      promptPaths,
+      toolNames,
+      evalPaths,
       configPath: file.path,
-      risks:
-        missing.length > 0
-          ? [`Agent config is missing ${missing.join(", ")}.`]
-          : [],
+      risks: missing.length > 0 ? [`Agent config is missing ${missing.join(", ")}.`] : [],
+      source: "explicit" as const,
+      confidence: "high" as const,
+      evidenceReason: `Defined in ${file.path}`,
     };
   });
+}
+
+// Agent configs in /agents/ directory with non-source files → inferred/medium.
+function _detectAgentsFromAgentsDir(
+  files: RepoFile[],
+): DetectedAgent[] {
+  return files
+    .filter(
+      (f) =>
+        `/${f.path.toLowerCase()}`.includes("/agents/") &&
+        f.classification === "agent_config" &&
+        !f.ignored,
+    )
+    .map((f, index) => ({
+      id: slug(f.name.replace(/\.[^.]+$/, "") || `agent-${index + 1}`),
+      name: f.name.replace(/\.[^.]+$/, "") || `Agent ${index + 1}`,
+      promptPaths: [],
+      toolNames: [],
+      evalPaths: [],
+      configPath: f.path,
+      risks: ["Agent inferred from /agents/ directory file; no top-level agents.yaml config found."],
+      source: "inferred" as const,
+      confidence: "medium" as const,
+      evidenceReason: `Found agent file at ${f.path}`,
+    }));
 }
 
 function parseStructuredConfig(file: RepoFile) {
@@ -650,7 +852,6 @@ const writeToolTerms = [
 
 function buildSecretSnippets(file: RepoFile): EvidenceSnippet[] {
   if (!file.content) return [];
-  // Content is already redacted; show a short window around the redaction marker.
   const marker = "[REDACTED:";
   const index = file.content.indexOf(marker);
   if (index < 0) return [];
@@ -692,7 +893,6 @@ function hashId(value: string) {
 function buildRecommendations(findings: Finding[]): string[] {
   const actionable = findings.filter((f) => f.severity !== "info");
 
-  // Group secret rotation messages so they collapse into one.
   const secretRotationFindings = actionable.filter((f) =>
     f.recommendation.toLowerCase().includes("rotate"),
   );
@@ -702,7 +902,6 @@ function buildRecommendations(findings: Finding[]): string[] {
 
   const deduped: string[] = [];
 
-  // Collapse all "rotate" recommendations into one.
   if (secretRotationFindings.length === 1) {
     deduped.push(secretRotationFindings[0].recommendation);
   } else if (secretRotationFindings.length > 1) {
@@ -711,7 +910,6 @@ function buildRecommendations(findings: Finding[]): string[] {
     );
   }
 
-  // De-duplicate the rest by exact text, preserving order.
   const seen = new Set<string>(deduped);
   for (const f of otherFindings) {
     if (!seen.has(f.recommendation)) {

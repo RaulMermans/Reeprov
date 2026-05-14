@@ -102,3 +102,24 @@ export function looksLikeCredentialValue(value: string): boolean {
   // Real secrets typically have entropy > 3.0 bits/char.
   return entropy > 3.0;
 }
+
+// Returns true when a matched preview string looks like a stub or placeholder
+// value rather than a real credential. Used to downgrade finding severity.
+export function looksLikePlaceholder(preview: string): boolean {
+  const lower = preview.toLowerCase();
+  return /\b(stub|placeholder|example|dummy|fake|changeme|replace.?me|your.?key|your.?secret|your.?token|insert.?key|xxxx+|ci.?stub|test.?secret|sample.?key|add.?your|fill.?in)\b/.test(
+    lower,
+  );
+}
+
+// Returns true when a database URL contains user:password credentials.
+// Credential-free URLs (postgres://localhost/db) are low severity.
+export function hasDbCredentials(url: string): boolean {
+  // Matches scheme://user:password@host but not scheme://host/db
+  return /(postgres|postgresql|mysql|mongodb|redis):\/\/[^@/]+:[^@/]+@/.test(url);
+}
+
+// Returns true when a database URL uses localhost or 127.0.0.1.
+export function isLocalDbUrl(url: string): boolean {
+  return /(localhost|127\.0\.0\.1)/.test(url);
+}
