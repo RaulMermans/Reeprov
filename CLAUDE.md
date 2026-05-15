@@ -6,7 +6,7 @@ AgentPulse is a private personal dashboard for auditing AI-agent and AI-workflow
 
 ## Current Phase
 
-Dashboard semantics + report readability (Commit 8). Real LLM auditor calls remain feature-flagged and disabled by default.
+Self-scan calibration + final report semantics polish (Commit 8A). Real LLM auditor calls remain feature-flagged and disabled by default.
 
 ## Architecture
 
@@ -96,10 +96,19 @@ Reference:
 - Placeholder/stub values (ci-stub, changeme, your-key-here, etc.) must produce info severity findings, not high.
 - Inferred agents must not have repo-level prompts/tools/evals auto-attributed to them as mapped relationships.
 - Test files with "prompt" in the filename (e.g., prompt-input.test.ts) must not be classified as prompt files.
-- Only files in /prompts/, named system-prompt*, or with actual prompt language in content should be classified as "prompt".
+- Only files in /prompts/, named system-prompt*, *.prompt.{md,ts,txt,js}, or with actual prompt language in content (excluding /lib/, /src/, /components/, /scanner/, /reports/, /fixtures/) should be classified as "prompt".
+- Prompt files alone do NOT make an agent or agent_system. A repo with only prompt files and AI SDK imports should be ai_application.
+- Low-confidence inferred agents (source: inferred, confidence: low, from prompt files only) do NOT determine project type. Only manifest agents or agent_file agents (medium/high confidence) count toward agent_system.
+- Agent sources have three display kinds: manifest (agents.yaml entry), agent_file (/agents/*.md, *_agent.py), inferred_candidate (prompt-only inference).
+- Only manifest agents have mapped prompt/tool/eval relationships. Agent file and inferred candidates show "Not mapped".
+- __fixtures__, __mocks__, fixtures, mocks, testdata directories are "example" context for secret severity calibration.
+- Fixture/example secret findings use "No rotation required" wording, not "rotate". Only production secrets use rotation language.
+- Normal source identifiers containing "secret" (SecretContext, secretContexts, buildFindingSummary, etc.) are NOT credentials. camelCase/PascalCase identifier values after = must not create secret findings.
+- Fixture/test secrets (low-confidence, confidence < 0.7) are capped so they cannot push security below 70 on their own.
 - Not every AI repo is an agent or workflow system. repos with AI SDK imports, AI API env names, or AI function patterns but no explicit manifest are ai_application, not unknown_ai_project.
 - Recommendations must be project-type-aware. Inventory recommendations should adapt to agent_system vs workflow_system vs ai_application vs unknown_ai_project.
 - Overlapping inventory recommendations (agents.yaml / workflow.yaml / agent inventory) must collapse into one project-type-aware recommendation.
+- Secret rotation recommendations (for production secrets) and secret review recommendations (for fixture/test secrets) are collapsed separately.
 - Reports must distinguish raw findings from interpreted scores. Score explanations (positives, penalties, related findings count) must be surfaced separately from the raw finding table.
 - Exported reports must stay redacted. No raw secret values in markdown or JSON exports.
 - AI applications are first-class project types. Do not overstate inferred agent or workflow structure.

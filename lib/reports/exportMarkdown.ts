@@ -26,6 +26,9 @@ export function exportReportMarkdown(report: ScanReport) {
     `- AI/product workflows: ${report.detectedWorkflowsDetailed.length}`,
     `- CI workflows: ${report.detectedCIWorkflows.length}`,
     `- Prompt files: ${report.detectedPrompts.length}`,
+    ...(report.detectedPromptRelatedFiles && report.detectedPromptRelatedFiles.length > 0
+      ? [`- Prompt-related source files: ${report.detectedPromptRelatedFiles.length}`]
+      : []),
     `- Tools: ${report.detectedTools.length}`,
     `- Dedicated AI evals: ${report.detectedEvals.length}`,
     `- Software tests: ${report.detectedTests.length}`,
@@ -50,13 +53,14 @@ export function exportReportMarkdown(report: ScanReport) {
     "",
     ...listOrEmpty(
       report.detectedAgents.map((agent) => {
-        const sourceLabel = agent.source === "explicit" ? "explicit" : `inferred (${agent.confidence} confidence)`;
+        const sourceLabel = agentSourceLabel(agent);
+        const isMapped = agent.displayKind === "manifest" || (!agent.displayKind && agent.source === "explicit");
         const details = [
           agent.configPath ? `config: ${agent.configPath}` : undefined,
-          agent.source === "explicit" && agent.promptPaths.length
+          isMapped && agent.promptPaths.length
             ? `prompts: ${agent.promptPaths.join(", ")}`
             : undefined,
-          agent.source === "explicit" && agent.toolNames.length
+          isMapped && agent.toolNames.length
             ? `tools: ${agent.toolNames.join(", ")}`
             : undefined,
           `source: ${sourceLabel}`,
@@ -182,5 +186,17 @@ function ciProviderLabel(provider: string): string {
     case "gitlab": return "GitLab CI";
     case "circleci": return "CircleCI";
     default: return "CI";
+  }
+}
+
+function agentSourceLabel(agent: import("@/lib/scanner/types").DetectedAgent): string {
+  switch (agent.displayKind) {
+    case "manifest": return "explicit manifest";
+    case "agent_file": return `agent file (${agent.confidence} confidence)`;
+    case "inferred_candidate": return "inferred candidate (low confidence)";
+    default:
+      return agent.source === "explicit"
+        ? "explicit"
+        : `inferred (${agent.confidence} confidence)`;
   }
 }

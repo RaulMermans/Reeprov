@@ -31,6 +31,7 @@ export const detectedAgentSchema = z.object({
   source: z.enum(["explicit", "inferred"]),
   confidence: z.enum(["low", "medium", "high"]),
   evidenceReason: z.string().optional(),
+  displayKind: z.enum(["manifest", "agent_file", "inferred_candidate"]).optional(),
 });
 
 export const detectedWorkflowSchema = z.object({
@@ -92,6 +93,7 @@ export const scanReportSchema = z.object({
   detectedWorkflowsDetailed: z.array(detectedWorkflowSchema),
   detectedCIWorkflows: z.array(detectedCIWorkflowSchema),
   detectedPrompts: z.array(z.string()),
+  detectedPromptRelatedFiles: z.array(z.string()).optional(),
   detectedTools: z.array(z.string()),
   detectedEvals: z.array(z.string()),
   detectedTests: z.array(z.string()),

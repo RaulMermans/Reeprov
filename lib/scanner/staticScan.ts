@@ -11,6 +11,7 @@ import {
   looksLikePlaceholder,
 } from "./secretPatterns";
 import type {
+  AgentDisplayKind,
   DetectedAgent,
   DetectedCIWorkflow,
   DetectedWorkflow,
@@ -79,16 +80,30 @@ export function staticScanFromFiles(
     )
     .map((file) => file.path);
 
+  // Prompt-related source files: source code containing prompt language, but not
+  // true prompt assets. Useful for showing broader context without inflating detectedPrompts.
+  const detectedPromptRelatedFiles = scannedFiles
+    .filter(
+      (f) =>
+        f.classification === "source_code" &&
+        f.content &&
+        promptLanguagePattern.test(f.content) &&
+        !detectedPrompts.includes(f.path),
+    )
+    .map((f) => f.path)
+    .slice(0, 20);
+
   const detectedTools = detectTools(scannedFiles);
   const detectedAgents = detectAgents(scannedFiles, detectedPrompts, detectedTools, detectedEvals);
   const detectedWorkflowsDetailed = detectWorkflows(scannedFiles);
   const detectedCIWorkflows = detectCIWorkflows(scannedFiles);
 
   // CI workflows alone do not make a project a workflow_system.
-  const hasAgents = detectedAgents.length > 0;
+  // Low-confidence inferred candidates (prompt-only) do NOT determine project type.
+  const hasRealAgents = detectedAgents.some((a) => a.confidence !== "low");
   const hasProductWorkflows = detectedWorkflowsDetailed.length > 0;
-  const hasAiSignals = hasAgents || hasProductWorkflows || detectAiSignals(scannedFiles);
-  const projectType = deriveProjectType(hasAgents, hasProductWorkflows, hasAiSignals);
+  const hasAiSignals = hasRealAgents || hasProductWorkflows || detectAiSignals(scannedFiles);
+  const projectType = deriveProjectType(hasRealAgents, hasProductWorkflows, hasAiSignals);
 
   // -- Structural findings --
 
@@ -276,6 +291,7 @@ export function staticScanFromFiles(
     detectedWorkflowsDetailed,
     detectedCIWorkflows,
     detectedPrompts,
+    detectedPromptRelatedFiles,
     detectedTools,
     detectedEvals,
     detectedTests,
@@ -330,24 +346,30 @@ function buildSecretFinding(
     severity = "info";
     confidenceValue = 0.25;
     recommendation =
-      "Placeholder/stub value detected; no rotation required unless this represents a real credential.";
+      "Placeholder or local value detected; no rotation required unless this is a real credential.";
   } else if (isCredentialFreeOrLocalDb) {
     severity = "info";
     confidenceValue = 0.25;
     recommendation =
       "Non-credentialed or local database URL detected. If it contains real credentials, move them to environment variables.";
-  } else if (context === "documentation" || context === "example") {
-    // Docs and examples with apparent secret values — likely illustrative.
+  } else if (context === "example") {
+    // Fixture/example directories — values are likely fake test data.
     severity = highestConfidence === "high" ? "medium" : "low";
     confidenceValue = highestConfidence === "high" ? 0.6 : 0.45;
     recommendation =
-      "Review this documentation/example value. If it is real, move it to environment variables and rotate it.";
+      "Fixture/example value detected. No rotation required unless this represents a real credential.";
+  } else if (context === "documentation") {
+    // Documentation examples — likely illustrative.
+    severity = highestConfidence === "high" ? "medium" : "low";
+    confidenceValue = highestConfidence === "high" ? 0.6 : 0.45;
+    recommendation =
+      "Review this documentation example. Replace with placeholders if it contains a real credential.";
   } else if (context === "test" || context === "migration") {
     // Test files may use realistic-looking values but are not production risk.
     severity = highestConfidence === "high" ? "medium" : "low";
     confidenceValue = highestConfidence === "high" ? 0.6 : 0.45;
     recommendation =
-      "Review this test value. If it is real, move it to environment variables and rotate it.";
+      "Review this test/example value. No rotation is required unless it represents a real credential.";
   } else if (context === "ci") {
     // CI config secrets are real risk if the file is committed.
     severity = highestConfidence === "high" ? "medium" : "low";
@@ -591,63 +613,135 @@ function parseWorkflowType(raw: string | undefined): DetectedWorkflow["type"] {
 
 // -- Agent detection --
 
+// Returns true for top-level manifest files: agents.yaml, agents.yml, agents.json.
+function isManifestAgentConfig(path: string): boolean {
+  const name = getFileName(path.toLowerCase());
+  return /^agents?\.(ya?ml|json)$/.test(name);
+}
+
+// Returns true for source files whose filename pattern suggests they are agent modules.
+function isAgentSourceFile(path: string): boolean {
+  const name = getFileName(path.toLowerCase());
+  return (
+    name.endsWith("_agent.py") ||
+    name.endsWith("_agent.ts") ||
+    name.endsWith("_evaluator.py") ||
+    name.endsWith("_evaluator.ts") ||
+    /^agent[_-]/.test(name)
+  );
+}
+
 function detectAgents(
   files: RepoFile[],
   promptPaths: string[],
   toolNames: string[],
   evalPaths: string[],
 ): DetectedAgent[] {
-  const configs = files.filter((file) => file.classification === "agent_config");
+  const configs = files.filter((file) => file.classification === "agent_config" && !file.ignored);
 
-  // If no agent configs and no prompts, no agents detected.
-  if (configs.length === 0 && promptPaths.length === 0) {
+  // Manifest configs: top-level agents.yaml / agents.yml / agents.json files.
+  const manifestConfigs = configs.filter((f) => isManifestAgentConfig(f.path));
+  // Agent dir files: non-manifest agent_config files in /agents/ directory (e.g., /agents/researcher.md).
+  const agentDirFiles = configs.filter((f) => !isManifestAgentConfig(f.path));
+
+  // Source-based agent files: *_agent.py, *_evaluator.py, etc. (only used when no manifest exists).
+  const agentSourceFiles = files.filter(
+    (f) => !f.ignored && f.classification === "source_code" && isAgentSourceFile(f.path),
+  );
+
+  const hasManifest = manifestConfigs.length > 0;
+  const hasAgentDirFiles = agentDirFiles.length > 0;
+  const hasAgentSourceFiles = agentSourceFiles.length > 0;
+
+  if (!hasManifest && !hasAgentDirFiles && !hasAgentSourceFiles && promptPaths.length === 0) {
     return [];
   }
 
-  // Inferred agent from prompts only — low confidence, no attribute mapping.
-  if (configs.length === 0 && promptPaths.length > 0) {
-    return [
-      {
-        id: "inferred-agent",
-        name: "Inferred agent candidate",
+  const detected: DetectedAgent[] = [];
+
+  // Parse manifest agents (agents.yaml/agents.json) — highest confidence.
+  for (const [configIndex, file] of manifestConfigs.entries()) {
+    const fromConfig = agentsFromConfig(file, configIndex);
+    if (fromConfig.length > 0) {
+      detected.push(...fromConfig.map((a) => ({ ...a, displayKind: "manifest" as AgentDisplayKind })));
+    } else {
+      detected.push({
+        id: `agent-${configIndex + 1}`,
+        name: file.name.replace(/\.[^.]+$/, ""),
         promptPaths: [],
         toolNames: [],
         evalPaths: [],
-        risks: [
-          "Agent inferred from prompt files. No explicit agent config was found.",
-          "Prompt, tool, and eval links are not mapped without an agent config.",
-        ],
-        source: "inferred",
-        confidence: "low",
-        evidenceReason: `Inferred from ${promptPaths.length} prompt file(s); no agents.yaml found`,
-      },
-    ];
+        configPath: file.path,
+        risks: ["Agent config could not be parsed."],
+        source: "explicit" as const,
+        confidence: "medium" as const,
+        displayKind: "manifest" as AgentDisplayKind,
+        evidenceReason: `Found ${file.path} but could not parse it`,
+      });
+    }
   }
 
-  const detected = configs.flatMap((file, configIndex) =>
-    agentsFromConfig(file, configIndex, promptPaths, toolNames, evalPaths),
-  );
+  // Agent directory files (unstructured — /agents/*.md, /agents/*.yaml without top-level manifest).
+  for (const [index, file] of agentDirFiles.entries()) {
+    detected.push({
+      id: slug(file.name.replace(/\.[^.]+$/, "") || `agent-dir-${index + 1}`),
+      name: file.name.replace(/\.[^.]+$/, "") || `Agent ${index + 1}`,
+      promptPaths: [],
+      toolNames: [],
+      evalPaths: [],
+      configPath: file.path,
+      risks: ["Agent file in /agents/ directory detected; no top-level agents.yaml config found."],
+      source: "inferred" as const,
+      confidence: "medium" as const,
+      displayKind: "agent_file" as AgentDisplayKind,
+      evidenceReason: `Found agent file at ${file.path}`,
+    });
+  }
 
-  return detected.length > 0 ? detected : configs.map((file, index) => ({
-    id: `agent-${index + 1}`,
-    name: file.name.replace(/\.[^.]+$/, ""),
-    promptPaths,
-    toolNames,
-    evalPaths,
-    configPath: file.path,
-    risks: ["Agent config could not be parsed, so scanner used repository-level evidence."],
-    source: "explicit" as const,
-    confidence: "medium" as const,
-    evidenceReason: `Found ${file.path} but could not parse it`,
-  }));
+  // Source-based agent files (*_agent.py, etc.) — only when no manifest or dir files found yet.
+  if (detected.length === 0 && hasAgentSourceFiles) {
+    for (const [index, file] of agentSourceFiles.entries()) {
+      detected.push({
+        id: slug(file.name.replace(/\.[^.]+$/, "") || `agent-src-${index + 1}`),
+        name: file.name.replace(/[_-]/g, " ").replace(/\.[^.]+$/, ""),
+        promptPaths: [],
+        toolNames: [],
+        evalPaths: [],
+        configPath: file.path,
+        risks: ["Agent detected from filename pattern; no structured agent config found."],
+        source: "inferred" as const,
+        confidence: "medium" as const,
+        displayKind: "agent_file" as AgentDisplayKind,
+        evidenceReason: `Agent-like file at ${file.path}`,
+      });
+    }
+  }
+
+  // Prompt-only inference — low confidence, does NOT define project type.
+  if (detected.length === 0 && promptPaths.length > 0) {
+    detected.push({
+      id: "inferred-agent",
+      name: "Inferred agent candidate",
+      promptPaths: [],
+      toolNames: [],
+      evalPaths: [],
+      risks: [
+        "Agent inferred from prompt files. No explicit agent config was found.",
+        "Prompt, tool, and eval links are not mapped without an agent config.",
+      ],
+      source: "inferred",
+      confidence: "low",
+      displayKind: "inferred_candidate" as AgentDisplayKind,
+      evidenceReason: `Inferred from ${promptPaths.length} prompt file(s); no agents.yaml found`,
+    });
+  }
+
+  return detected;
 }
 
 function agentsFromConfig(
   file: RepoFile,
   configIndex: number,
-  defaultPromptPaths: string[],
-  defaultToolNames: string[],
-  defaultEvalPaths: string[],
 ): DetectedAgent[] {
   const parsed = parseStructuredConfig(file);
   if (!parsed) return [];
@@ -669,8 +763,8 @@ function agentsFromConfig(
       evalPaths.length > 0 ? undefined : "evals",
     ].filter(Boolean);
 
-    // For explicit agents: only use manifest-mapped paths, not repo-level fallbacks.
-    // If the manifest doesn't map prompts/tools/evals, show empty (not mapped).
+    // Only use manifest-mapped paths, not repo-level fallbacks.
+    // If the manifest doesn't map prompts/tools/evals, they remain empty (not mapped).
     return {
       id: slug(id ?? name ?? `${file.name}-${entryIndex + 1}`),
       name: name ?? id ?? `Agent ${configIndex + 1}.${entryIndex + 1}`,
@@ -684,31 +778,6 @@ function agentsFromConfig(
       evidenceReason: `Defined in ${file.path}`,
     };
   });
-}
-
-// Agent configs in /agents/ directory with non-source files → inferred/medium.
-function _detectAgentsFromAgentsDir(
-  files: RepoFile[],
-): DetectedAgent[] {
-  return files
-    .filter(
-      (f) =>
-        `/${f.path.toLowerCase()}`.includes("/agents/") &&
-        f.classification === "agent_config" &&
-        !f.ignored,
-    )
-    .map((f, index) => ({
-      id: slug(f.name.replace(/\.[^.]+$/, "") || `agent-${index + 1}`),
-      name: f.name.replace(/\.[^.]+$/, "") || `Agent ${index + 1}`,
-      promptPaths: [],
-      toolNames: [],
-      evalPaths: [],
-      configPath: f.path,
-      risks: ["Agent inferred from /agents/ directory file; no top-level agents.yaml config found."],
-      source: "inferred" as const,
-      confidence: "medium" as const,
-      evidenceReason: `Found agent file at ${f.path}`,
-    }));
 }
 
 function parseStructuredConfig(file: RepoFile) {
@@ -865,6 +934,10 @@ function isLikelyToolOrAgentFile(file: RepoFile) {
     /\btool(s)?\.(ts|tsx|js|jsx|py|ya?ml|json)$/i.test(file.name)
   );
 }
+
+// Used to detect prompt-related source files (for detectedPromptRelatedFiles).
+const promptLanguagePattern =
+  /\b(?:system prompt|developer message|tool policy|role:|instructions|you are an ai|never obey)\b/i;
 
 const approvalPolicyPattern =
   /\b(?:human approval|approval_required|approvalRequired|requiresApproval|requires_approval|requireApproval|confirm before|confirmationRequired|dry run|dry-run|dryRun|dry_run|approval gate|approvalGate|human_in_the_loop|humanInTheLoop)\b/i;

@@ -45,9 +45,12 @@ export function deriveFileContext(path: string): FileContext {
     normalized.includes("/demos/") ||
     normalized.includes("/fixtures/") ||
     normalized.includes("/fixture/") ||
+    normalized.includes("/__fixtures__/") ||
     normalized.includes("/mocks/") ||
     normalized.includes("/mock/") ||
-    normalized.includes("/stubs/")
+    normalized.includes("/__mocks__/") ||
+    normalized.includes("/stubs/") ||
+    normalized.includes("/testdata/")
   ) {
     return "example";
   }

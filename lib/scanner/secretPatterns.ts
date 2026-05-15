@@ -98,6 +98,13 @@ export function estimateEntropy(value: string): number {
 // sufficiently random). Used to gate medium-confidence patterns.
 export function looksLikeCredentialValue(value: string): boolean {
   if (value.length < 16) return false;
+  // Reject pure-alphabetic camelCase/PascalCase identifiers — these are function or
+  // type names captured by the regex (e.g., buildFindingSummary, SecretContextSummary).
+  // Real credentials always contain at least one digit or non-letter character.
+  // The check: all letters only (no digits), and mixed-case (has uppercase after first char).
+  if (/^[a-zA-Z]+$/.test(value) && /[A-Z]/.test(value.slice(1))) {
+    return false;
+  }
   const entropy = estimateEntropy(value);
   // Real secrets typically have entropy > 3.0 bits/char.
   return entropy > 3.0;

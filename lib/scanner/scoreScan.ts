@@ -30,6 +30,11 @@ const securityPenalties = {
   info: { high: 1, medium: 1, low: 0 },
 };
 
+// Fixture/test/placeholder secrets (low-confidence findings, confidence < 0.7) should not
+// crater the security score on their own. Cap their total accumulated penalty at 18 points
+// so a repo with only fake test credentials can't score below 70 from those alone.
+const LOW_CONF_SECURITY_PENALTY_CAP = 18;
+
 export function scoreScan(findings: Finding[]): Scores {
   const base = {
     architecture: 82,
@@ -40,16 +45,30 @@ export function scoreScan(findings: Finding[]): Scores {
     documentation: 82,
   };
 
+  let lowConfSecurityPenaltyTotal = 0;
+
   for (const f of findings) {
     if (f.category === "security") {
       // Determine the confidence of this security finding.
       // Findings set a `secretConfidence` hint via the finding confidence
-      // field: 1.0 → high, 0.7–0.99 → medium, < 0.7 → low.
+      // field: >= 0.95 → high, 0.7–0.94 → medium, < 0.7 → low.
       const confidenceLevel =
         f.confidence >= 0.95 ? "high" : f.confidence >= 0.7 ? "medium" : "low";
       const penaltyTable = securityPenalties[f.severity as keyof typeof securityPenalties];
       const penalty = penaltyTable?.[confidenceLevel] ?? penalties[f.severity];
-      base.security = Math.max(0, base.security - penalty);
+
+      if (confidenceLevel === "low") {
+        // Cap total low-confidence penalties so fixture/test secrets alone
+        // cannot drop security below 88 - 18 = 70.
+        const available = Math.min(
+          penalty,
+          Math.max(0, LOW_CONF_SECURITY_PENALTY_CAP - lowConfSecurityPenaltyTotal),
+        );
+        lowConfSecurityPenaltyTotal += available;
+        base.security = Math.max(0, base.security - available);
+      } else {
+        base.security = Math.max(0, base.security - penalty);
+      }
     } else {
       const penalty = penalties[f.severity];
       if (f.category in base) {

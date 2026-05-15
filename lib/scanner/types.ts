@@ -50,6 +50,12 @@ export interface RepoFile {
   reason?: string;
 }
 
+// Clearer UI display kind for agent cards and exports.
+// - manifest: parsed entry from agents.yaml / agents.json
+// - agent_file: unstructured file in /agents/ dir, *_agent.py, *_evaluator.py
+// - inferred_candidate: inferred only from prompt files, no config found
+export type AgentDisplayKind = "manifest" | "agent_file" | "inferred_candidate";
+
 export interface DetectedAgent {
   id: string;
   name: string;
@@ -61,6 +67,7 @@ export interface DetectedAgent {
   source: "explicit" | "inferred";
   confidence: "low" | "medium" | "high";
   evidenceReason?: string;
+  displayKind?: AgentDisplayKind;
 }
 
 export interface DetectedWorkflow {
@@ -140,6 +147,7 @@ export interface ScanReport {
   detectedWorkflowsDetailed: DetectedWorkflow[];
   detectedCIWorkflows: DetectedCIWorkflow[];
   detectedPrompts: string[];
+  detectedPromptRelatedFiles?: string[];
   detectedTools: string[];
   detectedEvals: string[];
   detectedTests: string[];

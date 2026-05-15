@@ -153,21 +153,34 @@ function isTestPath(normalized: string, name: string): boolean {
 function isPromptFile(normalized: string, name: string, content: string): boolean {
   // Files in /prompts/ directory are always prompt assets.
   if (normalized.includes("/prompts/")) return true;
-  // Named system-prompt files are always prompts.
-  if (name.includes("system-prompt") || name === "system-persona.md") return true;
-  // Prompt language in content (strong indicator of an actual prompt file).
-  // Only applies when not in a clearly non-prompt directory.
+  // Named system-prompt files or persona files are always prompts.
+  if (name.startsWith("system-prompt") || name === "system-persona.md") return true;
+  // *.prompt.md / *.prompt.ts / *.prompt.txt / *.prompt.js files are prompt assets.
+  if (/\.prompt\.(md|txt|ts|js)$/.test(name)) return true;
+  // Content-based detection: only for files not in known source/library/fixture directories.
+  // This prevents scanner source files, report builders, and fixtures from being
+  // counted as prompt assets just because they contain prompt-related words.
   if (
     promptLanguage(content) &&
     !normalized.includes("/src/") &&
     !normalized.includes("/app/") &&
-    !normalized.includes("/tools/")
+    !normalized.includes("/tools/") &&
+    !normalized.includes("/lib/") &&
+    !normalized.includes("/components/") &&
+    !normalized.includes("/api/") &&
+    !normalized.includes("/scanner/") &&
+    !normalized.includes("/reports/") &&
+    !normalized.includes("/auditors/") &&
+    !normalized.includes("/__fixtures__/") &&
+    !normalized.includes("/fixtures/") &&
+    !normalized.includes("/fixture/") &&
+    !normalized.includes("/mocks/") &&
+    !normalized.includes("/mock/") &&
+    !normalized.includes("/__mocks__/") &&
+    !normalized.includes("/testdata/")
   ) {
     return true;
   }
-  // Files simply named "prompt" are too generic — require directory context.
-  // Do NOT classify just because a filename includes "prompt" as a substring,
-  // since test files like "prompt-input.test.ts" would be caught.
   return false;
 }
 

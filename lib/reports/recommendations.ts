@@ -64,17 +64,26 @@ export function buildRecommendations(
 ): string[] {
   const actionable = findings.filter((f) => f.severity !== "info");
 
-  // Secret-rotation findings collapse into one recommendation.
+  // Rotation findings (any category): collapse duplicates into one message.
   const secretRotation = actionable.filter((f) =>
     f.recommendation.toLowerCase().includes("rotate"),
   );
-  const other = actionable.filter(
-    (f) => !f.recommendation.toLowerCase().includes("rotate"),
+  // Test/fixture/example security secrets: review language (no rotation needed).
+  const secretReview = actionable.filter(
+    (f) =>
+      f.category === "security" &&
+      !f.recommendation.toLowerCase().includes("rotate") &&
+      (f.recommendation.toLowerCase().includes("fixture") ||
+        f.recommendation.toLowerCase().includes("test/example") ||
+        f.recommendation.toLowerCase().includes("no rotation required") ||
+        f.recommendation.toLowerCase().includes("documentation example")),
   );
+  const secretIds = new Set([...secretRotation, ...secretReview].map((f) => f.id));
+  const other = actionable.filter((f) => !secretIds.has(f.id));
 
   const deduped: string[] = [];
 
-  // 1. Collapsed secret recommendation.
+  // 1. Collapsed production secret recommendation.
   if (secretRotation.length === 1) {
     deduped.push(secretRotation[0].recommendation);
   } else if (secretRotation.length > 1) {
@@ -83,7 +92,12 @@ export function buildRecommendations(
     );
   }
 
-  // 2. De-duplicate other recommendations, collapsing inventory and structural overlaps.
+  // 2. Collapsed test/fixture secret recommendation (only when no production secrets).
+  if (secretReview.length > 0 && secretRotation.length === 0) {
+    deduped.push("Review test/example secret fixtures and keep them clearly fake or placeholder.");
+  }
+
+  // 3. De-duplicate other recommendations, collapsing inventory and structural overlaps.
   let inventoryAdded = false;
   let promptAdded = false;
   let evalAdded = false;
