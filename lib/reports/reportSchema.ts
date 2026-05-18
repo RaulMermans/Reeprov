@@ -50,6 +50,12 @@ export const detectedWorkflowSchema = z.object({
   evidenceReason: z.string().optional(),
 });
 
+export const detectedAssistantToolingSchema = z.object({
+  path: z.string(),
+  kind: z.enum(["claude_skill", "cursor_rule", "vscode_config", "assistant_prompt", "assistant_agent", "other"]),
+  label: z.string().optional(),
+});
+
 export const detectedCIWorkflowSchema = z.object({
   name: z.string(),
   path: z.string(),
@@ -81,7 +87,18 @@ export const zipStatsSchema = z.object({
   strippedRootFolder: z.string().optional(),
 });
 
+export const maintainabilityMetricsSchema = z.object({
+  largeFiles: z.array(
+    z.object({ path: z.string(), lineCount: z.number(), reason: z.string() }),
+  ),
+  todoMarkers: z.array(z.object({ path: z.string(), count: z.number() })),
+  hotspots: z.array(z.object({ path: z.string(), signals: z.array(z.string()) })),
+  summary: z.string(),
+  score: z.number(),
+});
+
 export const scanReportSchema = z.object({
+  reportVersion: z.string(),
   repoName: z.string(),
   scanSource: scanSourceSchema.optional(),
   zipStats: zipStatsSchema.optional(),
@@ -92,12 +109,15 @@ export const scanReportSchema = z.object({
   detectedAgents: z.array(detectedAgentSchema),
   detectedWorkflowsDetailed: z.array(detectedWorkflowSchema),
   detectedCIWorkflows: z.array(detectedCIWorkflowSchema),
+  detectedAssistantTooling: z.array(detectedAssistantToolingSchema).optional(),
   detectedPrompts: z.array(z.string()),
   detectedPromptRelatedFiles: z.array(z.string()).optional(),
+  detectedLLMInfrastructure: z.array(z.string()).optional(),
   detectedTools: z.array(z.string()),
   detectedEvals: z.array(z.string()),
   detectedTests: z.array(z.string()),
   detectedWorkflows: z.array(z.string()),
+  maintainability: maintainabilityMetricsSchema.optional(),
   findings: z.array(findingSchema),
   scores: z.object({
     architecture: z.number(),
@@ -106,6 +126,7 @@ export const scanReportSchema = z.object({
     evalCoverage: z.number(),
     security: z.number(),
     documentation: z.number(),
+    maintainability: z.number(),
     overall: z.number(),
   }),
   recommendations: z.array(z.string()),

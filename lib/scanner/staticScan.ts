@@ -13,6 +13,7 @@ import {
 import type {
   AgentDisplayKind,
   DetectedAgent,
+  DetectedAssistantTooling,
   DetectedCIWorkflow,
   DetectedWorkflow,
   EvidenceSnippet,
@@ -59,8 +60,12 @@ export function staticScanFromFiles(
 
   // -- File-level counts (separated by kind) --
 
+  // Detect assistant tooling artifacts first so they can be excluded from product counts.
+  const detectedAssistantTooling = detectAssistantTooling(files);
+  const assistantToolingPaths = new Set(detectedAssistantTooling.map((t) => t.path));
+
   const detectedPrompts = scannedFiles
-    .filter((file) => file.classification === "prompt")
+    .filter((file) => file.classification === "prompt" && !assistantToolingPaths.has(file.path))
     .map((file) => file.path);
 
   // Explicit AI evals: /evals/, /evaluations/, promptfoo configs.
@@ -81,17 +86,21 @@ export function staticScanFromFiles(
     .map((file) => file.path);
 
   // Prompt-related source files: source code containing prompt language, but not
-  // true prompt assets. Useful for showing broader context without inflating detectedPrompts.
+  // true prompt assets. Assistant tooling files are excluded.
   const detectedPromptRelatedFiles = scannedFiles
     .filter(
       (f) =>
         f.classification === "source_code" &&
         f.content &&
         promptLanguagePattern.test(f.content) &&
-        !detectedPrompts.includes(f.path),
+        !detectedPrompts.includes(f.path) &&
+        !assistantToolingPaths.has(f.path) &&
+        !isAssistantToolingPath(f.path),
     )
     .map((f) => f.path)
     .slice(0, 20);
+
+  const detectedLLMInfrastructure = detectLLMInfrastructure(scannedFiles);
 
   const detectedTools = detectTools(scannedFiles);
   const detectedAgents = detectAgents(scannedFiles, detectedPrompts, detectedTools, detectedEvals);
@@ -204,6 +213,19 @@ export function staticScanFromFiles(
     ));
   }
 
+  if (detectedAssistantTooling.length > 0) {
+    findings.push(finding(
+      "assistant-tooling-detected",
+      "architecture",
+      "info",
+      "Assistant tooling detected",
+      `${detectedAssistantTooling.length} developer-assistant artifact(s) were found and separated from product agent/workflow analysis.`,
+      detectedAssistantTooling.map((t) => t.path).slice(0, 5),
+      "Keep assistant tooling separate from product manifests unless it is part of the deployed AI system.",
+      0.9,
+    ));
+  }
+
   if (options.zipStats && options.zipStats.skippedByFileLimit > 0) {
     findings.push(finding(
       "zip-scan-prioritized-subset",
@@ -280,6 +302,7 @@ export function staticScanFromFiles(
   const scores = scoreScan(findings);
 
   return {
+    reportVersion: "1.0",
     repoName,
     scanSource: options.scanSource,
     zipStats: options.zipStats,
@@ -290,8 +313,10 @@ export function staticScanFromFiles(
     detectedAgents,
     detectedWorkflowsDetailed,
     detectedCIWorkflows,
+    detectedAssistantTooling,
     detectedPrompts,
     detectedPromptRelatedFiles,
+    detectedLLMInfrastructure: detectedLLMInfrastructure.length > 0 ? detectedLLMInfrastructure : undefined,
     detectedTools,
     detectedEvals,
     detectedTests,
@@ -492,6 +517,76 @@ function toRepoFile(raw: RawRepoFile): RepoFile {
   };
 }
 
+// -- Assistant tooling path detection --
+
+// Returns true if the file path belongs to a developer-assistant tooling folder
+// (.claude, .cursor, .vscode, .windsurf, .github/copilot, etc.).
+// These are excluded from product agent/workflow/prompt counts and reported separately.
+function isAssistantToolingPath(path: string): boolean {
+  const lower = path.toLowerCase();
+  return (
+    lower.startsWith(".claude/") ||
+    lower.startsWith(".cursor/") ||
+    lower.startsWith(".vscode/") ||
+    lower.startsWith(".windsurf/") ||
+    lower.startsWith(".github/copilot/") ||
+    lower.startsWith("codex/") ||
+    lower.startsWith("devtools/") ||
+    lower.startsWith("ai-assistant/") ||
+    lower.startsWith("assistant-tools/")
+  );
+}
+
+function detectAssistantTooling(files: RepoFile[]): DetectedAssistantTooling[] {
+  const results: DetectedAssistantTooling[] = [];
+  const seen = new Set<string>();
+
+  for (const file of files) {
+    if (file.ignored) continue;
+    if (!isAssistantToolingPath(file.path)) continue;
+    if (seen.has(file.path)) continue;
+    seen.add(file.path);
+
+    const lower = file.path.toLowerCase();
+    const name = getFileName(lower);
+
+    let kind: DetectedAssistantTooling["kind"] = "other";
+    let label: string | undefined;
+
+    if (lower.startsWith(".claude/")) {
+      if (lower.includes("/agents/") || name.endsWith("_agent.md") || name.endsWith("_agent.py")) {
+        kind = "assistant_agent";
+        label = formatAgentName(name);
+      } else if (lower.includes("/skills/")) {
+        kind = "claude_skill";
+        const skillSegment = file.path.split("/").slice(0, 3).join("/");
+        label = skillSegment;
+      } else if (lower.includes("/prompts/") || name.endsWith(".prompt.md") || name.startsWith("system-prompt")) {
+        kind = "assistant_prompt";
+      } else {
+        kind = "other";
+      }
+    } else if (lower.startsWith(".cursor/")) {
+      if (lower.includes("/rules/")) {
+        kind = "cursor_rule";
+      } else if (lower.includes("/agents/") || name.endsWith("_agent")) {
+        kind = "assistant_agent";
+        label = formatAgentName(name);
+      } else {
+        kind = "other";
+      }
+    } else if (lower.startsWith(".vscode/")) {
+      kind = "vscode_config";
+    } else {
+      kind = "other";
+    }
+
+    results.push({ path: file.path, kind, label });
+  }
+
+  return results;
+}
+
 // -- CI workflow detection --
 
 function detectCIWorkflows(files: RepoFile[]): DetectedCIWorkflow[] {
@@ -620,6 +715,7 @@ function isManifestAgentConfig(path: string): boolean {
 }
 
 // Returns true for source files whose filename pattern suggests they are agent modules.
+// Covers common Python/TypeScript naming conventions for product agent files.
 function isAgentSourceFile(path: string): boolean {
   const name = getFileName(path.toLowerCase());
   return (
@@ -627,8 +723,23 @@ function isAgentSourceFile(path: string): boolean {
     name.endsWith("_agent.ts") ||
     name.endsWith("_evaluator.py") ||
     name.endsWith("_evaluator.ts") ||
+    name.endsWith("_judge.py") ||
+    name.endsWith("_critic.py") ||
+    name.endsWith("_planner.py") ||
+    name.endsWith("_router.py") ||
+    name.endsWith("_researcher.py") ||
+    name.endsWith("_writer.py") ||
+    name.endsWith("_editor.py") ||
     /^agent[_-]/.test(name)
   );
+}
+
+// Format a filename like "editor_agent.py" → "Editor Agent" for display.
+function formatAgentName(filename: string): string {
+  return filename
+    .replace(/\.[^.]+$/, "")
+    .replace(/[_-]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function detectAgents(
@@ -637,16 +748,24 @@ function detectAgents(
   toolNames: string[],
   evalPaths: string[],
 ): DetectedAgent[] {
-  const configs = files.filter((file) => file.classification === "agent_config" && !file.ignored);
+  // Exclude assistant tooling files from ALL agent detection paths.
+  const configs = files.filter(
+    (file) => file.classification === "agent_config" && !file.ignored && !isAssistantToolingPath(file.path),
+  );
 
   // Manifest configs: top-level agents.yaml / agents.yml / agents.json files.
   const manifestConfigs = configs.filter((f) => isManifestAgentConfig(f.path));
   // Agent dir files: non-manifest agent_config files in /agents/ directory (e.g., /agents/researcher.md).
   const agentDirFiles = configs.filter((f) => !isManifestAgentConfig(f.path));
 
-  // Source-based agent files: *_agent.py, *_evaluator.py, etc. (only used when no manifest exists).
+  // Source-based agent files: *_agent.py, *_evaluator.py, etc.
+  // Exclude assistant tooling paths so .claude/skills/.../agents/*.py is not counted.
   const agentSourceFiles = files.filter(
-    (f) => !f.ignored && f.classification === "source_code" && isAgentSourceFile(f.path),
+    (f) =>
+      !f.ignored &&
+      f.classification === "source_code" &&
+      isAgentSourceFile(f.path) &&
+      !isAssistantToolingPath(f.path),
   );
 
   const hasManifest = manifestConfigs.length > 0;
@@ -683,9 +802,10 @@ function detectAgents(
 
   // Agent directory files (unstructured — /agents/*.md, /agents/*.yaml without top-level manifest).
   for (const [index, file] of agentDirFiles.entries()) {
+    const agentName = formatAgentName(file.name) || `Agent ${index + 1}`;
     detected.push({
       id: slug(file.name.replace(/\.[^.]+$/, "") || `agent-dir-${index + 1}`),
-      name: file.name.replace(/\.[^.]+$/, "") || `Agent ${index + 1}`,
+      name: agentName,
       promptPaths: [],
       toolNames: [],
       evalPaths: [],
@@ -698,12 +818,14 @@ function detectAgents(
     });
   }
 
-  // Source-based agent files (*_agent.py, etc.) — only when no manifest or dir files found yet.
+  // Source-based agent files (*_agent.py, *_evaluator.py, *_judge.py, etc.).
+  // Only added when no manifest or dir files found yet; never from assistant tooling paths.
   if (detected.length === 0 && hasAgentSourceFiles) {
     for (const [index, file] of agentSourceFiles.entries()) {
+      const agentName = formatAgentName(file.name) || `Agent ${index + 1}`;
       detected.push({
         id: slug(file.name.replace(/\.[^.]+$/, "") || `agent-src-${index + 1}`),
-        name: file.name.replace(/[_-]/g, " ").replace(/\.[^.]+$/, ""),
+        name: agentName,
         promptPaths: [],
         toolNames: [],
         evalPaths: [],
@@ -712,7 +834,7 @@ function detectAgents(
         source: "inferred" as const,
         confidence: "medium" as const,
         displayKind: "agent_file" as AgentDisplayKind,
-        evidenceReason: `Agent-like file at ${file.path}`,
+        evidenceReason: "Python agent module detected under product agents directory.",
       });
     }
   }
@@ -803,6 +925,33 @@ function agentConfigEntries(parsed: unknown) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// -- LLM infrastructure detection --
+
+// Detects LLM provider/client files that are infrastructure, not prompt assets.
+// Examples: llm/client.py, providers/openai.ts, modelProvider.ts
+function detectLLMInfrastructure(files: RepoFile[]): string[] {
+  const results: string[] = [];
+
+  for (const file of files) {
+    if (file.ignored || isAssistantToolingPath(file.path)) continue;
+    if (file.classification !== "source_code") continue;
+
+    const lower = file.path.toLowerCase();
+    const name = getFileName(lower);
+    const normalized = `/${lower}`;
+
+    const isLLMInfra = (
+      normalized.includes("/llm/") ||
+      (normalized.includes("/providers/") && /\b(openai|anthropic|gemini|cohere|mistral|groq|together|bedrock)\b/.test(file.content ?? "")) ||
+      /^(openai|anthropic|gemini|model[_-]?provider|ai[_-]?service|ai[_-]?client|llm[_-]?client|model[_-]?service)\.(ts|js|py)$/.test(name)
+    );
+
+    if (isLLMInfra) results.push(file.path);
+  }
+
+  return results.slice(0, 20);
 }
 
 // -- Tool detection --

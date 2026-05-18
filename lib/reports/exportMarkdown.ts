@@ -14,6 +14,7 @@ export function exportReportMarkdown(report: ScanReport) {
     `- Scan source: ${source ? `${source.type.toUpperCase()} - ${source.label}` : "Unknown"}`,
     `- Scanned at: ${report.scannedAt}`,
     `- Overall score: ${formatScore(report.scores.overall)}`,
+    `- Report version: ${report.reportVersion ?? "unversioned"}`,
     `- Project type: ${projectTypeLabel(report.projectType)} — ${projectTypeDescription(report.projectType)}`,
     `- Auditor mode: ${auditorMode(report)}`,
     `- Files scanned: ${report.filesScanned}`,
@@ -25,9 +26,15 @@ export function exportReportMarkdown(report: ScanReport) {
     `- Agents: ${report.detectedAgents.length}`,
     `- AI/product workflows: ${report.detectedWorkflowsDetailed.length}`,
     `- CI workflows: ${report.detectedCIWorkflows.length}`,
+    ...(report.detectedAssistantTooling && report.detectedAssistantTooling.length > 0
+      ? [`- Assistant tooling artifacts: ${report.detectedAssistantTooling.length}`]
+      : []),
     `- Prompt files: ${report.detectedPrompts.length}`,
     ...(report.detectedPromptRelatedFiles && report.detectedPromptRelatedFiles.length > 0
       ? [`- Prompt-related source files: ${report.detectedPromptRelatedFiles.length}`]
+      : []),
+    ...(report.detectedLLMInfrastructure && report.detectedLLMInfrastructure.length > 0
+      ? [`- LLM infrastructure files: ${report.detectedLLMInfrastructure.length}`]
       : []),
     `- Tools: ${report.detectedTools.length}`,
     `- Dedicated AI evals: ${report.detectedEvals.length}`,
@@ -86,6 +93,8 @@ export function exportReportMarkdown(report: ScanReport) {
     ),
     "",
     ...ciWorkflowsMarkdown(report),
+    ...assistantToolingMarkdown(report),
+    ...maintainabilityMetricsMarkdown(report),
     "## Findings Summary",
     "",
     ...SEVERITY_ORDER
@@ -109,6 +118,78 @@ export function exportReportMarkdown(report: ScanReport) {
   ];
 
   return lines.join("\n");
+}
+
+function maintainabilityMetricsMarkdown(report: ScanReport) {
+  const m = report.maintainability;
+  if (!m) return [];
+
+  const lines: string[] = [
+    "## Maintainability Metrics",
+    "",
+    m.summary,
+    "",
+  ];
+
+  if (m.largeFiles.length > 0) {
+    lines.push("### Large files", "");
+    for (const lf of m.largeFiles) {
+      lines.push(`- \`${lf.path}\` — ${lf.lineCount} lines (${lf.reason})`);
+    }
+    lines.push("");
+  }
+
+  const totalTodo = m.todoMarkers.reduce((s, t) => s + t.count, 0);
+  if (totalTodo > 0) {
+    lines.push(`### TODO/FIXME markers: ${totalTodo} total`, "");
+    for (const t of m.todoMarkers.slice(0, 8)) {
+      lines.push(`- \`${t.path}\`: ${t.count}`);
+    }
+    lines.push("");
+  }
+
+  if (m.hotspots.length > 0) {
+    lines.push("### Hotspots", "");
+    for (const h of m.hotspots.slice(0, 5)) {
+      lines.push(`- \`${h.path}\`: ${h.signals.join(", ")}`);
+    }
+    lines.push("");
+  }
+
+  if (!report.reportVersion || report.reportVersion === "") {
+    lines.push("_Note: Report schema version not set — required before persisting scan history._", "");
+  } else {
+    lines.push(`_Report schema version: ${report.reportVersion}_`, "");
+  }
+
+  return lines;
+}
+
+function assistantToolingMarkdown(report: ScanReport) {
+  const tooling = report.detectedAssistantTooling;
+  if (!tooling || tooling.length === 0) return [];
+  return [
+    "## Assistant Tooling",
+    "",
+    `Developer-assistant artifacts (${tooling.length}) found and excluded from product agent/workflow analysis:`,
+    "",
+    ...tooling.map((t) => {
+      const kindLabel = assistantToolingKindLabel(t.kind);
+      return `- ${t.path} (${kindLabel}${t.label ? `, ${t.label}` : ""})`;
+    }),
+    "",
+  ];
+}
+
+function assistantToolingKindLabel(kind: string): string {
+  switch (kind) {
+    case "claude_skill": return "Claude skill";
+    case "cursor_rule": return "Cursor rule";
+    case "vscode_config": return "VS Code config";
+    case "assistant_prompt": return "assistant prompt";
+    case "assistant_agent": return "assistant agent";
+    default: return "assistant tooling";
+  }
 }
 
 function ciWorkflowsMarkdown(report: ScanReport) {
