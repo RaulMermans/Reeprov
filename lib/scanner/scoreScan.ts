@@ -1,12 +1,13 @@
 import type { Finding, Scores } from "./types";
 
 const weights = {
-  architecture: 0.2,
-  promptQuality: 0.2,
-  toolGovernance: 0.2,
-  evalCoverage: 0.15,
-  security: 0.15,
-  documentation: 0.1,
+  architecture: 0.18,
+  promptQuality: 0.18,
+  toolGovernance: 0.18,
+  evalCoverage: 0.13,
+  security: 0.14,
+  documentation: 0.09,
+  maintainability: 0.10,
 };
 
 // Penalties per severity for non-security categories.
@@ -43,6 +44,8 @@ export function scoreScan(findings: Finding[]): Scores {
     evalCoverage: 82,
     security: 88,
     documentation: 82,
+    // Maintainability starts at 82 as placeholder; overridden by the maintainability auditor.
+    maintainability: 82,
   };
 
   let lowConfSecurityPenaltyTotal = 0;
@@ -84,7 +87,8 @@ export function scoreScan(findings: Finding[]): Scores {
       base.toolGovernance * weights.toolGovernance +
       base.evalCoverage * weights.evalCoverage +
       base.security * weights.security +
-      base.documentation * weights.documentation,
+      base.documentation * weights.documentation +
+      base.maintainability * weights.maintainability,
   );
 
   return {

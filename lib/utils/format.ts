@@ -44,5 +44,6 @@ export function scoreEntries(scores: Scores) {
     ["Eval coverage", scores.evalCoverage],
     ["Security", scores.security],
     ["Documentation", scores.documentation],
+    ["Maintainability", scores.maintainability],
   ] as const;
 }

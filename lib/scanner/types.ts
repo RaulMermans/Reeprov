@@ -1,5 +1,15 @@
 import type { SecretMatch } from "./secretPatterns";
 
+// Artifact scope: distinguishes product AI system files from developer tooling.
+export type ArtifactScope =
+  | "product"
+  | "assistant_tooling"
+  | "ci"
+  | "docs"
+  | "tests"
+  | "example"
+  | "unknown";
+
 export type FileClassification =
   | "agent_config"
   | "workflow_config"
@@ -84,6 +94,14 @@ export interface DetectedWorkflow {
   evidenceReason?: string;
 }
 
+// Developer-assistant artifact (Claude skill, Cursor rule, VS Code config, etc.).
+// Reported separately and excluded from product agent/workflow counts.
+export interface DetectedAssistantTooling {
+  path: string;
+  kind: "claude_skill" | "cursor_rule" | "vscode_config" | "assistant_prompt" | "assistant_agent" | "other";
+  label?: string;
+}
+
 export interface DetectedCIWorkflow {
   name: string;
   path: string;
@@ -115,7 +133,17 @@ export interface Scores {
   evalCoverage: number;
   security: number;
   documentation: number;
+  maintainability: number;
   overall: number;
+}
+
+// Maintainability metrics attached to a ScanReport when the maintainability auditor runs.
+export interface MaintainabilityMetrics {
+  largeFiles: Array<{ path: string; lineCount: number; reason: string }>;
+  todoMarkers: Array<{ path: string; count: number }>;
+  hotspots: Array<{ path: string; signals: string[] }>;
+  summary: string;
+  score: number;
 }
 
 export interface ScanSource {
@@ -136,6 +164,7 @@ export interface ZipScanStats {
 }
 
 export interface ScanReport {
+  reportVersion: string;
   repoName: string;
   scanSource?: ScanSource;
   zipStats?: ZipScanStats;
@@ -146,12 +175,15 @@ export interface ScanReport {
   detectedAgents: DetectedAgent[];
   detectedWorkflowsDetailed: DetectedWorkflow[];
   detectedCIWorkflows: DetectedCIWorkflow[];
+  detectedAssistantTooling?: DetectedAssistantTooling[];
   detectedPrompts: string[];
   detectedPromptRelatedFiles?: string[];
+  detectedLLMInfrastructure?: string[];
   detectedTools: string[];
   detectedEvals: string[];
   detectedTests: string[];
   detectedWorkflows: string[];
+  maintainability?: MaintainabilityMetrics;
   findings: Finding[];
   scores: Scores;
   recommendations: string[];

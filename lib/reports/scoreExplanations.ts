@@ -18,6 +18,7 @@ export function buildScoreExplanations(report: ScanReport): ScoreExplanation[] {
     evalCoverageExplanation(report),
     securityExplanation(report),
     documentationExplanation(report),
+    maintainabilityExplanation(report),
   ];
 }
 
@@ -168,6 +169,32 @@ function securityExplanation(report: ScanReport): ScoreExplanation {
     summary: "Measures secret exposure and sensitive file hygiene. Severity is calibrated by file context (production vs. test/docs).",
     positives,
     penalties,
+    relatedFindingIds: findings.map((f) => f.id),
+  };
+}
+
+function maintainabilityExplanation(report: ScanReport): ScoreExplanation {
+  const findings = relatedFindings(report, "maintainability");
+  const score = report.scores.maintainability;
+  const metrics = report.maintainability;
+
+  const positives: string[] = [];
+  if (report.detectedTests.length > 0) positives.push(`${report.detectedTests.length} test file(s) detected.`);
+  if (report.detectedEvals.length > 0) positives.push(`${report.detectedEvals.length} dedicated AI eval file(s) detected.`);
+  if (metrics && metrics.largeFiles.length === 0) positives.push("No oversized files detected.");
+  if (metrics && metrics.todoMarkers.length === 0) positives.push("No TODO/FIXME markers in source files.");
+  if (positives.length === 0) positives.push("No structural improvements detected.");
+
+  const summary = metrics?.summary
+    ?? "Measures how easy and safe this AI system is to evolve — file size, concentration of logic, TODO markers, and schema hygiene.";
+
+  return {
+    category: "maintainability",
+    label: "Maintainability",
+    score,
+    summary,
+    positives,
+    penalties: findings.filter((f) => f.severity !== "info").map((f) => f.title),
     relatedFindingIds: findings.map((f) => f.id),
   };
 }
