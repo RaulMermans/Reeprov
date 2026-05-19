@@ -82,13 +82,31 @@ Commit 4 is complete when private Vercel deployment readiness is documented and 
 - CLAUDE.md invariants updated: ai_application, recommendation de-dup, score explanations, report semantics.
 - Tests added: ai_application detection, recommendation de-dup by project type, finding summary counts, score explanation behavior, markdown export.
 
-**Commit 9: Scan history**
+**Commit 10: AI System Graph + Model/Provider Mapping Foundation (complete)**
+
+- `SystemGraph` data model added (nodes, edges, warnings, summary) with manifest/file_path/code_pattern/inferred/eval_result edge sources.
+- `lib/reports/systemGraph.ts` reconstructs a typed AI system graph from detected agents, workflows, prompts, tools, evals, and detected models.
+- Manifest parsing extended to richer agent and workflow fields: nested `files.prompt`, `tools.allowed`, `evals.paths`, agent `model`, `provider`, `owner`, `permissions`; workflow stages with `agent`, `prompt`, `tools`, `evals`, `model`, `approval_gate`, `artifacts`.
+- `lib/scanner/modelDetection.ts` adds deterministic provider/model detection from manifests (high), code strings (medium), env var names (low), and provider SDK imports (low). Secret values are never exposed.
+- Optional repo-provided eval/run metrics are parsed from `eval-results.json`, `runs.json`, `metrics.json`, `traces.json`, `model-comparison.json`, `reports/evals/*.json`, `evals/results/*.json`.
+- Dashboard adds `SystemGraphView`, `ModelMatrix`, `MappingGaps`, and a richer `AgentCard` (mapped prompts/tools/evals/model, owner, permissions).
+- Markdown export adds AI System Graph Summary, Model / Provider Matrix, and Workflow Visualization Data sections.
+- Scoring uses graph gaps: small penalties for manifest agents missing prompts, evals, or model; small penalty when workflow manifests have no stages.
+- Recommendations are graph-aware: prompt/tool/eval/model mapping recs, eval-to-agent attachment, performance-data prompt.
+- AgentPulse does not compare model performance unless repo-provided eval/run metrics are present.
+
+**Commit 11: Scan history**
 
 - Persist redacted reports in a simple store.
 - Score trend chart per repository.
 - Finding diff between scans.
 
-**Commit 10: GitHub OAuth or GitHub App**
+**Commit 12: Model performance comparison polish**
+
+- Better visualization of repo-provided eval scores, token usage, latency, and cost.
+- Per-model and per-agent leaderboards driven by metrics in the repo.
+
+**Future: GitHub OAuth or GitHub App**
 
 - Replace shared access key with GitHub OAuth restricted to the repo owner.
 - Or: GitHub App installation for personal repos.

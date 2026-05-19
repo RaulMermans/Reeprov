@@ -4,8 +4,11 @@ import { useEffect, useState } from "react";
 import { AgentCard } from "@/components/dashboard/AgentCard";
 import { FindingTable } from "@/components/dashboard/FindingTable";
 import { HealthOverview } from "@/components/dashboard/HealthOverview";
+import { MappingGaps } from "@/components/dashboard/MappingGaps";
+import { ModelMatrix } from "@/components/dashboard/ModelMatrix";
 import { RepoSelector } from "@/components/dashboard/RepoSelector";
 import { ScanSummary } from "@/components/dashboard/ScanSummary";
+import { SystemGraphView } from "@/components/dashboard/SystemGraphView";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import { Card } from "@/components/ui/Card";
 import { exportReportMarkdown } from "@/lib/reports/exportMarkdown";
@@ -411,6 +414,29 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
             </div>
           </Card>
           <ScanSummary report={report} />
+
+          {report.systemGraph ? (
+            <section>
+              <h2 className="mb-3 text-lg font-semibold text-slate-950">AI system graph</h2>
+              <SystemGraphView graph={report.systemGraph} />
+            </section>
+          ) : null}
+
+          <section>
+            <h2 className="mb-3 text-lg font-semibold text-slate-950">Model / provider matrix</h2>
+            <ModelMatrix
+              agents={report.detectedAgents}
+              models={report.detectedModels}
+              performance={report.modelPerformance}
+            />
+          </section>
+
+          {report.systemGraph ? (
+            <section>
+              <h2 className="mb-3 text-lg font-semibold text-slate-950">Mapping gaps</h2>
+              <MappingGaps graph={report.systemGraph} />
+            </section>
+          ) : null}
 
           <section>
             <h2 className="mb-3 text-lg font-semibold text-slate-950">Detected agents</h2>

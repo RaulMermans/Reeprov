@@ -1,8 +1,10 @@
 import yaml from "js-yaml";
 import { buildRecommendations } from "@/lib/reports/recommendations";
+import { buildSystemGraph } from "@/lib/reports/systemGraph";
 import { classifyFile } from "./classifyFiles";
 import { deriveFileContext } from "./fileContext";
 import { getExtension, getFileName, isEnvFileName, shouldIgnorePath } from "./ignoreRules";
+import { detectModelPerformance, detectModels } from "./modelDetection";
 import { redactSecrets } from "./redactSecrets";
 import { scoreScan } from "./scoreScan";
 import {
@@ -12,6 +14,8 @@ import {
 } from "./secretPatterns";
 import type {
   AgentDisplayKind,
+  AgentModelMapping,
+  AgentPermissions,
   DetectedAgent,
   DetectedAssistantTooling,
   DetectedCIWorkflow,
@@ -23,6 +27,7 @@ import type {
   RepoFile,
   ScanReport,
   ScanSource,
+  WorkflowStage,
   ZipScanStats,
 } from "./types";
 
@@ -299,6 +304,81 @@ export function staticScanFromFiles(
     ));
   }
 
+  // -- Model/provider detection (deterministic) --
+  const detectedModels = detectModels(files, detectedAgents, detectedWorkflowsDetailed);
+  const modelPerformance = detectModelPerformance(files);
+
+  // -- AI System Graph --
+  const systemGraph = buildSystemGraph({
+    detectedAgents,
+    detectedWorkflowsDetailed,
+    detectedPrompts,
+    detectedPromptRelatedFiles,
+    detectedTools,
+    detectedEvals,
+    detectedTests,
+    detectedCIWorkflows,
+    detectedModels,
+    modelPerformance,
+  });
+
+  // -- Graph-derived findings (moderate, project-type-aware penalties) --
+  const hasManifestAgents = detectedAgents.some((a) => a.displayKind === "manifest");
+  if (hasManifestAgents) {
+    if (systemGraph.summary.missingPromptLinks > 0) {
+      findings.push(finding(
+        "graph-agents-missing-prompts",
+        "promptQuality",
+        "low",
+        "Manifest agents missing prompt mapping",
+        `${systemGraph.summary.missingPromptLinks} agent(s) have no mapped prompt in agents.yaml.`,
+        [],
+        "Add prompts: list per agent in agents.yaml so prompts can be tied to specific agents.",
+        0.7,
+      ));
+    }
+    if (systemGraph.summary.missingEvalLinks > 0 && detectedEvals.length > 0) {
+      findings.push(finding(
+        "graph-agents-missing-evals",
+        "evalCoverage",
+        "low",
+        "Agents not linked to evals",
+        `${systemGraph.summary.missingEvalLinks} agent(s) have no mapped evals despite eval files existing in the repo.`,
+        [],
+        "Attach eval suites to the agents or workflow steps they validate.",
+        0.7,
+      ));
+    }
+    if (systemGraph.summary.missingModelLinks > 0) {
+      findings.push(finding(
+        "graph-agents-missing-model",
+        "architecture",
+        "low",
+        "Manifest agents missing model/provider mapping",
+        `${systemGraph.summary.missingModelLinks} agent(s) have no mapped model/provider in agents.yaml.`,
+        [],
+        "Add model: { provider, name } per agent in agents.yaml or workflow.yaml.",
+        0.7,
+      ));
+    }
+  }
+
+  // Workflow stages missing
+  for (const wf of detectedWorkflowsDetailed) {
+    if (wf.source === "explicit" && (!wf.stages || wf.stages.length === 0)) {
+      findings.push(finding(
+        `graph-workflow-missing-steps-${wf.id}`,
+        "architecture",
+        "low",
+        "Workflow manifest has no stages",
+        `Workflow "${wf.name}" is defined but has no stages.`,
+        wf.configPath ? [wf.configPath] : [],
+        "Add stages with id, name, and agent fields to the workflow manifest.",
+        0.7,
+      ));
+    }
+  }
+
   const scores = scoreScan(findings);
 
   return {
@@ -321,9 +401,17 @@ export function staticScanFromFiles(
     detectedEvals,
     detectedTests,
     detectedWorkflows: detectedWorkflowPaths,
+    detectedModels,
+    modelPerformance: modelPerformance.length > 0 ? modelPerformance : undefined,
+    systemGraph,
     findings,
     scores,
-    recommendations: buildRecommendations(findings, { projectType }),
+    recommendations: buildRecommendations(findings, {
+      projectType,
+      systemGraph,
+      hasManifestAgents,
+      modelPerformance: modelPerformance.length > 0,
+    }),
   };
 }
 
@@ -679,9 +767,24 @@ function workflowFromEntry(entry: unknown, configPath: string): DetectedWorkflow
   const name = firstString(record.name) ?? firstString(record.id) ?? "Workflow";
   const rawType = firstString(record.type);
   const type = parseWorkflowType(rawType);
-  const stages = valueStrings(record.stages);
+
+  const stagesRaw = record.stages;
+  let stages: string[];
+  let stagesDetailed: WorkflowStage[] | undefined;
+  if (Array.isArray(stagesRaw) && stagesRaw.some((s) => isRecord(s))) {
+    stagesDetailed = stagesRaw.map((s, idx) => parseWorkflowStage(s, idx));
+    stages = stagesDetailed.map((s) => s.name ?? s.id);
+  } else {
+    stages = valueStrings(stagesRaw);
+  }
+
   const tools = valueStrings(record.tools);
   const evals = valueStrings(record.evals);
+  const owner = firstString(record.owner);
+  const status = firstString(record.status);
+  const architecture = firstString(record.architecture);
+  const approvalGates = valueStrings(record.approval_gates).concat(valueStrings(record.approvalGates));
+  const artifacts = valueStrings(record.artifacts);
 
   return {
     id: slug(id),
@@ -694,6 +797,41 @@ function workflowFromEntry(entry: unknown, configPath: string): DetectedWorkflow
     source: "explicit",
     confidence: "high",
     evidenceReason: `Defined in ${configPath}`,
+    ...(stagesDetailed && stagesDetailed.length > 0 ? { stagesDetailed } : {}),
+    ...(owner ? { owner } : {}),
+    ...(status ? { status } : {}),
+    ...(architecture ? { architecture } : {}),
+    ...(approvalGates.length > 0 ? { approvalGates: [...new Set(approvalGates)] } : {}),
+    ...(artifacts.length > 0 ? { artifacts } : {}),
+  };
+}
+
+function parseWorkflowStage(entry: unknown, idx: number): WorkflowStage {
+  const record = isRecord(entry) ? entry : {};
+  const id = firstString(record.id) ?? firstString(record.name) ?? `stage-${idx + 1}`;
+  const name = firstString(record.name);
+  const agent = firstString(record.agent);
+  const prompt = firstString(record.prompt) ?? firstString(record.prompt_path);
+  const tools = valueStrings(record.tools);
+  const evals = valueStrings(record.evals);
+  const model = parseModelMapping(record.model);
+  const approvalGate =
+    record.approval_gate === true ||
+    record.approvalGate === true ||
+    record.approval === true ||
+    undefined;
+  const artifacts = valueStrings(record.artifacts).concat(valueStrings(record.produces));
+
+  return {
+    id: slug(id),
+    ...(name ? { name } : {}),
+    ...(agent ? { agent } : {}),
+    ...(prompt ? { prompt } : {}),
+    ...(tools.length > 0 ? { tools } : {}),
+    ...(evals.length > 0 ? { evals } : {}),
+    ...(model ? { model } : {}),
+    ...(approvalGate ? { approvalGate: true } : {}),
+    ...(artifacts.length > 0 ? { artifacts: [...new Set(artifacts)] } : {}),
   };
 }
 
@@ -874,9 +1012,46 @@ function agentsFromConfig(
     const record = isRecord(entry) ? entry : {};
     const id = firstString(record.id);
     const name = firstString(record.name);
-    const promptPaths = collectFieldStrings(record, ["prompt_path", "promptPath", "prompt"]);
-    const toolNames = collectFieldStrings(record, ["tools"]);
-    const evalPaths = collectFieldStrings(record, ["evals"]);
+
+    // Plain shape: prompts: [...]
+    let promptPaths = collectFieldStrings(record, ["prompt_path", "promptPath", "prompt", "prompts"]);
+    let toolNames = collectFieldStrings(record, ["tools"]);
+    let evalPaths = collectFieldStrings(record, ["evals"]);
+
+    // Nested shape: files.prompt, tools.allowed, evals.paths.
+    const filesField = isRecord(record.files) ? record.files : undefined;
+    if (filesField) {
+      const promptFile = firstString(filesField.prompt);
+      if (promptFile) promptPaths = [...new Set([...promptPaths, promptFile])];
+    }
+    if (isRecord(record.tools)) {
+      const allowed = valueStrings(record.tools.allowed);
+      if (allowed.length > 0) toolNames = [...new Set([...toolNames, ...allowed])];
+    }
+    if (isRecord(record.evals)) {
+      const evalsPaths = valueStrings(record.evals.paths);
+      if (evalsPaths.length > 0) evalPaths = [...new Set([...evalPaths, ...evalsPaths])];
+    }
+
+    const model = parseModelMapping(record.model);
+    // Provider-only shape: provider: { name: ... }
+    if (!model && isRecord(record.provider)) {
+      const providerName = firstString(record.provider.name);
+      if (providerName) {
+        // hoist provider into model with no name.
+      }
+    }
+    const owner = firstString(record.owner);
+    const permissions = parsePermissions(record.permissions);
+    const filesRecord: Record<string, string> | undefined = filesField
+      ? Object.fromEntries(
+          Object.entries(filesField).flatMap(([k, v]) => {
+            const s = firstString(v);
+            return s ? [[k, s]] : [];
+          }),
+        )
+      : undefined;
+
     const missing = [
       id ? undefined : "id",
       name ? undefined : "name",
@@ -885,8 +1060,6 @@ function agentsFromConfig(
       evalPaths.length > 0 ? undefined : "evals",
     ].filter(Boolean);
 
-    // Only use manifest-mapped paths, not repo-level fallbacks.
-    // If the manifest doesn't map prompts/tools/evals, they remain empty (not mapped).
     return {
       id: slug(id ?? name ?? `${file.name}-${entryIndex + 1}`),
       name: name ?? id ?? `Agent ${configIndex + 1}.${entryIndex + 1}`,
@@ -898,8 +1071,49 @@ function agentsFromConfig(
       source: "explicit" as const,
       confidence: "high" as const,
       evidenceReason: `Defined in ${file.path}`,
+      ...(model ? { model } : {}),
+      ...(owner ? { owner } : {}),
+      ...(permissions ? { permissions } : {}),
+      ...(filesRecord && Object.keys(filesRecord).length > 0 ? { files: filesRecord } : {}),
     };
   });
+}
+
+function parseModelMapping(value: unknown): AgentModelMapping | undefined {
+  if (!isRecord(value)) return undefined;
+  const provider = firstString(value.provider);
+  const name = firstString(value.name) ?? firstString(value.model);
+  if (!provider && !name) return undefined;
+  const temperature = typeof value.temperature === "number" ? value.temperature : undefined;
+  const maxTokens =
+    typeof value.max_tokens === "number"
+      ? value.max_tokens
+      : typeof value.maxTokens === "number"
+        ? value.maxTokens
+        : undefined;
+  return {
+    provider: provider ?? "unknown",
+    ...(name ? { name } : {}),
+    ...(temperature !== undefined ? { temperature } : {}),
+    ...(maxTokens !== undefined ? { maxTokens } : {}),
+  };
+}
+
+function parsePermissions(value: unknown): AgentPermissions | undefined {
+  if (!isRecord(value)) return undefined;
+  const out: AgentPermissions = {};
+  if (typeof value.external_network === "boolean") out.externalNetwork = value.external_network;
+  else if (typeof value.externalNetwork === "boolean") out.externalNetwork = value.externalNetwork;
+  if (typeof value.write_files === "boolean") out.writeFiles = value.write_files;
+  else if (typeof value.writeFiles === "boolean") out.writeFiles = value.writeFiles;
+  if (typeof value.publish === "boolean") out.publish = value.publish;
+  const extra: Record<string, boolean> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (["external_network", "externalNetwork", "write_files", "writeFiles", "publish"].includes(k)) continue;
+    if (typeof v === "boolean") extra[k] = v;
+  }
+  if (Object.keys(extra).length > 0) out.extra = extra;
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 function parseStructuredConfig(file: RepoFile) {

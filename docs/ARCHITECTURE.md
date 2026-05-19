@@ -159,16 +159,92 @@ Scores cover architecture, prompt quality, tool governance, eval coverage, secur
 
 Security scoring uses confidence-aware penalties. Because secret severity is calibrated at finding creation time by file context, docs/test/example secrets no longer drive the security score to 0. Only production secrets with high confidence produce large penalties.
 
+## AI System Graph
+
+AgentPulse reconstructs a typed AI system graph after detection.
+
+Nodes: `agent`, `workflow`, `workflow_step`, `prompt`, `tool`, `model`, `provider`, `eval`, `data_source`, `approval_gate`, `artifact`, `external_side_effect`, `assistant_tooling`, `unknown`.
+
+Edges: `uses_prompt`, `calls_tool`, `uses_model`, `provided_by`, `evaluated_by`, `contains_step`, `depends_on`, `produces`, `reads_from`, `writes_to`, `requires_approval`, `has_permission`, `related_to`, `inferred_from`.
+
+Confidence rules:
+- Manifest entries: high confidence.
+- File-path matches: medium confidence.
+- Prompt-only inference: low confidence.
+
+Detected ≠ mapped. A detected prompt becomes a prompt node, but only an explicit `agents.yaml` entry or workflow stage produces a `uses_prompt` edge to an agent or step. The same applies to tools, evals, and models.
+
+Graph warnings cover: `agent_missing_prompt`, `agent_missing_tools`, `agent_missing_evals`, `agent_missing_model`, `workflow_missing_steps`, `tool_missing_permission`, `eval_not_mapped`, `prompt_not_mapped`, `model_not_mapped`, `performance_data_missing`, `assistant_tooling_not_product`.
+
+## Model / Provider Detection
+
+Deterministic model detection runs after agent/workflow detection.
+
+Sources:
+- **Manifest** (high confidence): `model: { provider, name }` in agents.yaml or workflow stages.
+- **Code** (medium): explicit model strings like `gpt-4o`, `claude-3-5-sonnet`, `gemini-2.5-flash`, `mixtral-8x7b`, etc.
+- **Env** (low): provider env var names in `.env.example` (e.g. `OPENAI_API_KEY`). No model name is inferred.
+- **Import** (low): provider SDK imports (`openai`, `@anthropic-ai/sdk`, `@google/genai`, `groq-sdk`, etc.) with no model name.
+
+Secret values are never exposed in `detectedModels` — only provider names and env-var names.
+
+## Performance Data (optional)
+
+If the repository ships eval/run metrics in well-known files (`eval-results.json`, `runs.json`, `metrics.json`, `traces.json`, `model-comparison.json`, `reports/evals/*.json`, `evals/results/*.json`), AgentPulse parses them into `modelPerformance` entries with `provider`, `model`, `eval_id`, `score`, `latency_ms`, `input_tokens`, `output_tokens`, and `cost_usd`.
+
+AgentPulse does not claim one model is better than another unless these metrics exist in the scanned repository.
+
 ## Dashboard
 
 The dashboard shows:
 - Scan source, overall score, status, project type label
 - Detected counts: agents, prompts, tools, AI evals, software tests, CI workflows, assistant tooling
 - Score cards with explanations
-- Agent cards with explicit/inferred/low-confidence badges and "Not mapped" for unlinked attributes
+- AI System Graph view (columns: workflows/steps, agents, prompts/tools/models, evals/artifacts/gates) with mapping summary
+- Model / Provider Matrix: provider, model, source, confidence, eval coverage, performance availability
+- Mapping Gaps panel with agent_missing_prompt/tool/eval/model warnings
+- Agent cards with explicit/inferred/low-confidence badges, mapped prompts/tools/evals, model/provider, owner, and permissions
 - AI/product workflow cards with explicit/inferred badges
 - CI workflows section (separate from AI workflows)
 - Assistant tooling section (separate from product agents)
 - Findings with filters, confidence, and expandable evidence snippets
 - Export controls (JSON and Markdown)
 - De-duplicated recommended next actions
+
+## Recommended Manifest Fields
+
+For best results, agents.yaml should map each agent's `prompts`, `tools`, `evals`, and `model: { provider, name }`. For example:
+
+```yaml
+agents:
+  - id: editor_agent
+    name: Editor Agent
+    source: blogagent/agents/editor_agent.py
+    prompts:
+      - blogagent/agents/prompts.py#DRAFT_PROMPT
+    tools:
+      - web_search
+      - citation_lookup
+    evals:
+      - blogagent/evals/editor_quality.yaml
+    model:
+      provider: google
+      name: gemini-2.5-flash
+      temperature: 0.3
+```
+
+For workflows, stages should declare `agent`, `prompt`, `tools`, `model`, `evals`, and any `approval_gate`:
+
+```yaml
+workflow:
+  id: blog_generation
+  stages:
+    - id: draft
+      agent: editor_agent
+      prompt: blogagent/agents/prompts.py#DRAFT_PROMPT
+      model:
+        provider: google
+        name: gemini-2.5-flash
+      evals:
+        - blogagent/evals/editor_quality.yaml
+```
