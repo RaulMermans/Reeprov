@@ -61,6 +61,17 @@ Good documentation explains agent responsibilities, constraints, setup, safety p
 
 Workflow-based projects (`workflow_system`) are evaluated like agent-based projects but with adjusted expectations. A workflow manifest (`workflow.yaml`) serves the same structural function as `agents.yaml`. Missing `agents.yaml` is not penalized for workflow-only projects.
 
+## AI System Graph Penalties
+
+When manifest agents are present (`displayKind: manifest`), the scorer applies small penalties when the AI system graph cannot link them to expected artifacts:
+
+- **Architecture**: small penalty if a workflow manifest declares no stages.
+- **Architecture**: small penalty if manifest agents have no `model: { provider, name }` mapping.
+- **Prompt quality**: small penalty if manifest agents have no `prompts:` mapping.
+- **Eval coverage**: small penalty if eval files exist in the repo but no manifest agent is mapped to them.
+
+Penalties remain moderate. A small repository without an agents.yaml manifest is not punished for lacking graph mappings.
+
 ## Severity Levels
 
 - Info: useful note with minimal risk.

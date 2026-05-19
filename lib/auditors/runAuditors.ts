@@ -51,11 +51,17 @@ export async function runAuditors(
     scores.overall = overallScore(scores);
   }
 
+  const hasManifestAgents = report.detectedAgents.some((a) => a.displayKind === "manifest");
   return {
     ...report,
     findings,
     scores,
-    recommendations: buildRecommendations(findings, { projectType: report.projectType }),
+    recommendations: buildRecommendations(findings, {
+      projectType: report.projectType,
+      systemGraph: report.systemGraph,
+      hasManifestAgents,
+      modelPerformance: (report.modelPerformance?.length ?? 0) > 0,
+    }),
     auditorStatus: promptAuditorResult?.auditorStatus,
   };
 }

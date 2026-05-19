@@ -6,7 +6,7 @@ AgentPulse is a private personal dashboard for auditing AI-agent and AI-workflow
 
 ## Current Phase
 
-Self-scan calibration + final report semantics polish (Commit 8A). Real LLM auditor calls remain feature-flagged and disabled by default.
+AI System Graph + Model/Provider Mapping Foundation (Commit 10). The scanner now reconstructs a typed AI system graph (agents, workflows, prompts, tools, models, providers, evals, artifacts, approval gates) from manifests, detects model/provider metadata from manifests/code/env/imports, and parses optional repo-provided eval/run metrics. Real LLM auditor calls remain feature-flagged and disabled by default.
 
 ## Architecture
 
@@ -112,6 +112,13 @@ Reference:
 - Reports must distinguish raw findings from interpreted scores. Score explanations (positives, penalties, related findings count) must be surfaced separately from the raw finding table.
 - Exported reports must stay redacted. No raw secret values in markdown or JSON exports.
 - AI applications are first-class project types. Do not overstate inferred agent or workflow structure.
+- Detected artifacts are not automatically mapped artifacts. A detected prompt/tool/eval/model is not the same as one mapped to an agent or workflow step.
+- Do not invent graph edges without evidence. Manifest entries are high confidence; file-path matches are medium; prompt-only inference is low.
+- Model/provider mapping must cite manifest/code/env source. Manifest is high, code is medium, env-only and imports are low.
+- Model performance comparison requires explicit eval/run metrics. AgentPulse must not claim model A performs better than model B without performance files.
+- Workflow visualization must degrade gracefully for missing data.
+- Assistant tooling must remain separate from the product graph unless explicitly mapped.
+- Provider env vars (e.g. OPENAI_API_KEY) reveal the provider but never expose the secret value.
 
 ## What Not To Build Yet
 
