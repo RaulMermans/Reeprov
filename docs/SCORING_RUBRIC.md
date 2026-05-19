@@ -2,12 +2,13 @@
 
 Overall score uses:
 
-- Architecture: 20%
-- Prompt quality: 20%
-- Tool governance: 20%
-- Eval coverage: 15%
-- Security: 15%
-- Documentation: 10%
+- Architecture: 18%
+- Prompt quality: 18%
+- Tool governance: 18%
+- Eval coverage: 13%
+- Security: 14%
+- Documentation: 9%
+- Maintainability: 10%
 
 ## Architecture
 
@@ -52,6 +53,57 @@ Secret findings are classified by confidence before applying score penalties:
 - Short placeholder values
 
 Low-confidence patterns are filtered out and do not produce findings or score penalties. One high-confidence secret finding reduces the security score significantly. Multiple high-confidence findings reduce it further. Medium-confidence assignments apply a moderate penalty only.
+
+## Maintainability
+
+Maintainability measures how easy and safe the AI system is to evolve over time. This is not a style lint — it focuses on structural signals that indicate whether the system is becoming harder, riskier, or slower to change.
+
+Score starts at 100 and subtracts penalties. Minimum score is 20.
+
+### Deterministic checks (V1)
+
+**A. Large files** — source files (not tests, docs, lockfiles) over 500 lines (medium) or 800 lines (high). Signals mixed responsibilities that make evolution risky.
+
+**B. Scanner/router concentration** — files in scanner/, reports/, routing/ paths that are very large or have many exports. Indicates that new detection logic cannot be tested in isolation.
+
+**C. TODO/FIXME markers** — info for 1–3 markers, low for 4–10, medium for >10. Deferred work accumulates as AI system complexity grows.
+
+**D. Schema version missing** — if no `reportVersion` field exists in schema/type files. Required before scan history is implemented.
+
+**E. Dashboard component complexity** — UI components over 300 lines. Large components are harder to extend for scan history or diff views.
+
+**F. Duplicate recommendation wording** — recommendation phrases repeated across multiple source files may cause dashboard and exports to diverge.
+
+**G. Missing golden fixtures** — if tests exist but no golden report fixtures are found. Semantic regressions in report output may go undetected.
+
+**H. Documentation drift** — if docs appear to be missing references to major project-type concepts.
+
+### Penalties
+
+- Large source file >500 lines: -8 (per file)
+- Huge source file >800 lines: -15 (per file)
+- TODO/FIXME per marker: -1 (capped at -8)
+- Schema version missing: -8
+- Dashboard complexity: -5 (per component)
+- Scanner concentration: -8 (per file, capped)
+- Duplicate recommendation wording: -5
+- Missing golden fixtures: -5
+- Docs drift: -2
+
+### Positive signals (bonus)
+
+- Tests detected: +3
+- Dedicated AI evals: +3
+- Docs files present: +2
+- Manifest files present (agents.yaml / workflow.yaml): +2
+
+### Why this is not a generic linter
+
+Generic linters measure style, formatting, and language correctness. The maintainability auditor measures whether the AI system's code will become harder to reason about, test, and extend as agent/workflow/prompt complexity grows. A 200-line file with tightly coupled scanning, scoring, and recommendation logic is a maintainability risk even if it's stylistically perfect.
+
+### Future work
+
+A future LLM Code Debt Auditor (behind `ENABLE_LLM_AUDITORS`) could evaluate semantic debt patterns — identifying inconsistent abstraction layers, tangled prompt/tool coupling, or reasoning about which refactors would have the highest ROI. This remains out of scope for V1.
 
 ## Documentation
 

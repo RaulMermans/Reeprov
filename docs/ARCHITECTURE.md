@@ -71,11 +71,43 @@ Generic test files are never counted as AI evals. If tests exist but no explicit
 ### Prompt Detection
 
 Only genuine prompt assets are classified as `prompt`:
-- Files in `/prompts/`
+- Files in `/prompts/` directory
 - Files named `system-prompt*` or `system-persona.md`
-- Files with explicit prompt language in content (`you are an ai`, `system prompt`, etc.) that are not in source/test directories
+- Files matching `*.prompt.{md,ts,txt,js}`
+- Python prompt modules: `prompts.py` or `*_prompts.py` that contain uppercase `_PROMPT` constants (e.g., `RESEARCH_PLAN_PROMPT = "..."`)
+- Files with explicit prompt language in content that are not in source/test/assistant-tooling directories
 
-Test files with "prompt" in the filename (e.g., `prompt-input.test.ts`) are classified as `test`, not `prompt`.
+Not classified as prompt assets:
+- Test files with "prompt" in the filename (e.g., `prompt-input.test.ts`) → classified as `test`
+- LLM client/provider files (`llm/client.py`, `providers/openai.ts`) → classified as `source_code` and detected as LLM infrastructure
+- Files under assistant tooling paths (`.claude/**`, `.cursor/**`) → classified by their own rules and reported as assistant tooling
+
+### Assistant Tooling vs Product Scope
+
+AgentPulse distinguishes **product AI system artifacts** from **developer-assistant tooling**:
+
+**Assistant tooling paths** (excluded from product counts):
+- `.claude/**` — Claude Code skills, hooks, settings
+- `.cursor/**` — Cursor AI rules and configurations
+- `.vscode/**` — VS Code editor settings
+- `.windsurf/**` — Windsurf AI configurations
+- `.github/copilot/**` — GitHub Copilot customizations
+
+Files under these paths are reported in `detectedAssistantTooling` with a kind label (`claude_skill`, `cursor_rule`, `vscode_config`, `assistant_agent`, `assistant_prompt`, `other`). They do **not** contribute to `detectedAgents`, `detectedPrompts`, or project type determination.
+
+**Product AI agent detection** (Python module patterns):
+- `**/agents/*_agent.py` → e.g., `editor_agent.py` → `Editor Agent`
+- `**/agents/*_evaluator.py` → e.g., `fact_check_evaluator.py` → `Fact Check Evaluator`
+- `**/agents/*_judge.py`, `*_critic.py`, `*_planner.py`, `*_router.py`, `*_researcher.py`, `*_writer.py`, `*_editor.py`
+
+These are detected as `agent_file` with `medium` confidence and title-case formatted names. Prompt/tool/eval links remain "Not mapped" unless a manifest explicitly links them.
+
+**LLM infrastructure** (separate from prompt assets):
+- Files in `/llm/` directories (e.g., `llm/client.py`)
+- Provider files (e.g., `providers/openai.ts`) containing AI provider names
+- Files named `modelProvider.ts`, `aiClient.py`, etc.
+
+Reported in `detectedLLMInfrastructure`, not counted as prompts.
 
 ## Redaction and Secret Calibration
 
@@ -104,6 +136,22 @@ Recommendations reflect the context:
 Auditors are typed interfaces that accept a `ScanReport` and return structured findings. Current auditors are placeholders; future versions can call LLMs with redacted evidence only.
 
 The architecture auditor does not flag missing agent boundaries for workflow-only projects.
+
+### Maintainability Auditor
+
+`lib/auditors/maintainabilityAuditor.ts` is a fully deterministic auditor (no LLM calls) that measures how easy and safe the AI system is to evolve. It runs as part of the `runAuditors` pipeline.
+
+Checks performed:
+- **A. Large files** — source files (not tests/docs/lockfiles) flagged at 500+ (medium) and 800+ (high) lines
+- **B. Scanner/router concentration** — large files in scanner/, reports/, routing/ paths with many exports
+- **C. TODO/FIXME markers** — deferred-work markers across source files
+- **D. Schema version** — checks for `reportVersion` field in type/schema files
+- **E. Dashboard complexity** — UI components over 300 lines in components/, dashboard/ directories
+- **F. Duplicate recommendation wording** — repeated recommendation phrases across auditor/report files
+- **G. Golden fixtures** — tests present but no golden report fixtures detected
+- **H. Documentation drift** — docs missing references to major project-type concepts
+
+The maintainability auditor returns a `maintainabilityScore` (0–100, floor 20) and `MaintainabilityMetrics` that are attached to the `ScanReport`. The score is factored into the overall score at 10% weight.
 
 ## Scoring
 
@@ -150,7 +198,7 @@ AgentPulse does not claim one model is better than another unless these metrics 
 
 The dashboard shows:
 - Scan source, overall score, status, project type label
-- Detected counts: agents, prompts, tools, AI evals, software tests, CI workflows
+- Detected counts: agents, prompts, tools, AI evals, software tests, CI workflows, assistant tooling
 - Score cards with explanations
 - AI System Graph view (columns: workflows/steps, agents, prompts/tools/models, evals/artifacts/gates) with mapping summary
 - Model / Provider Matrix: provider, model, source, confidence, eval coverage, performance availability
@@ -158,6 +206,7 @@ The dashboard shows:
 - Agent cards with explicit/inferred/low-confidence badges, mapped prompts/tools/evals, model/provider, owner, and permissions
 - AI/product workflow cards with explicit/inferred badges
 - CI workflows section (separate from AI workflows)
+- Assistant tooling section (separate from product agents)
 - Findings with filters, confidence, and expandable evidence snippets
 - Export controls (JSON and Markdown)
 - De-duplicated recommended next actions
