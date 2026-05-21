@@ -1,5 +1,86 @@
 import { z } from "zod";
 
+// ── v2 governance schemas ──────────────────────────────────────────────────────
+
+export const repositoryModeSchema = z.enum([
+  "ai_application",
+  "ai_framework_library",
+  "example_template",
+  "non_ai",
+  "unknown_ai",
+]);
+
+export const repositoryModeScoringPolicySchema = z.object({
+  aiSystemHealthApplicable: z.boolean(),
+  generalHygieneApplicable: z.boolean(),
+  governanceApplicable: z.boolean(),
+  description: z.string(),
+});
+
+export const repositoryModeResultSchema = z.object({
+  mode: repositoryModeSchema,
+  confidence: z.enum(["high", "medium", "low"]),
+  reasons: z.array(z.string()),
+  evidence: z.array(z.string()),
+  scoringPolicy: repositoryModeScoringPolicySchema,
+});
+
+export const scoreDimensionsSchema = z.object({
+  aiSystemHealth: z.number().nullable(),
+  generalRepoHygiene: z.number(),
+  governanceCompleteness: z.number().nullable(),
+  graphMappingCompleteness: z.number(),
+  confidence: z.enum(["high", "medium", "low"]),
+  legacyOverallScore: z.number(),
+});
+
+export const scoreCapSchema = z.object({
+  dimension: z.string(),
+  cap: z.number(),
+  reason: z.string(),
+  evidence: z.array(z.string()),
+});
+
+export const graphCompletenessMetricsSchema = z.object({
+  mappedAgents: z.number(),
+  totalAgents: z.number(),
+  mappedPrompts: z.number(),
+  totalPrompts: z.number(),
+  mappedTools: z.number(),
+  totalTools: z.number(),
+  mappedEvals: z.number(),
+  totalEvals: z.number(),
+  workflowStepsWithAgent: z.number(),
+  totalWorkflowSteps: z.number(),
+  workflowStepsWithPrompt: z.number(),
+  workflowStepsWithModel: z.number(),
+  workflowStepsWithEval: z.number(),
+  completenessScore: z.number(),
+});
+
+export const evalPerformanceResultSchema = z.object({
+  agent: z.string().optional(),
+  workflow: z.string().optional(),
+  model: z.string().optional(),
+  provider: z.string().optional(),
+  score: z.number().optional(),
+  latencyMs: z.number().optional(),
+  tokensInput: z.number().optional(),
+  tokensOutput: z.number().optional(),
+  costUsd: z.number().optional(),
+  pass: z.boolean().optional(),
+  sourcePath: z.string(),
+});
+
+export const performanceDataSchema = z.object({
+  available: z.boolean(),
+  results: z.array(evalPerformanceResultSchema),
+  evalResultCount: z.number(),
+  resultFiles: z.array(z.string()),
+});
+
+// ── Core schemas ───────────────────────────────────────────────────────────────
+
 export const severitySchema = z.enum(["info", "low", "medium", "high", "critical"]);
 
 export const evidenceSnippetSchema = z.object({
@@ -82,6 +163,7 @@ export const zipStatsSchema = z.object({
 });
 
 export const scanReportSchema = z.object({
+  reportVersion: z.string().default("1.0"),
   repoName: z.string(),
   scanSource: scanSourceSchema.optional(),
   zipStats: zipStatsSchema.optional(),
@@ -89,6 +171,12 @@ export const scanReportSchema = z.object({
   filesScanned: z.number(),
   ignoredFiles: z.number(),
   projectType: projectTypeSchema,
+  // v2 governance fields — all optional for backward compatibility
+  repositoryMode: repositoryModeResultSchema.optional(),
+  scoreDimensions: scoreDimensionsSchema.optional(),
+  scoreCapsApplied: z.array(scoreCapSchema).optional(),
+  graphCompleteness: graphCompletenessMetricsSchema.optional(),
+  performanceData: performanceDataSchema.optional(),
   detectedAgents: z.array(detectedAgentSchema),
   detectedWorkflowsDetailed: z.array(detectedWorkflowSchema),
   detectedCIWorkflows: z.array(detectedCIWorkflowSchema),

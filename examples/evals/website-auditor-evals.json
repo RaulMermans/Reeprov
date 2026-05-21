@@ -1,0 +1,38 @@
+[
+  {
+    "eval_id": "eval-wa-001",
+    "run_id": "wa-run-001",
+    "node_id": "evidence-evaluator",
+    "name": "Audit Output Quality",
+    "type": "output_quality",
+    "score": 0.88,
+    "passed": true,
+    "severity": "info",
+    "findings": [],
+    "recommendation": "Output quality is strong. Consider adding quantitative metrics for brand compliance."
+  },
+  {
+    "eval_id": "eval-wa-002",
+    "run_id": "wa-run-001",
+    "node_id": "evidence-evaluator",
+    "name": "Source Grounding",
+    "type": "source_grounding",
+    "score": 0.91,
+    "passed": true,
+    "severity": "info",
+    "findings": [],
+    "recommendation": "All major findings reference crawled page evidence."
+  },
+  {
+    "eval_id": "eval-wa-003",
+    "run_id": "wa-run-001",
+    "node_id": "report-synthesizer",
+    "name": "Report Schema Validity",
+    "type": "schema_validity",
+    "score": 1.0,
+    "passed": true,
+    "severity": "info",
+    "findings": [],
+    "recommendation": "Report conforms to the declared output schema."
+  }
+]

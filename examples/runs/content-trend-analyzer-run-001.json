@@ -1,0 +1,18 @@
+{
+  "run_id": "cta-run-001",
+  "workflow_id": "content-trend-analyzer-v1",
+  "project_id": "content-trend-analyzer",
+  "project_name": "Content Trend Analyzer",
+  "status": "completed",
+  "started_at": "2026-05-20T11:00:00.000Z",
+  "completed_at": "2026-05-20T11:00:27.000Z",
+  "total_duration_ms": 27000,
+  "total_cost_usd": 0.0273,
+  "model_calls_count": 3,
+  "tool_calls_count": 1,
+  "evals_passed": 2,
+  "evals_failed": 0,
+  "approval_status": "not_required",
+  "artifact_refs": ["trend-report-cta-run-001.md"],
+  "summary": "Trend analysis completed. 7 emerging trends identified, 4 tensions extracted, 6 content angles generated. All evals passed."
+}

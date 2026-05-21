@@ -11,10 +11,17 @@ export function exportReportMarkdown(report: ScanReport) {
   const lines = [
     `# AgentPulse Report: ${report.repoName}`,
     "",
+    `- Report version: ${report.reportVersion ?? "1.0"}`,
     `- Scan source: ${source ? `${source.type.toUpperCase()} - ${source.label}` : "Unknown"}`,
     `- Scanned at: ${report.scannedAt}`,
     `- Overall score: ${formatScore(report.scores.overall)}`,
     `- Project type: ${projectTypeLabel(report.projectType)} — ${projectTypeDescription(report.projectType)}`,
+    ...(report.repositoryMode
+      ? [
+          `- Repository mode: ${repositoryModeLabel(report.repositoryMode.mode)} (${report.repositoryMode.confidence} confidence)`,
+          `- Scoring policy: ${report.repositoryMode.scoringPolicy.description}`,
+        ]
+      : []),
     `- Auditor mode: ${auditorMode(report)}`,
     `- Files scanned: ${report.filesScanned}`,
     `- Files ignored: ${report.ignoredFiles}`,
@@ -37,6 +44,10 @@ export function exportReportMarkdown(report: ScanReport) {
     "",
     ...scoreEntries(report.scores).map(([label, value]) => `- ${label}: ${formatScore(value)}`),
     "",
+    ...scoreDimensionsMarkdown(report),
+    ...scoreCapsMarkdown(report),
+    ...graphCompletenessMarkdown(report),
+    ...performanceDataMarkdown(report),
     "## Score Explanations",
     "",
     ...scoreExplanations.flatMap((e) => [
@@ -199,4 +210,101 @@ function agentSourceLabel(agent: import("@/lib/scanner/types").DetectedAgent): s
         ? "explicit"
         : `inferred (${agent.confidence} confidence)`;
   }
+}
+
+function repositoryModeLabel(mode: import("@/lib/scanner/types").RepositoryMode): string {
+  switch (mode) {
+    case "ai_application": return "AI Application";
+    case "ai_framework_library": return "AI Framework/Library";
+    case "example_template": return "Example/Template";
+    case "non_ai": return "Non-AI";
+    case "unknown_ai": return "Unknown AI";
+  }
+}
+
+function scoreDimensionsMarkdown(report: ScanReport): string[] {
+  const dim = report.scoreDimensions;
+  if (!dim) return [];
+
+  const aiHealth = dim.aiSystemHealth !== null
+    ? formatScore(dim.aiSystemHealth)
+    : "N/A (not applicable for this repository mode)";
+
+  const governance = dim.governanceCompleteness !== null
+    ? formatScore(dim.governanceCompleteness)
+    : "N/A";
+
+  return [
+    "## Score Dimensions",
+    "",
+    `- AI System Health: ${aiHealth}`,
+    `- General Repo Hygiene: ${formatScore(dim.generalRepoHygiene)}`,
+    `- Governance Completeness: ${governance}`,
+    `- Graph Mapping Completeness: ${formatScore(dim.graphMappingCompleteness)}`,
+    `- Scoring Confidence: ${dim.confidence}`,
+    "",
+  ];
+}
+
+function scoreCapsMarkdown(report: ScanReport): string[] {
+  const caps = report.scoreCapsApplied;
+  if (!caps || caps.length === 0) return [];
+
+  return [
+    "## Score Caps Applied",
+    "",
+    ...caps.map((c) => `- **${c.dimension}** capped at ${c.cap}: ${c.reason}`),
+    "",
+  ];
+}
+
+function graphCompletenessMarkdown(report: ScanReport): string[] {
+  const g = report.graphCompleteness;
+  if (!g) return [];
+
+  return [
+    "## Graph Mapping Completeness",
+    "",
+    `- Overall completeness score: ${formatScore(g.completenessScore)}`,
+    `- Agents mapped: ${g.mappedAgents} / ${g.totalAgents}`,
+    `- Prompts mapped: ${g.mappedPrompts} / ${g.totalPrompts}`,
+    `- Tools mapped: ${g.mappedTools} / ${g.totalTools}`,
+    `- Evals mapped: ${g.mappedEvals} / ${g.totalEvals}`,
+    ...(g.totalWorkflowSteps > 0
+      ? [`- Workflow steps with agent coverage: ${g.workflowStepsWithAgent} / ${g.totalWorkflowSteps}`]
+      : []),
+    "",
+  ];
+}
+
+function performanceDataMarkdown(report: ScanReport): string[] {
+  const perf = report.performanceData;
+  if (!perf || !perf.available) return [];
+
+  const lines: string[] = [
+    "## Eval Performance Data",
+    "",
+    `- Result files: ${perf.resultFiles.join(", ")}`,
+    `- Total results: ${perf.evalResultCount}`,
+  ];
+
+  // Summarize models seen
+  const models = [...new Set(perf.results.map((r) => r.model).filter(Boolean))];
+  if (models.length > 0) lines.push(`- Models: ${models.join(", ")}`);
+
+  // Average score if available
+  const scores = perf.results.map((r) => r.score).filter((s): s is number => s !== undefined);
+  if (scores.length > 0) {
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    lines.push(`- Average score: ${Math.round(avg * 100) / 100}`);
+  }
+
+  const passResults = perf.results.filter((r) => r.pass !== undefined);
+  if (passResults.length > 0) {
+    const passed = passResults.filter((r) => r.pass).length;
+    lines.push(`- Pass rate: ${passed}/${passResults.length}`);
+  }
+
+  lines.push("");
+  return lines;
 }

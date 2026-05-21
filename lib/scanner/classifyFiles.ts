@@ -14,6 +14,14 @@ const sourceExtensions = new Set([
   ".php",
 ]);
 
+// Binary and UI asset extensions that should never be classified as agent configs,
+// even when found inside an /agents/ directory.
+const assetExtensions = new Set([
+  ".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".ico",
+  ".bmp", ".tiff", ".css", ".scss", ".less", ".woff", ".woff2",
+  ".ttf", ".eot", ".mp4", ".mp3", ".wav", ".pdf",
+]);
+
 const agentConfigNames = new Set([
   "agents.yaml",
   "agents.yml",
@@ -77,6 +85,8 @@ export function classifyFile(path: string, content = ""): FileClassification {
   }
 
   if (normalized.includes("/agents/")) {
+    // Asset/binary files (SVGs, images, CSS) inside /agents/ are never agent configs.
+    if (assetExtensions.has(extension)) return "unknown";
     return sourceExtensions.has(extension) || /\b(export|function|class|import|def)\b/.test(content)
       ? "source_code"
       : "agent_config";
@@ -177,7 +187,15 @@ function isPromptFile(normalized: string, name: string, content: string): boolea
     !normalized.includes("/mocks/") &&
     !normalized.includes("/mock/") &&
     !normalized.includes("/__mocks__/") &&
-    !normalized.includes("/testdata/")
+    !normalized.includes("/testdata/") &&
+    !normalized.includes("/docs/") &&
+    !normalized.includes("/documentation/") &&
+    !normalized.includes("/examples/") &&
+    !normalized.includes("/example/") &&
+    !normalized.includes("/samples/") &&
+    !normalized.includes("/sample/") &&
+    !normalized.includes("/demos/") &&
+    !normalized.includes("/demo/")
   ) {
     return true;
   }

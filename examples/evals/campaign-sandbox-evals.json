@@ -1,0 +1,28 @@
+[
+  {
+    "eval_id": "eval-cs-001",
+    "run_id": "cs-run-001",
+    "node_id": "strategic-critic",
+    "name": "Campaign Recommendation Quality",
+    "type": "output_quality",
+    "score": 0.82,
+    "passed": true,
+    "severity": "info",
+    "findings": [],
+    "recommendation": "Recommendation is well-structured. Route rationale could be more specific on budget allocation."
+  },
+  {
+    "eval_id": "eval-cs-002",
+    "run_id": "cs-run-001",
+    "node_id": "persona-simulator",
+    "name": "Persona Simulator Tool Call Assertion",
+    "type": "tool_call_assertion",
+    "passed": false,
+    "severity": "warning",
+    "findings": [
+      "persona-simulator did not reference provided persona traits",
+      "Output lacks explicit grounding in the enterprise CTO persona definition"
+    ],
+    "recommendation": "Ensure the persona-simulator node receives and explicitly uses the persona definition in its prompt context."
+  }
+]

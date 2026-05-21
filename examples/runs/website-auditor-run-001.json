@@ -1,0 +1,18 @@
+{
+  "run_id": "wa-run-001",
+  "workflow_id": "website-auditor-v1",
+  "project_id": "website-auditor",
+  "project_name": "Website Auditor",
+  "status": "completed",
+  "started_at": "2026-05-20T09:00:00.000Z",
+  "completed_at": "2026-05-20T09:00:45.000Z",
+  "total_duration_ms": 45000,
+  "total_cost_usd": 0.0203,
+  "model_calls_count": 4,
+  "tool_calls_count": 1,
+  "evals_passed": 3,
+  "evals_failed": 0,
+  "approval_status": "not_required",
+  "artifact_refs": ["audit-report-wa-run-001.md"],
+  "summary": "Website audit completed successfully. Brand compliance 87/100. 9 recommendations generated. All evals passed."
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "eval_id": "eval-cta-001",
+    "run_id": "cta-run-001",
+    "node_id": "angle-generator",
+    "name": "Trend Report Output Quality",
+    "type": "output_quality",
+    "score": 0.87,
+    "passed": true,
+    "severity": "info",
+    "findings": [],
+    "recommendation": "Content angles are actionable and well-differentiated. Consider adding estimated audience size for each trend."
+  },
+  {
+    "eval_id": "eval-cta-002",
+    "run_id": "cta-run-001",
+    "node_id": "trend-report-artifact",
+    "name": "Report Schema Validity",
+    "type": "schema_validity",
+    "score": 1.0,
+    "passed": true,
+    "severity": "info",
+    "findings": [],
+    "recommendation": "Report structure is valid and matches the declared output schema."
+  }
+]

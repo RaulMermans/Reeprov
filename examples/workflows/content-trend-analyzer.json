@@ -1,0 +1,73 @@
+{
+  "workflow_id": "content-trend-analyzer-v1",
+  "name": "Content Trend Analyzer",
+  "version": "1.0.0",
+  "description": "Collects signals, classifies trends, extracts tensions, and generates content angles.",
+  "architecture_type": "deterministic_workflow",
+  "nodes": [
+    {
+      "id": "trigger",
+      "type": "trigger",
+      "label": "Analysis Trigger",
+      "description": "Accepts a topic or domain as input."
+    },
+    {
+      "id": "signal-collector",
+      "type": "tool",
+      "label": "Signal Collector",
+      "description": "Fetches recent signals from RSS feeds, social platforms, and search trends.",
+      "permission_class": "read_only",
+      "timeout_ms": 20000,
+      "max_retries": 2
+    },
+    {
+      "id": "scoring-module",
+      "type": "deterministic",
+      "label": "Scoring Module",
+      "description": "Scores each signal by recency, volume, and source authority."
+    },
+    {
+      "id": "trend-classifier",
+      "type": "llm",
+      "label": "Trend Classifier",
+      "description": "Classifies signals into emerging, established, or declining trend categories.",
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-haiku-20241022",
+      "permission_class": "read_only"
+    },
+    {
+      "id": "tension-extractor",
+      "type": "llm",
+      "label": "Tension Extractor",
+      "description": "Identifies tensions, debates, and unresolved questions within the trend landscape.",
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "permission_class": "read_only"
+    },
+    {
+      "id": "angle-generator",
+      "type": "llm",
+      "label": "Angle Generator",
+      "description": "Generates actionable content angles from classified trends and extracted tensions.",
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "permission_class": "read_only"
+    },
+    {
+      "id": "trend-report-artifact",
+      "type": "artifact",
+      "label": "Trend Report",
+      "description": "The final trend report with classified trends and content angles."
+    }
+  ],
+  "edges": [
+    { "from": "trigger", "to": "signal-collector" },
+    { "from": "signal-collector", "to": "scoring-module" },
+    { "from": "scoring-module", "to": "trend-classifier" },
+    { "from": "trend-classifier", "to": "tension-extractor" },
+    { "from": "tension-extractor", "to": "angle-generator" },
+    { "from": "angle-generator", "to": "trend-report-artifact" }
+  ],
+  "evals": ["output_quality", "schema_validity"],
+  "artifacts": ["trend-report.md"]
+}

@@ -1,0 +1,181 @@
+[
+  {
+    "event_id": "evt-cta-001",
+    "run_id": "cta-run-001",
+    "workflow_id": "content-trend-analyzer-v1",
+    "timestamp": "2026-05-20T11:00:00.000Z",
+    "event_type": "run_started",
+    "status": "started",
+    "metadata": { "topic": "AI infrastructure tooling" }
+  },
+  {
+    "event_id": "evt-cta-002",
+    "run_id": "cta-run-001",
+    "workflow_id": "content-trend-analyzer-v1",
+    "node_id": "signal-collector",
+    "timestamp": "2026-05-20T11:00:00.400Z",
+    "event_type": "tool_call_started",
+    "status": "started",
+    "metadata": {
+      "tool_call_id": "tc-signals-001",
+      "tool_name": "fetch_signals",
+      "permission_class": "read_only"
+    }
+  },
+  {
+    "event_id": "evt-cta-003",
+    "run_id": "cta-run-001",
+    "workflow_id": "content-trend-analyzer-v1",
+    "node_id": "signal-collector",
+    "timestamp": "2026-05-20T11:00:07.800Z",
+    "event_type": "tool_call_completed",
+    "status": "completed",
+    "duration_ms": 7400,
+    "output_summary": "82 signals collected from 6 sources",
+    "metadata": {
+      "tool_call_id": "tc-signals-001",
+      "tool_name": "fetch_signals",
+      "permission_class": "read_only",
+      "signal_count": 82
+    }
+  },
+  {
+    "event_id": "evt-cta-004",
+    "run_id": "cta-run-001",
+    "workflow_id": "content-trend-analyzer-v1",
+    "node_id": "scoring-module",
+    "timestamp": "2026-05-20T11:00:07.900Z",
+    "event_type": "node_started",
+    "status": "started"
+  },
+  {
+    "event_id": "evt-cta-005",
+    "run_id": "cta-run-001",
+    "workflow_id": "content-trend-analyzer-v1",
+    "node_id": "scoring-module",
+    "timestamp": "2026-05-20T11:00:08.100Z",
+    "event_type": "node_completed",
+    "status": "completed",
+    "duration_ms": 200,
+    "output_summary": "82 signals scored, top 20 selected for classification"
+  },
+  {
+    "event_id": "evt-cta-006",
+    "run_id": "cta-run-001",
+    "workflow_id": "content-trend-analyzer-v1",
+    "node_id": "trend-classifier",
+    "timestamp": "2026-05-20T11:00:08.200Z",
+    "event_type": "model_call_started",
+    "status": "started",
+    "input_summary": "Top 20 scored signals",
+    "metadata": {
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-haiku-20241022"
+    }
+  },
+  {
+    "event_id": "evt-cta-007",
+    "run_id": "cta-run-001",
+    "workflow_id": "content-trend-analyzer-v1",
+    "node_id": "trend-classifier",
+    "timestamp": "2026-05-20T11:00:11.400Z",
+    "event_type": "model_call_completed",
+    "status": "completed",
+    "duration_ms": 3200,
+    "cost_usd": 0.0023,
+    "output_summary": "7 emerging, 9 established, 4 declining trends identified",
+    "metadata": {
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-haiku-20241022",
+      "tokens_input": 1800,
+      "tokens_output": 640
+    }
+  },
+  {
+    "event_id": "evt-cta-008",
+    "run_id": "cta-run-001",
+    "workflow_id": "content-trend-analyzer-v1",
+    "node_id": "tension-extractor",
+    "timestamp": "2026-05-20T11:00:11.600Z",
+    "event_type": "model_call_started",
+    "status": "started",
+    "input_summary": "Classified trends: 7 emerging, 9 established",
+    "metadata": {
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022"
+    }
+  },
+  {
+    "event_id": "evt-cta-009",
+    "run_id": "cta-run-001",
+    "workflow_id": "content-trend-analyzer-v1",
+    "node_id": "tension-extractor",
+    "timestamp": "2026-05-20T11:00:17.800Z",
+    "event_type": "model_call_completed",
+    "status": "completed",
+    "duration_ms": 6200,
+    "cost_usd": 0.012,
+    "output_summary": "4 tensions identified: build vs buy, OSS vs proprietary, latency vs cost, control vs convenience",
+    "metadata": {
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "tokens_input": 1400,
+      "tokens_output": 720
+    }
+  },
+  {
+    "event_id": "evt-cta-010",
+    "run_id": "cta-run-001",
+    "workflow_id": "content-trend-analyzer-v1",
+    "node_id": "angle-generator",
+    "timestamp": "2026-05-20T11:00:18.000Z",
+    "event_type": "model_call_started",
+    "status": "started",
+    "input_summary": "Trends + tensions: AI infra landscape",
+    "metadata": {
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022"
+    }
+  },
+  {
+    "event_id": "evt-cta-011",
+    "run_id": "cta-run-001",
+    "workflow_id": "content-trend-analyzer-v1",
+    "node_id": "angle-generator",
+    "timestamp": "2026-05-20T11:00:24.500Z",
+    "event_type": "model_call_completed",
+    "status": "completed",
+    "duration_ms": 6500,
+    "cost_usd": 0.013,
+    "output_summary": "6 content angles generated with rationale and suggested format",
+    "metadata": {
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "tokens_input": 1600,
+      "tokens_output": 980
+    }
+  },
+  {
+    "event_id": "evt-cta-012",
+    "run_id": "cta-run-001",
+    "workflow_id": "content-trend-analyzer-v1",
+    "node_id": "trend-report-artifact",
+    "timestamp": "2026-05-20T11:00:25.000Z",
+    "event_type": "artifact_created",
+    "status": "completed",
+    "metadata": {
+      "artifact_ref": "trend-report-cta-run-001.md",
+      "run_id": "cta-run-001",
+      "size_bytes": 3760
+    }
+  },
+  {
+    "event_id": "evt-cta-013",
+    "run_id": "cta-run-001",
+    "workflow_id": "content-trend-analyzer-v1",
+    "timestamp": "2026-05-20T11:00:27.000Z",
+    "event_type": "run_completed",
+    "status": "completed",
+    "duration_ms": 27000
+  }
+]

@@ -1,0 +1,73 @@
+{
+  "workflow_id": "campaign-sandbox-v1",
+  "name": "Campaign Sandbox",
+  "version": "1.0.0",
+  "description": "Generates campaign route options, simulates personas, scores strategies, and produces a recommendation.",
+  "architecture_type": "prompt_chain",
+  "nodes": [
+    {
+      "id": "trigger",
+      "type": "trigger",
+      "label": "Campaign Brief Trigger",
+      "description": "Accepts a campaign brief as input."
+    },
+    {
+      "id": "brief-parser",
+      "type": "llm",
+      "label": "Brief Parser",
+      "description": "Extracts goals, audience, and constraints from the campaign brief.",
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-haiku-20241022",
+      "permission_class": "read_only"
+    },
+    {
+      "id": "route-generator",
+      "type": "llm",
+      "label": "Route Generator",
+      "description": "Generates three distinct campaign route options from the parsed brief.",
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "permission_class": "read_only"
+    },
+    {
+      "id": "persona-simulator",
+      "type": "llm",
+      "label": "Persona Simulator",
+      "description": "Simulates target persona responses to each campaign route.",
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "permission_class": "read_only"
+    },
+    {
+      "id": "route-scorer",
+      "type": "deterministic",
+      "label": "Route Scorer",
+      "description": "Scores each route based on persona resonance, brand fit, and feasibility."
+    },
+    {
+      "id": "strategic-critic",
+      "type": "llm",
+      "label": "Strategic Critic",
+      "description": "Reviews scored routes and identifies the strongest strategic recommendation.",
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "permission_class": "read_only"
+    },
+    {
+      "id": "recommendation-artifact",
+      "type": "artifact",
+      "label": "Campaign Recommendation",
+      "description": "The final recommendation as a structured JSON report."
+    }
+  ],
+  "edges": [
+    { "from": "trigger", "to": "brief-parser" },
+    { "from": "brief-parser", "to": "route-generator" },
+    { "from": "route-generator", "to": "persona-simulator" },
+    { "from": "persona-simulator", "to": "route-scorer" },
+    { "from": "route-scorer", "to": "strategic-critic" },
+    { "from": "strategic-critic", "to": "recommendation-artifact" }
+  ],
+  "evals": ["output_quality", "tool_call_assertion"],
+  "artifacts": ["campaign-recommendation.json"]
+}

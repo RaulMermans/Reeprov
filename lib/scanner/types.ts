@@ -15,6 +15,100 @@ export type FileClassification =
   | "test"
   | "unknown";
 
+// Operational context for artifact origin — finer-grained than FileContext,
+// used to classify whether detected agents/prompts/tools come from production
+// code vs. examples, tests, docs, or pure UI assets.
+export type ArtifactContext =
+  | "production"
+  | "example"
+  | "test"
+  | "documentation"
+  | "ci"
+  | "asset"
+  | "unknown";
+
+// Repository mode: the nature of the repo, separate from projectType which
+// describes its AI system structure. Used to calibrate scoring policy.
+export type RepositoryMode =
+  | "ai_application"        // deployed/deployable AI product with agent/workflow behavior
+  | "ai_framework_library"  // SDK, framework, or library (e.g. LangChain, CrewAI)
+  | "example_template"      // dominated by samples, demos, tutorials, templates
+  | "non_ai"                // no meaningful AI system detected
+  | "unknown_ai";           // AI signals present but insufficient evidence to classify
+
+export interface RepositoryModeScoringPolicy {
+  aiSystemHealthApplicable: boolean;
+  generalHygieneApplicable: boolean;
+  governanceApplicable: boolean;
+  description: string;
+}
+
+export interface RepositoryModeResult {
+  mode: RepositoryMode;
+  confidence: "high" | "medium" | "low";
+  reasons: string[];
+  evidence: string[];
+  scoringPolicy: RepositoryModeScoringPolicy;
+}
+
+// New score dimensions alongside the legacy per-category scores.
+export interface ScoreDimensions {
+  aiSystemHealth: number | null;     // null when mode is non_ai / framework / example
+  generalRepoHygiene: number;        // always computed
+  governanceCompleteness: number | null; // null when not applicable
+  graphMappingCompleteness: number;  // 0–100, based on mapped relationships
+  confidence: "high" | "medium" | "low";
+  legacyOverallScore: number;        // preserved for backward compatibility
+}
+
+// A deterministic cap applied to a score dimension during gate evaluation.
+export interface ScoreCap {
+  dimension: string;
+  cap: number;
+  reason: string;
+  evidence: string[];
+}
+
+// Graph completeness: measures mapped relationships, not raw artifact counts.
+export interface GraphCompletenessMetrics {
+  mappedAgents: number;
+  totalAgents: number;
+  mappedPrompts: number;
+  totalPrompts: number;
+  mappedTools: number;
+  totalTools: number;
+  mappedEvals: number;
+  totalEvals: number;
+  workflowStepsWithAgent: number;
+  totalWorkflowSteps: number;
+  workflowStepsWithPrompt: number;
+  workflowStepsWithModel: number;
+  workflowStepsWithEval: number;
+  completenessScore: number;  // 0–100 weighted composite
+}
+
+// A single eval/performance result parsed from eval-results.json etc.
+export interface EvalPerformanceResult {
+  agent?: string;
+  workflow?: string;
+  model?: string;
+  provider?: string;
+  score?: number;
+  latencyMs?: number;
+  tokensInput?: number;
+  tokensOutput?: number;
+  costUsd?: number;
+  pass?: boolean;
+  sourcePath: string;
+}
+
+export interface PerformanceData {
+  available: boolean;
+  results: EvalPerformanceResult[];
+  evalResultCount: number;
+  resultFiles: string[];
+}
+
 // Operational context of a file — used to calibrate secret severity.
 export type FileContext =
   | "production"
@@ -136,6 +230,7 @@ export interface ZipScanStats {
 }
 
 export interface ScanReport {
+  reportVersion: string;
   repoName: string;
   scanSource?: ScanSource;
   zipStats?: ZipScanStats;
@@ -143,6 +238,12 @@ export interface ScanReport {
   filesScanned: number;
   ignoredFiles: number;
   projectType: ProjectType;
+  // v2 governance fields — all optional for backward compatibility
+  repositoryMode?: RepositoryModeResult;
+  scoreDimensions?: ScoreDimensions;
+  scoreCapsApplied?: ScoreCap[];
+  graphCompleteness?: GraphCompletenessMetrics;
+  performanceData?: PerformanceData;
   detectedAgents: DetectedAgent[];
   detectedWorkflowsDetailed: DetectedWorkflow[];
   detectedCIWorkflows: DetectedCIWorkflow[];

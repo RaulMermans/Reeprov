@@ -1,0 +1,182 @@
+[
+  {
+    "event_id": "evt-cs-001",
+    "run_id": "cs-run-001",
+    "workflow_id": "campaign-sandbox-v1",
+    "timestamp": "2026-05-20T10:00:00.000Z",
+    "event_type": "run_started",
+    "status": "started",
+    "metadata": { "brief_title": "Q3 Product Launch Campaign" }
+  },
+  {
+    "event_id": "evt-cs-002",
+    "run_id": "cs-run-001",
+    "workflow_id": "campaign-sandbox-v1",
+    "node_id": "brief-parser",
+    "timestamp": "2026-05-20T10:00:00.500Z",
+    "event_type": "model_call_started",
+    "status": "started",
+    "input_summary": "Campaign brief: Q3 Product Launch, audience: enterprise dev teams",
+    "metadata": {
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-haiku-20241022"
+    }
+  },
+  {
+    "event_id": "evt-cs-003",
+    "run_id": "cs-run-001",
+    "workflow_id": "campaign-sandbox-v1",
+    "node_id": "brief-parser",
+    "timestamp": "2026-05-20T10:00:02.700Z",
+    "event_type": "model_call_completed",
+    "status": "completed",
+    "duration_ms": 2200,
+    "cost_usd": 0.0023,
+    "output_summary": "Goals: awareness + trial signups. Audience: CTOs, lead devs. Budget: $40k.",
+    "metadata": {
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-haiku-20241022",
+      "tokens_input": 620,
+      "tokens_output": 310
+    }
+  },
+  {
+    "event_id": "evt-cs-004",
+    "run_id": "cs-run-001",
+    "workflow_id": "campaign-sandbox-v1",
+    "node_id": "route-generator",
+    "timestamp": "2026-05-20T10:00:03.000Z",
+    "event_type": "model_call_started",
+    "status": "started",
+    "input_summary": "Parsed brief: goals, audience, constraints",
+    "metadata": {
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022"
+    }
+  },
+  {
+    "event_id": "evt-cs-005",
+    "run_id": "cs-run-001",
+    "workflow_id": "campaign-sandbox-v1",
+    "node_id": "route-generator",
+    "timestamp": "2026-05-20T10:00:10.500Z",
+    "event_type": "model_call_completed",
+    "status": "completed",
+    "duration_ms": 7500,
+    "cost_usd": 0.018,
+    "output_summary": "3 routes: (A) technical deep-dive content, (B) peer testimonials, (C) trial-first freemium push",
+    "metadata": {
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "tokens_input": 890,
+      "tokens_output": 1450
+    }
+  },
+  {
+    "event_id": "evt-cs-006",
+    "run_id": "cs-run-001",
+    "workflow_id": "campaign-sandbox-v1",
+    "node_id": "persona-simulator",
+    "timestamp": "2026-05-20T10:00:11.000Z",
+    "event_type": "model_call_started",
+    "status": "started",
+    "input_summary": "3 campaign routes + persona: enterprise CTO",
+    "metadata": {
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022"
+    }
+  },
+  {
+    "event_id": "evt-cs-007",
+    "run_id": "cs-run-001",
+    "workflow_id": "campaign-sandbox-v1",
+    "node_id": "persona-simulator",
+    "timestamp": "2026-05-20T10:00:19.800Z",
+    "event_type": "model_call_completed",
+    "status": "completed",
+    "duration_ms": 8800,
+    "cost_usd": 0.018,
+    "output_summary": "Route A resonates strongly. Route C unclear ROI for enterprise. Route B moderate.",
+    "metadata": {
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "tokens_input": 1200,
+      "tokens_output": 980
+    }
+  },
+  {
+    "event_id": "evt-cs-008",
+    "run_id": "cs-run-001",
+    "workflow_id": "campaign-sandbox-v1",
+    "node_id": "route-scorer",
+    "timestamp": "2026-05-20T10:00:20.000Z",
+    "event_type": "node_started",
+    "status": "started"
+  },
+  {
+    "event_id": "evt-cs-009",
+    "run_id": "cs-run-001",
+    "workflow_id": "campaign-sandbox-v1",
+    "node_id": "route-scorer",
+    "timestamp": "2026-05-20T10:00:20.200Z",
+    "event_type": "node_completed",
+    "status": "completed",
+    "duration_ms": 200,
+    "output_summary": "Route A: 8.4/10. Route B: 6.1/10. Route C: 5.7/10."
+  },
+  {
+    "event_id": "evt-cs-010",
+    "run_id": "cs-run-001",
+    "workflow_id": "campaign-sandbox-v1",
+    "node_id": "strategic-critic",
+    "timestamp": "2026-05-20T10:00:20.500Z",
+    "event_type": "model_call_started",
+    "status": "started",
+    "input_summary": "Scored routes and persona simulations",
+    "metadata": {
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022"
+    }
+  },
+  {
+    "event_id": "evt-cs-011",
+    "run_id": "cs-run-001",
+    "workflow_id": "campaign-sandbox-v1",
+    "node_id": "strategic-critic",
+    "timestamp": "2026-05-20T10:00:27.800Z",
+    "event_type": "model_call_completed",
+    "status": "completed",
+    "duration_ms": 7300,
+    "cost_usd": 0.014,
+    "output_summary": "Recommend Route A with elements of Route B's social proof. Avoid Route C for enterprise.",
+    "metadata": {
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "tokens_input": 1400,
+      "tokens_output": 620
+    }
+  },
+  {
+    "event_id": "evt-cs-012",
+    "run_id": "cs-run-001",
+    "workflow_id": "campaign-sandbox-v1",
+    "node_id": "recommendation-artifact",
+    "timestamp": "2026-05-20T10:00:28.200Z",
+    "event_type": "artifact_created",
+    "status": "completed",
+    "metadata": {
+      "artifact_ref": "campaign-recommendation-cs-run-001.json",
+      "run_id": "cs-run-001",
+      "size_bytes": 2140
+    }
+  },
+  {
+    "event_id": "evt-cs-013",
+    "run_id": "cs-run-001",
+    "workflow_id": "campaign-sandbox-v1",
+    "timestamp": "2026-05-20T10:00:30.000Z",
+    "event_type": "run_completed",
+    "status": "completed",
+    "duration_ms": 30000
+  }
+]

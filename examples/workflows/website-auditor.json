@@ -1,0 +1,88 @@
+{
+  "workflow_id": "website-auditor-v1",
+  "name": "Website Auditor",
+  "version": "1.0.0",
+  "description": "Crawls a website and produces a brand, UX, and SEO audit report.",
+  "architecture_type": "deterministic_workflow",
+  "nodes": [
+    {
+      "id": "trigger",
+      "type": "trigger",
+      "label": "Audit Trigger",
+      "description": "Starts the audit for a given URL."
+    },
+    {
+      "id": "crawl",
+      "type": "tool",
+      "label": "Web Crawler",
+      "description": "Crawls the target website and collects page snapshots.",
+      "permission_class": "read_only",
+      "timeout_ms": 30000,
+      "max_retries": 2
+    },
+    {
+      "id": "brand-audit-agent",
+      "type": "agent",
+      "label": "Brand Audit Agent",
+      "description": "Evaluates brand consistency, tone, and visual identity across pages.",
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "allowed_tools": ["read_page_snapshot"],
+      "permission_class": "read_only"
+    },
+    {
+      "id": "ux-audit-agent",
+      "type": "agent",
+      "label": "UX Audit Agent",
+      "description": "Evaluates usability, navigation clarity, and CTA effectiveness.",
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "allowed_tools": ["read_page_snapshot"],
+      "permission_class": "read_only"
+    },
+    {
+      "id": "seo-audit-agent",
+      "type": "agent",
+      "label": "SEO Audit Agent",
+      "description": "Evaluates meta tags, headings, alt text, and keyword presence.",
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-haiku-20241022",
+      "allowed_tools": ["read_page_snapshot"],
+      "permission_class": "read_only"
+    },
+    {
+      "id": "evidence-evaluator",
+      "type": "evaluator",
+      "label": "Evidence Evaluator",
+      "description": "Checks that audit findings are grounded in crawled evidence.",
+      "eval_refs": ["source_grounding", "schema_validity"]
+    },
+    {
+      "id": "report-synthesizer",
+      "type": "llm",
+      "label": "Report Synthesizer",
+      "description": "Combines brand, UX, and SEO findings into a single audit report.",
+      "model_provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022"
+    },
+    {
+      "id": "final-audit-artifact",
+      "type": "artifact",
+      "label": "Final Audit Report",
+      "description": "The complete audit report as a markdown file."
+    }
+  ],
+  "edges": [
+    { "from": "trigger", "to": "crawl" },
+    { "from": "crawl", "to": "brand-audit-agent" },
+    { "from": "crawl", "to": "ux-audit-agent" },
+    { "from": "crawl", "to": "seo-audit-agent" },
+    { "from": "brand-audit-agent", "to": "evidence-evaluator" },
+    { "from": "ux-audit-agent", "to": "evidence-evaluator" },
+    { "from": "seo-audit-agent", "to": "evidence-evaluator" },
+    { "from": "evidence-evaluator", "to": "report-synthesizer" },
+    { "from": "report-synthesizer", "to": "final-audit-artifact" }
+  ],
+  "evals": ["source_grounding", "schema_validity", "output_quality"],
+  "artifacts": ["audit-report.md"]
+}

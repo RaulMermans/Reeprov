@@ -1,10 +1,15 @@
 import yaml from "js-yaml";
 import { buildRecommendations } from "@/lib/reports/recommendations";
 import { classifyFile } from "./classifyFiles";
+import { classifyRepoMode } from "./classifyRepoMode";
 import { deriveFileContext } from "./fileContext";
+import { ingestEvalResults } from "./evalResultIngestion";
+import { computeGraphCompleteness } from "./graphCompleteness";
 import { getExtension, getFileName, isEnvFileName, shouldIgnorePath } from "./ignoreRules";
 import { redactSecrets } from "./redactSecrets";
 import { scoreScan } from "./scoreScan";
+import { applyScoreGates, computeScoreDimensions } from "./scoreGates";
+import type { ScoreGateContext } from "./scoreGates";
 import {
   hasDbCredentials,
   isLocalDbUrl,
@@ -24,6 +29,8 @@ import type {
   ScanSource,
   ZipScanStats,
 } from "./types";
+
+const REPORT_VERSION = "2.0";
 
 interface RawRepoFile {
   path: string;
@@ -277,9 +284,68 @@ export function staticScanFromFiles(
     ));
   }
 
-  const scores = scoreScan(findings);
+  const rawScores = scoreScan(findings);
+
+  // -- Repository mode classification --
+  // Re-use already-computed signals (hasAgentConfig, hasWorkflowConfig, hasAiSignals).
+  const repositoryMode = classifyRepoMode(files, hasAgentConfig, hasWorkflowConfig, hasAiSignals);
+
+  // -- Eval/performance result ingestion --
+  const performanceData = ingestEvalResults(scannedFiles);
+
+  // -- Graph completeness --
+  const graphCompleteness = computeGraphCompleteness(
+    detectedAgents,
+    detectedWorkflowsDetailed,
+    detectedPrompts.length,
+    detectedTools.length,
+    detectedEvals.length,
+  );
+
+  // -- Model mapping check (any manifest agent declares a model) --
+  const hasModelMapping = detectedAgents.some(
+    (a) => a.displayKind === "manifest" && a.risks.every((r) => !r.includes("model")),
+  );
+
+  // -- Graph edges: any manifest agent has at least one linked attribute --
+  const hasGraphEdges = detectedAgents.some(
+    (a) =>
+      (a.displayKind === "manifest") &&
+      (a.promptPaths.length > 0 || a.toolNames.length > 0 || a.evalPaths.length > 0),
+  );
+
+  // -- All-examples check: detected AI artifacts only from example directories --
+  const productionAiFiles = scannedFiles.filter((f) => {
+    const ctx = f.fileContext;
+    return (
+      (f.classification === "agent_config" || f.classification === "tool" || f.classification === "prompt") &&
+      ctx !== "example" && ctx !== "test" && ctx !== "documentation" && ctx !== "ci"
+    );
+  });
+  const allArtifactsAreExamples =
+    (detectedAgents.length > 0 || detectedTools.length > 0 || detectedPrompts.length > 0) &&
+    productionAiFiles.length === 0;
+
+  const hasWriteToolsWithoutApproval = findings.some(
+    (f) => f.id === "write-tools-without-approval",
+  );
+
+  const gateContext: ScoreGateContext = {
+    hasAgentManifest: hasAgentConfig,
+    hasWorkflowManifest: hasWorkflowConfig,
+    hasEvals: detectedEvals.length > 0,
+    hasWriteToolsWithoutApproval,
+    hasModelMapping,
+    hasGraphEdges,
+    allArtifactsAreExamples,
+    repositoryMode,
+  };
+
+  const { scores, capsApplied } = applyScoreGates(rawScores, gateContext);
+  const scoreDimensions = computeScoreDimensions(scores, gateContext, graphCompleteness.completenessScore);
 
   return {
+    reportVersion: REPORT_VERSION,
     repoName,
     scanSource: options.scanSource,
     zipStats: options.zipStats,
@@ -287,6 +353,11 @@ export function staticScanFromFiles(
     filesScanned: scannedFiles.length,
     ignoredFiles: files.length - scannedFiles.length,
     projectType,
+    repositoryMode,
+    scoreDimensions,
+    scoreCapsApplied: capsApplied,
+    graphCompleteness,
+    performanceData,
     detectedAgents,
     detectedWorkflowsDetailed,
     detectedCIWorkflows,

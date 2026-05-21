@@ -1,0 +1,18 @@
+{
+  "run_id": "cs-run-001",
+  "workflow_id": "campaign-sandbox-v1",
+  "project_id": "campaign-sandbox",
+  "project_name": "Campaign Sandbox",
+  "status": "degraded",
+  "started_at": "2026-05-20T10:00:00.000Z",
+  "completed_at": "2026-05-20T10:00:30.000Z",
+  "total_duration_ms": 30000,
+  "total_cost_usd": 0.0526,
+  "model_calls_count": 3,
+  "tool_calls_count": 0,
+  "evals_passed": 1,
+  "evals_failed": 1,
+  "approval_status": "not_required",
+  "artifact_refs": ["campaign-recommendation-cs-run-001.json"],
+  "summary": "Campaign recommendation generated. Run degraded: persona-simulator did not reference provided persona traits. Output quality eval passed at 0.82."
+}
