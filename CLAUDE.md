@@ -6,7 +6,7 @@ AgentPulse is a private personal dashboard for auditing AI-agent and AI-workflow
 
 ## Current Phase
 
-Self-scan calibration + final report semantics polish (Commit 8A). Real LLM auditor calls remain feature-flagged and disabled by default.
+AI System Graph + Model/Provider Mapping Foundation (Commit 10). The scanner now reconstructs a typed AI system graph (agents, workflows, prompts, tools, models, providers, evals, artifacts, approval gates) from manifests, detects model/provider metadata from manifests/code/env/imports, and parses optional repo-provided eval/run metrics. Real LLM auditor calls remain feature-flagged and disabled by default.
 
 ## Architecture
 
@@ -112,6 +112,29 @@ Reference:
 - Reports must distinguish raw findings from interpreted scores. Score explanations (positives, penalties, related findings count) must be surfaced separately from the raw finding table.
 - Exported reports must stay redacted. No raw secret values in markdown or JSON exports.
 - AI applications are first-class project types. Do not overstate inferred agent or workflow structure.
+- Detected artifacts are not automatically mapped artifacts. A detected prompt/tool/eval/model is not the same as one mapped to an agent or workflow step.
+- Do not invent graph edges without evidence. Manifest entries are high confidence; file-path matches are medium; prompt-only inference is low.
+- Model/provider mapping must cite manifest/code/env source. Manifest is high, code is medium, env-only and imports are low.
+- Model performance comparison requires explicit eval/run metrics. AgentPulse must not claim model A performs better than model B without performance files.
+- Workflow visualization must degrade gracefully for missing data.
+- Assistant tooling must remain separate from the product graph unless explicitly mapped.
+- Provider env vars (e.g. OPENAI_API_KEY) reveal the provider but never expose the secret value.
+- `.claude/**` and `.cursor/**` are assistant tooling by default and must NOT be counted as product agents, prompts, or workflows.
+- Do not count assistant tooling as product agents. Assistant tooling files go in detectedAssistantTooling, not detectedAgents.
+- Product agents are preferred over assistant-tooling agents when determining project type. Assistant tooling alone does not make a project agent_system or workflow_system.
+- Python `*_agent.py`, `*_evaluator.py`, `*_judge.py`, `*_critic.py`, `*_planner.py`, `*_router.py`, `*_researcher.py`, `*_writer.py`, and `*_editor.py` under product `/agents` directories are agent modules. Name formatting uses title case: editor_agent.py → Editor Agent.
+- Prompt modules (prompts.py with uppercase `_PROMPT` constants) are genuine prompt assets. LLM client files (llm/client.py, providers/*.py) are LLM infrastructure, not prompt assets.
+- Only files in `/prompts/` (as a directory with trailing slash), named `system-prompt*`, or `*.prompt.{md,ts,txt,js}`, or Python prompt modules with `_PROMPT` constants should be classified as `prompt`. Files named `prompts.py` without uppercase `_PROMPT` constants are source_code.
+- Assistant tooling paths: `.claude/`, `.cursor/`, `.vscode/`, `.windsurf/`, `.github/copilot/`. These are excluded from product agent/workflow/prompt counts and reported in detectedAssistantTooling.
+- Maintainability findings must be deterministic in V1. Do not execute code or call LLMs for maintainability scoring.
+- Do not call LLMs for maintainability scoring in this commit.
+- Maintainability focuses on AI-system evolution risk (large files, concentration, TODO markers, schema hygiene) — not style linting.
+- Report schema changes should increment reportVersion before scan history is implemented.
+- reportVersion: "1.0" is set by staticScan and must be present on every ScanReport.
+- Maintainability score starts at 100, subtracts penalties, and is clamped to [20, 100].
+- Large file penalties apply only to source files (not docs, lockfiles, test fixtures, or generated files).
+- Dashboard complexity penalties apply to UI component files (components/, dashboard/, views/).
+- Scanner/report file concentration penalties apply to files in scanner/, reports/, detect*, classify*, rules/, routing/ paths.
 
 ## What Not To Build Yet
 

@@ -1,11 +1,13 @@
 import yaml from "js-yaml";
 import { buildRecommendations } from "@/lib/reports/recommendations";
+import { buildSystemGraph } from "@/lib/reports/systemGraph";
 import { classifyFile } from "./classifyFiles";
 import { classifyRepoMode } from "./classifyRepoMode";
 import { deriveFileContext } from "./fileContext";
 import { ingestEvalResults } from "./evalResultIngestion";
 import { computeGraphCompleteness } from "./graphCompleteness";
 import { getExtension, getFileName, isEnvFileName, shouldIgnorePath } from "./ignoreRules";
+import { detectModelPerformance, detectModels } from "./modelDetection";
 import { redactSecrets } from "./redactSecrets";
 import { scoreScan } from "./scoreScan";
 import { applyScoreGates, computeScoreDimensions } from "./scoreGates";
@@ -17,7 +19,10 @@ import {
 } from "./secretPatterns";
 import type {
   AgentDisplayKind,
+  AgentModelMapping,
+  AgentPermissions,
   DetectedAgent,
+  DetectedAssistantTooling,
   DetectedCIWorkflow,
   DetectedWorkflow,
   EvidenceSnippet,
@@ -27,6 +32,7 @@ import type {
   RepoFile,
   ScanReport,
   ScanSource,
+  WorkflowStage,
   ZipScanStats,
 } from "./types";
 
@@ -66,8 +72,12 @@ export function staticScanFromFiles(
 
   // -- File-level counts (separated by kind) --
 
+  // Detect assistant tooling artifacts first so they can be excluded from product counts.
+  const detectedAssistantTooling = detectAssistantTooling(files);
+  const assistantToolingPaths = new Set(detectedAssistantTooling.map((t) => t.path));
+
   const detectedPrompts = scannedFiles
-    .filter((file) => file.classification === "prompt")
+    .filter((file) => file.classification === "prompt" && !assistantToolingPaths.has(file.path))
     .map((file) => file.path);
 
   // Explicit AI evals: /evals/, /evaluations/, promptfoo configs.
@@ -88,17 +98,21 @@ export function staticScanFromFiles(
     .map((file) => file.path);
 
   // Prompt-related source files: source code containing prompt language, but not
-  // true prompt assets. Useful for showing broader context without inflating detectedPrompts.
+  // true prompt assets. Assistant tooling files are excluded.
   const detectedPromptRelatedFiles = scannedFiles
     .filter(
       (f) =>
         f.classification === "source_code" &&
         f.content &&
         promptLanguagePattern.test(f.content) &&
-        !detectedPrompts.includes(f.path),
+        !detectedPrompts.includes(f.path) &&
+        !assistantToolingPaths.has(f.path) &&
+        !isAssistantToolingPath(f.path),
     )
     .map((f) => f.path)
     .slice(0, 20);
+
+  const detectedLLMInfrastructure = detectLLMInfrastructure(scannedFiles);
 
   const detectedTools = detectTools(scannedFiles);
   const detectedAgents = detectAgents(scannedFiles, detectedPrompts, detectedTools, detectedEvals);
@@ -211,6 +225,19 @@ export function staticScanFromFiles(
     ));
   }
 
+  if (detectedAssistantTooling.length > 0) {
+    findings.push(finding(
+      "assistant-tooling-detected",
+      "architecture",
+      "info",
+      "Assistant tooling detected",
+      `${detectedAssistantTooling.length} developer-assistant artifact(s) were found and separated from product agent/workflow analysis.`,
+      detectedAssistantTooling.map((t) => t.path).slice(0, 5),
+      "Keep assistant tooling separate from product manifests unless it is part of the deployed AI system.",
+      0.9,
+    ));
+  }
+
   if (options.zipStats && options.zipStats.skippedByFileLimit > 0) {
     findings.push(finding(
       "zip-scan-prioritized-subset",
@@ -284,16 +311,85 @@ export function staticScanFromFiles(
     ));
   }
 
+  // -- Model/provider detection (deterministic) --
+  const detectedModels = detectModels(files, detectedAgents, detectedWorkflowsDetailed);
+  const modelPerformance = detectModelPerformance(files);
+
+  // -- AI System Graph --
+  const systemGraph = buildSystemGraph({
+    detectedAgents,
+    detectedWorkflowsDetailed,
+    detectedPrompts,
+    detectedPromptRelatedFiles,
+    detectedTools,
+    detectedEvals,
+    detectedTests,
+    detectedCIWorkflows,
+    detectedModels,
+    modelPerformance,
+  });
+
+  // -- Graph-derived findings (moderate, project-type-aware penalties) --
+  const hasManifestAgents = detectedAgents.some((a) => a.displayKind === "manifest");
+  if (hasManifestAgents) {
+    if (systemGraph.summary.missingPromptLinks > 0) {
+      findings.push(finding(
+        "graph-agents-missing-prompts",
+        "promptQuality",
+        "low",
+        "Manifest agents missing prompt mapping",
+        `${systemGraph.summary.missingPromptLinks} agent(s) have no mapped prompt in agents.yaml.`,
+        [],
+        "Add prompts: list per agent in agents.yaml so prompts can be tied to specific agents.",
+        0.7,
+      ));
+    }
+    if (systemGraph.summary.missingEvalLinks > 0 && detectedEvals.length > 0) {
+      findings.push(finding(
+        "graph-agents-missing-evals",
+        "evalCoverage",
+        "low",
+        "Agents not linked to evals",
+        `${systemGraph.summary.missingEvalLinks} agent(s) have no mapped evals despite eval files existing in the repo.`,
+        [],
+        "Attach eval suites to the agents or workflow steps they validate.",
+        0.7,
+      ));
+    }
+    if (systemGraph.summary.missingModelLinks > 0) {
+      findings.push(finding(
+        "graph-agents-missing-model",
+        "architecture",
+        "low",
+        "Manifest agents missing model/provider mapping",
+        `${systemGraph.summary.missingModelLinks} agent(s) have no mapped model/provider in agents.yaml.`,
+        [],
+        "Add model: { provider, name } per agent in agents.yaml or workflow.yaml.",
+        0.7,
+      ));
+    }
+  }
+
+  // Workflow stages missing
+  for (const wf of detectedWorkflowsDetailed) {
+    if (wf.source === "explicit" && (!wf.stages || wf.stages.length === 0)) {
+      findings.push(finding(
+        `graph-workflow-missing-steps-${wf.id}`,
+        "architecture",
+        "low",
+        "Workflow manifest has no stages",
+        `Workflow "${wf.name}" is defined but has no stages.`,
+        wf.configPath ? [wf.configPath] : [],
+        "Add stages with id, name, and agent fields to the workflow manifest.",
+        0.7,
+      ));
+    }
+  }
+
+  // -- Governance pipeline --
   const rawScores = scoreScan(findings);
-
-  // -- Repository mode classification --
-  // Re-use already-computed signals (hasAgentConfig, hasWorkflowConfig, hasAiSignals).
   const repositoryMode = classifyRepoMode(files, hasAgentConfig, hasWorkflowConfig, hasAiSignals);
-
-  // -- Eval/performance result ingestion --
   const performanceData = ingestEvalResults(scannedFiles);
-
-  // -- Graph completeness --
   const graphCompleteness = computeGraphCompleteness(
     detectedAgents,
     detectedWorkflowsDetailed,
@@ -302,19 +398,15 @@ export function staticScanFromFiles(
     detectedEvals.length,
   );
 
-  // -- Model mapping check (any manifest agent declares a model) --
   const hasModelMapping = detectedAgents.some(
     (a) => a.displayKind === "manifest" && a.risks.every((r) => !r.includes("model")),
   );
-
-  // -- Graph edges: any manifest agent has at least one linked attribute --
   const hasGraphEdges = detectedAgents.some(
     (a) =>
       (a.displayKind === "manifest") &&
       (a.promptPaths.length > 0 || a.toolNames.length > 0 || a.evalPaths.length > 0),
   );
 
-  // -- All-examples check: detected AI artifacts only from example directories --
   const productionAiFiles = scannedFiles.filter((f) => {
     const ctx = f.fileContext;
     return (
@@ -361,15 +453,25 @@ export function staticScanFromFiles(
     detectedAgents,
     detectedWorkflowsDetailed,
     detectedCIWorkflows,
+    detectedAssistantTooling,
     detectedPrompts,
     detectedPromptRelatedFiles,
+    detectedLLMInfrastructure: detectedLLMInfrastructure.length > 0 ? detectedLLMInfrastructure : undefined,
     detectedTools,
     detectedEvals,
     detectedTests,
     detectedWorkflows: detectedWorkflowPaths,
+    detectedModels,
+    modelPerformance: modelPerformance.length > 0 ? modelPerformance : undefined,
+    systemGraph,
     findings,
     scores,
-    recommendations: buildRecommendations(findings, { projectType }),
+    recommendations: buildRecommendations(findings, {
+      projectType,
+      systemGraph,
+      hasManifestAgents,
+      modelPerformance: modelPerformance.length > 0,
+    }),
   };
 }
 
@@ -563,6 +665,76 @@ function toRepoFile(raw: RawRepoFile): RepoFile {
   };
 }
 
+// -- Assistant tooling path detection --
+
+// Returns true if the file path belongs to a developer-assistant tooling folder
+// (.claude, .cursor, .vscode, .windsurf, .github/copilot, etc.).
+// These are excluded from product agent/workflow/prompt counts and reported separately.
+function isAssistantToolingPath(path: string): boolean {
+  const lower = path.toLowerCase();
+  return (
+    lower.startsWith(".claude/") ||
+    lower.startsWith(".cursor/") ||
+    lower.startsWith(".vscode/") ||
+    lower.startsWith(".windsurf/") ||
+    lower.startsWith(".github/copilot/") ||
+    lower.startsWith("codex/") ||
+    lower.startsWith("devtools/") ||
+    lower.startsWith("ai-assistant/") ||
+    lower.startsWith("assistant-tools/")
+  );
+}
+
+function detectAssistantTooling(files: RepoFile[]): DetectedAssistantTooling[] {
+  const results: DetectedAssistantTooling[] = [];
+  const seen = new Set<string>();
+
+  for (const file of files) {
+    if (file.ignored) continue;
+    if (!isAssistantToolingPath(file.path)) continue;
+    if (seen.has(file.path)) continue;
+    seen.add(file.path);
+
+    const lower = file.path.toLowerCase();
+    const name = getFileName(lower);
+
+    let kind: DetectedAssistantTooling["kind"] = "other";
+    let label: string | undefined;
+
+    if (lower.startsWith(".claude/")) {
+      if (lower.includes("/agents/") || name.endsWith("_agent.md") || name.endsWith("_agent.py")) {
+        kind = "assistant_agent";
+        label = formatAgentName(name);
+      } else if (lower.includes("/skills/")) {
+        kind = "claude_skill";
+        const skillSegment = file.path.split("/").slice(0, 3).join("/");
+        label = skillSegment;
+      } else if (lower.includes("/prompts/") || name.endsWith(".prompt.md") || name.startsWith("system-prompt")) {
+        kind = "assistant_prompt";
+      } else {
+        kind = "other";
+      }
+    } else if (lower.startsWith(".cursor/")) {
+      if (lower.includes("/rules/")) {
+        kind = "cursor_rule";
+      } else if (lower.includes("/agents/") || name.endsWith("_agent")) {
+        kind = "assistant_agent";
+        label = formatAgentName(name);
+      } else {
+        kind = "other";
+      }
+    } else if (lower.startsWith(".vscode/")) {
+      kind = "vscode_config";
+    } else {
+      kind = "other";
+    }
+
+    results.push({ path: file.path, kind, label });
+  }
+
+  return results;
+}
+
 // -- CI workflow detection --
 
 function detectCIWorkflows(files: RepoFile[]): DetectedCIWorkflow[] {
@@ -655,9 +827,24 @@ function workflowFromEntry(entry: unknown, configPath: string): DetectedWorkflow
   const name = firstString(record.name) ?? firstString(record.id) ?? "Workflow";
   const rawType = firstString(record.type);
   const type = parseWorkflowType(rawType);
-  const stages = valueStrings(record.stages);
+
+  const stagesRaw = record.stages;
+  let stages: string[];
+  let stagesDetailed: WorkflowStage[] | undefined;
+  if (Array.isArray(stagesRaw) && stagesRaw.some((s) => isRecord(s))) {
+    stagesDetailed = stagesRaw.map((s, idx) => parseWorkflowStage(s, idx));
+    stages = stagesDetailed.map((s) => s.name ?? s.id);
+  } else {
+    stages = valueStrings(stagesRaw);
+  }
+
   const tools = valueStrings(record.tools);
   const evals = valueStrings(record.evals);
+  const owner = firstString(record.owner);
+  const status = firstString(record.status);
+  const architecture = firstString(record.architecture);
+  const approvalGates = valueStrings(record.approval_gates).concat(valueStrings(record.approvalGates));
+  const artifacts = valueStrings(record.artifacts);
 
   return {
     id: slug(id),
@@ -670,6 +857,41 @@ function workflowFromEntry(entry: unknown, configPath: string): DetectedWorkflow
     source: "explicit",
     confidence: "high",
     evidenceReason: `Defined in ${configPath}`,
+    ...(stagesDetailed && stagesDetailed.length > 0 ? { stagesDetailed } : {}),
+    ...(owner ? { owner } : {}),
+    ...(status ? { status } : {}),
+    ...(architecture ? { architecture } : {}),
+    ...(approvalGates.length > 0 ? { approvalGates: [...new Set(approvalGates)] } : {}),
+    ...(artifacts.length > 0 ? { artifacts } : {}),
+  };
+}
+
+function parseWorkflowStage(entry: unknown, idx: number): WorkflowStage {
+  const record = isRecord(entry) ? entry : {};
+  const id = firstString(record.id) ?? firstString(record.name) ?? `stage-${idx + 1}`;
+  const name = firstString(record.name);
+  const agent = firstString(record.agent);
+  const prompt = firstString(record.prompt) ?? firstString(record.prompt_path);
+  const tools = valueStrings(record.tools);
+  const evals = valueStrings(record.evals);
+  const model = parseModelMapping(record.model);
+  const approvalGate =
+    record.approval_gate === true ||
+    record.approvalGate === true ||
+    record.approval === true ||
+    undefined;
+  const artifacts = valueStrings(record.artifacts).concat(valueStrings(record.produces));
+
+  return {
+    id: slug(id),
+    ...(name ? { name } : {}),
+    ...(agent ? { agent } : {}),
+    ...(prompt ? { prompt } : {}),
+    ...(tools.length > 0 ? { tools } : {}),
+    ...(evals.length > 0 ? { evals } : {}),
+    ...(model ? { model } : {}),
+    ...(approvalGate ? { approvalGate: true } : {}),
+    ...(artifacts.length > 0 ? { artifacts: [...new Set(artifacts)] } : {}),
   };
 }
 
@@ -691,6 +913,7 @@ function isManifestAgentConfig(path: string): boolean {
 }
 
 // Returns true for source files whose filename pattern suggests they are agent modules.
+// Covers common Python/TypeScript naming conventions for product agent files.
 function isAgentSourceFile(path: string): boolean {
   const name = getFileName(path.toLowerCase());
   return (
@@ -698,8 +921,23 @@ function isAgentSourceFile(path: string): boolean {
     name.endsWith("_agent.ts") ||
     name.endsWith("_evaluator.py") ||
     name.endsWith("_evaluator.ts") ||
+    name.endsWith("_judge.py") ||
+    name.endsWith("_critic.py") ||
+    name.endsWith("_planner.py") ||
+    name.endsWith("_router.py") ||
+    name.endsWith("_researcher.py") ||
+    name.endsWith("_writer.py") ||
+    name.endsWith("_editor.py") ||
     /^agent[_-]/.test(name)
   );
+}
+
+// Format a filename like "editor_agent.py" → "Editor Agent" for display.
+function formatAgentName(filename: string): string {
+  return filename
+    .replace(/\.[^.]+$/, "")
+    .replace(/[_-]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function detectAgents(
@@ -708,16 +946,24 @@ function detectAgents(
   toolNames: string[],
   evalPaths: string[],
 ): DetectedAgent[] {
-  const configs = files.filter((file) => file.classification === "agent_config" && !file.ignored);
+  // Exclude assistant tooling files from ALL agent detection paths.
+  const configs = files.filter(
+    (file) => file.classification === "agent_config" && !file.ignored && !isAssistantToolingPath(file.path),
+  );
 
   // Manifest configs: top-level agents.yaml / agents.yml / agents.json files.
   const manifestConfigs = configs.filter((f) => isManifestAgentConfig(f.path));
   // Agent dir files: non-manifest agent_config files in /agents/ directory (e.g., /agents/researcher.md).
   const agentDirFiles = configs.filter((f) => !isManifestAgentConfig(f.path));
 
-  // Source-based agent files: *_agent.py, *_evaluator.py, etc. (only used when no manifest exists).
+  // Source-based agent files: *_agent.py, *_evaluator.py, etc.
+  // Exclude assistant tooling paths so .claude/skills/.../agents/*.py is not counted.
   const agentSourceFiles = files.filter(
-    (f) => !f.ignored && f.classification === "source_code" && isAgentSourceFile(f.path),
+    (f) =>
+      !f.ignored &&
+      f.classification === "source_code" &&
+      isAgentSourceFile(f.path) &&
+      !isAssistantToolingPath(f.path),
   );
 
   const hasManifest = manifestConfigs.length > 0;
@@ -754,9 +1000,10 @@ function detectAgents(
 
   // Agent directory files (unstructured — /agents/*.md, /agents/*.yaml without top-level manifest).
   for (const [index, file] of agentDirFiles.entries()) {
+    const agentName = formatAgentName(file.name) || `Agent ${index + 1}`;
     detected.push({
       id: slug(file.name.replace(/\.[^.]+$/, "") || `agent-dir-${index + 1}`),
-      name: file.name.replace(/\.[^.]+$/, "") || `Agent ${index + 1}`,
+      name: agentName,
       promptPaths: [],
       toolNames: [],
       evalPaths: [],
@@ -769,12 +1016,14 @@ function detectAgents(
     });
   }
 
-  // Source-based agent files (*_agent.py, etc.) — only when no manifest or dir files found yet.
+  // Source-based agent files (*_agent.py, *_evaluator.py, *_judge.py, etc.).
+  // Only added when no manifest or dir files found yet; never from assistant tooling paths.
   if (detected.length === 0 && hasAgentSourceFiles) {
     for (const [index, file] of agentSourceFiles.entries()) {
+      const agentName = formatAgentName(file.name) || `Agent ${index + 1}`;
       detected.push({
         id: slug(file.name.replace(/\.[^.]+$/, "") || `agent-src-${index + 1}`),
-        name: file.name.replace(/[_-]/g, " ").replace(/\.[^.]+$/, ""),
+        name: agentName,
         promptPaths: [],
         toolNames: [],
         evalPaths: [],
@@ -783,7 +1032,7 @@ function detectAgents(
         source: "inferred" as const,
         confidence: "medium" as const,
         displayKind: "agent_file" as AgentDisplayKind,
-        evidenceReason: `Agent-like file at ${file.path}`,
+        evidenceReason: "Python agent module detected under product agents directory.",
       });
     }
   }
@@ -823,9 +1072,46 @@ function agentsFromConfig(
     const record = isRecord(entry) ? entry : {};
     const id = firstString(record.id);
     const name = firstString(record.name);
-    const promptPaths = collectFieldStrings(record, ["prompt_path", "promptPath", "prompt"]);
-    const toolNames = collectFieldStrings(record, ["tools"]);
-    const evalPaths = collectFieldStrings(record, ["evals"]);
+
+    // Plain shape: prompts: [...]
+    let promptPaths = collectFieldStrings(record, ["prompt_path", "promptPath", "prompt", "prompts"]);
+    let toolNames = collectFieldStrings(record, ["tools"]);
+    let evalPaths = collectFieldStrings(record, ["evals"]);
+
+    // Nested shape: files.prompt, tools.allowed, evals.paths.
+    const filesField = isRecord(record.files) ? record.files : undefined;
+    if (filesField) {
+      const promptFile = firstString(filesField.prompt);
+      if (promptFile) promptPaths = [...new Set([...promptPaths, promptFile])];
+    }
+    if (isRecord(record.tools)) {
+      const allowed = valueStrings(record.tools.allowed);
+      if (allowed.length > 0) toolNames = [...new Set([...toolNames, ...allowed])];
+    }
+    if (isRecord(record.evals)) {
+      const evalsPaths = valueStrings(record.evals.paths);
+      if (evalsPaths.length > 0) evalPaths = [...new Set([...evalPaths, ...evalsPaths])];
+    }
+
+    const model = parseModelMapping(record.model);
+    // Provider-only shape: provider: { name: ... }
+    if (!model && isRecord(record.provider)) {
+      const providerName = firstString(record.provider.name);
+      if (providerName) {
+        // hoist provider into model with no name.
+      }
+    }
+    const owner = firstString(record.owner);
+    const permissions = parsePermissions(record.permissions);
+    const filesRecord: Record<string, string> | undefined = filesField
+      ? Object.fromEntries(
+          Object.entries(filesField).flatMap(([k, v]) => {
+            const s = firstString(v);
+            return s ? [[k, s]] : [];
+          }),
+        )
+      : undefined;
+
     const missing = [
       id ? undefined : "id",
       name ? undefined : "name",
@@ -834,8 +1120,6 @@ function agentsFromConfig(
       evalPaths.length > 0 ? undefined : "evals",
     ].filter(Boolean);
 
-    // Only use manifest-mapped paths, not repo-level fallbacks.
-    // If the manifest doesn't map prompts/tools/evals, they remain empty (not mapped).
     return {
       id: slug(id ?? name ?? `${file.name}-${entryIndex + 1}`),
       name: name ?? id ?? `Agent ${configIndex + 1}.${entryIndex + 1}`,
@@ -847,8 +1131,49 @@ function agentsFromConfig(
       source: "explicit" as const,
       confidence: "high" as const,
       evidenceReason: `Defined in ${file.path}`,
+      ...(model ? { model } : {}),
+      ...(owner ? { owner } : {}),
+      ...(permissions ? { permissions } : {}),
+      ...(filesRecord && Object.keys(filesRecord).length > 0 ? { files: filesRecord } : {}),
     };
   });
+}
+
+function parseModelMapping(value: unknown): AgentModelMapping | undefined {
+  if (!isRecord(value)) return undefined;
+  const provider = firstString(value.provider);
+  const name = firstString(value.name) ?? firstString(value.model);
+  if (!provider && !name) return undefined;
+  const temperature = typeof value.temperature === "number" ? value.temperature : undefined;
+  const maxTokens =
+    typeof value.max_tokens === "number"
+      ? value.max_tokens
+      : typeof value.maxTokens === "number"
+        ? value.maxTokens
+        : undefined;
+  return {
+    provider: provider ?? "unknown",
+    ...(name ? { name } : {}),
+    ...(temperature !== undefined ? { temperature } : {}),
+    ...(maxTokens !== undefined ? { maxTokens } : {}),
+  };
+}
+
+function parsePermissions(value: unknown): AgentPermissions | undefined {
+  if (!isRecord(value)) return undefined;
+  const out: AgentPermissions = {};
+  if (typeof value.external_network === "boolean") out.externalNetwork = value.external_network;
+  else if (typeof value.externalNetwork === "boolean") out.externalNetwork = value.externalNetwork;
+  if (typeof value.write_files === "boolean") out.writeFiles = value.write_files;
+  else if (typeof value.writeFiles === "boolean") out.writeFiles = value.writeFiles;
+  if (typeof value.publish === "boolean") out.publish = value.publish;
+  const extra: Record<string, boolean> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (["external_network", "externalNetwork", "write_files", "writeFiles", "publish"].includes(k)) continue;
+    if (typeof v === "boolean") extra[k] = v;
+  }
+  if (Object.keys(extra).length > 0) out.extra = extra;
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 function parseStructuredConfig(file: RepoFile) {
@@ -874,6 +1199,33 @@ function agentConfigEntries(parsed: unknown) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// -- LLM infrastructure detection --
+
+// Detects LLM provider/client files that are infrastructure, not prompt assets.
+// Examples: llm/client.py, providers/openai.ts, modelProvider.ts
+function detectLLMInfrastructure(files: RepoFile[]): string[] {
+  const results: string[] = [];
+
+  for (const file of files) {
+    if (file.ignored || isAssistantToolingPath(file.path)) continue;
+    if (file.classification !== "source_code") continue;
+
+    const lower = file.path.toLowerCase();
+    const name = getFileName(lower);
+    const normalized = `/${lower}`;
+
+    const isLLMInfra = (
+      normalized.includes("/llm/") ||
+      (normalized.includes("/providers/") && /\b(openai|anthropic|gemini|cohere|mistral|groq|together|bedrock)\b/.test(file.content ?? "")) ||
+      /^(openai|anthropic|gemini|model[_-]?provider|ai[_-]?service|ai[_-]?client|llm[_-]?client|model[_-]?service)\.(ts|js|py)$/.test(name)
+    );
+
+    if (isLLMInfra) results.push(file.path);
+  }
+
+  return results.slice(0, 20);
 }
 
 // -- Tool detection --

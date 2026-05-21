@@ -1,7 +1,10 @@
-import type { Finding, ProjectType } from "@/lib/scanner/types";
+import type { Finding, ProjectType, SystemGraph } from "@/lib/scanner/types";
 
 export interface RecommendationContext {
   projectType: ProjectType;
+  systemGraph?: SystemGraph;
+  hasManifestAgents?: boolean;
+  modelPerformance?: boolean;
 }
 
 // Inventory recommendation wording by project type.
@@ -149,5 +152,52 @@ export function buildRecommendations(
     }
   }
 
-  return deduped.slice(0, 6);
+  // Graph-derived mapping recommendations (only when manifest agents exist).
+  const graph = context.systemGraph;
+  if (graph && context.hasManifestAgents) {
+    if (
+      graph.summary.missingPromptLinks > 0 ||
+      graph.summary.missingToolLinks > 0 ||
+      graph.summary.missingEvalLinks > 0 ||
+      graph.summary.missingModelLinks > 0
+    ) {
+      const rec = "Add agents.yaml mappings for prompts, tools, evals, and model/provider per agent so the system graph can be reconstructed.";
+      if (!seen.has(rec)) {
+        seen.add(rec);
+        deduped.push(rec);
+      }
+    }
+  }
+
+  if (graph) {
+    const detectedModelNodes = graph.nodes.filter((n) => n.type === "model");
+    const detectedHasMappedAgent = graph.edges.some((e) => e.type === "uses_model");
+    if (detectedModelNodes.length > 0 && !detectedHasMappedAgent) {
+      const rec = "Map provider/model settings to agents or workflow steps so the model matrix knows which agent uses which model.";
+      if (!seen.has(rec)) {
+        seen.add(rec);
+        deduped.push(rec);
+      }
+    }
+
+    const evalNodes = graph.nodes.filter((n) => n.type === "eval");
+    const evalHasMapping = graph.edges.some((e) => e.type === "evaluated_by");
+    if (evalNodes.length > 0 && !evalHasMapping) {
+      const rec = "Attach eval suites to the agents or workflow steps they validate.";
+      if (!seen.has(rec)) {
+        seen.add(rec);
+        deduped.push(rec);
+      }
+    }
+
+    if (detectedModelNodes.length > 0 && !context.modelPerformance) {
+      const rec = "Add eval result files with model, provider, score, latency, token usage, and cost to compare model performance.";
+      if (!seen.has(rec)) {
+        seen.add(rec);
+        deduped.push(rec);
+      }
+    }
+  }
+
+  return deduped.slice(0, 8);
 }

@@ -84,24 +84,24 @@ export function classifyFile(path: string, content = ""): FileClassification {
     return "ci";
   }
 
-  if (normalized.includes("/agents/")) {
-    // Asset/binary files (SVGs, images, CSS) inside /agents/ are never agent configs.
-    if (assetExtensions.has(extension)) return "unknown";
-    return sourceExtensions.has(extension) || /\b(export|function|class|import|def)\b/.test(content)
-      ? "source_code"
-      : "agent_config";
-  }
-
-  // Test files are checked before prompt/eval so that filenames like
-  // "prompt-input.test.ts" are correctly classified as tests, not prompts.
+  // Test files are checked before /agents/ so that test files in agents dirs
+  // (e.g., agents/test_agent.test.py) are correctly classified as tests.
   if (isTestPath(normalized, name)) {
     return "test";
   }
 
-  // Prompt files: only classify as prompt when not in a test or source
-  // directory, and only for genuine prompt assets.
+  // Prompt files: checked before /agents/ so that prompt modules
+  // (e.g., agents/prompts.py with _PROMPT constants) are classified correctly.
+  // Assistant tooling paths are excluded here.
   if (isPromptFile(normalized, name, content)) {
     return "prompt";
+  }
+
+  if (normalized.includes("/agents/")) {
+    if (assetExtensions.has(extension)) return "unknown";
+    return sourceExtensions.has(extension) || /\b(export|function|class|import|def)\b/.test(content)
+      ? "source_code"
+      : "agent_config";
   }
 
   // Evals: dedicated AI evaluation directories and manifest files.
@@ -161,12 +161,18 @@ function isTestPath(normalized: string, name: string): boolean {
 }
 
 function isPromptFile(normalized: string, name: string, content: string): boolean {
+  // Exclude assistant tooling paths: .claude/, .cursor/, .vscode/, .windsurf/.
+  // These are developer-assistant artifacts, not product prompt assets.
+  if (isAssistantToolingNormalized(normalized)) return false;
+
   // Files in /prompts/ directory are always prompt assets.
-  if (normalized.includes("/prompts/")) return true;
+  if (normalized.includes("/prompts/") && !normalized.endsWith("/prompts.py")) return true;
   // Named system-prompt files or persona files are always prompts.
   if (name.startsWith("system-prompt") || name === "system-persona.md") return true;
   // *.prompt.md / *.prompt.ts / *.prompt.txt / *.prompt.js files are prompt assets.
   if (/\.prompt\.(md|txt|ts|js)$/.test(name)) return true;
+  // Python prompt module: prompts.py (or *_prompts.py) with uppercase _PROMPT constants.
+  if (isPythonPromptModule(name, content)) return true;
   // Content-based detection: only for files not in known source/library/fixture directories.
   // This prevents scanner source files, report builders, and fixtures from being
   // counted as prompt assets just because they contain prompt-related words.
@@ -200,6 +206,25 @@ function isPromptFile(normalized: string, name: string, content: string): boolea
     return true;
   }
   return false;
+}
+
+// Returns true if the normalized path belongs to a developer-assistant tooling folder.
+// Used in classifyFiles.ts only (staticScan.ts has its own isAssistantToolingPath helper).
+function isAssistantToolingNormalized(normalized: string): boolean {
+  return (
+    normalized.startsWith("/.claude/") ||
+    normalized.startsWith("/.cursor/") ||
+    normalized.startsWith("/.vscode/") ||
+    normalized.startsWith("/.windsurf/") ||
+    normalized.startsWith("/.github/copilot/")
+  );
+}
+
+// Returns true for Python prompt module files: prompts.py or *_prompts.py
+// that contain uppercase _PROMPT constants (e.g., RESEARCH_PLAN_PROMPT = "...").
+function isPythonPromptModule(name: string, content: string): boolean {
+  if (!(name === "prompts.py" || name.endsWith("_prompts.py"))) return false;
+  return /[A-Z][A-Z_]*_PROMPT\s*=/.test(content);
 }
 
 function isEvalFile(normalized: string, name: string): boolean {

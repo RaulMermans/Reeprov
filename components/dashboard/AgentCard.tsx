@@ -11,14 +11,12 @@ function agentBadge(kind: AgentDisplayKind | undefined, confidence: DetectedAgen
     case "inferred_candidate":
       return <Badge tone="warning">Inferred candidate</Badge>;
     default:
-      // Fallback for legacy data without displayKind.
       if (confidence === "low") return <Badge tone="warning">Low confidence</Badge>;
       if (confidence === "high") return <Badge tone="success">Explicit</Badge>;
       return <Badge tone="neutral">Inferred</Badge>;
   }
 }
 
-// Only manifest agents have reliably mapped prompts/tools/evals.
 function isMappedAgent(agent: DetectedAgent): boolean {
   return agent.displayKind === "manifest" || (agent.source === "explicit" && !agent.displayKind);
 }
@@ -35,6 +33,9 @@ export function AgentCard({ agent }: { agent: DetectedAgent }) {
           {agent.configPath ? (
             <p className="mt-1 text-sm text-slate-600">{agent.configPath}</p>
           ) : null}
+          {agent.owner ? (
+            <p className="mt-0.5 text-xs text-slate-500">Owner: {agent.owner}</p>
+          ) : null}
         </div>
         <div className="flex shrink-0 flex-wrap gap-1">
           {agentBadge(agent.displayKind, agent.confidence)}
@@ -42,23 +43,43 @@ export function AgentCard({ agent }: { agent: DetectedAgent }) {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-2 text-sm text-slate-700">
+      <div className="mt-4 space-y-2 text-sm text-slate-700">
         {mapped ? (
-          // Manifest agents: show mapped counts from config.
           <>
-            <div>Prompts: {agent.promptPaths.length}</div>
-            <div>Tools: {agent.toolNames.length}</div>
-            <div>Evals: {agent.evalPaths.length}</div>
+            <MappedField label="Prompts" values={agent.promptPaths} />
+            <MappedField label="Tools" values={agent.toolNames} />
+            <MappedField label="Evals" values={agent.evalPaths} />
+            <ModelField agent={agent} />
           </>
         ) : (
-          // Agent file or inferred: no manifest mapping.
           <>
             <div className="text-slate-400">Prompt links: Not mapped</div>
             <div className="text-slate-400">Tool links: Not mapped</div>
             <div className="text-slate-400">Eval links: Not mapped</div>
+            <div className="text-slate-400">Model: Not mapped</div>
           </>
         )}
       </div>
+
+      {agent.permissions ? (
+        <div className="mt-3 flex flex-wrap gap-1.5 text-[10px]">
+          {agent.permissions.externalNetwork !== undefined ? (
+            <Badge tone={agent.permissions.externalNetwork ? "warning" : "neutral"}>
+              external_network: {String(agent.permissions.externalNetwork)}
+            </Badge>
+          ) : null}
+          {agent.permissions.writeFiles !== undefined ? (
+            <Badge tone={agent.permissions.writeFiles ? "warning" : "neutral"}>
+              write_files: {String(agent.permissions.writeFiles)}
+            </Badge>
+          ) : null}
+          {agent.permissions.publish !== undefined ? (
+            <Badge tone={agent.permissions.publish ? "warning" : "neutral"}>
+              publish: {String(agent.permissions.publish)}
+            </Badge>
+          ) : null}
+        </div>
+      ) : null}
 
       {agent.evidenceReason ? (
         <p className="mt-3 text-xs text-slate-500">{agent.evidenceReason}</p>
@@ -72,5 +93,43 @@ export function AgentCard({ agent }: { agent: DetectedAgent }) {
         </ul>
       ) : null}
     </Card>
+  );
+}
+
+function MappedField({ label, values }: { label: string; values: string[] }) {
+  if (values.length === 0) {
+    return <div className="text-slate-400">{label}: Not mapped</div>;
+  }
+  return (
+    <div>
+      <span className="text-slate-700">{label}:</span>{" "}
+      <span className="text-slate-900">{values.length}</span>
+      <ul className="mt-1 space-y-0.5 pl-3 text-xs text-slate-600">
+        {values.slice(0, 4).map((v) => (
+          <li className="break-all font-mono" key={v}>
+            {v}
+          </li>
+        ))}
+        {values.length > 4 ? <li className="text-slate-400">+{values.length - 4} more</li> : null}
+      </ul>
+    </div>
+  );
+}
+
+function ModelField({ agent }: { agent: DetectedAgent }) {
+  if (!agent.model) {
+    return <div className="text-slate-400">Model: Not mapped</div>;
+  }
+  return (
+    <div>
+      <span className="text-slate-700">Model:</span>{" "}
+      <span className="font-mono text-xs text-slate-900">
+        {agent.model.provider}
+        {agent.model.name ? ` / ${agent.model.name}` : ""}
+      </span>
+      {agent.model.temperature !== undefined ? (
+        <span className="ml-2 text-xs text-slate-500">temp {agent.model.temperature}</span>
+      ) : null}
+    </div>
   );
 }

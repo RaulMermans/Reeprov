@@ -15,6 +15,7 @@ export function exportReportMarkdown(report: ScanReport) {
     `- Scan source: ${source ? `${source.type.toUpperCase()} - ${source.label}` : "Unknown"}`,
     `- Scanned at: ${report.scannedAt}`,
     `- Overall score: ${formatScore(report.scores.overall)}`,
+    `- Report version: ${report.reportVersion ?? "unversioned"}`,
     `- Project type: ${projectTypeLabel(report.projectType)} — ${projectTypeDescription(report.projectType)}`,
     ...(report.repositoryMode
       ? [
@@ -32,9 +33,15 @@ export function exportReportMarkdown(report: ScanReport) {
     `- Agents: ${report.detectedAgents.length}`,
     `- AI/product workflows: ${report.detectedWorkflowsDetailed.length}`,
     `- CI workflows: ${report.detectedCIWorkflows.length}`,
+    ...(report.detectedAssistantTooling && report.detectedAssistantTooling.length > 0
+      ? [`- Assistant tooling artifacts: ${report.detectedAssistantTooling.length}`]
+      : []),
     `- Prompt files: ${report.detectedPrompts.length}`,
     ...(report.detectedPromptRelatedFiles && report.detectedPromptRelatedFiles.length > 0
       ? [`- Prompt-related source files: ${report.detectedPromptRelatedFiles.length}`]
+      : []),
+    ...(report.detectedLLMInfrastructure && report.detectedLLMInfrastructure.length > 0
+      ? [`- LLM infrastructure files: ${report.detectedLLMInfrastructure.length}`]
       : []),
     `- Tools: ${report.detectedTools.length}`,
     `- Dedicated AI evals: ${report.detectedEvals.length}`,
@@ -74,6 +81,12 @@ export function exportReportMarkdown(report: ScanReport) {
           isMapped && agent.toolNames.length
             ? `tools: ${agent.toolNames.join(", ")}`
             : undefined,
+          isMapped && agent.evalPaths.length
+            ? `evals: ${agent.evalPaths.join(", ")}`
+            : undefined,
+          isMapped && agent.model
+            ? `model: ${agent.model.provider}${agent.model.name ? `/${agent.model.name}` : ""}`
+            : undefined,
           `source: ${sourceLabel}`,
         ].filter(Boolean);
         return `- ${agent.name}${details.length ? ` (${details.join("; ")})` : ""}`;
@@ -97,6 +110,11 @@ export function exportReportMarkdown(report: ScanReport) {
     ),
     "",
     ...ciWorkflowsMarkdown(report),
+    ...systemGraphMarkdown(report),
+    ...modelMatrixMarkdown(report),
+    ...workflowVisualizationMarkdown(report),
+    ...assistantToolingMarkdown(report),
+    ...maintainabilityMetricsMarkdown(report),
     "## Findings Summary",
     "",
     ...SEVERITY_ORDER
@@ -120,6 +138,170 @@ export function exportReportMarkdown(report: ScanReport) {
   ];
 
   return lines.join("\n");
+}
+
+function systemGraphMarkdown(report: ScanReport): string[] {
+  const g = report.systemGraph;
+  if (!g) return [];
+  const lines: string[] = ["## AI System Graph Summary", ""];
+  lines.push(`- Agents: ${g.summary.agentCount}`);
+  lines.push(`- Workflows: ${g.summary.workflowCount}`);
+  lines.push(`- Prompts: ${g.summary.promptCount}`);
+  lines.push(`- Tools: ${g.summary.toolCount}`);
+  lines.push(`- Models: ${g.summary.modelCount}`);
+  lines.push(`- Evals: ${g.summary.evalCount}`);
+  lines.push(`- Mapped agents: ${g.summary.mappedAgentCount}`);
+  lines.push(`- Unmapped agents: ${g.summary.unmappedAgentCount}`);
+  lines.push("");
+  // Edge type counts
+  const edgeTypeCounts = new Map<string, number>();
+  for (const e of g.edges) edgeTypeCounts.set(e.type, (edgeTypeCounts.get(e.type) ?? 0) + 1);
+  if (edgeTypeCounts.size > 0) {
+    lines.push("Edges by type:");
+    for (const [type, count] of edgeTypeCounts) {
+      lines.push(`- ${type}: ${count}`);
+    }
+    lines.push("");
+  }
+  if (g.warnings.length > 0) {
+    lines.push("Mapping gaps:");
+    for (const w of g.warnings) {
+      lines.push(`- [${w.severity}] ${w.message} — ${w.recommendation}`);
+    }
+    lines.push("");
+  }
+  return lines;
+}
+
+function modelMatrixMarkdown(report: ScanReport): string[] {
+  const models = report.detectedModels ?? [];
+  if (models.length === 0) {
+    return [
+      "## Model / Provider Matrix",
+      "",
+      "No provider/model mapping detected. Add model.provider and model.name to agents.yaml or workflow.yaml.",
+      "",
+    ];
+  }
+
+  const lines: string[] = ["## Model / Provider Matrix", ""];
+  lines.push("| Agent/Step | Provider | Model | Source | Confidence | Performance |");
+  lines.push("|---|---|---|---|---|---|");
+  for (const m of models) {
+    const mappedAgentId = m.mappedAgentIds?.[0];
+    const mappedAgent = report.detectedAgents.find((a) => a.id === mappedAgentId);
+    const target = mappedAgent?.name ?? mappedAgentId ?? "Unmapped";
+    const hasPerf = (report.modelPerformance ?? []).some(
+      (p) => p.provider === m.provider && (m.model ? p.model === m.model : false),
+    );
+    lines.push(
+      `| ${target} | ${m.provider} | ${m.model ?? "provider detected"} | ${m.source} | ${m.confidence} | ${hasPerf ? "available" : "unavailable"} |`,
+    );
+  }
+  lines.push("");
+  if ((report.modelPerformance ?? []).length === 0) {
+    lines.push(
+      "Performance unavailable. Add eval result files with provider, model, score, tokens, latency, and cost to compare models.",
+    );
+    lines.push("");
+  }
+  return lines;
+}
+
+function workflowVisualizationMarkdown(report: ScanReport): string[] {
+  const workflows = report.detectedWorkflowsDetailed;
+  const detailed = workflows.filter((w) => w.stagesDetailed && w.stagesDetailed.length > 0);
+  if (detailed.length === 0) return [];
+
+  const lines: string[] = ["## Workflow Visualization Data", ""];
+  for (const wf of detailed) {
+    lines.push(`### ${wf.name}`);
+    for (const stage of wf.stagesDetailed ?? []) {
+      const parts: string[] = [stage.name ?? stage.id];
+      if (stage.agent) parts.push(`agent=${stage.agent}`);
+      if (stage.prompt) parts.push(`prompt=${stage.prompt}`);
+      if (stage.tools?.length) parts.push(`tools=[${stage.tools.join(",")}]`);
+      if (stage.model) parts.push(`model=${stage.model.provider}/${stage.model.name ?? "?"}`);
+      if (stage.evals?.length) parts.push(`evals=[${stage.evals.join(",")}]`);
+      if (stage.approvalGate) parts.push("approval=true");
+      if (stage.artifacts?.length) parts.push(`artifacts=[${stage.artifacts.join(",")}]`);
+      lines.push(`- ${parts.join(" → ")}`);
+    }
+    lines.push("");
+  }
+  return lines;
+}
+
+function maintainabilityMetricsMarkdown(report: ScanReport) {
+  const m = report.maintainability;
+  if (!m) return [];
+
+  const lines: string[] = [
+    "## Maintainability Metrics",
+    "",
+    m.summary,
+    "",
+  ];
+
+  if (m.largeFiles.length > 0) {
+    lines.push("### Large files", "");
+    for (const lf of m.largeFiles) {
+      lines.push(`- \`${lf.path}\` — ${lf.lineCount} lines (${lf.reason})`);
+    }
+    lines.push("");
+  }
+
+  const totalTodo = m.todoMarkers.reduce((s, t) => s + t.count, 0);
+  if (totalTodo > 0) {
+    lines.push(`### TODO/FIXME markers: ${totalTodo} total`, "");
+    for (const t of m.todoMarkers.slice(0, 8)) {
+      lines.push(`- \`${t.path}\`: ${t.count}`);
+    }
+    lines.push("");
+  }
+
+  if (m.hotspots.length > 0) {
+    lines.push("### Hotspots", "");
+    for (const h of m.hotspots.slice(0, 5)) {
+      lines.push(`- \`${h.path}\`: ${h.signals.join(", ")}`);
+    }
+    lines.push("");
+  }
+
+  if (!report.reportVersion || report.reportVersion === "") {
+    lines.push("_Note: Report schema version not set — required before persisting scan history._", "");
+  } else {
+    lines.push(`_Report schema version: ${report.reportVersion}_`, "");
+  }
+
+  return lines;
+}
+
+function assistantToolingMarkdown(report: ScanReport) {
+  const tooling = report.detectedAssistantTooling;
+  if (!tooling || tooling.length === 0) return [];
+  return [
+    "## Assistant Tooling",
+    "",
+    `Developer-assistant artifacts (${tooling.length}) found and excluded from product agent/workflow analysis:`,
+    "",
+    ...tooling.map((t) => {
+      const kindLabel = assistantToolingKindLabel(t.kind);
+      return `- ${t.path} (${kindLabel}${t.label ? `, ${t.label}` : ""})`;
+    }),
+    "",
+  ];
+}
+
+function assistantToolingKindLabel(kind: string): string {
+  switch (kind) {
+    case "claude_skill": return "Claude skill";
+    case "cursor_rule": return "Cursor rule";
+    case "vscode_config": return "VS Code config";
+    case "assistant_prompt": return "assistant prompt";
+    case "assistant_agent": return "assistant agent";
+    default: return "assistant tooling";
+  }
 }
 
 function ciWorkflowsMarkdown(report: ScanReport) {

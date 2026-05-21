@@ -1,5 +1,5 @@
 import type { LLMClientResult, LLMGenerateInput } from "@/lib/llm/types";
-import type { Finding, RepoFile, ScanReport } from "@/lib/scanner/types";
+import type { Finding, MaintainabilityMetrics, RepoFile, ScanReport } from "@/lib/scanner/types";
 
 export interface AuditorContext {
   report: ScanReport;
@@ -12,6 +12,8 @@ export interface AuditorResult {
   auditor: string;
   findings: Finding[];
   promptQualityScore?: number;
+  maintainabilityScore?: number;
+  maintainabilityMetrics?: MaintainabilityMetrics;
   auditorStatus?: ScanReport["auditorStatus"];
 }
 

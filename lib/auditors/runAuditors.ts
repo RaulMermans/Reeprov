@@ -4,6 +4,7 @@ import type { RepoFile, ScanReport } from "@/lib/scanner/types";
 import { architectureAuditor } from "./architectureAuditor";
 import { documentationAuditor } from "./documentationAuditor";
 import { evalAuditor } from "./evalAuditor";
+import { maintainabilityAuditor } from "./maintainabilityAuditor";
 import { promptAuditor } from "./promptAuditor";
 import { safetyAuditor } from "./safetyAuditor";
 import { toolAuditor } from "./toolAuditor";
@@ -15,6 +16,7 @@ const auditors = [
   evalAuditor,
   safetyAuditor,
   documentationAuditor,
+  maintainabilityAuditor,
 ];
 
 interface RunAuditorsOptions {
@@ -45,17 +47,30 @@ export async function runAuditors(
   const findings = [...deduped.values()];
   const scores = scoreScan(findings);
   const promptAuditorResult = results.find((result) => result.auditor === "prompt");
+  const maintainabilityResult = results.find((result) => result.auditor === "maintainability");
 
   if (promptAuditorResult?.promptQualityScore !== undefined) {
     scores.promptQuality = Math.round(promptAuditorResult.promptQualityScore);
-    scores.overall = overallScore(scores);
   }
 
+  if (maintainabilityResult?.maintainabilityScore !== undefined) {
+    scores.maintainability = Math.round(maintainabilityResult.maintainabilityScore);
+  }
+
+  scores.overall = overallScore(scores);
+
+  const hasManifestAgents = report.detectedAgents.some((a) => a.displayKind === "manifest");
   return {
     ...report,
     findings,
     scores,
-    recommendations: buildRecommendations(findings, { projectType: report.projectType }),
+    maintainability: maintainabilityResult?.maintainabilityMetrics,
+    recommendations: buildRecommendations(findings, {
+      projectType: report.projectType,
+      systemGraph: report.systemGraph,
+      hasManifestAgents,
+      modelPerformance: (report.modelPerformance?.length ?? 0) > 0,
+    }),
     auditorStatus: promptAuditorResult?.auditorStatus,
   };
 }
@@ -63,11 +78,12 @@ export async function runAuditors(
 
 function overallScore(scores: ScanReport["scores"]) {
   return Math.round(
-    scores.architecture * 0.2 +
-      scores.promptQuality * 0.2 +
-      scores.toolGovernance * 0.2 +
-      scores.evalCoverage * 0.15 +
-      scores.security * 0.15 +
-      scores.documentation * 0.1,
+    scores.architecture * 0.18 +
+      scores.promptQuality * 0.18 +
+      scores.toolGovernance * 0.18 +
+      scores.evalCoverage * 0.13 +
+      scores.security * 0.14 +
+      scores.documentation * 0.09 +
+      scores.maintainability * 0.10,
   );
 }
