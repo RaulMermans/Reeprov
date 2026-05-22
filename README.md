@@ -84,9 +84,12 @@ Recommended Vercel settings:
 Deployment validation:
 
 - `npm run lint`
-- `npx tsc --noEmit`
+- `npm run typecheck`
 - `npm run test`
 - `npm run build`
+- `npm run ci`
+
+CI runs on pull requests and pushes to `main` with no required `GITHUB_TOKEN`, `OPENAI_API_KEY`, or `AGENTPULSE_ACCESS_KEY`. The default quality gate installs project dependencies, then runs lint, typecheck, tests, and build. CI uses mock or static inputs only; scanned repositories are never executed and their dependencies are never installed. Any future scheduled scan workflow should use only a server-side read-only GitHub token.
 
 Post-deploy checks:
 

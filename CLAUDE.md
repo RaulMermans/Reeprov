@@ -47,14 +47,18 @@ Reference:
 - Preserve evidence paths for every finding.
 - Prefer structured errors over silent fallback.
 - Keep report schemas stable and typed.
-- Run lint, typecheck, and build before considering a commit complete.
+- Run `npm run ci` before merge.
+- Do not bypass failing tests.
+- Do not introduce network-dependent tests into default CI.
 
 ## Commands
 
 - npm run dev
 - npm run lint
-- npx tsc --noEmit
+- npm run typecheck
+- npm run test
 - npm run build
+- npm run ci
 
 ## File Map
 
@@ -130,7 +134,7 @@ Reference:
 - Do not call LLMs for maintainability scoring in this commit.
 - Maintainability focuses on AI-system evolution risk (large files, concentration, TODO markers, schema hygiene) — not style linting.
 - Report schema changes should increment reportVersion before scan history is implemented.
-- reportVersion: "1.0" is set by staticScan and must be present on every ScanReport.
+- reportVersion: "2.0" is set by staticScan and must be present on every ScanReport.
 - Maintainability score starts at 100, subtracts penalties, and is clamped to [20, 100].
 - Large file penalties apply only to source files (not docs, lockfiles, test fixtures, or generated files).
 - Dashboard complexity penalties apply to UI component files (components/, dashboard/, views/).

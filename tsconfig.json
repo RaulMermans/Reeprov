@@ -37,6 +37,8 @@
   ],
   "exclude": [
     "node_modules",
+    ".claude",
+    ".cursor",
     "**/__tests__/**",
     "**/__fixtures__/**",
     "vitest.config.ts"

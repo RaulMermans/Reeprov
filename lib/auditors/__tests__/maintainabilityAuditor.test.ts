@@ -214,7 +214,7 @@ describe("D: schema version", () => {
     const report = staticScan("owner/repo", [
       { path: "agents.yaml", size: 50, content: "agents:\n  - id: a\n    name: A" },
     ]);
-    expect(report.reportVersion).toBe("1.0");
+    expect(report.reportVersion).toBe("2.0");
   });
 });
 
@@ -358,7 +358,7 @@ describe("H: integration", () => {
       { path: "agents.yaml", size: 50, content: "agents:\n  - id: a\n    name: A" },
     ]);
     const md = exportReportMarkdown(report);
-    expect(md).toContain("1.0");
+    expect(md).toContain(report.reportVersion);
   });
 
   it("overall score includes maintainability weight", () => {

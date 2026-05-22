@@ -6,9 +6,18 @@ AgentPulse is a private personal dashboard. Deploy it only with server-side secr
 
 - Run `npm install` to validate `package-lock.json`.
 - Run `npm run lint`.
-- Run `npx tsc --noEmit`.
+- Run `npm run typecheck`.
 - Run `npm run test`.
 - Run `npm run build`.
+- Run `npm run ci` before merge.
+
+## CI Quality Gate
+
+GitHub Actions runs CI on pull requests and pushes to `main`. The workflow installs dependencies with `npm ci`, then runs lint, typecheck, tests, and the production build.
+
+Normal PR CI does not require `GITHUB_TOKEN`, `OPENAI_API_KEY`, or `AGENTPULSE_ACCESS_KEY`. Tests and build steps must use mock or static inputs only. CI must never execute scanned repository code or install scanned repository dependencies.
+
+If a future scheduled scan workflow is added, it should use only a server-side read-only GitHub token and must preserve the same scanner constraint: repository contents are fetched as untrusted evidence and never executed.
 
 ## Vercel Environment Variables
 
