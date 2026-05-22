@@ -1,4 +1,5 @@
 import yaml from "js-yaml";
+import { REPORT_VERSION } from "@/lib/reports/reportVersion";
 import { buildRecommendations } from "@/lib/reports/recommendations";
 import { buildSystemGraph } from "@/lib/reports/systemGraph";
 import { classifyFile } from "./classifyFiles";
@@ -35,8 +36,6 @@ import type {
   WorkflowStage,
   ZipScanStats,
 } from "./types";
-
-const REPORT_VERSION = "2.0";
 
 interface RawRepoFile {
   path: string;
@@ -1422,4 +1421,3 @@ function hashId(value: string) {
   }
   return Math.abs(hash).toString(36);
 }
-

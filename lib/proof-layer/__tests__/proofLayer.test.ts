@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   validateWorkflowSpec,
   validateTraceEvent,
+  clearEmittedEvents,
+  emitTraceEvent,
+  getEmittedEvents,
   assertTraceContract,
   assertRequiredEvents,
   classifyFailure,
@@ -188,6 +191,27 @@ describe("TraceEvent validation", () => {
   });
 });
 
+// ── Trace event emission ──────────────────────────────────────────────────
+
+describe("emitTraceEvent", () => {
+  it("validates, stores, and returns the validated event", () => {
+    clearEmittedEvents();
+    const event = makeEvent({ event_id: "evt-emit-valid" });
+
+    const emitted = emitTraceEvent(event);
+
+    expect(emitted).toEqual(event);
+    expect(getEmittedEvents()).toEqual([event]);
+  });
+
+  it("throws for invalid events and leaves the buffer unchanged", () => {
+    clearEmittedEvents();
+
+    expect(() => emitTraceEvent({ event_id: "evt-invalid" })).toThrow();
+    expect(getEmittedEvents()).toEqual([]);
+  });
+});
+
 // ── Trace contract ─────────────────────────────────────────────────────────
 
 describe("assertTraceContract", () => {
@@ -199,6 +223,15 @@ describe("assertTraceContract", () => {
     const result = assertTraceContract(events);
     expect(result.passed).toBe(true);
     expect(result.violations).toHaveLength(0);
+  });
+
+  it("successful trace without run_completed fails with run_completed_required", () => {
+    const events: TraceEvent[] = [
+      makeEvent({ event_type: "run_started" }),
+    ];
+    const result = assertTraceContract(events);
+    expect(result.passed).toBe(false);
+    expect(result.violations.some(v => v.rule === "run_completed_required")).toBe(true);
   });
 
   it("run missing run_started fails with run_started_required violation", () => {
@@ -233,6 +266,43 @@ describe("assertTraceContract", () => {
     expect(failedRunViolation).toBe(false);
   });
 
+  it("failure events without run_failed fail with run_failed_required", () => {
+    const events: TraceEvent[] = [
+      makeEvent({ event_type: "run_started" }),
+      makeEvent({ event_id: "evt-error", event_type: "error" }),
+    ];
+    const result = assertTraceContract(events);
+    expect(result.passed).toBe(false);
+    expect(result.violations.some(v => v.rule === "run_failed_required")).toBe(true);
+  });
+
+  it("run_completed and run_failed together require degraded or partial metadata", () => {
+    const events: TraceEvent[] = [
+      makeEvent({ event_type: "run_started" }),
+      makeEvent({ event_id: "evt-error", event_type: "error" }),
+      makeEvent({ event_id: "evt-failed", event_type: "run_failed" }),
+      makeEvent({ event_id: "evt-completed", event_type: "run_completed" }),
+    ];
+    const result = assertTraceContract(events);
+    expect(result.passed).toBe(false);
+    expect(result.violations.some(v => v.rule === "terminal_conflict_requires_degraded_metadata")).toBe(true);
+  });
+
+  it("run_completed and run_failed can coexist when marked partial", () => {
+    const events: TraceEvent[] = [
+      makeEvent({ event_type: "run_started" }),
+      makeEvent({ event_id: "evt-error", event_type: "error" }),
+      makeEvent({ event_id: "evt-failed", event_type: "run_failed" }),
+      makeEvent({
+        event_id: "evt-completed",
+        event_type: "run_completed",
+        metadata: { partial: true },
+      }),
+    ];
+    const result = assertTraceContract(events);
+    expect(result.violations.some(v => v.rule === "terminal_conflict_requires_degraded_metadata")).toBe(false);
+  });
+
   it("tool_call_started with matching tool_call_completed passes", () => {
     const events: TraceEvent[] = [
       makeEvent({ event_type: "run_started" }),
@@ -240,12 +310,14 @@ describe("assertTraceContract", () => {
         event_id: "evt-tool-start",
         event_type: "tool_call_started",
         node_id: "tool-node",
+        metadata: { tool_name: "fetch_page" },
       }),
       makeEvent({
         event_id: "evt-tool-complete",
         event_type: "tool_call_completed",
         node_id: "tool-node",
         status: "completed",
+        metadata: { tool_name: "fetch_page" },
       }),
       makeEvent({ event_id: "evt-complete", event_type: "run_completed" }),
     ];
@@ -254,6 +326,64 @@ describe("assertTraceContract", () => {
       v => v.rule === "tool_call_completion_required"
     );
     expect(toolViolation).toBe(false);
+  });
+
+  it("matches multiple tool calls from the same node by metadata.tool_call_id", () => {
+    const events: TraceEvent[] = [
+      makeEvent({ event_type: "run_started" }),
+      makeEvent({
+        event_id: "evt-tool-a-start",
+        event_type: "tool_call_started",
+        node_id: "tool-node",
+        metadata: { tool_call_id: "tool-a", tool_name: "fetch_page" },
+      }),
+      makeEvent({
+        event_id: "evt-tool-b-start",
+        event_type: "tool_call_started",
+        node_id: "tool-node",
+        metadata: { tool_call_id: "tool-b", tool_name: "fetch_page" },
+      }),
+      makeEvent({
+        event_id: "evt-tool-b-complete",
+        event_type: "tool_call_completed",
+        node_id: "tool-node",
+        status: "completed",
+        metadata: { tool_call_id: "tool-b", tool_name: "fetch_page" },
+      }),
+      makeEvent({
+        event_id: "evt-tool-a-complete",
+        event_type: "tool_call_completed",
+        node_id: "tool-node",
+        status: "completed",
+        metadata: { tool_call_id: "tool-a", tool_name: "fetch_page" },
+      }),
+      makeEvent({ event_id: "evt-complete", event_type: "run_completed" }),
+    ];
+    const result = assertTraceContract(events);
+    expect(result.passed).toBe(true);
+  });
+
+  it("does not let one tool completion satisfy a different tool_call_id", () => {
+    const events: TraceEvent[] = [
+      makeEvent({ event_type: "run_started" }),
+      makeEvent({
+        event_id: "evt-tool-a-start",
+        event_type: "tool_call_started",
+        node_id: "tool-node",
+        metadata: { tool_call_id: "tool-a", tool_name: "fetch_page" },
+      }),
+      makeEvent({
+        event_id: "evt-tool-b-complete",
+        event_type: "tool_call_completed",
+        node_id: "tool-node",
+        status: "completed",
+        metadata: { tool_call_id: "tool-b", tool_name: "fetch_page" },
+      }),
+      makeEvent({ event_id: "evt-complete", event_type: "run_completed" }),
+    ];
+    const result = assertTraceContract(events);
+    expect(result.passed).toBe(false);
+    expect(result.violations.some(v => v.rule === "tool_call_completion_required")).toBe(true);
   });
 
   it("tool_call_started without matching completion fails with tool_call_completion_required", () => {

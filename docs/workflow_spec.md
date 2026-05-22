@@ -2,6 +2,8 @@
 
 A `WorkflowSpec` is a declarative description of what an AI workflow does. It is the structural contract AgentPulse uses to validate trace events and generate run summaries.
 
+Task 2 uses workflow specs as dashboard proof data. Specs power the workflow gallery, workflow inspector, node detail panels, edge/dependency rows, declared tools, eval references, permission badges, approval gates, and artifact lists.
+
 ## Node Types
 
 | type | Description |
@@ -68,6 +70,23 @@ All edge `from` and `to` values must reference node IDs that exist in the `nodes
 
 1. All `edge.from` and `edge.to` values must be present in `nodes`.
 2. Any workflow with a `destructive` or `external_side_effect` node must include at least one `approval` node.
+
+## Read-Only Dashboard Architecture
+
+The dashboard reads local examples only:
+
+- Workflow specs from `examples/workflows`.
+- Trace events from `examples/traces`.
+- Eval results from `examples/evals`.
+- Run records from `examples/runs`.
+
+`lib/proof-layer/examples.ts` validates those files and exposes `getExampleWorkflows()`, `getExampleRuns()`, `getExampleTraceEvents(runId)`, `getExampleEvalResults(runId)`, `getWorkflowById(workflowId)`, and `getRunById(runId)`.
+
+The dashboard intentionally does not execute workflows, execute scanned repositories, call external APIs, add a database, modify authentication, or act as a no-code builder.
+
+## Next Planned Task
+
+The next planned task is real project integration through local trace ingestion. Connected projects should emit AgentPulse-compatible traces that can be loaded from local files or a local ingestion boundary before any hosted runtime exists.
 
 ## Example: Website Auditor Workflow Snippet
 

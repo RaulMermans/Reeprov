@@ -276,7 +276,7 @@ function detectSchemaVersion(files: RepoFile[]): ReturnType<typeof makeFinding>[
       "Report schema version missing",
       "No reportVersion field found in schema or type files. Adding a version is necessary before persisting scan history.",
       schemaFiles.map((f) => f.path).slice(0, 3),
-      "Add reportVersion: '1.0' to exported reports before implementing scan history or report persistence.",
+      "Add the current reportVersion to exported reports before implementing scan history or report persistence.",
       0.8,
     ));
   }

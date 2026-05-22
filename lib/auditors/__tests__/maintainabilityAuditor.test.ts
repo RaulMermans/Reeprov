@@ -14,6 +14,7 @@
 
 import { describe, expect, it } from "vitest";
 import { exportReportMarkdown } from "@/lib/reports/exportMarkdown";
+import { REPORT_VERSION } from "@/lib/reports/reportVersion";
 import { prepareRepoFiles, staticScan } from "@/lib/scanner/staticScan";
 import type { ScanReport } from "@/lib/scanner/types";
 import { maintainabilityAuditor } from "../maintainabilityAuditor";
@@ -24,7 +25,7 @@ import { maintainabilityAuditor } from "../maintainabilityAuditor";
 
 function makeReport(overrides: Partial<ScanReport> = {}): ScanReport {
   return {
-    reportVersion: "1.0",
+    reportVersion: REPORT_VERSION,
     repoName: "test/repo",
     scannedAt: new Date().toISOString(),
     filesScanned: 0,
@@ -214,7 +215,7 @@ describe("D: schema version", () => {
     const report = staticScan("owner/repo", [
       { path: "agents.yaml", size: 50, content: "agents:\n  - id: a\n    name: A" },
     ]);
-    expect(report.reportVersion).toBe("2.0");
+    expect(report.reportVersion).toBe(REPORT_VERSION);
   });
 });
 

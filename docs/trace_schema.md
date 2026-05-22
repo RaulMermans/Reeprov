@@ -49,7 +49,7 @@ The `metadata` field carries structured context that does not fit into top-level
 
 Common uses:
 
-- `tool_call_id`: string — links a `tool_call_started` event to a `ToolCallRecord`.
+- `tool_call_id`: string — links a `tool_call_started` event to its matching `tool_call_completed` or `tool_call_failed` event.
 - `tool_name`: string — the name of the tool invoked (on tool events).
 - `permission_class`: string — the permission class of the tool (on tool events).
 - `passed`: boolean — required on `eval_completed` events. Indicates whether the eval passed.
@@ -83,7 +83,31 @@ Common uses:
 
 ## Pairing tool_call_started with tool_call_completed
 
-Use `node_id` + `run_id` to match the start and completion of a tool call. Alternatively, include a `tool_call_id` in `metadata` on both events. The proof layer checks that every `tool_call_started` event has a corresponding `tool_call_completed` or `tool_call_failed` event with the same `run_id` and `node_id`.
+Use `metadata.tool_call_id` on both the start and completion/failure event when available. This is required for nodes that may call the same tool multiple times. For legacy examples without `tool_call_id`, the proof layer falls back to `run_id` + `node_id` + `metadata.tool_name`.
+
+The proof layer checks that every `tool_call_started` event has a matching `tool_call_completed` or `tool_call_failed` event.
+
+## Trace Contract Rules
+
+- Every trace must include `run_started`.
+- Successful traces must include `run_completed`.
+- Failed traces must include `run_failed`.
+- Failed traces must include at least one `error` event.
+- A trace cannot include both `run_completed` and `run_failed` unless metadata explicitly marks the run degraded or partial.
+- `eval_completed` must include `metadata.passed` as a boolean.
+- `artifact_created` must include `run_id`.
+- `tool_call_started` must have a matching `tool_call_completed` or `tool_call_failed`.
+
+Status interpretation:
+
+- If `run_failed` exists, classify the run as failed.
+- If a critical eval failure exists, classify the run as failed.
+- If a fail-severity eval exists, classify the run as degraded unless project conventions define failure.
+- If only warning/info eval failures exist, classify the run as degraded or warning.
+
+## Example Data Flow
+
+Task 2 validates every JSON file under `examples/workflows`, `examples/traces`, `examples/evals`, and `examples/runs` against the schema. The dashboard loads this local proof data through `lib/proof-layer/examples.ts`; it does not call external APIs or execute workflows.
 
 ## eval_completed Requirements
 

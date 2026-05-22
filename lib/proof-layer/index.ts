@@ -31,10 +31,12 @@ export function validateWorkflowSpec(spec: unknown): WorkflowSpec {
 // ── Emission ───────────────────────────────────────────────────────────────
 
 /**
- * Stores a validated TraceEvent in the in-memory buffer.
+ * Validates and stores a TraceEvent in the in-memory buffer.
  */
-export function emitTraceEvent(event: TraceEvent): void {
-  _emittedEvents.push(event);
+export function emitTraceEvent(event: unknown): TraceEvent {
+  const validated = validateTraceEvent(event);
+  _emittedEvents.push(validated);
+  return validated;
 }
 
 /**
@@ -68,38 +70,73 @@ export interface ContractResult {
  *
  * Rules:
  * 1. run_started_required: each run_id must have a run_started event
- * 2. failed_run_error_required: run_failed events must be accompanied by at least one error event
- * 3. tool_call_completion_required: each tool_call_started must have a matching tool_call_completed or tool_call_failed
- * 4. eval_pass_fail_required: each eval_completed must have metadata.passed defined as a boolean
- * 5. artifact_run_id_required: each artifact_created must have a run_id
+ * 2. run_completed_required: successful traces must have a run_completed event
+ * 3. run_failed_required: failed traces must have a run_failed event
+ * 4. failed_run_error_required: run_failed events must be accompanied by at least one error event
+ * 5. terminal_conflict_requires_degraded_metadata: run_completed and run_failed cannot both appear unless marked degraded/partial
+ * 6. tool_call_completion_required: each tool_call_started must have a matching tool_call_completed or tool_call_failed
+ * 7. eval_pass_fail_required: each eval_completed must have metadata.passed defined as a boolean
+ * 8. artifact_run_id_required: each artifact_created must have a run_id
  */
 export function assertTraceContract(traceEvents: TraceEvent[]): ContractResult {
   const violations: ContractViolation[] = [];
 
+  const validatedEvents = traceEvents.map(validateTraceEvent);
+
   // Collect all run IDs
-  const runIds = new Set(traceEvents.map(e => e.run_id));
+  const runIds = new Set(validatedEvents.map(e => e.run_id));
 
   // Rule 1: run_started required for each run_id
   for (const runId of runIds) {
-    const hasRunStarted = traceEvents.some(
+    const runEvents = validatedEvents.filter(e => e.run_id === runId);
+    const hasRunStarted = runEvents.some(
       e => e.run_id === runId && e.event_type === "run_started"
     );
+    const hasRunCompleted = runEvents.some(e => e.event_type === "run_completed");
+    const hasRunFailed = runEvents.some(e => e.event_type === "run_failed");
+    const hasTerminalFailureSignal = runEvents.some(e =>
+      e.event_type === "error" ||
+      e.event_type === "node_failed" ||
+      e.event_type === "tool_call_failed"
+    );
+
     if (!hasRunStarted) {
       violations.push({
         rule: "run_started_required",
         message: `Run "${runId}" has no run_started event.`,
       });
     }
+
+    if (!hasRunFailed && !hasRunCompleted) {
+      violations.push({
+        rule: "run_completed_required",
+        message: `Run "${runId}" has no run_completed event for a successful trace.`,
+      });
+    }
+
+    if (hasTerminalFailureSignal && !hasRunCompleted && !hasRunFailed) {
+      violations.push({
+        rule: "run_failed_required",
+        message: `Run "${runId}" has failure events but no run_failed event.`,
+      });
+    }
+
+    if (hasRunCompleted && hasRunFailed && !isMarkedDegradedOrPartial(runEvents)) {
+      violations.push({
+        rule: "terminal_conflict_requires_degraded_metadata",
+        message: `Run "${runId}" has both run_completed and run_failed without degraded/partial metadata.`,
+      });
+    }
   }
 
   // Rule 2: failed runs must have at least one error event
   const failedRunIds = new Set(
-    traceEvents
+    validatedEvents
       .filter(e => e.event_type === "run_failed")
       .map(e => e.run_id)
   );
   for (const runId of failedRunIds) {
-    const hasError = traceEvents.some(
+    const hasError = validatedEvents.some(
       e => e.run_id === runId && e.event_type === "error"
     );
     if (!hasError) {
@@ -111,14 +148,9 @@ export function assertTraceContract(traceEvents: TraceEvent[]): ContractResult {
   }
 
   // Rule 3: tool_call_started must have a matching tool_call_completed or tool_call_failed
-  const toolStarts = traceEvents.filter(e => e.event_type === "tool_call_started");
+  const toolStarts = validatedEvents.filter(e => e.event_type === "tool_call_started");
   for (const start of toolStarts) {
-    const hasCompletion = traceEvents.some(
-      e =>
-        e.run_id === start.run_id &&
-        e.node_id === start.node_id &&
-        (e.event_type === "tool_call_completed" || e.event_type === "tool_call_failed")
-    );
+    const hasCompletion = validatedEvents.some(e => isMatchingToolCompletion(start, e));
     if (!hasCompletion) {
       violations.push({
         rule: "tool_call_completion_required",
@@ -128,7 +160,7 @@ export function assertTraceContract(traceEvents: TraceEvent[]): ContractResult {
   }
 
   // Rule 4: eval_completed must have metadata.passed as a boolean
-  const evalCompletions = traceEvents.filter(e => e.event_type === "eval_completed");
+  const evalCompletions = validatedEvents.filter(e => e.event_type === "eval_completed");
   for (const evalEvent of evalCompletions) {
     const passed = evalEvent.metadata?.["passed"];
     if (typeof passed !== "boolean") {
@@ -140,7 +172,7 @@ export function assertTraceContract(traceEvents: TraceEvent[]): ContractResult {
   }
 
   // Rule 5: artifact_created must have a run_id (always present per schema, but check metadata.run_id if needed)
-  const artifactEvents = traceEvents.filter(e => e.event_type === "artifact_created");
+  const artifactEvents = validatedEvents.filter(e => e.event_type === "artifact_created");
   for (const artifact of artifactEvents) {
     if (!artifact.run_id) {
       violations.push({
@@ -154,6 +186,53 @@ export function assertTraceContract(traceEvents: TraceEvent[]): ContractResult {
     passed: violations.length === 0,
     violations,
   };
+}
+
+function isMatchingToolCompletion(start: TraceEvent, candidate: TraceEvent): boolean {
+  if (
+    candidate.event_type !== "tool_call_completed" &&
+    candidate.event_type !== "tool_call_failed"
+  ) {
+    return false;
+  }
+
+  if (candidate.run_id !== start.run_id) {
+    return false;
+  }
+
+  const startedToolCallId = metadataString(start, "tool_call_id");
+  if (startedToolCallId) {
+    return metadataString(candidate, "tool_call_id") === startedToolCallId;
+  }
+
+  const startedToolName = metadataString(start, "tool_name");
+  if (!startedToolName) {
+    return false;
+  }
+
+  return (
+    candidate.node_id === start.node_id &&
+    metadataString(candidate, "tool_name") === startedToolName
+  );
+}
+
+function metadataString(event: TraceEvent, key: string): string | undefined {
+  const value = event.metadata?.[key];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function isMarkedDegradedOrPartial(events: TraceEvent[]): boolean {
+  return events.some((event) => {
+    const metadata = event.metadata ?? {};
+    return (
+      metadata["degraded"] === true ||
+      metadata["partial"] === true ||
+      metadata["status"] === "degraded" ||
+      metadata["status"] === "partial" ||
+      metadata["run_state"] === "degraded" ||
+      metadata["run_state"] === "partial"
+    );
+  });
 }
 
 /**
@@ -279,9 +358,11 @@ export function summarizeRun(
   );
 
   let status: RunSummary["status"] = "unknown";
+  const hasAnyEvalFailure = evalResults.some(e => !e.passed);
+
   if (hasRunFailed || hasCriticalFailure) {
     status = "failed";
-  } else if (hasDegradedFailure) {
+  } else if (hasDegradedFailure || hasAnyEvalFailure) {
     status = "degraded";
   } else if (hasRunCompleted) {
     status = "completed";
@@ -357,11 +438,12 @@ export interface FailureClassification {
  * Classifies the failure mode of a run from trace events and eval results.
  *
  * Priority order:
- * 1. Critical eval failure (safety or any critical severity) → eval_failure, critical
- * 2. Fail-severity eval failure → eval_failure, degraded
- * 3. run_failed event → model_failure or tool_failure based on sub-events
- * 4. approval_rejected event → approval_rejected, degraded
- * 5. No failures → none, none
+ * 1. run_failed event → failed run, critical
+ * 2. Critical eval failure (safety or any critical severity) → eval_failure, critical
+ * 3. Fail-severity eval failure → eval_failure, degraded
+ * 4. Warning/info eval failure → eval_failure, degraded
+ * 5. approval_rejected event → approval_rejected, degraded
+ * 6. No failures → none, none
  */
 export function classifyFailure(
   traceEvents: TraceEvent[],
@@ -369,27 +451,7 @@ export function classifyFailure(
 ): FailureClassification {
   const details: string[] = [];
 
-  // Priority 1: critical eval failure
-  const criticalFailures = evalResults.filter(e => !e.passed && e.severity === "critical");
-  if (criticalFailures.length > 0) {
-    for (const f of criticalFailures) {
-      details.push(`Eval "${f.name}" (${f.type}) failed with critical severity.`);
-    }
-    return { failureType: "eval_failure", severity: "critical", details };
-  }
-
-  // Priority 2: fail-severity eval failure
-  const failSeverityFailures = evalResults.filter(
-    e => !e.passed && e.severity === "fail"
-  );
-  if (failSeverityFailures.length > 0) {
-    for (const f of failSeverityFailures) {
-      details.push(`Eval "${f.name}" (${f.type}) failed.`);
-    }
-    return { failureType: "eval_failure", severity: "degraded", details };
-  }
-
-  // Priority 3: run_failed event
+  // Priority 1: run_failed event
   const runFailed = traceEvents.find(e => e.event_type === "run_failed");
   if (runFailed) {
     const hasModelFailure = traceEvents.some(e => e.event_type === "node_failed");
@@ -408,7 +470,36 @@ export function classifyFailure(
     return { failureType: "unknown", severity: "critical", details };
   }
 
-  // Priority 4: approval_rejected
+  // Priority 2: critical eval failure
+  const criticalFailures = evalResults.filter(e => !e.passed && e.severity === "critical");
+  if (criticalFailures.length > 0) {
+    for (const f of criticalFailures) {
+      details.push(`Eval "${f.name}" (${f.type}) failed with critical severity.`);
+    }
+    return { failureType: "eval_failure", severity: "critical", details };
+  }
+
+  // Priority 3: fail-severity eval failure
+  const failSeverityFailures = evalResults.filter(
+    e => !e.passed && e.severity === "fail"
+  );
+  if (failSeverityFailures.length > 0) {
+    for (const f of failSeverityFailures) {
+      details.push(`Eval "${f.name}" (${f.type}) failed.`);
+    }
+    return { failureType: "eval_failure", severity: "degraded", details };
+  }
+
+  // Priority 4: warning/info eval failure
+  const nonBlockingEvalFailures = evalResults.filter(e => !e.passed);
+  if (nonBlockingEvalFailures.length > 0) {
+    for (const f of nonBlockingEvalFailures) {
+      details.push(`Eval "${f.name}" (${f.type}) failed with ${f.severity} severity.`);
+    }
+    return { failureType: "eval_failure", severity: "degraded", details };
+  }
+
+  // Priority 5: approval_rejected
   const approvalRejected = traceEvents.find(e => e.event_type === "approval_rejected");
   if (approvalRejected) {
     details.push(

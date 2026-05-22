@@ -26,9 +26,26 @@ A summary of the full execution. `RunRecord` aggregates total duration, total co
 
 An inspection UI that presents run records, trace timelines, eval results, and workflow spec overlays. The dashboard is read-only in v1. It does not initiate runs, does not modify workflows, and does not call models.
 
+Task 2 implements this as a static proof UI backed by local example JSON files only:
+
+- `examples/workflows/*.json` provide workflow specs.
+- `examples/traces/*.json` provide chronological trace events.
+- `examples/evals/*.json` provide eval results linked by `run_id`.
+- `examples/runs/*.json` provide run records and dashboard summaries.
+- `lib/proof-layer/examples.ts` validates and exposes static loader helpers for the dashboard.
+
+The UI routes are:
+
+- `/dashboard` — overview metrics, recent workflows, recent failures, and workflow gallery preview.
+- `/dashboard/workflows` — workflow gallery.
+- `/dashboard/workflows/[workflowId]` — workflow inspector.
+- `/dashboard/runs/[runId]` — run detail with trace timeline, model calls, tool calls, evals, errors/retries, artifacts, cost, and latency.
+
+This layer does not add a database, authentication changes, external API calls, workflow execution, or scanned-repository execution.
+
 ## How Connected Projects Send Trace Events
 
-Connected projects (Website Auditor, Campaign Sandbox, etc.) emit `TraceEvent` objects to AgentPulse during or after a run. In v1, this is done by calling `emitTraceEvent` from the proof layer directly in the same process (in-memory). In v2, a lightweight HTTP endpoint will receive events from external processes.
+Connected projects (Website Auditor, Campaign Sandbox, etc.) will emit `TraceEvent` objects to AgentPulse during or after a run. Task 2 uses checked-in examples instead of ingestion. The next integration step is local/file-based trace ingestion before any remote service or runtime.
 
 Each event includes a `run_id` and `workflow_id` that bind it to a specific run and workflow spec. Events for the same run are collected and then passed to `assertTraceContract` for validation.
 
@@ -39,7 +56,7 @@ Each event includes a `run_id` and `workflow_id` that bind it to a specific run 
 3. Call `classifyFailure(traceEvents, evalResults)` to determine failure type and severity.
 4. Call `summarizeRun(traceEvents, evalResults)` to produce a `RunSummary`.
 
-The proof layer never executes workflow code. It only inspects event records.
+The proof layer never executes workflow code. It only inspects event records. `emitTraceEvent(event: unknown)` validates with `validateTraceEvent` before storing and returns the validated event, so malformed events cannot enter the in-memory buffer.
 
 ## What Is NOT in Scope for v1
 
@@ -48,6 +65,8 @@ The proof layer never executes workflow code. It only inspects event records.
 - AgentPulse does not install or execute code from connected projects.
 - AgentPulse does not persist run data to a database (in-memory only in v1).
 - AgentPulse does not send trace events to external services.
+- AgentPulse does not execute scanned repositories.
+- AgentPulse does not build or publish workflows from the dashboard.
 
 ---
 

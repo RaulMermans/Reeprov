@@ -2,7 +2,7 @@
 
 ## Mission
 
-AgentPulse is a lightweight reliability and observability framework for agentic AI workflows. It turns black-box AI runs into visible, evaluable execution traces.
+AgentPulse is a black-box recorder and proof layer for agentic AI workflows. It turns black-box AI runs into visible, evaluable execution traces.
 
 ## Core Questions AgentPulse Answers
 
@@ -18,15 +18,19 @@ AgentPulse is a lightweight reliability and observability framework for agentic 
 - What final artifact was produced?
 - Which failing behaviors should become regression test cases?
 
-## Why v1 is Read-Only and Inspection-Focused
+## Why the First Product Surface is Read-Only and Inspection-Focused
 
-Trust before control. Before AgentPulse can make decisions about workflows, it needs to observe them faithfully. v1 receives trace events, validates them against a schema, runs assertions, and presents a readable record. Adding control surfaces before the trace layer is stable would add complexity without a reliable foundation. Inspection earns the right to act.
+Trust before control. Before AgentPulse can make decisions about workflows, it needs to observe them faithfully. The first dashboard uses static proof-layer examples to show workflow specs, run records, trace timelines, tool calls, eval results, costs, latency, approvals, and artifacts. Adding control surfaces before the trace layer is stable would add complexity without a reliable foundation. Inspection earns the right to act.
 
 ## Scope
 
 **In scope:**
 
-- Trace event ingestion from connected projects
+- Static example workflows, traces, evals, and run records
+- Dashboard overview metrics from local proof data
+- Workflow gallery and workflow inspector
+- Run detail pages with trace timeline, model calls, tool calls, evals, errors, retries, artifacts, cost, and latency
+- Trace event ingestion from connected projects in a later task
 - Workflow spec validation (declarative description of what a workflow is supposed to do)
 - Proof layer assertions (did the run conform to the spec?)
 - Run summaries (cost, latency, model calls, tool calls, eval results)
@@ -38,6 +42,8 @@ Trust before control. Before AgentPulse can make decisions about workflows, it n
 - No-code agent builder
 - Generic chatbot dashboard
 - Live model calls initiated by AgentPulse
+- Database-backed run history
+- Marketplace or public SaaS surfaces
 
 ## Target Users
 
@@ -50,19 +56,27 @@ Raul first. The tool exists to make personal AI workflow projects inspectable an
 - **Content Trend Analyzer**: collects signals, classifies trends, extracts angles for content.
 - **Blog Agent**: takes a topic, researches, drafts, and publishes a post.
 
-Each of these emits trace events to AgentPulse. AgentPulse validates the run and surfaces what happened.
+The Task 2 dashboard uses local example data for Website Auditor, Campaign Sandbox, and Content Trend Analyzer. Blog Agent remains a planned card until example workflow, trace, eval, and run records exist.
+
+## Dashboard Views
+
+- **Overview**: proof-layer metrics, recent workflows, recent failures, and clear read-only positioning.
+- **Workflow Gallery**: workflow cards with architecture type, node count, edge count, eval count, latest run status, average eval score, latest run timestamp, and project name.
+- **Workflow Inspector**: metadata, architecture type, node list, edges, tools, evals, permission classes, approval gates, and artifacts.
+- **Run Detail**: summary, status, workflow, project, timestamps, duration, cost, model/tool call counts, eval pass/fail counts, approval status, artifacts, trace timeline, errors, retries, and cost/latency summary.
+
+The UI language should emphasize agentic workflow observability, traceable AI runs, eval-backed reliability, tool-call inspection, model/provider visibility, workflow proof layer, run timeline, and black-box recording.
 
 ## Future Framework Path
 
 The intended progression:
 
-1. Trace schema — define what a trace event looks like (current)
-2. Eval assertions — validate that runs meet behavioral contracts
-3. Workflow spec — declare what a workflow is supposed to do
-4. Reusable SDK/package — `emitTraceEvent`, `validateTraceEvent` for connected projects
-5. Workflow inspector UI — visualize workflow spec with trace overlay
-6. Later: validator — compare actual run against declared spec
-7. Later: thin executor — scaffold a run from a spec
+1. Static proof UI — example workflows, runs, workflow inspector, trace timeline, eval display
+2. Trace SDK — projects emit AgentPulse-compatible traces to local/file-based ingestion
+3. Eval and assertion layer — stronger trace contracts, tool-call assertions, safety/output records
+4. Project integrations — Website Auditor, Campaign Sandbox, Content Trend Analyzer, Blog Agent
+5. Workflow spec validator — YAML/JSON definitions, graph validation, node registry, permissions, approval gates
+6. Later: thin runtime only if justified by proof-layer usage
 
 ## Language to Avoid
 

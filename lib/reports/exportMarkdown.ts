@@ -1,4 +1,5 @@
 import { buildFindingSummary, categoryLabel, SEVERITY_ORDER } from "@/lib/reports/findingSummary";
+import { REPORT_VERSION } from "@/lib/reports/reportVersion";
 import { buildScoreExplanations } from "@/lib/reports/scoreExplanations";
 import type { Finding, ScanReport } from "@/lib/scanner/types";
 import { formatScore, projectTypeDescription, projectTypeLabel, scoreEntries } from "@/lib/utils/format";
@@ -11,11 +12,10 @@ export function exportReportMarkdown(report: ScanReport) {
   const lines = [
     `# AgentPulse Report: ${report.repoName}`,
     "",
-    `- Report version: ${report.reportVersion ?? "1.0"}`,
     `- Scan source: ${source ? `${source.type.toUpperCase()} - ${source.label}` : "Unknown"}`,
     `- Scanned at: ${report.scannedAt}`,
     `- Overall score: ${formatScore(report.scores.overall)}`,
-    `- Report version: ${report.reportVersion ?? "unversioned"}`,
+    `- Report version: ${report.reportVersion ?? REPORT_VERSION}`,
     `- Project type: ${projectTypeLabel(report.projectType)} — ${projectTypeDescription(report.projectType)}`,
     ...(report.repositoryMode
       ? [
