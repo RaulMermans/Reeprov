@@ -1,5 +1,48 @@
 # Product Direction
 
+## AgentPulse Operating Modes
+
+AgentPulse has two distinct operating modes under a shared navigation shell.
+
+### Mode 1 — Proof Dashboard (`/dashboard`)
+
+Read-only observability surface backed by static example data.
+
+Proves the inspection layer: can a workflow run be described clearly enough that an outside observer can verify what happened, why a run degraded, what the cost and latency were, and whether evals passed?
+
+- Workflow gallery with architecture, nodes, edges, evals, and latest run state
+- Run detail with trace timeline, model calls, tool calls, eval results, errors, retries, artifacts, cost, and latency
+- Does **not** execute workflows, call models, or ingest live data (v0 uses example JSON files)
+
+### Mode 2 — Repository Scanner (`/dashboard/scanner`)
+
+Internal audit runner, access-key gated.
+
+Runs static analysis against a GitHub repository or uploaded ZIP file. Classifies AI system artifacts (agents, workflows, prompts, tools, evals, models), detects secrets, scores the repository, and produces a structured health report.
+
+- Requires an internal access key (stored only in `sessionStorage`, validated against `AGENTPULSE_ACCESS_KEY` server-side)
+- Produces: health report, AI system graph, model/provider matrix, mapping gaps, redacted export
+- Does **not** execute scanned code, install dependencies, or make live LLM calls
+
+### Future — Trace Ingestion Bridge
+
+Scanner results can become proof-layer artifacts. A scanned repo that ships eval metrics (`eval-results.json`, etc.) already produces `modelPerformance` entries. The next step is live trace ingestion: connected projects emit `TraceEvent` records, and the proof layer validates them against the declared workflow spec.
+
+Neither mode is a workflow runtime. AgentPulse does not build, deploy, or execute AI workflows.
+
+---
+
+## Navigation
+
+```
+/dashboard            — Proof Dashboard (overview, workflow gallery, run list)
+/dashboard/workflows  — Workflow Gallery
+/dashboard/runs/:id   — Run Detail (trace, evals, tool calls, model calls, artifacts)
+/dashboard/scanner    — Repository Scanner (internal, access-key gated)
+```
+
+---
+
 ## Mission
 
 AgentPulse is a black-box recorder and proof layer for agentic AI workflows. It turns black-box AI runs into visible, evaluable execution traces.

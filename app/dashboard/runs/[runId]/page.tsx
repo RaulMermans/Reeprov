@@ -35,11 +35,19 @@ export default async function RunDetailPage({
 
   return (
     <main className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="flex flex-wrap gap-3 text-sm font-medium text-teal-700">
-        <Link href="/dashboard">Dashboard</Link>
-        <span className="text-slate-400">/</span>
-        {workflow ? <Link href={`/dashboard/workflows/${workflow.workflow_id}`}>{workflow.name}</Link> : null}
-      </div>
+      <nav className="flex items-center gap-1.5 text-xs font-medium text-slate-500" aria-label="Breadcrumb">
+        <Link href="/dashboard" className="hover:text-teal-700">Overview</Link>
+        <span>/</span>
+        <Link href="/dashboard/workflows" className="hover:text-teal-700">Workflows</Link>
+        {workflow ? (
+          <>
+            <span>/</span>
+            <Link href={`/dashboard/workflows/${workflow.workflow_id}`} className="hover:text-teal-700">{workflow.name}</Link>
+          </>
+        ) : null}
+        <span>/</span>
+        <span className="font-mono text-slate-400">{run.run_id}</span>
+      </nav>
 
       <Card className="p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">

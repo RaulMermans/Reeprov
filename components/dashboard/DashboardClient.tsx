@@ -11,6 +11,7 @@ import { ScanSummary } from "@/components/dashboard/ScanSummary";
 import { SystemGraphView } from "@/components/dashboard/SystemGraphView";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import { Card } from "@/components/ui/Card";
+import { clearInternalKey, getInternalKey, mergeAuthHeaders, setInternalKey } from "@/lib/auth/internalKey";
 import { exportReportMarkdown } from "@/lib/reports/exportMarkdown";
 import { DIRECT_ZIP_UPLOAD_MAX_BYTES, DIRECT_ZIP_UPLOAD_MAX_MB } from "@/lib/zip/limits";
 import type { FormEvent } from "react";
@@ -43,7 +44,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setAccessKey(getStoredAccessKey());
+      setAccessKey(getInternalKey());
       setMounted(true);
     }, 0);
 
@@ -64,9 +65,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
           mode: "mock" | "github";
           repos: RepositorySummary[];
         }>("/api/repos", {
-          headers: {
-            "x-agentpulse-key": accessKey ?? "",
-          },
+          headers: mergeAuthHeaders(),
         });
 
         setRepositories(body.repos);
@@ -98,7 +97,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
       return;
     }
 
-    sessionStorage.setItem("agentpulse_access_key", trimmed);
+    setInternalKey(trimmed);
     setAccessKey(trimmed);
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -106,7 +105,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
   }
 
   function clearAccessKey() {
-    sessionStorage.removeItem("agentpulse_access_key");
+    clearInternalKey();
     setAccessKey(null);
     setAccessKeyInput("");
     setRepositories([]);
@@ -124,10 +123,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
     try {
       const body = await fetchApi<ScanReport>("/api/scan", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-agentpulse-key": accessKey ?? "",
-        },
+        headers: mergeAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(repo),
       });
 
@@ -172,9 +168,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
 
       const body = await fetchApi<ScanReport>("/api/scan-zip", {
         method: "POST",
-        headers: {
-          "x-agentpulse-key": accessKey ?? "",
-        },
+        headers: mergeAuthHeaders(),
         body: formData,
       });
 
@@ -230,45 +224,51 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
 
   if (!mounted) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-4 py-6 sm:px-6 lg:px-8">
-        <Card className="p-6 text-sm text-slate-600">Loading dashboard...</Card>
+      <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
+        <ScannerPageHeader />
+        <Card className="p-6 text-sm text-slate-500">Loading scanner...</Card>
       </main>
     );
   }
 
   if (!accessKey) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-4 py-6 sm:px-6 lg:px-8">
-        <Card className="p-6">
-          <form className="flex flex-col gap-4" onSubmit={saveAccessKey}>
-            <div>
-              <p className="text-sm font-medium text-teal-700">AgentPulse</p>
-              <h1 className="mt-1 text-2xl font-semibold text-slate-950">Private dashboard access</h1>
-            </div>
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-700" htmlFor="access-key">
-              Access key
-              <input
-                autoComplete="off"
-                className="min-h-10 rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-100"
-                id="access-key"
-                onChange={(event) => setAccessKeyInput(event.target.value)}
-                type="password"
-                value={accessKeyInput}
-              />
-            </label>
-            {errorMessage ? (
-              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-                {errorMessage}
+      <main className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
+        <ScannerPageHeader />
+        <div className="mx-auto w-full max-w-md">
+          <Card className="p-6">
+            <form className="flex flex-col gap-5" onSubmit={saveAccessKey}>
+              <div>
+                <h2 className="text-base font-semibold text-slate-950">Scanner access</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Enter your internal access key to run audits. The key is stored only for this browser session.
+                </p>
               </div>
-            ) : null}
-            <button
-              className="inline-flex min-h-10 items-center justify-center rounded-md bg-teal-700 px-3 py-2 text-sm font-medium text-white transition hover:bg-teal-800"
-              type="submit"
-            >
-              Continue
-            </button>
-          </form>
-        </Card>
+              <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700" htmlFor="access-key">
+                Access key
+                <input
+                  autoComplete="off"
+                  className="min-h-10 rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-100"
+                  id="access-key"
+                  onChange={(event) => setAccessKeyInput(event.target.value)}
+                  type="password"
+                  value={accessKeyInput}
+                />
+              </label>
+              {errorMessage ? (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                  {errorMessage}
+                </div>
+              ) : null}
+              <button
+                className="inline-flex min-h-10 items-center justify-center rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-800"
+                type="submit"
+              >
+                Unlock Scanner
+              </button>
+            </form>
+          </Card>
+        </div>
       </main>
     );
   }
@@ -277,14 +277,15 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
   const showLastSuccessfulScanLabel = Boolean(errorMessage && failedScanReportLabel);
 
   return (
-    <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-medium text-teal-700">AgentPulse</p>
-          <h1 className="text-2xl font-semibold text-slate-950">Private repository audit</h1>
-        </div>
-        <button className="text-sm font-medium text-slate-600 hover:text-slate-950" onClick={clearAccessKey} type="button">
-          Change access key
+    <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <ScannerPageHeader />
+        <button
+          className="shrink-0 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
+          onClick={clearAccessKey}
+          type="button"
+        >
+          Change key
         </button>
       </div>
 
@@ -398,17 +399,17 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
           <HealthOverview report={report} />
           <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Export report</h2>
-              <p className="mt-1 text-sm text-slate-600">Download or copy the current redacted scan report.</p>
+              <h2 className="text-sm font-semibold text-slate-700">Export report</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Download or copy the current redacted scan report.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" onClick={downloadJson} type="button">
+              <button className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-white" onClick={downloadJson} type="button">
                 Download JSON
               </button>
-              <button className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" onClick={downloadMarkdown} type="button">
+              <button className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-white" onClick={downloadMarkdown} type="button">
                 Download Markdown
               </button>
-              <button className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800" onClick={copyMarkdown} type="button">
+              <button className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-700" onClick={copyMarkdown} type="button">
                 Copy Markdown
               </button>
             </div>
@@ -416,43 +417,38 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
           <ScanSummary report={report} />
 
           {report.systemGraph ? (
-            <section>
-              <h2 className="mb-3 text-lg font-semibold text-slate-950">AI system graph</h2>
+            <ScannerSection title="AI System Graph">
               <SystemGraphView graph={report.systemGraph} />
-            </section>
+            </ScannerSection>
           ) : null}
 
-          <section>
-            <h2 className="mb-3 text-lg font-semibold text-slate-950">Model / provider matrix</h2>
+          <ScannerSection title="Model / Provider Matrix">
             <ModelMatrix
               agents={report.detectedAgents}
               models={report.detectedModels}
               performance={report.modelPerformance}
             />
-          </section>
+          </ScannerSection>
 
           {report.systemGraph ? (
-            <section>
-              <h2 className="mb-3 text-lg font-semibold text-slate-950">Mapping gaps</h2>
+            <ScannerSection title="Mapping Gaps">
               <MappingGaps graph={report.systemGraph} />
-            </section>
+            </ScannerSection>
           ) : null}
 
-          <section>
-            <h2 className="mb-3 text-lg font-semibold text-slate-950">Detected agents</h2>
+          <ScannerSection title="Detected Agents">
             <div className="grid gap-4 lg:grid-cols-2">
               {report.detectedAgents.length > 0 ? (
                 report.detectedAgents.map((agent) => <AgentCard agent={agent} key={agent.id} />)
               ) : (
-                <Card className="p-5 text-sm text-slate-600">
+                <Card className="p-5 text-sm text-slate-500">
                   {noAgentsMessage(report.projectType)}
                 </Card>
               )}
             </div>
-          </section>
+          </ScannerSection>
 
-          <section>
-            <h2 className="mb-3 text-lg font-semibold text-slate-950">Detected AI/product workflows</h2>
+          <ScannerSection title="AI / Product Workflows">
             {report.detectedWorkflowsDetailed.length > 0 ? (
               <div className="grid gap-4 lg:grid-cols-2">
                 {report.detectedWorkflowsDetailed.map((workflow) => (
@@ -460,7 +456,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
                 ))}
               </div>
             ) : (
-              <Card className="p-5 text-sm text-slate-600">
+              <Card className="p-5 text-sm text-slate-500">
                 {report.projectType === "agent_system"
                   ? "No AI/product workflow manifest detected."
                   : report.detectedCIWorkflows.length > 0
@@ -468,37 +464,35 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
                     : "No AI/product workflow manifest detected."}
               </Card>
             )}
-          </section>
+          </ScannerSection>
 
           {report.detectedCIWorkflows.length > 0 ? (
-            <section>
-              <h2 className="mb-3 text-lg font-semibold text-slate-950">CI workflows</h2>
-              <Card className="p-5">
-                <ul className="space-y-2 text-sm text-slate-700">
+            <ScannerSection title="CI Workflows">
+              <Card className="p-4">
+                <ul className="space-y-2">
                   {report.detectedCIWorkflows.map((w) => (
                     <li className="flex items-center justify-between gap-3" key={w.path}>
                       <span className="break-all font-mono text-xs text-slate-600">{w.path}</span>
-                      <span className="shrink-0 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                      <span className="shrink-0 rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
                         {ciProviderLabel(w.provider)}
                       </span>
                     </li>
                   ))}
                 </ul>
               </Card>
-            </section>
+            </ScannerSection>
           ) : null}
 
-          <section>
-            <h2 className="mb-3 text-lg font-semibold text-slate-950">Detected prompts</h2>
+          <ScannerSection title="Detected Prompts">
             <Card className="p-5">
               {report.detectedPrompts.length > 0 ? (
                 <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
                   {report.detectedPrompts.map((prompt) => (
-                    <li className="break-all" key={prompt}>{prompt}</li>
+                    <li className="break-all font-mono text-xs" key={prompt}>{prompt}</li>
                   ))}
                 </ul>
               ) : (
-                <div className="text-sm text-slate-600">
+                <div className="text-sm text-slate-500">
                   No versioned prompt files detected.{" "}
                   {report.projectType === "ai_application"
                     ? "Prompt-related source files may exist but are not counted as prompt assets."
@@ -506,15 +500,13 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
                 </div>
               )}
             </Card>
-          </section>
+          </ScannerSection>
 
-          <section>
-            <h2 className="mb-3 text-lg font-semibold text-slate-950">Findings</h2>
+          <ScannerSection title="Findings">
             <FindingTable findings={report.findings} />
-          </section>
+          </ScannerSection>
 
-          <section>
-            <h2 className="mb-3 text-lg font-semibold text-slate-950">Recommended next actions</h2>
+          <ScannerSection title="Recommended Next Actions">
             <Card className="p-5">
               {report.recommendations.length > 0 ? (
                 <ul className="list-disc space-y-2 pl-5 text-sm text-slate-700">
@@ -523,10 +515,10 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-slate-600">No recommended actions at this time.</p>
+                <p className="text-sm text-slate-500">No recommended actions at this time.</p>
               )}
             </Card>
-          </section>
+          </ScannerSection>
 
           <footer className="border-t border-slate-100 pt-4 text-center text-xs text-slate-400">
             AgentPulse {appVersion()} · Static scanner · Redacted report
@@ -537,13 +529,6 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
   );
 }
 
-function getStoredAccessKey() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return sessionStorage.getItem("agentpulse_access_key");
-}
 
 async function fetchApi<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
@@ -608,6 +593,26 @@ function ciProviderLabel(provider: string) {
     case "circleci": return "CircleCI";
     default: return "CI";
   }
+}
+
+function ScannerSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h2 className="mb-3 text-base font-semibold text-slate-950">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function ScannerPageHeader() {
+  return (
+    <div>
+      <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Repository Scanner</h1>
+      <p className="mt-1 max-w-2xl text-sm text-slate-500">
+        Run static audits against GitHub repositories or uploaded ZIPs. Produces a repository health report, AI system graph, findings, and model matrix.
+      </p>
+    </div>
+  );
 }
 
 function noAgentsMessage(projectType: ScanReport["projectType"]): string {

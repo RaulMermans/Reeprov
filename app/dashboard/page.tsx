@@ -16,67 +16,97 @@ export default function DashboardPage() {
   const galleryItems = getWorkflowGalleryItems();
   const recentFailures = runs.filter((run) => run.status === "failed" || run.status === "degraded");
   const successRate = metrics.totalRuns ? metrics.successfulRuns / metrics.totalRuns : 0;
+  const latestRunId = runs[0]?.run_id ?? "";
 
   return (
     <main className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:px-8">
       <section className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-teal-700">Agentic system black-box recorder</p>
-          <h1 className="mt-2 text-3xl font-semibold text-slate-950">Agentic workflow observability</h1>
-          <p className="mt-3 max-w-3xl text-sm text-slate-600">
-            Read-only proof data from example workflows. This dashboard shows traceable AI runs, eval-backed reliability,
-            tool-call inspection, and model/provider visibility without executing workflows.
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Proof Dashboard</h1>
+            <span className="rounded border border-cyan-200 bg-cyan-50 px-1.5 py-0.5 text-xs font-medium text-cyan-700">
+              Read-only
+            </span>
+          </div>
+          <p className="mt-2 max-w-2xl text-sm text-slate-500">
+            Traceable AI workflow runs backed by example proof data. Inspect evals, tool calls, model usage, cost, and latency without executing workflows.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50" href="/dashboard/workflows">
+          <Link
+            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+            href="/dashboard/workflows"
+          >
             Workflow Gallery
           </Link>
-          <Link className="rounded-md bg-teal-700 px-3 py-2 text-sm font-medium text-white hover:bg-teal-800" href={`/dashboard/runs/${runs[0]?.run_id ?? ""}`}>
-            Latest Run
-          </Link>
+          {latestRunId ? (
+            <Link
+              className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-teal-800"
+              href={`/dashboard/runs/${latestRunId}`}
+            >
+              Latest Run
+            </Link>
+          ) : null}
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard label="Runs" value={String(metrics.totalRuns)} detail={`${metrics.successfulRuns} successful`} />
-        <MetricCard label="Success Rate" value={formatPercent(successRate)} detail={`${metrics.failedOrDegradedRuns} failed or degraded`} tone={metrics.failedOrDegradedRuns ? "warning" : "success"} />
-        <MetricCard label="Eval Health" value={formatPercent(metrics.averageEvalScore)} detail="Average eval score" />
-        <MetricCard label="Cost" value={formatCurrency(metrics.totalModelCost)} detail="Total model cost" />
-        <MetricCard label="Latency" value={formatDuration(metrics.averageLatencyMs)} detail="Average run latency" />
-        <MetricCard label="Model Calls" value={String(metrics.totalModelCalls)} detail="Total model calls" />
-        <MetricCard label="Tool Calls" value={String(metrics.totalToolCalls)} detail="Total tool calls" />
-        <MetricCard label="Failures" value={String(metrics.failedOrDegradedRuns)} detail="Failed/degraded runs" tone={metrics.failedOrDegradedRuns ? "warning" : "success"} />
+      <section>
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Overview</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard label="Total Runs" value={String(metrics.totalRuns)} sub={`${metrics.successfulRuns} successful`} />
+          <MetricCard
+            label="Success Rate"
+            value={formatPercent(successRate)}
+            sub={metrics.failedOrDegradedRuns ? `${metrics.failedOrDegradedRuns} failed / degraded` : "All passing"}
+            tone={metrics.failedOrDegradedRuns ? "warning" : "success"}
+          />
+          <MetricCard label="Avg Eval Score" value={formatPercent(metrics.averageEvalScore)} sub="Average eval score" />
+          <MetricCard label="Total Cost" value={formatCurrency(metrics.totalModelCost)} sub="Model spend" />
+          <MetricCard label="Avg Latency" value={formatDuration(metrics.averageLatencyMs)} sub="Average run latency" />
+          <MetricCard label="Model Calls" value={String(metrics.totalModelCalls)} sub="Total model calls" />
+          <MetricCard label="Tool Calls" value={String(metrics.totalToolCalls)} sub="Total tool calls" />
+          <MetricCard
+            label="Failures"
+            value={String(metrics.failedOrDegradedRuns)}
+            sub="Failed or degraded runs"
+            tone={metrics.failedOrDegradedRuns ? "warning" : "success"}
+          />
+        </div>
       </section>
 
       <section>
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-slate-950">Workflow Gallery</h2>
-            <p className="mt-1 text-sm text-slate-600">Workflow proof layer examples with latest run state.</p>
+            <h2 className="text-base font-semibold text-slate-950">Workflow Gallery</h2>
+            <p className="mt-0.5 text-xs text-slate-500">Workflow proof examples with latest run state.</p>
           </div>
-          <Link className="text-sm font-medium text-teal-700 hover:text-teal-900" href="/dashboard/workflows">View all</Link>
+          <Link className="text-xs font-medium text-teal-700 hover:text-teal-900" href="/dashboard/workflows">
+            View all
+          </Link>
         </div>
         <WorkflowGallery items={galleryItems} />
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         <Card className="p-5">
-          <h2 className="text-xl font-semibold text-slate-950">Recent Workflows</h2>
-          <div className="mt-4 grid gap-3">
+          <h2 className="mb-4 text-base font-semibold text-slate-950">Recent Runs</h2>
+          <div className="grid gap-2">
             {runs.map((run) => {
               const evals = getExampleEvalResults(run.run_id);
+              const evalPassed = evals.filter((r) => r.passed).length;
               return (
-                <Link key={run.run_id} href={`/dashboard/runs/${run.run_id}`} className="rounded-md border border-slate-200 bg-slate-50 p-3 hover:border-teal-300">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-950">{run.project_name}</p>
-                      <p className="mt-1 text-xs text-slate-500">{run.summary}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Badge tone={run.status === "completed" ? "success" : "warning"}>{run.status}</Badge>
-                      <Badge tone="info">{evals.filter((result) => result.passed).length}/{evals.length} evals</Badge>
-                    </div>
+                <Link
+                  key={run.run_id}
+                  href={`/dashboard/runs/${run.run_id}`}
+                  className="group flex items-center justify-between gap-3 rounded-md border border-slate-100 bg-slate-50 p-3 transition hover:border-teal-200 hover:bg-white"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-950">{run.project_name}</p>
+                    <p className="mt-0.5 truncate text-xs text-slate-500">{run.summary}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-1.5">
+                    <Badge tone={run.status === "completed" ? "success" : "warning"}>{run.status}</Badge>
+                    <Badge tone="neutral">{evalPassed}/{evals.length} evals</Badge>
                   </div>
                 </Link>
               );
@@ -85,24 +115,30 @@ export default function DashboardPage() {
         </Card>
 
         <Card className="p-5">
-          <h2 className="text-xl font-semibold text-slate-950">Recent Failures</h2>
-          <div className="mt-4 grid gap-3">
-            {recentFailures.length ? recentFailures.map((run) => (
-              <Link key={run.run_id} href={`/dashboard/runs/${run.run_id}`} className="rounded-md border border-amber-200 bg-amber-50 p-3 hover:border-amber-300">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-950">{run.project_name}</p>
-                    <p className="mt-1 text-xs text-amber-900">{run.summary}</p>
+          <h2 className="mb-4 text-base font-semibold text-slate-950">Recent Failures</h2>
+          <div className="grid gap-2">
+            {recentFailures.length ? (
+              recentFailures.map((run) => (
+                <Link
+                  key={run.run_id}
+                  href={`/dashboard/runs/${run.run_id}`}
+                  className="flex items-center justify-between gap-3 rounded-md border border-amber-100 bg-amber-50 p-3 transition hover:border-amber-200 hover:bg-amber-50"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-950">{run.project_name}</p>
+                    <p className="mt-0.5 truncate text-xs text-amber-800">{run.summary}</p>
                   </div>
                   <Badge tone="warning">{run.status}</Badge>
-                </div>
-              </Link>
-            )) : (
-              <p className="text-sm text-slate-600">No failed or degraded example runs.</p>
+                </Link>
+              ))
+            ) : (
+              <div className="rounded-md border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-700">
+                No failed or degraded runs.
+              </div>
             )}
           </div>
         </Card>
-      </section>
+      </div>
     </main>
   );
 }
@@ -110,24 +146,20 @@ export default function DashboardPage() {
 function MetricCard({
   label,
   value,
-  detail,
-  tone = "info",
+  sub,
+  tone = "neutral",
 }: {
   label: string;
   value: string;
-  detail: string;
-  tone?: "info" | "success" | "warning";
+  sub: string;
+  tone?: "neutral" | "success" | "warning";
 }) {
+  const valueColor = tone === "warning" ? "text-amber-700" : tone === "success" ? "text-emerald-700" : "text-slate-950";
   return (
-    <Card className="p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-slate-500">{label}</p>
-          <p className="mt-2 text-3xl font-semibold text-slate-950">{value}</p>
-          <p className="mt-2 text-sm text-slate-600">{detail}</p>
-        </div>
-        <Badge tone={tone}>{label}</Badge>
-      </div>
+    <Card className="p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
+      <p className={`mt-2 text-2xl font-semibold tabular-nums ${valueColor}`}>{value}</p>
+      <p className="mt-1 text-xs text-slate-500">{sub}</p>
     </Card>
   );
 }
