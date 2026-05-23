@@ -1,0 +1,45 @@
+{
+  "_description": "Fixture 6: Report with reportVersion: 2.0 — schema contract fixture",
+  "reportVersion": "2.0",
+  "reportId": "rpt_fixture_versioned",
+  "projectId": "proj_fixture_versioned",
+  "scanId": "rpt_fixture_versioned",
+  "scannerVersion": "agentpulse-static-scanner-v2",
+  "generatedAt": "2025-01-01T00:05:00.000Z",
+  "repoName": "example/versioned-report",
+  "scanSource": { "type": "mock", "label": "example/versioned-report" },
+  "scannedAt": "2025-01-01T00:05:00.000Z",
+  "filesScanned": 5,
+  "ignoredFiles": 1,
+  "projectType": "workflow_system",
+  "detectedAgents": [],
+  "detectedWorkflowsDetailed": [
+    {
+      "id": "blog_generation",
+      "name": "Blog Generation",
+      "source": "explicit",
+      "confidence": "high",
+      "configPath": "workflow.yaml"
+    }
+  ],
+  "detectedCIWorkflows": [],
+  "detectedPrompts": [],
+  "detectedTools": [],
+  "detectedEvals": ["evals/blog_quality.yaml"],
+  "detectedTests": [],
+  "detectedWorkflows": ["workflow.yaml"],
+  "findings": [],
+  "scores": {
+    "architecture": 72,
+    "promptQuality": 55,
+    "toolGovernance": 60,
+    "evalCoverage": 70,
+    "security": 90,
+    "documentation": 60,
+    "maintainability": 80,
+    "overall": 72
+  },
+  "recommendations": [
+    "Add stages to workflow.yaml to improve workflow visualization."
+  ]
+}

@@ -31,6 +31,11 @@ describe("NavBar routes", () => {
     expect(navBarSrc).toContain("Repository Scanner");
   });
 
+  it("includes a Scan History link to /dashboard/reports", () => {
+    expect(navBarSrc).toContain('href: "/dashboard/reports"');
+    expect(navBarSrc).toContain("Scan History");
+  });
+
   it("uses sticky positioning", () => {
     expect(navBarSrc).toContain("sticky");
   });

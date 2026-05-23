@@ -432,6 +432,11 @@ export interface DetectedModelPerformance {
 
 export interface ScanReport {
   reportVersion: string;
+  reportId: string;
+  projectId: string;
+  scanId: string;
+  scannerVersion: string;
+  generatedAt: string;
   repoName: string;
   scanSource?: ScanSource;
   zipStats?: ZipScanStats;

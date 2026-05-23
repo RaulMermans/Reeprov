@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { label: "Overview", href: "/dashboard" },
   { label: "Workflows", href: "/dashboard/workflows" },
   { label: "Repository Scanner", href: "/dashboard/scanner" },
+  { label: "Scan History", href: "/dashboard/reports" },
 ] as const;
 
 export function NavBar() {

@@ -1,4 +1,5 @@
 import yaml from "js-yaml";
+import { generateReportId, deriveProjectId, SCANNER_VERSION } from "@/lib/reports/reportId";
 import { REPORT_VERSION } from "@/lib/reports/reportVersion";
 import { buildRecommendations } from "@/lib/reports/recommendations";
 import { buildSystemGraph } from "@/lib/reports/systemGraph";
@@ -435,12 +436,20 @@ export function staticScanFromFiles(
   const { scores, capsApplied } = applyScoreGates(rawScores, gateContext);
   const scoreDimensions = computeScoreDimensions(scores, gateContext, graphCompleteness.completenessScore);
 
+  const reportId = generateReportId();
+  const now = new Date().toISOString();
+
   return {
     reportVersion: REPORT_VERSION,
+    reportId,
+    projectId: deriveProjectId(repoName),
+    scanId: reportId,
+    scannerVersion: SCANNER_VERSION,
+    generatedAt: now,
     repoName,
     scanSource: options.scanSource,
     zipStats: options.zipStats,
-    scannedAt: new Date().toISOString(),
+    scannedAt: now,
     filesScanned: scannedFiles.length,
     ignoredFiles: files.length - scannedFiles.length,
     projectType,

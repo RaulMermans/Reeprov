@@ -5,6 +5,7 @@ import { requireAccessKey } from "@/lib/auth/requireAccessKey";
 import { getGitHubClient } from "@/lib/github/client";
 import { fetchRepoFiles } from "@/lib/github/fetchRepoFiles";
 import { mockReport } from "@/lib/reports/buildReport";
+import { fileReportStore } from "@/lib/reports/reportStore";
 import { runScanPipeline } from "@/lib/reports/runScanPipeline";
 
 const scanRequestSchema = z.object({
@@ -21,7 +22,9 @@ export async function POST(request: Request) {
     const octokit = getGitHubClient();
 
     if (body.mock || !octokit) {
-      return NextResponse.json(await mockReport({ allowLlmAuditors: true }));
+      const report = await mockReport({ allowLlmAuditors: true });
+      // Mock scans are not persisted to avoid polluting history.
+      return NextResponse.json(report);
     }
 
     if (!body.owner || !body.name) {
@@ -42,7 +45,13 @@ export async function POST(request: Request) {
       allowLlmAuditors: true,
     });
 
-    return NextResponse.json(report);
+    // Persist the redacted report. Non-fatal on failure.
+    const persistence = await fileReportStore.saveReport(report);
+
+    return NextResponse.json({
+      ...report,
+      _persistence: persistence,
+    });
   } catch (error) {
     return apiErrorResponse(error);
   }

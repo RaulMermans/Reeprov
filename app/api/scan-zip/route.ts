@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { fileReportStore } from "@/lib/reports/reportStore";
 import { runScanPipeline } from "@/lib/reports/runScanPipeline";
 import { DIRECT_ZIP_UPLOAD_MAX_BYTES, DIRECT_ZIP_UPLOAD_MAX_MB } from "@/lib/zip/limits";
 import { safeExtractZip, ZipExtractionError } from "@/lib/zip/safeExtractZip";
@@ -51,7 +52,13 @@ export async function POST(request: Request) {
       allowLlmAuditors: true,
     });
 
-    return NextResponse.json(report);
+    // Persist the redacted report. Non-fatal on failure.
+    const persistence = await fileReportStore.saveReport(report);
+
+    return NextResponse.json({
+      ...report,
+      _persistence: persistence,
+    });
   } catch (error) {
     if (error instanceof ZipExtractionError) {
       return apiErrorResponse(invalidRequest(error.message));

@@ -278,3 +278,100 @@ workflow:
       evals:
         - blogagent/evals/editor_quality.yaml
 ```
+
+---
+
+## Durable Report Storage (Task 4)
+
+### Report Schema Versioning
+
+Every scanner report now includes identity and version fields:
+
+- `reportVersion` — schema version (`"2.0"`). Tests fail if missing.
+- `reportId` — unique ID per scan (`rpt_<base36-timestamp>_<hex>`).
+- `projectId` — stable per repository (`proj_<reponame>`). Groups history.
+- `scanId` — equals `reportId` for v1.
+- `scannerVersion` — static scanner build version (`agentpulse-static-scanner-v2`).
+- `generatedAt` — ISO timestamp when the report was generated.
+
+### Report Persistence Adapter
+
+`lib/reports/reportStore.ts` provides a `ReportStore` interface:
+
+```typescript
+interface ReportStore {
+  saveReport(report: ScanReport): Promise<SaveResult>;
+  listReports(filters?): Promise<SavedReportSummary[]>;
+  getReport(reportId): Promise<SavedReport | null>;
+  deleteReport(reportId): Promise<boolean>;
+}
+```
+
+The default implementation (`fileReportStore`) is file-backed:
+
+```
+.agentpulse/reports/
+  index.json           — list of SavedReportSummary[], newest first
+  {reportId}.json      — full SavedReport with savedAt timestamp
+```
+
+Override `AGENTPULSE_STORE_DIR` to change the storage directory.
+Failures are non-fatal: persistence errors are returned as `{ saved: false, warning }` without crashing the scan.
+
+### Report Diff
+
+`lib/reports/reportDiff.ts` provides `diffReports(base, target)`:
+- Score deltas (overall + per category)
+- Finding diff: added / resolved / unchanged / worsened / improved
+- Finding identity: `category::title` (normalized, case-insensitive)
+- New high risks / resolved high risks
+- Status change string (`"healthy → needs-attention"`)
+- Detected count deltas (agents, workflows, prompts, tools, evals, tests)
+- Regression candidates (see below)
+
+### Regression Candidates
+
+`lib/reports/regressionCandidates.ts` generates deterministic test suggestions:
+- New high/critical findings → `"high"` severity candidate
+- New security findings → security regression candidate
+- Score drop ≥5 pts → score regression candidate per dimension
+- Missing `reportVersion` → schema contract candidate
+- Missing golden fixtures → golden fixture candidate
+- Workflow count decrease → workflow mapping candidate
+
+All candidates have stable IDs (`rc_<projectId>::<category>::<title>`) so the same diff always produces the same candidate IDs.
+
+### UI Routes
+
+| Route | Description |
+|---|---|
+| `/dashboard/reports` | Scan history list (client, loads from API) |
+| `/dashboard/reports/[reportId]` | Saved report detail (reuses scanner UI) |
+| `/dashboard/reports/compare` | Report diff view with regression candidates |
+
+### API Routes
+
+| Route | Auth | Description |
+|---|---|---|
+| `GET /api/reports` | `x-agentpulse-key` | List saved report summaries |
+| `GET /api/reports/[reportId]` | `x-agentpulse-key` | Get full saved report |
+| `DELETE /api/reports/[reportId]` | `x-agentpulse-key` | Delete a saved report |
+
+### Golden Fixtures
+
+`tests/fixtures/reports/` contains minimal but valid `ScanReport` JSON fixtures for:
+- `minimal-unknown.json` — no agents, no workflows
+- `agent-missing-config.json` — AI application with prompt but no manifest
+- `report-with-version.json` — workflow system with `reportVersion: "2.0"`
+
+Tests in `lib/reports/__tests__/reportSchema.test.ts` verify that all fixtures include `reportVersion`, `reportId`, `projectId`, and `scannerVersion`.
+
+### Why File-Backed (Not DB)
+
+The file store is appropriate for a single-user local dashboard:
+- No external dependency (no Postgres, no Redis)
+- Reports are plain JSON — readable without tooling
+- Zero setup for new contributors
+- Interface is swappable: replace `fileReportStore` with a DB adapter later
+
+Future path: replace `fileReportStore` with a Vercel Blob or Postgres adapter behind the same `ReportStore` interface.

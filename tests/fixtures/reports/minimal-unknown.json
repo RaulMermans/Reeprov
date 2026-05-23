@@ -1,0 +1,37 @@
+{
+  "_description": "Fixture 1: Minimal unknown AI project — no agents, no workflows, just README",
+  "reportVersion": "2.0",
+  "reportId": "rpt_fixture_minimal_unknown",
+  "projectId": "proj_fixture_minimal_unknown",
+  "scanId": "rpt_fixture_minimal_unknown",
+  "scannerVersion": "agentpulse-static-scanner-v2",
+  "generatedAt": "2025-01-01T00:00:00.000Z",
+  "repoName": "example/unknown-project",
+  "scanSource": { "type": "mock", "label": "example/unknown-project" },
+  "scannedAt": "2025-01-01T00:00:00.000Z",
+  "filesScanned": 1,
+  "ignoredFiles": 0,
+  "projectType": "unknown_ai_project",
+  "detectedAgents": [],
+  "detectedWorkflowsDetailed": [],
+  "detectedCIWorkflows": [],
+  "detectedPrompts": [],
+  "detectedTools": [],
+  "detectedEvals": [],
+  "detectedTests": [],
+  "detectedWorkflows": [],
+  "findings": [],
+  "scores": {
+    "architecture": 40,
+    "promptQuality": 40,
+    "toolGovernance": 50,
+    "evalCoverage": 30,
+    "security": 80,
+    "documentation": 30,
+    "maintainability": 80,
+    "overall": 50
+  },
+  "recommendations": [
+    "Add an agents.yaml or workflow.yaml manifest to describe AI system structure."
+  ]
+}

@@ -333,6 +333,11 @@ export const maintainabilityMetricsSchema = z.object({
 
 export const scanReportSchema = z.object({
   reportVersion: z.string(),
+  reportId: z.string(),
+  projectId: z.string(),
+  scanId: z.string(),
+  scannerVersion: z.string(),
+  generatedAt: z.string(),
   repoName: z.string(),
   scanSource: scanSourceSchema.optional(),
   zipStats: zipStatsSchema.optional(),

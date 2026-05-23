@@ -17,6 +17,24 @@ Current focus. AgentPulse proves the inspection layer using local example data o
 
 V0 intentionally does not add a workflow runtime, no-code builder, marketplace, database, external APIs, autonomous execution engine, deployment automation, or real LLM calls.
 
+## Task 4 — Durable Reports, Diff, and Regression Candidates ✓
+
+AgentPulse moves from "scan and display" to "persist, compare, and regression-track."
+
+- Report schema versioning: `reportVersion`, `reportId`, `projectId`, `scanId`, `scannerVersion`, `generatedAt`
+- File-backed report store (`lib/reports/reportStore.ts`) with swappable `ReportStore` interface
+- Reports saved after every successful GitHub/ZIP scan; mock scans not persisted
+- `GET /api/reports` — list saved report summaries
+- `GET /api/reports/[reportId]` — get full saved report
+- `DELETE /api/reports/[reportId]` — delete report
+- Scan history UI at `/dashboard/reports`
+- Saved report detail at `/dashboard/reports/[reportId]` (reuses scanner UI)
+- Report diff view at `/dashboard/reports/compare` (score deltas, finding changes, regression candidates)
+- `lib/reports/reportDiff.ts` — deterministic diff logic (added/resolved/unchanged/worsened/improved)
+- `lib/reports/regressionCandidates.ts` — deterministic test suggestions from report deltas
+- Golden report fixtures in `tests/fixtures/reports/`
+- 81 new tests; all 491 tests pass
+
 ## V1 — Trace SDK
 
 Projects emit AgentPulse-compatible traces without AgentPulse executing the project.

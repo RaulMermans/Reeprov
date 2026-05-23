@@ -1,0 +1,48 @@
+{
+  "_description": "Fixture 2: Agent project with inferred agent but missing agents.yaml config",
+  "reportVersion": "2.0",
+  "reportId": "rpt_fixture_agent_missing_config",
+  "projectId": "proj_fixture_agent_missing_config",
+  "scanId": "rpt_fixture_agent_missing_config",
+  "scannerVersion": "agentpulse-static-scanner-v2",
+  "generatedAt": "2025-01-01T00:01:00.000Z",
+  "repoName": "example/agent-no-config",
+  "scanSource": { "type": "mock", "label": "example/agent-no-config" },
+  "scannedAt": "2025-01-01T00:01:00.000Z",
+  "filesScanned": 3,
+  "ignoredFiles": 0,
+  "projectType": "ai_application",
+  "detectedAgents": [],
+  "detectedWorkflowsDetailed": [],
+  "detectedCIWorkflows": [],
+  "detectedPrompts": ["prompts/system.md"],
+  "detectedTools": [],
+  "detectedEvals": [],
+  "detectedTests": [],
+  "detectedWorkflows": [],
+  "findings": [
+    {
+      "id": "arch-no-manifest",
+      "category": "architecture",
+      "severity": "medium",
+      "title": "No agent or workflow manifest detected",
+      "summary": "No agents.yaml, agents.json, workflow.yaml, or workflow.json found.",
+      "evidencePaths": [],
+      "recommendation": "Add an agents.yaml manifest to explicitly document agents, prompts, tools, evals, and model configuration.",
+      "confidence": 0.9
+    }
+  ],
+  "scores": {
+    "architecture": 45,
+    "promptQuality": 50,
+    "toolGovernance": 50,
+    "evalCoverage": 30,
+    "security": 80,
+    "documentation": 35,
+    "maintainability": 80,
+    "overall": 55
+  },
+  "recommendations": [
+    "Add an agents.yaml manifest to document AI system structure."
+  ]
+}
