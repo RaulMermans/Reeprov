@@ -20,9 +20,26 @@ Internal audit runner, access-key gated.
 
 Runs static analysis against a GitHub repository or uploaded ZIP file. Classifies AI system artifacts (agents, workflows, prompts, tools, evals, models), detects secrets, scores the repository, and produces a structured health report.
 
-- Requires an internal access key (stored only in `sessionStorage`, validated against `AGENTPULSE_ACCESS_KEY` server-side)
+- Requires `AGENTPULSE_ACCESS_KEY` set server-side. The key is **validated against the server** before the scanner UI unlocks — submitting an incorrect key returns a `401` and the UI remains locked. An expired stored key clears `sessionStorage` and redirects to the access form.
+- The HTTP header used by all protected routes is `x-agentpulse-key`.
+- The key is stored only in `sessionStorage` (never `localStorage`). It does not persist across browser restarts.
 - Produces: health report, AI system graph, model/provider matrix, mapping gaps, redacted export
 - Does **not** execute scanned code, install dependencies, or make live LLM calls
+
+#### Access validation flow
+
+```
+User submits key
+   → POST /api/repos with x-agentpulse-key: <candidate>
+   → 200: store in sessionStorage, unlock scanner UI
+   → 401: show "Invalid access key.", do not unlock
+   → network error: show "Could not validate access key."
+
+Stored key later rejected (any scan API → 401):
+   → clear sessionStorage key
+   → return to access form
+   → show "Access key expired or invalid. Please unlock again."
+```
 
 ### Future — Trace Ingestion Bridge
 

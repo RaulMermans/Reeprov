@@ -34,6 +34,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingRepos, setLoadingRepos] = useState(false);
+  const [validatingKey, setValidatingKey] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [accessKey, setAccessKey] = useState<string | null>(null);
   const [accessKeyInput, setAccessKeyInput] = useState("");
@@ -78,6 +79,12 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
       } catch (error) {
         setSuccessMessage(null);
         setFailedScanReportLabel(null);
+
+        if (isUnauthorized(error)) {
+          expireAccessKey("Access key expired or invalid. Please unlock again.");
+          return;
+        }
+
         setErrorMessage(apiMessage(error, "Repository loading failed."));
       } finally {
         setLoadingRepos(false);
@@ -87,7 +94,17 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
     void loadRepositories();
   }, [accessKey]);
 
-  function saveAccessKey(event: FormEvent<HTMLFormElement>) {
+  function expireAccessKey(message: string) {
+    clearInternalKey();
+    setAccessKey(null);
+    setAccessKeyInput("");
+    setRepositories([]);
+    setSuccessMessage(null);
+    setFailedScanReportLabel(null);
+    setErrorMessage(message);
+  }
+
+  async function saveAccessKey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = accessKeyInput.trim();
 
@@ -97,11 +114,34 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
       return;
     }
 
-    setInternalKey(trimmed);
-    setAccessKey(trimmed);
+    setValidatingKey(true);
     setErrorMessage(null);
-    setSuccessMessage(null);
-    setFailedScanReportLabel(null);
+
+    try {
+      const response = await fetch("/api/repos", {
+        headers: { "x-agentpulse-key": trimmed },
+      });
+
+      if (response.status === 401) {
+        setErrorMessage("Invalid access key.");
+        return;
+      }
+
+      if (!response.ok) {
+        setErrorMessage("Could not validate access key.");
+        return;
+      }
+
+      setInternalKey(trimmed);
+      setAccessKey(trimmed);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      setFailedScanReportLabel(null);
+    } catch {
+      setErrorMessage("Could not validate access key.");
+    } finally {
+      setValidatingKey(false);
+    }
   }
 
   function clearAccessKey() {
@@ -130,6 +170,11 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
       setReport(body);
       setSuccessMessage(`Scan complete for ${body.scanSource?.label ?? body.repoName}.`);
     } catch (error) {
+      if (isUnauthorized(error)) {
+        expireAccessKey("Access key expired or invalid. Please unlock again.");
+        return;
+      }
+
       const target = repo.mock ? "Mock scan" : [repo.owner, repo.name].filter(Boolean).join("/");
       setErrorMessage(`Scan failed${target ? ` for ${target}` : ""}: ${apiMessage(error, "Scan failed.")}`);
       setFailedScanReportLabel(report.scanSource?.label ?? report.repoName);
@@ -175,6 +220,11 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
       setReport(body);
       setSuccessMessage(`ZIP scan complete for ${body.scanSource?.label ?? body.repoName}.`);
     } catch (error) {
+      if (isUnauthorized(error)) {
+        expireAccessKey("Access key expired or invalid. Please unlock again.");
+        return;
+      }
+
       setErrorMessage(`ZIP scan failed for ${zipFile.name}: ${apiMessage(error, "ZIP scan failed.")}`);
       setFailedScanReportLabel(report.scanSource?.label ?? report.repoName);
     } finally {
@@ -241,7 +291,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
               <div>
                 <h2 className="text-base font-semibold text-slate-950">Scanner access</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Enter your internal access key to run audits. The key is stored only for this browser session.
+                  Enter your <code className="rounded bg-slate-100 px-1 font-mono text-xs text-slate-700">AGENTPULSE_ACCESS_KEY</code> to run repository audits. The key is validated server-side and stored only for this browser session.
                 </p>
               </div>
               <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700" htmlFor="access-key">
@@ -261,10 +311,11 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
                 </div>
               ) : null}
               <button
-                className="inline-flex min-h-10 items-center justify-center rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-800"
+                className="inline-flex min-h-10 items-center justify-center rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={validatingKey}
                 type="submit"
               >
-                Unlock Scanner
+                {validatingKey ? "Validating…" : "Unlock Scanner"}
               </button>
             </form>
           </Card>
@@ -530,12 +581,23 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
 }
 
 
+class ApiResponseError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = "ApiResponseError";
+  }
+}
+
+function isUnauthorized(error: unknown): boolean {
+  return error instanceof ApiResponseError && error.status === 401;
+}
+
 async function fetchApi<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
   const body = await readJson(response);
 
   if (!response.ok) {
-    throw new Error(apiMessageFromBody(body, "Request failed."));
+    throw new ApiResponseError(apiMessageFromBody(body, "Request failed."), response.status);
   }
 
   return body as T;
@@ -607,9 +669,12 @@ function ScannerSection({ title, children }: { title: string; children: React.Re
 function ScannerPageHeader() {
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Repository Scanner</h1>
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Repository Scanner</h1>
+        <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">Internal access required</span>
+      </div>
       <p className="mt-1 max-w-2xl text-sm text-slate-500">
-        Run static audits against GitHub repositories or uploaded ZIPs. Produces a repository health report, AI system graph, findings, and model matrix.
+        Scan GitHub repositories or ZIP uploads. Static analysis only — no workflow execution, no code run, no secrets stored.
       </p>
     </div>
   );

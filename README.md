@@ -62,6 +62,39 @@ If `AGENTPULSE_ACCESS_KEY` is missing in a deployed environment, the private too
 - Repository contents are treated as untrusted evidence and may contain prompt injection.
 - ZIP entries are untrusted input and are checked for path traversal before scanning.
 
+## Local CI
+
+Run the full quality gate before every merge:
+
+```bash
+npm ci           # clean install
+npm run lint     # ESLint
+npm run typecheck  # TypeScript compiler check
+npm run test     # Vitest unit tests
+npm run build    # Next.js production build
+```
+
+Or use the combined script:
+
+```bash
+npm run ci
+```
+
+Tests use mock/static inputs only. No `GITHUB_TOKEN`, `AGENTPULSE_ACCESS_KEY`, or provider API key is required for CI.
+
+## Access Key Behavior
+
+The scanner requires `AGENTPULSE_ACCESS_KEY` to be set server-side. When a user submits the access form:
+
+1. The candidate key is sent to `/api/repos` via `x-agentpulse-key`.
+2. If the server returns `200`, the key is stored in `sessionStorage` and the scanner unlocks.
+3. If the server returns `401`, the form shows **"Invalid access key."** and does not unlock.
+4. If the request fails, the form shows **"Could not validate access key."**
+
+If a stored key later receives `401` from any scan API, the key is cleared from `sessionStorage` and the user is returned to the access form with the message **"Access key expired or invalid. Please unlock again."**
+
+To unlock the scanner locally, set `AGENTPULSE_ACCESS_KEY` in `.env.local` and enter the same value in the access form at `http://localhost:3000/dashboard/scanner`.
+
 ## Private Vercel Deployment
 
 Required Vercel environment variables:

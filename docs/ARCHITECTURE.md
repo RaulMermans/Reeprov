@@ -41,7 +41,22 @@ The UI routes are:
 - `/dashboard/workflows/[workflowId]` — workflow inspector.
 - `/dashboard/runs/[runId]` — run detail with trace timeline, model calls, tool calls, evals, errors/retries, artifacts, cost, and latency.
 
+The scanner surface adds a fifth route:
+
+- `/dashboard/scanner` — repository scanner (access-key gated, separate from the proof layer).
+
 This layer does not add a database, authentication changes, external API calls, workflow execution, or scanned-repository execution.
+
+## Access Model
+
+The scanner and all protected API routes require an `AGENTPULSE_ACCESS_KEY` environment variable set server-side. The HTTP header name is `x-agentpulse-key`. All three protected routes — `/api/repos`, `/api/scan`, and `/api/scan-zip` — call `requireAccessKey(request)` before any other logic.
+
+Client-side:
+- The access key form at `/dashboard/scanner` validates the candidate key against `/api/repos` before storing it.
+- A `200` response stores the key in `sessionStorage` and unlocks the scanner UI.
+- A `401` response shows "Invalid access key." and does not unlock.
+- Any subsequent `401` from scan routes clears the stored key and returns the user to the access form.
+- The key is never stored in `localStorage`, never sent to the browser via `NEXT_PUBLIC_` env vars, and never written to the page source.
 
 ## How Connected Projects Send Trace Events
 
