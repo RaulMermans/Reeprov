@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
   { label: "Overview", href: "/dashboard" },
+  { label: "Runs", href: "/dashboard/runs" },
   { label: "Workflows", href: "/dashboard/workflows" },
   { label: "Repository Scanner", href: "/dashboard/scanner" },
   { label: "Scan History", href: "/dashboard/reports" },
@@ -45,7 +46,7 @@ export function NavBar() {
         </div>
         <div className="hidden items-center gap-2 text-xs text-slate-400 sm:flex">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
-          Static proof layer
+          Live trace ingestion
         </div>
       </div>
     </header>

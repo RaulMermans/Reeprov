@@ -1,149 +1,173 @@
 # AgentPulse
 
-AgentPulse is a private Vercel dashboard for auditing personal GitHub AI-agent and AI-workflow repositories. It scans repository files through a server-side GitHub token, builds a static manifest, redacts secret-like values, detects agent and workflow architecture signals, and returns a health report with findings and recommended fixes.
+AgentPulse is a private observability and proof layer for agentic AI workflows.
 
-AgentPulse supports both agent-based and workflow-based AI project layouts. It detects `workflow.yaml`, `workflows.yaml`, `workflow.json`, and similar manifests as first-class structured inventory, alongside `agents.yaml` and agent configs. Repositories can be scanned from the GitHub API or from a GitHub-generated ZIP archive.
+It accepts trace events from external AI projects, validates them, stores them as inspectable run timelines, and answers: **what happened, why, how much did it cost, and did it pass?**
 
-AgentPulse is not a public SaaS, not multi-user, not an execution sandbox, and not allowed to install or run code from scanned repositories.
+AgentPulse also includes a repository scanner for auditing AI-agent and AI-workflow repositories: detecting agents, workflows, prompts, tools, evals, secrets, and scoring the codebase.
 
-## Setup
+AgentPulse is not a public SaaS, not multi-user, not a workflow runtime, and does not execute AI project code.
 
-1. Install dependencies with `npm install`.
-2. Copy `.env.example` to `.env.local`.
-   ```bash
-   cp .env.example .env.local
-   ```
-3. Set the local environment values:
-   ```bash
-   GITHUB_TOKEN=...
-   AGENTPULSE_ACCESS_KEY=...
-   ENABLE_LLM_AUDITORS=false
-   LLM_PROVIDER=openai
-   ```
-4. Use a read-only GitHub token that can access the repositories you want to audit.
-5. Run `npm run dev`.
-6. Open `http://localhost:3000/dashboard` and enter the access key when prompted.
+## Quick Start
 
-Without `GITHUB_TOKEN`, the dashboard and API routes return mock data for GitHub scans. ZIP upload scans still require `AGENTPULSE_ACCESS_KEY`.
+```bash
+npm install
+cp .env.example .env.local
+# Edit .env.local with your values (see Environment Variables below)
+npm run dev
+```
 
-## Scan Modes
+Open `http://localhost:3000/dashboard` to see the dashboard.
 
-- GitHub repository: select or enter `owner/repo`; AgentPulse fetches files with the server-side read-only token.
-- ZIP upload: upload a `.zip` downloaded from GitHub; AgentPulse parses it in memory, strips the top-level GitHub folder, normalizes file paths, and runs the same static scanner and report pipeline.
+To emit a sample trace run into the store without a live AI project:
 
-Direct ZIP upload is limited to 4 MB on Vercel so requests stay below serverless function body limits. Larger repositories should use GitHub repository scanning, which avoids the direct upload body limit.
-
-Post-upload ZIP extraction limits are 2,000 total ZIP entries, 800 prioritized scanned text files, 50 MB uncompressed, 1 MB per analyzed text file, and 240 characters per path. File count is not an automatic rejection unless the hard entry limit is exceeded; large file-count archives are scanned as a prioritized subset and the report records how many lower-priority files were skipped. Uploaded ZIPs are parsed in memory and are never persisted. Uploaded code is never executed, uploaded dependencies are never installed, ZIP entries are treated as untrusted input, and path traversal is blocked.
-
-GitHub repository scanning is preferred for complete scans of larger repositories because it avoids the direct upload body limit and ZIP subset cap.
+```bash
+npm run seed:traces
+# Then visit: http://localhost:3000/dashboard/runs
+```
 
 ## Environment Variables
 
-- `GITHUB_TOKEN`: server-side read-only GitHub token. Never prefix this with `NEXT_PUBLIC_`.
-- `AGENTPULSE_ACCESS_KEY`: server-side dashboard/API access key. Never prefix this with `NEXT_PUBLIC_`.
-- `ENABLE_LLM_AUDITORS`: server-side feature flag for LLM auditors. Defaults to `false`.
-- `LLM_PROVIDER`: server-side provider selector. `openai` is implemented first; Anthropic is documented for future support.
-- `OPENAI_API_KEY`: server-side only. Required only when `ENABLE_LLM_AUDITORS=true` and `LLM_PROVIDER=openai`.
-- `ANTHROPIC_API_KEY`: server-side only. Reserved for future Anthropic support.
+| Variable                  | Required | Description                                                        |
+|---------------------------|----------|--------------------------------------------------------------------|
+| `AGENTPULSE_ACCESS_KEY`   | Yes      | Dashboard and scanner access key. Stored in sessionStorage client-side. |
+| `AGENTPULSE_INGEST_KEY`   | Recommended | External trace ingestion key. If unset, falls back to `AGENTPULSE_ACCESS_KEY`. |
+| `AGENTPULSE_STORE_DIR`    | No       | Override the run/report store directory (default: `.agentpulse/` in cwd). |
+| `GITHUB_TOKEN`            | For scanner | Server-side read-only GitHub token for repository scanning.     |
+| `ENABLE_LLM_AUDITORS`     | No       | Set to `true` to enable LLM-based auditors (disabled by default). |
+| `LLM_PROVIDER`            | No       | `openai` (default). Provider for LLM auditors when enabled.       |
+| `OPENAI_API_KEY`          | Conditional | Required only when `ENABLE_LLM_AUDITORS=true` and `LLM_PROVIDER=openai`. |
+| `ANTHROPIC_API_KEY`       | Conditional | Reserved for future Anthropic LLM auditor support.              |
 
-The dashboard stores the access key in `sessionStorage` only and sends it to protected API routes with the `x-agentpulse-key` header.
+Never prefix secrets with `NEXT_PUBLIC_`. All secrets are server-side only.
 
-If `AGENTPULSE_ACCESS_KEY` is missing in a deployed environment, the private tool is not properly configured. Do not deploy the dashboard publicly without API protection.
+## Trace Ingestion
+
+External AI projects emit trace events to AgentPulse using the ingestion API.
+
+### Quick integration
+
+```typescript
+import { AgentPulseClient } from "@/lib/proof-layer/client";
+
+const pulse = new AgentPulseClient({
+  endpoint: process.env.AGENTPULSE_URL!,
+  apiKey:   process.env.AGENTPULSE_INGEST_KEY!,
+  projectId: "my-project",
+  projectName: "My Project",
+  workflowId: "my-workflow-v1",
+});
+
+const run = await pulse.startRun({ summary: "Run description" });
+
+await pulse.emitTraceEvent({
+  event_id:   crypto.randomUUID(),
+  run_id:     run.run_id,
+  workflow_id: "my-workflow-v1",
+  node_id:    "node-name",
+  timestamp:  new Date().toISOString(),
+  event_type: "model_call_completed",
+  status:     "completed",
+  cost_usd:   0.0042,
+  metadata: { model_provider: "anthropic", model_name: "claude-sonnet-4-6" },
+});
+
+await pulse.completeRun({ run_id: run.run_id, summary: "Done." });
+```
+
+### API endpoints
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| `POST` | `/api/runs/start` | Ingest key | Create a run |
+| `POST` | `/api/traces/events` | Ingest key | Append trace events |
+| `POST` | `/api/runs/complete` | Ingest key | Complete a run |
+| `POST` | `/api/runs/fail` | Ingest key | Fail a run |
+| `GET` | `/api/runs` | Access key | List runs |
+| `GET` | `/api/runs/[runId]` | Access key | Get full run |
+| `DELETE` | `/api/runs/[runId]` | Access key | Delete run |
+
+Auth header: `x-agentpulse-key: <key>`
+
+Trace events are validated before storage. Duplicate `event_id` values are silently skipped (idempotent ingestion). See [docs/trace_schema.md](docs/trace_schema.md) for the full schema.
+
+### Seed script
+
+The seed script creates a realistic Campaign Sandbox run without a live project:
+
+```bash
+npm run seed:traces
+# View at: http://localhost:3000/dashboard/runs
+```
+
+## Repository Scanner
+
+The scanner audits GitHub repos and ZIP uploads for AI system structure.
+
+1. Start the dev server: `npm run dev`
+2. Go to `http://localhost:3000/dashboard/scanner`
+3. Enter your `AGENTPULSE_ACCESS_KEY`
+4. Select a GitHub repo or upload a ZIP
+
+Scanner results are saved to `.agentpulse/reports/` and viewable at `/dashboard/reports`.
+
+### Scan modes
+
+- **GitHub repository**: enter `owner/repo`; AgentPulse fetches files with the server-side GitHub token
+- **ZIP upload**: upload a `.zip` from GitHub; parsed in memory, never persisted, never executed
+
+ZIP uploads are capped at 4 MB. For larger repos, use GitHub scanning.
 
 ## Security Posture
 
 - Repository code is never executed.
 - Repository dependencies are never installed.
-- GitHub token access stays server-side.
-- `/api/repos`, `/api/scan`, and `/api/scan-zip` require `x-agentpulse-key`.
-- Private deployments must configure `AGENTPULSE_ACCESS_KEY`; do not rely on obscurity or public environment variables.
-- `.env`, `.env.local`, private keys, generated folders, dependency folders, large files, and binary files are ignored.
-- Secret-like strings are redacted before reports and before any future LLM auditor input.
-- Repository contents are treated as untrusted evidence and may contain prompt injection.
-- ZIP entries are untrusted input and are checked for path traversal before scanning.
+- GitHub token stays server-side.
+- All protected routes require `x-agentpulse-key`.
+- Secrets in scanned repos are redacted before reports.
+- ZIP entries are checked for path traversal before scanning.
+- Trace ingestion validates every event with Zod schemas before storage.
+- External trace summaries are human-readable text only — no raw code or secret values stored.
+
+## Store Layout
+
+```
+.agentpulse/
+  runs/
+    index.json          — run summaries, newest first
+    {runId}.json        — full saved run
+  reports/
+    index.json          — report summaries, newest first
+    {reportId}.json     — full saved scan report
+```
+
+Override the root directory with `AGENTPULSE_STORE_DIR`.
 
 ## Local CI
 
-Run the full quality gate before every merge:
-
-```bash
-npm ci           # clean install
-npm run lint     # ESLint
-npm run typecheck  # TypeScript compiler check
-npm run test     # Vitest unit tests
-npm run build    # Next.js production build
-```
-
-Or use the combined script:
-
 ```bash
 npm run ci
+# runs: lint + typecheck + test + build
 ```
 
-Tests use mock/static inputs only. No `GITHUB_TOKEN`, `AGENTPULSE_ACCESS_KEY`, or provider API key is required for CI.
+No `GITHUB_TOKEN`, `AGENTPULSE_ACCESS_KEY`, or provider API key required for CI. All tests use mock or static inputs.
 
-## Access Key Behavior
+## Dashboard Routes
 
-The scanner requires `AGENTPULSE_ACCESS_KEY` to be set server-side. When a user submits the access form:
+| Route | Description |
+|-------|-------------|
+| `/dashboard` | Overview: live runs, quick nav, example metrics |
+| `/dashboard/runs` | Real proof runs from trace ingestion |
+| `/dashboard/runs/[runId]` | Run detail: trace timeline, evals, tool calls, model calls, artifacts |
+| `/dashboard/workflows` | Workflow gallery (example proof data) |
+| `/dashboard/scanner` | Repository scanner (access-key gated) |
+| `/dashboard/reports` | Scan history with diff and regression candidates |
 
-1. The candidate key is sent to `/api/repos` via `x-agentpulse-key`.
-2. If the server returns `200`, the key is stored in `sessionStorage` and the scanner unlocks.
-3. If the server returns `401`, the form shows **"Invalid access key."** and does not unlock.
-4. If the request fails, the form shows **"Could not validate access key."**
+## Docs
 
-If a stored key later receives `401` from any scan API, the key is cleared from `sessionStorage` and the user is returned to the access form with the message **"Access key expired or invalid. Please unlock again."**
-
-To unlock the scanner locally, set `AGENTPULSE_ACCESS_KEY` in `.env.local` and enter the same value in the access form at `http://localhost:3000/dashboard/scanner`.
-
-## Private Vercel Deployment
-
-Required Vercel environment variables:
-
-- `GITHUB_TOKEN`
-- `AGENTPULSE_ACCESS_KEY`
-- `ENABLE_LLM_AUDITORS`
-- `LLM_PROVIDER`
-- `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` only if LLM auditors are enabled
-
-Recommended Vercel settings:
-
-- Enable Vercel Deployment Protection if available.
-- Use a fine-grained GitHub token.
-- Token permissions: contents read-only.
-- Token repository access: selected repos only.
-- Token expiration: 30-90 days.
-- Do not expose any token with `NEXT_PUBLIC_`.
-
-Deployment validation:
-
-- `npm run lint`
-- `npm run typecheck`
-- `npm run test`
-- `npm run build`
-- `npm run ci`
-
-CI runs on pull requests and pushes to `main` with no required `GITHUB_TOKEN`, `OPENAI_API_KEY`, or `AGENTPULSE_ACCESS_KEY`. The default quality gate installs project dependencies, then runs lint, typecheck, tests, and build. CI uses mock or static inputs only; scanned repositories are never executed and their dependencies are never installed. Any future scheduled scan workflow should use only a server-side read-only GitHub token.
-
-Post-deploy checks:
-
-- `/api/repos` without `x-agentpulse-key` returns 401.
-- `/api/scan` without `x-agentpulse-key` returns 401.
-- Dashboard does not expose secrets in page source.
-- First scan should be done on a low-risk sample repo.
-
-## MVP Scope
-
-- Next.js App Router dashboard.
-- Server-side GitHub repository listing and scanning routes.
-- Static file classification.
-- Secret redaction.
-- Placeholder auditor interfaces.
-- Score calculation and report schema validation.
-
-## Roadmap
-
-- Improve repository file fetching controls and paging.
-- Expand static agent, tool, workflow, and eval detectors.
-- Add real LLM auditor implementations behind strict redaction and structured output.
-- Add dashboard filtering, scan diffing, and scan history.
-- Consider optional GitHub App or CI integration later.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system architecture
+- [docs/trace_schema.md](docs/trace_schema.md) — trace event schema and ingestion API
+- [docs/product_direction.md](docs/product_direction.md) — product positioning and roadmap
+- [docs/ROADMAP.md](docs/ROADMAP.md) — task history and upcoming work
+- [docs/SECURITY.md](docs/SECURITY.md) — security model and deployment guidance
+- [docs/SCORING_RUBRIC.md](docs/SCORING_RUBRIC.md) — scanner scoring rubric

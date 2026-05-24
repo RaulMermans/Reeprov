@@ -1,6 +1,28 @@
 # Trace Schema
 
-A `TraceEvent` is the fundamental unit of observability in AgentPulse. Every event a workflow emits becomes a trace event.
+A `TraceEvent` is the fundamental unit of observability in AgentPulse. Every event a workflow emits becomes a trace event. External AI projects can POST trace events to AgentPulse via the ingestion API.
+
+## Ingestion API
+
+| Method   | Route                     | Description                                          |
+|----------|---------------------------|------------------------------------------------------|
+| `POST`   | `/api/runs/start`         | Create a new run record.                             |
+| `POST`   | `/api/traces/events`      | Append one or many trace events to a run.            |
+| `POST`   | `/api/runs/complete`      | Mark a run completed; runs trace contract validation. |
+| `POST`   | `/api/runs/fail`          | Mark a run failed; stores error trace events.         |
+| `GET`    | `/api/runs`               | List saved run summaries (dashboard access key).      |
+| `GET`    | `/api/runs/[runId]`       | Get full saved run (dashboard access key).            |
+| `DELETE` | `/api/runs/[runId]`       | Delete a saved run (dashboard access key).            |
+
+## Authentication
+
+| Key                       | Used for                                          |
+|---------------------------|---------------------------------------------------|
+| `AGENTPULSE_INGEST_KEY`   | External project trace ingestion.                 |
+| `AGENTPULSE_ACCESS_KEY`   | Dashboard / internal access.                      |
+| Fallback                  | If `AGENTPULSE_INGEST_KEY` is unset, `AGENTPULSE_ACCESS_KEY` is accepted for local/dev use. |
+
+Header: `x-agentpulse-key: <key>`
 
 ## Event Types
 
@@ -26,17 +48,30 @@ A `TraceEvent` is the fundamental unit of observability in AgentPulse. Every eve
 | `retry_started` | A node retries after a failure. |
 | `error` | An error occurred (may not halt the run). |
 
+## Statuses
+
+| Status      | Description                                              |
+|-------------|----------------------------------------------------------|
+| `started`   | The action has started (legacy; prefer `running`).       |
+| `running`   | The action is in progress.                               |
+| `completed` | The action completed successfully.                       |
+| `failed`    | The action failed.                                       |
+| `degraded`  | The action completed but with warnings or partial output.|
+| `pending`   | The action is waiting to start.                          |
+| `skipped`   | The action was skipped.                                  |
+| `blocked`   | The action is blocked (e.g. waiting for approval).       |
+
 ## Fields
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `event_id` | string | yes | Unique ID for this event. |
+| `event_id` | string | yes | Unique ID for this event. Used for idempotency. |
 | `run_id` | string | yes | ID of the workflow run this event belongs to. |
 | `workflow_id` | string | yes | ID of the workflow spec being executed. |
 | `node_id` | string | no | ID of the node that emitted this event. |
 | `timestamp` | string | yes | ISO 8601 timestamp. |
 | `event_type` | string | yes | One of the values listed above. |
-| `status` | string | no | One of: started, completed, failed, pending, skipped. |
+| `status` | string | no | One of the statuses listed above. |
 | `duration_ms` | number | no | Duration of this step in milliseconds. |
 | `cost_usd` | number | no | Cost of this step in USD (for model calls). |
 | `input_summary` | string | no | Short human-readable summary of input (redacted). |
@@ -74,7 +109,7 @@ Common uses:
   "output_summary": "Brand compliance score 87/100, 3 violations found",
   "metadata": {
     "model_provider": "anthropic",
-    "model_name": "claude-3-5-sonnet-20241022",
+    "model_name": "claude-sonnet-4-6",
     "tokens_input": 4200,
     "tokens_output": 820
   }
@@ -105,10 +140,6 @@ Status interpretation:
 - If a fail-severity eval exists, classify the run as degraded unless project conventions define failure.
 - If only warning/info eval failures exist, classify the run as degraded or warning.
 
-## Example Data Flow
-
-Task 2 validates every JSON file under `examples/workflows`, `examples/traces`, `examples/evals`, and `examples/runs` against the schema. The dashboard loads this local proof data through `lib/proof-layer/examples.ts`; it does not call external APIs or execute workflows.
-
 ## eval_completed Requirements
 
 Every `eval_completed` event must include `metadata.passed` as a boolean. Without it, the proof layer raises an `eval_pass_fail_required` violation. The `metadata` may also include `eval_name`, `score` (0.0–1.0), and `findings` for additional context.
@@ -129,3 +160,23 @@ Every `eval_completed` event must include `metadata.passed` as a boolean. Withou
   }
 }
 ```
+
+## Permission Classes
+
+Tool calls carry a `permission_class` that describes their risk level:
+
+| Class                  | Description                                             |
+|------------------------|---------------------------------------------------------|
+| `read_only`            | Safe read operations. No side effects.                  |
+| `write_draft`          | Writes to a draft or staging area. Low risk.            |
+| `external_side_effect` | Calls an external API or service. Requires approval.    |
+| `destructive`          | Deletes or overwrites data. Requires approval.          |
+| `sensitive_data`       | Accesses sensitive or personal data.                    |
+
+## Idempotency
+
+`POST /api/traces/events` uses `event_id` for idempotency. If the same `event_id` is submitted twice for the same run, the second submission is silently skipped. This means replay-safe ingestion: re-submitting a trace batch does not create duplicates.
+
+## Example Data Flow
+
+The dashboard loads real runs from the file-backed run store (`lib/runs/runStore.ts`). Static example data from `examples/` is used as fallback for the workflow gallery and example runs section. The run detail page at `/dashboard/runs/[runId]` loads from the real store first, falling back to example data if the run ID belongs to an example.

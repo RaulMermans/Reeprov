@@ -35,15 +35,40 @@ AgentPulse moves from "scan and display" to "persist, compare, and regression-tr
 - Golden report fixtures in `tests/fixtures/reports/`
 - 81 new tests; all 491 tests pass
 
+## Task 5 — Real Trace Ingestion + Proof-Layer Client ✓
+
+AgentPulse moves from "static proof prototype" to "real trace receiver."
+
+- File-backed run store (`lib/runs/runStore.ts`) with swappable `RunStore` interface
+- Run storage: runRecord + traceEvents + toolCalls + evalResults + artifactRefs + timestamps
+- Deduplication: duplicate `event_id` values are silently skipped (idempotent ingestion)
+- `POST /api/runs/start` — create a run, auto-emit run_started
+- `POST /api/traces/events` — append trace events (validates each, rejects malformed)
+- `POST /api/runs/complete` — complete a run, run trace contract validation
+- `POST /api/runs/fail` — fail a run, store error events
+- `GET /api/runs` — list run summaries with filters (projectId, workflowId, status, limit)
+- `GET /api/runs/[runId]` — get full saved run with derived summary
+- `DELETE /api/runs/[runId]` — delete a saved run
+- Dual auth: `AGENTPULSE_INGEST_KEY` for external ingestion, `AGENTPULSE_ACCESS_KEY` for dashboard; fallback to access key when ingest key unset
+- `lib/proof-layer/client.ts` — `AgentPulseClient` for external projects to emit traces
+- `scripts/seed-trace-run.ts` — realistic Campaign Sandbox seed run (`npm run seed:traces`)
+- `/dashboard/runs` — real runs list loaded from the store
+- `/dashboard/runs/[runId]` — real run detail (live badge), falls back to example data
+- Dashboard overview redesigned: Live Runs section, Quick Navigation cards, example data labeled
+- NavBar updated: Runs link added between Overview and Workflows
+- `lib/auth/requireIngestKey.ts` — ingest key validation with access-key fallback
+- TraceEvent status enum extended: `running`, `degraded`, `blocked` added
+- 66 new tests (run store, ingest auth, trace contracts, schemas); all 557 tests pass
+
 ## V1 — Trace SDK
 
 Projects emit AgentPulse-compatible traces without AgentPulse executing the project.
 
-- Local/file-based ingestion
-- Standard event schema
-- `emitTraceEvent` and `validateTraceEvent` helpers
-- Run summaries derived from traces and evals
-- No network-dependent default CI tests
+- Local/file-based ingestion ✓ (Task 5)
+- Standard event schema ✓ (Task 5)
+- `emitTraceEvent` and `validateTraceEvent` helpers ✓ (earlier tasks)
+- Run summaries derived from traces and evals ✓ (Task 5)
+- No network-dependent default CI tests ✓
 
 ## V2 — Eval and Assertion Layer
 

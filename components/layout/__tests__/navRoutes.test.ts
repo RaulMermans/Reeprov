@@ -14,11 +14,17 @@ const root = path.resolve(fileURLToPath(import.meta.url), "../../../../");
 const navBarSrc = readFileSync(path.join(root, "components/layout/NavBar.tsx"), "utf8");
 const scannerPageSrc = readFileSync(path.join(root, "app/dashboard/scanner/page.tsx"), "utf8");
 const dashboardPageSrc = readFileSync(path.join(root, "app/dashboard/page.tsx"), "utf8");
+const runsPageSrc = readFileSync(path.join(root, "app/dashboard/runs/page.tsx"), "utf8");
 
 describe("NavBar routes", () => {
   it("includes an Overview link to /dashboard", () => {
     expect(navBarSrc).toContain('href: "/dashboard"');
     expect(navBarSrc).toContain("Overview");
+  });
+
+  it("includes a Runs link to /dashboard/runs", () => {
+    expect(navBarSrc).toContain('href: "/dashboard/runs"');
+    expect(navBarSrc).toContain('"Runs"');
   });
 
   it("includes a Workflows link to /dashboard/workflows", () => {
@@ -52,11 +58,38 @@ describe("scanner page", () => {
 });
 
 describe("proof dashboard page", () => {
-  it("renders an h1 with 'Proof Dashboard'", () => {
-    expect(dashboardPageSrc).toContain("Proof Dashboard");
+  it("renders the AgentPulse heading", () => {
+    expect(dashboardPageSrc).toContain("AgentPulse");
   });
 
   it("links to /dashboard/workflows", () => {
     expect(dashboardPageSrc).toContain("/dashboard/workflows");
+  });
+
+  it("links to /dashboard/runs for proof runs", () => {
+    expect(dashboardPageSrc).toContain("/dashboard/runs");
+  });
+
+  it("mentions live runs section", () => {
+    expect(dashboardPageSrc).toContain("Live Runs");
+  });
+});
+
+describe("runs list page", () => {
+  it("renders a Proof Runs heading", () => {
+    expect(runsPageSrc).toContain("Proof Runs");
+  });
+
+  it("links back to /dashboard", () => {
+    expect(runsPageSrc).toContain("/dashboard");
+  });
+
+  it("mentions the seed script", () => {
+    expect(runsPageSrc).toContain("seed:traces");
+  });
+
+  it("references the ingestion endpoints", () => {
+    expect(runsPageSrc).toContain("/api/runs/start");
+    expect(runsPageSrc).toContain("/api/traces/events");
   });
 });

@@ -12,7 +12,8 @@ import {
   getRunById,
   getWorkflowById,
 } from "@/lib/proof-layer/examples";
-import type { TraceEvent } from "@/lib/proof-layer/schemas";
+import { fileRunStore } from "@/lib/runs/runStore";
+import type { TraceEvent, EvalResult, RunRecord } from "@/lib/proof-layer/schemas";
 
 export default async function RunDetailPage({
   params,
@@ -20,14 +21,33 @@ export default async function RunDetailPage({
   params: Promise<{ runId: string }>;
 }) {
   const { runId } = await params;
-  const run = getRunById(runId);
-  if (!run) {
-    notFound();
+
+  // Try the real run store first; fall back to example data.
+  const savedRun = await fileRunStore.getRun(runId);
+
+  let run: RunRecord;
+  let traceEvents: TraceEvent[];
+  let evalResults: EvalResult[];
+  let isLive = false;
+
+  if (savedRun) {
+    run = savedRun.runRecord;
+    traceEvents = [...savedRun.traceEvents].sort((a, b) =>
+      a.timestamp.localeCompare(b.timestamp)
+    );
+    evalResults = savedRun.evalResults;
+    isLive = true;
+  } else {
+    const exampleRun = getRunById(runId);
+    if (!exampleRun) {
+      notFound();
+    }
+    run = exampleRun;
+    traceEvents = getExampleTraceEvents(runId);
+    evalResults = getExampleEvalResults(runId);
   }
 
   const workflow = getWorkflowById(run.workflow_id);
-  const traceEvents = getExampleTraceEvents(run.run_id);
-  const evalResults = getExampleEvalResults(run.run_id);
   const modelEvents = traceEvents.filter((event) => event.event_type === "model_call_started" || event.event_type === "model_call_completed");
   const errorEvents = traceEvents.filter((event) => event.event_type === "error" || event.event_type === "node_failed" || event.event_type === "tool_call_failed");
   const retryEvents = traceEvents.filter((event) => event.event_type === "retry_started");
@@ -38,13 +58,7 @@ export default async function RunDetailPage({
       <nav className="flex items-center gap-1.5 text-xs font-medium text-slate-500" aria-label="Breadcrumb">
         <Link href="/dashboard" className="hover:text-teal-700">Overview</Link>
         <span>/</span>
-        <Link href="/dashboard/workflows" className="hover:text-teal-700">Workflows</Link>
-        {workflow ? (
-          <>
-            <span>/</span>
-            <Link href={`/dashboard/workflows/${workflow.workflow_id}`} className="hover:text-teal-700">{workflow.name}</Link>
-          </>
-        ) : null}
+        <Link href="/dashboard/runs" className="hover:text-teal-700">Runs</Link>
         <span>/</span>
         <span className="font-mono text-slate-400">{run.run_id}</span>
       </nav>
@@ -52,7 +66,18 @@ export default async function RunDetailPage({
       <Card className="p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-teal-700">Run timeline</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-teal-700">Run timeline</p>
+              {isLive ? (
+                <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
+                  Live
+                </span>
+              ) : (
+                <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                  Example data
+                </span>
+              )}
+            </div>
             <h1 className="mt-1 text-3xl font-semibold text-slate-950">{run.project_name}</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-600">{run.summary}</p>
           </div>
@@ -76,30 +101,37 @@ export default async function RunDetailPage({
       <section className="grid gap-6 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-2">
           <h2 className="text-xl font-semibold text-slate-950">Workflow Execution</h2>
-          <div className="mt-4 grid gap-3">
-            {(workflow?.nodes ?? []).map((node, index) => {
-              const nodeEvents = traceEvents.filter((event) => event.node_id === node.id);
-              const failed = nodeEvents.some((event) => event.event_type === "node_failed" || event.event_type === "error");
-              const completed = nodeEvents.some((event) => event.event_type === "node_completed" || event.event_type === "model_call_completed" || event.event_type === "tool_call_completed");
-              return (
-                <div key={node.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-700 text-xs font-semibold text-white">{index + 1}</span>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-950">{node.label}</p>
-                        <p className="text-xs text-slate-500">{node.id}</p>
+          {workflow ? (
+            <div className="mt-4 grid gap-3">
+              {workflow.nodes.map((node, index) => {
+                const nodeEvents = traceEvents.filter((event) => event.node_id === node.id);
+                const failed = nodeEvents.some((event) => event.event_type === "node_failed" || event.event_type === "error");
+                const completed = nodeEvents.some((event) => event.event_type === "node_completed" || event.event_type === "model_call_completed" || event.event_type === "tool_call_completed");
+                return (
+                  <div key={node.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-700 text-xs font-semibold text-white">{index + 1}</span>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-950">{node.label}</p>
+                          <p className="text-xs text-slate-500">{node.id}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge tone="info">{node.type}</Badge>
+                        <Badge tone={failed ? "danger" : completed ? "success" : "neutral"}>{failed ? "failed" : completed ? "observed" : "not observed"}</Badge>
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge tone="info">{node.type}</Badge>
-                      <Badge tone={failed ? "danger" : completed ? "success" : "neutral"}>{failed ? "failed" : completed ? "observed" : "not observed"}</Badge>
-                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+              No workflow spec linked to <code className="font-mono">{run.workflow_id}</code>.
+              Nodes are shown in the trace timeline below.
+            </div>
+          )}
         </Card>
 
         <Card className="p-5">

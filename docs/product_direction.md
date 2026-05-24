@@ -1,68 +1,43 @@
 # Product Direction
 
-## AgentPulse Operating Modes
+## What AgentPulse Is
 
-AgentPulse has two distinct operating modes under a shared navigation shell.
+AgentPulse is a **black-box recorder and proof layer for agentic AI workflows**.
 
-### Mode 1 — Proof Dashboard (`/dashboard`)
+It accepts trace events from external AI projects, validates them, stores them, and presents them as inspectable run timelines. It answers: what happened, why, how much did it cost, and did it pass?
 
-Read-only observability surface backed by static example data.
+AgentPulse is **not**:
+- A workflow runtime
+- A no-code agent builder
+- A marketplace
+- A generic chatbot dashboard
 
-Proves the inspection layer: can a workflow run be described clearly enough that an outside observer can verify what happened, why a run degraded, what the cost and latency were, and whether evals passed?
+## Primary Product Surface: Proof Runs
 
-- Workflow gallery with architecture, nodes, edges, evals, and latest run state
-- Run detail with trace timeline, model calls, tool calls, eval results, errors, retries, artifacts, cost, and latency
-- Does **not** execute workflows, call models, or ingest live data (v0 uses example JSON files)
+The primary product surface is `/dashboard/runs` — real trace ingestion runs from connected AI projects.
 
-### Mode 2 — Repository Scanner (`/dashboard/scanner`)
+Each run is:
+1. Recorded — trace events POSTed by a connected project, validated, and stored.
+2. Evaluated — eval results indicate pass/fail at each step.
+3. Inspectable — trace timeline, model calls, tool calls, costs, latency, artifacts.
+4. Provable — the proof layer checks trace contracts and classifies failure modes.
 
-Internal audit runner, access-key gated.
+## Secondary Surface: Repository Scanner
 
-Runs static analysis against a GitHub repository or uploaded ZIP file. Classifies AI system artifacts (agents, workflows, prompts, tools, evals, models), detects secrets, scores the repository, and produces a structured health report.
+The repository scanner at `/dashboard/scanner` is a supporting tool that audits GitHub repos for AI system structure, secret exposure, and documentation quality. It is useful for onboarding new projects to AgentPulse.
 
-- Requires `AGENTPULSE_ACCESS_KEY` set server-side. The key is **validated against the server** before the scanner UI unlocks — submitting an incorrect key returns a `401` and the UI remains locked. An expired stored key clears `sessionStorage` and redirects to the access form.
-- The HTTP header used by all protected routes is `x-agentpulse-key`.
-- The key is stored only in `sessionStorage` (never `localStorage`). It does not persist across browser restarts.
-- Produces: health report, AI system graph, model/provider matrix, mapping gaps, redacted export
-- Does **not** execute scanned code, install dependencies, or make live LLM calls
-
-#### Access validation flow
-
-```
-User submits key
-   → POST /api/repos with x-agentpulse-key: <candidate>
-   → 200: store in sessionStorage, unlock scanner UI
-   → 401: show "Invalid access key.", do not unlock
-   → network error: show "Could not validate access key."
-
-Stored key later rejected (any scan API → 401):
-   → clear sessionStorage key
-   → return to access form
-   → show "Access key expired or invalid. Please unlock again."
-```
-
-### Future — Trace Ingestion Bridge
-
-Scanner results can become proof-layer artifacts. A scanned repo that ships eval metrics (`eval-results.json`, etc.) already produces `modelPerformance` entries. The next step is live trace ingestion: connected projects emit `TraceEvent` records, and the proof layer validates them against the declared workflow spec.
-
-Neither mode is a workflow runtime. AgentPulse does not build, deploy, or execute AI workflows.
-
----
+The scanner is **not** the primary product. It does not execute workflows and does not produce trace data. It produces static health reports.
 
 ## Navigation
 
 ```
-/dashboard            — Proof Dashboard (overview, workflow gallery, run list)
-/dashboard/workflows  — Workflow Gallery
-/dashboard/runs/:id   — Run Detail (trace, evals, tool calls, model calls, artifacts)
-/dashboard/scanner    — Repository Scanner (internal, access-key gated)
+/dashboard            — Overview (live runs + example proof data + quick nav)
+/dashboard/runs       — Proof Runs (real trace ingestion runs)
+/dashboard/runs/:id   — Run Detail (trace timeline, evals, tool calls, costs, artifacts)
+/dashboard/workflows  — Workflow Gallery (example workflows with proof data)
+/dashboard/scanner    — Repository Scanner (access-key gated, static audit)
+/dashboard/reports    — Scan History (saved scanner reports and diffs)
 ```
-
----
-
-## Mission
-
-AgentPulse is a black-box recorder and proof layer for agentic AI workflows. It turns black-box AI runs into visible, evaluable execution traces.
 
 ## Core Questions AgentPulse Answers
 
@@ -78,32 +53,64 @@ AgentPulse is a black-box recorder and proof layer for agentic AI workflows. It 
 - What final artifact was produced?
 - Which failing behaviors should become regression test cases?
 
-## Why the First Product Surface is Read-Only and Inspection-Focused
+## Operating Modes
 
-Trust before control. Before AgentPulse can make decisions about workflows, it needs to observe them faithfully. The first dashboard uses static proof-layer examples to show workflow specs, run records, trace timelines, tool calls, eval results, costs, latency, approvals, and artifacts. Adding control surfaces before the trace layer is stable would add complexity without a reliable foundation. Inspection earns the right to act.
+### Mode 1 — Proof Runs (`/dashboard/runs`)
 
-## Scope
+Real trace ingestion from connected AI projects.
 
-**In scope:**
+- External projects emit `TraceEvent` objects via `POST /api/traces/events`
+- Events are validated with Zod schemas before storage
+- Runs are persisted in a file-backed run store (`.agentpulse/runs/`)
+- Run summaries derive cost, latency, model calls, tool calls, eval counts, and status
+- Trace contract validation runs when a run is completed
+- Dashboard shows real runs in a sortable list with detail pages
 
-- Static example workflows, traces, evals, and run records
-- Dashboard overview metrics from local proof data
-- Workflow gallery and workflow inspector
-- Run detail pages with trace timeline, model calls, tool calls, evals, errors, retries, artifacts, cost, and latency
-- Trace event ingestion from connected projects in a later task
-- Workflow spec validation (declarative description of what a workflow is supposed to do)
-- Proof layer assertions (did the run conform to the spec?)
-- Run summaries (cost, latency, model calls, tool calls, eval results)
-- Eval result ingestion (pass/fail assertions linked to trace events)
+### Mode 2 — Repository Scanner (`/dashboard/scanner`)
 
-**Out of scope:**
+Internal static audit runner, access-key gated.
 
-- Workflow runtime (AgentPulse does not execute workflows)
-- No-code agent builder
-- Generic chatbot dashboard
-- Live model calls initiated by AgentPulse
-- Database-backed run history
-- Marketplace or public SaaS surfaces
+- Runs static analysis against a GitHub repository or uploaded ZIP file
+- Classifies AI system artifacts (agents, workflows, prompts, tools, evals, models)
+- Detects secrets, scores the repository, produces a structured health report
+- Requires `AGENTPULSE_ACCESS_KEY` set server-side
+- Does **not** execute scanned code, install dependencies, or make live LLM calls
+
+## Authentication Model
+
+| Key                       | Used for                                          |
+|---------------------------|---------------------------------------------------|
+| `AGENTPULSE_ACCESS_KEY`   | Dashboard / scanner access (browser session)      |
+| `AGENTPULSE_INGEST_KEY`   | External trace ingestion (from AI projects)       |
+| Fallback                  | If `AGENTPULSE_INGEST_KEY` is unset, `AGENTPULSE_ACCESS_KEY` is accepted for local/dev simplicity |
+
+This separation means external projects can have their own key without accessing the scanner or scan history. Both keys use the same HTTP header: `x-agentpulse-key`.
+
+## Why Not a Runtime
+
+AgentPulse records what AI workflows do, not what they should do. Running workflows from within AgentPulse would:
+
+1. Require importing scanned or connected project code — a security boundary violation
+2. Create execution dependencies that are hard to reproduce
+3. Make the tool opinionated about how workflows are built
+
+The correct model: your AI project runs itself and emits traces to AgentPulse. AgentPulse records and validates those traces. The AI project is the runtime; AgentPulse is the observer.
+
+## Future Framework Path
+
+1. ✅ Static proof UI — example workflows, runs, workflow inspector, trace timeline, eval display (Task 2)
+2. ✅ Durable reports — scanner report persistence, diff, regression candidates (Task 4)
+3. ✅ Real trace ingestion — AgentPulse client, file-backed run store, ingestion API, live dashboard (Task 5)
+4. **Next** — Project integrations: Website Auditor, Campaign Sandbox, Content Trend Analyzer, Blog Agent
+5. Eval assertion layer — stronger trace contracts, tool-call assertions, safety/output records
+6. Workflow spec validator — YAML/JSON definitions, graph validation, node registry, permissions
+7. Later: thin runtime only if justified by proof-layer usage
+
+## Language
+
+Use: agentic workflow observability, traceable AI runs, eval-backed reliability, tool-call inspection, model/provider visibility, workflow proof layer, run timeline, black-box recording.
+
+Do not use: "AI magic", "autonomous everything", "all-in-one AI platform", "generic chatbot dashboard".
 
 ## Target Users
 
@@ -115,29 +122,3 @@ Raul first. The tool exists to make personal AI workflow projects inspectable an
 - **Campaign Sandbox**: generates route options, simulates personas, scores strategies.
 - **Content Trend Analyzer**: collects signals, classifies trends, extracts angles for content.
 - **Blog Agent**: takes a topic, researches, drafts, and publishes a post.
-
-The Task 2 dashboard uses local example data for Website Auditor, Campaign Sandbox, and Content Trend Analyzer. Blog Agent remains a planned card until example workflow, trace, eval, and run records exist.
-
-## Dashboard Views
-
-- **Overview**: proof-layer metrics, recent workflows, recent failures, and clear read-only positioning.
-- **Workflow Gallery**: workflow cards with architecture type, node count, edge count, eval count, latest run status, average eval score, latest run timestamp, and project name.
-- **Workflow Inspector**: metadata, architecture type, node list, edges, tools, evals, permission classes, approval gates, and artifacts.
-- **Run Detail**: summary, status, workflow, project, timestamps, duration, cost, model/tool call counts, eval pass/fail counts, approval status, artifacts, trace timeline, errors, retries, and cost/latency summary.
-
-The UI language should emphasize agentic workflow observability, traceable AI runs, eval-backed reliability, tool-call inspection, model/provider visibility, workflow proof layer, run timeline, and black-box recording.
-
-## Future Framework Path
-
-The intended progression:
-
-1. Static proof UI — example workflows, runs, workflow inspector, trace timeline, eval display
-2. Trace SDK — projects emit AgentPulse-compatible traces to local/file-based ingestion
-3. Eval and assertion layer — stronger trace contracts, tool-call assertions, safety/output records
-4. Project integrations — Website Auditor, Campaign Sandbox, Content Trend Analyzer, Blog Agent
-5. Workflow spec validator — YAML/JSON definitions, graph validation, node registry, permissions, approval gates
-6. Later: thin runtime only if justified by proof-layer usage
-
-## Language to Avoid
-
-Do not describe AgentPulse as offering "AI magic", "autonomous everything", or as an "all-in-one AI platform". It is a focused observability and proof layer, not a general-purpose agent framework.

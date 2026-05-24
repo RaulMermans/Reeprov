@@ -89,7 +89,7 @@ export const traceEventSchema = z.object({
   node_id: z.string().optional(),
   timestamp: z.string(),
   event_type: traceEventTypeSchema,
-  status: z.enum(["started", "completed", "failed", "pending", "skipped"]).optional(),
+  status: z.enum(["started", "running", "completed", "failed", "degraded", "pending", "skipped", "blocked"]).optional(),
   duration_ms: z.number().optional(),
   cost_usd: z.number().optional(),
   input_summary: z.string().optional(),
