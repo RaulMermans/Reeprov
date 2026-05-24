@@ -5,7 +5,7 @@
  * Overrides AGENTPULSE_STORE_DIR so tests don't pollute .agentpulse/reports.
  */
 
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -53,9 +53,13 @@ describe("fileReportStore.saveReport", () => {
     expect(matches).toHaveLength(1);
   });
 
-  it("fails gracefully when store dir is read-only (no exception thrown)", async () => {
-    // Override to an invalid path so writes fail.
-    process.env["AGENTPULSE_STORE_DIR"] = "/nonexistent/deeply/nested/path";
+  it("fails gracefully when store dir is a file (ENOTDIR — no exception thrown)", async () => {
+    // Write a regular file into tmpDir and point AGENTPULSE_STORE_DIR at it.
+    // Trying to create a subdirectory inside a file always fails with ENOTDIR
+    // regardless of OS or file-system permissions — this is deterministic.
+    const blockingFile = join(tmpDir, "not-a-dir.txt");
+    await writeFile(blockingFile, "i am a file, not a directory");
+    process.env["AGENTPULSE_STORE_DIR"] = blockingFile;
     const report = makeReport();
     const result = await fileReportStore.saveReport(report);
     // Should not throw — returns saved: false with a warning.

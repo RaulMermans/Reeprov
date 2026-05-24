@@ -1,0 +1,152 @@
+{
+  "workflow_id": "campaign-sandbox-v1",
+  "name": "Campaign Sandbox",
+  "version": "2.0.0",
+  "description": "End-to-end campaign strategy workflow. Takes a messy brief, extracts strategic tension, generates and stress-tests multiple campaign routes, prompts human selection, then produces a full execution plan.",
+  "architecture_type": "hybrid_workflow_agent",
+  "nodes": [
+    {
+      "id": "messy-brief-intake",
+      "type": "trigger",
+      "label": "Messy Brief Intake",
+      "description": "Accepts an unstructured campaign brief as raw text input. No validation at this stage — all inputs are accepted.",
+      "permission_class": "read_only"
+    },
+    {
+      "id": "normalize-brief",
+      "type": "llm",
+      "label": "Normalize Brief",
+      "description": "Parses and normalizes the raw brief into structured fields: goals, target_audience, budget_range, timeline, constraints, and success_metrics. Flags ambiguous or missing fields.",
+      "model_provider": "anthropic",
+      "model_name": "claude-haiku-4-5",
+      "permission_class": "read_only",
+      "timeout_ms": 15000,
+      "max_retries": 2
+    },
+    {
+      "id": "extract-strategic-tension",
+      "type": "llm",
+      "label": "Extract Strategic Tension",
+      "description": "Identifies the core strategic tension in the brief — e.g. growth vs. margin, brand vs. performance, short-term vs. long-term. This tension anchors all generated routes.",
+      "model_provider": "anthropic",
+      "model_name": "claude-sonnet-4-6",
+      "permission_class": "read_only",
+      "eval_refs": ["strategic-tension-grounding"],
+      "timeout_ms": 20000,
+      "max_retries": 1
+    },
+    {
+      "id": "generate-routes",
+      "type": "llm",
+      "label": "Generate Routes",
+      "description": "Generates three distinct campaign route options based on the normalized brief and strategic tension. Each route has a name, hypothesis, target segment, channel mix, and key risk.",
+      "model_provider": "anthropic",
+      "model_name": "claude-sonnet-4-6",
+      "permission_class": "read_only",
+      "eval_refs": ["route-schema-validity", "route-distinctiveness"],
+      "timeout_ms": 30000,
+      "max_retries": 2
+    },
+    {
+      "id": "build-personas",
+      "type": "llm",
+      "label": "Build Personas",
+      "description": "Builds 2–3 target buyer personas from the normalized brief. Each persona has a job title, decision criteria, buying cycle, objection patterns, and communication preferences.",
+      "model_provider": "anthropic",
+      "model_name": "claude-haiku-4-5",
+      "permission_class": "read_only",
+      "timeout_ms": 20000,
+      "max_retries": 1
+    },
+    {
+      "id": "simulate-reactions",
+      "type": "llm",
+      "label": "Simulate Persona Reactions",
+      "description": "Simulates each persona's reaction to each campaign route. Produces predicted engagement level, conversion likelihood, and qualitative commentary per persona × route combination.",
+      "model_provider": "anthropic",
+      "model_name": "claude-sonnet-4-6",
+      "permission_class": "read_only",
+      "eval_refs": ["persona-reaction-consistency"],
+      "timeout_ms": 45000,
+      "max_retries": 1
+    },
+    {
+      "id": "score-routes",
+      "type": "deterministic",
+      "label": "Score Routes",
+      "description": "Scores each route across four dimensions: persona resonance (from simulation), brand fit, feasibility (timeline × budget), and strategic tension alignment. Produces a ranked leaderboard.",
+      "eval_refs": ["route-score-schema-validity"],
+      "timeout_ms": 5000
+    },
+    {
+      "id": "premortem-review",
+      "type": "llm",
+      "label": "Premortem Review",
+      "description": "Adversarially stress-tests the top-ranked route. Assumes it failed and works backward to identify the most likely failure modes, blind spots, and execution risks.",
+      "model_provider": "anthropic",
+      "model_name": "claude-sonnet-4-6",
+      "permission_class": "read_only",
+      "eval_refs": ["premortem-depth"],
+      "timeout_ms": 30000,
+      "max_retries": 1
+    },
+    {
+      "id": "compare-routes",
+      "type": "deterministic",
+      "label": "Compare Routes",
+      "description": "Assembles the final comparison view: routes with scores, persona simulation results, and premortem findings. Formats output for human review.",
+      "timeout_ms": 5000
+    },
+    {
+      "id": "human-selection",
+      "type": "approval",
+      "label": "Human Route Selection",
+      "description": "Presents the route comparison to the user. Requires explicit human selection of one route before execution planning proceeds. The run blocks here until selection is received.",
+      "permission_class": "sensitive_data",
+      "timeout_ms": 86400000
+    },
+    {
+      "id": "generate-execution-plan",
+      "type": "llm",
+      "label": "Generate Execution Plan",
+      "description": "Generates a detailed 90-day execution plan for the selected route. Includes channel-by-channel tactics, budget allocation guidance, milestone schedule, and success KPIs.",
+      "model_provider": "anthropic",
+      "model_name": "claude-sonnet-4-6",
+      "permission_class": "read_only",
+      "allowed_tools": ["timeline_formatter", "budget_calculator"],
+      "timeout_ms": 60000,
+      "max_retries": 2
+    },
+    {
+      "id": "export-artifact",
+      "type": "artifact",
+      "label": "Campaign Recommendation Export",
+      "description": "Packages the selected route, execution plan, persona insights, and premortem findings into a structured JSON report artifact.",
+      "permission_class": "write_draft",
+      "timeout_ms": 10000
+    }
+  ],
+  "edges": [
+    { "from": "messy-brief-intake",       "to": "normalize-brief" },
+    { "from": "normalize-brief",           "to": "extract-strategic-tension" },
+    { "from": "extract-strategic-tension", "to": "generate-routes" },
+    { "from": "generate-routes",           "to": "build-personas" },
+    { "from": "build-personas",            "to": "simulate-reactions" },
+    { "from": "simulate-reactions",        "to": "score-routes" },
+    { "from": "score-routes",              "to": "premortem-review" },
+    { "from": "premortem-review",          "to": "compare-routes" },
+    { "from": "compare-routes",            "to": "human-selection" },
+    { "from": "human-selection",           "to": "generate-execution-plan" },
+    { "from": "generate-execution-plan",   "to": "export-artifact" }
+  ],
+  "evals": [
+    "strategic-tension-grounding",
+    "route-schema-validity",
+    "route-distinctiveness",
+    "persona-reaction-consistency",
+    "route-score-schema-validity",
+    "premortem-depth"
+  ],
+  "approval_gates": ["human-selection"],
+  "artifacts": ["campaign-recommendation.json"]
+}

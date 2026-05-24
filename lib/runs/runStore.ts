@@ -196,10 +196,16 @@ export const fileRunStore: RunStore = {
       const saved = await readSavedRun(runId);
       if (!saved) return false;
 
+      // Allow "degraded" status to pass through — a run that completed but has
+      // failing evals is "degraded", not "completed". Any other status provided
+      // (e.g. null, "running") defaults to "completed".
+      const finalStatus =
+        patch.status === "degraded" ? "degraded" : "completed";
+
       saved.runRecord = {
         ...saved.runRecord,
         ...patch,
-        status: "completed",
+        status: finalStatus,
         completed_at: patch.completed_at ?? new Date().toISOString(),
       };
       saved.updatedAt = new Date().toISOString();

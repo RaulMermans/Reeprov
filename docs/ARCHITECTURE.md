@@ -60,9 +60,30 @@ Client-side:
 
 ## How Connected Projects Send Trace Events
 
-Connected projects (Website Auditor, Campaign Sandbox, etc.) will emit `TraceEvent` objects to AgentPulse during or after a run. Task 2 uses checked-in examples instead of ingestion. The next integration step is local/file-based trace ingestion before any remote service or runtime.
+Connected projects (Campaign Sandbox, Website Auditor, etc.) emit `TraceEvent` objects to AgentPulse during or after a run. Task 5 introduced a real file-backed ingestion layer. Projects POST events to the AgentPulse ingestion API using the `AGENTPULSE_INGEST_KEY`.
 
 Each event includes a `run_id` and `workflow_id` that bind it to a specific run and workflow spec. Events for the same run are collected and then passed to `assertTraceContract` for validation.
+
+See [docs/integrations/campaign_sandbox.md](integrations/campaign_sandbox.md) for the Campaign Sandbox integration guide.
+
+### Authentication: Two Keys
+
+| Key | Purpose |
+|-----|---------|
+| `AGENTPULSE_INGEST_KEY` | External AI projects use this to POST trace events. Should only be shared with connected projects. |
+| `AGENTPULSE_ACCESS_KEY` | Dashboard and scanner access. Not shared externally. |
+
+In local/dev environments, if `AGENTPULSE_INGEST_KEY` is unset, AgentPulse falls back to `AGENTPULSE_ACCESS_KEY` for convenience. In production they must differ.
+
+### File-Backed Storage Limitations
+
+The default store (`lib/runs/runStore.ts`, `lib/reports/reportStore.ts`) is file-backed:
+
+- **Local/dev**: writes to `.agentpulse/runs/` and `.agentpulse/reports/` in the project root.
+- **Vercel**: set `AGENTPULSE_STORE_DIR=/tmp/agentpulse`. The `/tmp` directory is ephemeral — it is wiped on redeployment and is not shared across serverless function instances. Data loss is expected.
+- **Durable storage**: replace `fileRunStore` / `fileReportStore` with a Postgres, Vercel Blob, Supabase, or Neon adapter behind the same `RunStore` / `ReportStore` interface.
+
+File-backed storage is appropriate for local development, demos, and single-instance private use.
 
 ## How the Proof Layer Validates Traces
 

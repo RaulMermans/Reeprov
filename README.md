@@ -28,18 +28,24 @@ npm run seed:traces
 
 ## Environment Variables
 
-| Variable                  | Required | Description                                                        |
-|---------------------------|----------|--------------------------------------------------------------------|
-| `AGENTPULSE_ACCESS_KEY`   | Yes      | Dashboard and scanner access key. Stored in sessionStorage client-side. |
-| `AGENTPULSE_INGEST_KEY`   | Recommended | External trace ingestion key. If unset, falls back to `AGENTPULSE_ACCESS_KEY`. |
-| `AGENTPULSE_STORE_DIR`    | No       | Override the run/report store directory (default: `.agentpulse/` in cwd). |
-| `GITHUB_TOKEN`            | For scanner | Server-side read-only GitHub token for repository scanning.     |
-| `ENABLE_LLM_AUDITORS`     | No       | Set to `true` to enable LLM-based auditors (disabled by default). |
-| `LLM_PROVIDER`            | No       | `openai` (default). Provider for LLM auditors when enabled.       |
-| `OPENAI_API_KEY`          | Conditional | Required only when `ENABLE_LLM_AUDITORS=true` and `LLM_PROVIDER=openai`. |
-| `ANTHROPIC_API_KEY`       | Conditional | Reserved for future Anthropic LLM auditor support.              |
+| Variable                  | Required          | Description                                                                         |
+|---------------------------|-------------------|-------------------------------------------------------------------------------------|
+| `AGENTPULSE_ACCESS_KEY`   | **Yes**           | Dashboard and scanner access key. Stored in sessionStorage client-side. Must be a long random value. |
+| `AGENTPULSE_INGEST_KEY`   | **Recommended**   | External trace ingestion key for connected AI projects. Should differ from `AGENTPULSE_ACCESS_KEY` in deployed environments. If unset, AgentPulse falls back to `AGENTPULSE_ACCESS_KEY` for local/dev convenience only. |
+| `GITHUB_TOKEN`            | For scanner       | Server-side read-only GitHub token for repository scanning. Use a fine-grained token with `contents: read` on selected repos. |
+| `AGENTPULSE_STORE_DIR`    | No                | Override the run/report storage directory (default: `.agentpulse/` in cwd). **On Vercel, set to `/tmp/agentpulse`** — but note `/tmp` is ephemeral and not durable across deployments or instances. For persistent storage, replace the file store adapter with Postgres, Vercel Blob, Supabase, or Neon. |
+| `ENABLE_LLM_AUDITORS`     | No                | Set to `true` to enable LLM-based scanner auditors (disabled by default). Keep `false` in CI. |
+| `LLM_PROVIDER`            | No                | `openai` or `anthropic`. Only used when `ENABLE_LLM_AUDITORS=true`.                |
+| `OPENAI_API_KEY`          | Conditional       | Required only when `ENABLE_LLM_AUDITORS=true` and `LLM_PROVIDER=openai`.           |
+| `ANTHROPIC_API_KEY`       | Conditional       | Required only when `ENABLE_LLM_AUDITORS=true` and `LLM_PROVIDER=anthropic`.        |
+| `GOOGLE_API_KEY`          | Conditional       | Reserved for future Google LLM auditor support.                                     |
 
-Never prefix secrets with `NEXT_PUBLIC_`. All secrets are server-side only.
+**Rules:**
+- Never prefix secrets with `NEXT_PUBLIC_`. All secrets are server-side only.
+- `AGENTPULSE_INGEST_KEY` and `AGENTPULSE_ACCESS_KEY` must be **different** in any deployed environment so that external projects cannot reach dashboard-only routes.
+- File-backed storage (`.agentpulse/` or `/tmp/agentpulse`) is local/dev/demo-grade only. Vercel `/tmp` is not shared across serverless function instances and is erased on redeployment.
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment checklist.
 
 ## Trace Ingestion
 

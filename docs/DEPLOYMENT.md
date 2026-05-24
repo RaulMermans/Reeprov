@@ -21,14 +21,26 @@ If a future scheduled scan workflow is added, it should use only a server-side r
 
 ## Vercel Environment Variables
 
-- `GITHUB_TOKEN`: server-side fine-grained GitHub token.
-- `AGENTPULSE_ACCESS_KEY`: server-side long random private key for `x-agentpulse-key`.
-- `ENABLE_LLM_AUDITORS`: default `false`.
-- `LLM_PROVIDER`: `openai` for the first implemented provider.
-- `OPENAI_API_KEY`: server-side only, required only when LLM auditors are enabled.
-- `ANTHROPIC_API_KEY`: server-side only, reserved for future provider support.
+| Variable                | Required          | Notes                                                                                         |
+|-------------------------|-------------------|-----------------------------------------------------------------------------------------------|
+| `AGENTPULSE_ACCESS_KEY` | **Yes**           | Long random string. Dashboard and scanner gate. Never expose to client.                       |
+| `AGENTPULSE_INGEST_KEY` | **Recommended**   | Separate from access key. Used by external AI projects to POST trace events. Falls back to access key if unset (local/dev only). |
+| `GITHUB_TOKEN`          | For scanner       | Fine-grained read-only token. `contents: read`, selected repos, 30–90 day expiration.        |
+| `AGENTPULSE_STORE_DIR`  | For Vercel demo   | Set to `/tmp/agentpulse`. Ephemeral — not durable across deploys or instances.                |
+| `ENABLE_LLM_AUDITORS`   | No                | `false` (default). Do not enable until scanner is confirmed working.                          |
+| `LLM_PROVIDER`          | Conditional       | `openai` or `anthropic`. Required only when LLM auditors enabled.                             |
+| `OPENAI_API_KEY`        | Conditional       | Server-side only. Required when `LLM_PROVIDER=openai` and auditors enabled.                   |
+| `ANTHROPIC_API_KEY`     | Conditional       | Server-side only. Required when `LLM_PROVIDER=anthropic` and auditors enabled.                |
 
-Never use `NEXT_PUBLIC_` for tokens, access keys, or provider API keys.
+**Never use `NEXT_PUBLIC_` for any token, access key, or provider API key.**
+
+### Storage Limitations on Vercel
+
+The default file-backed store writes to `AGENTPULSE_STORE_DIR`. On Vercel serverless functions:
+- `/tmp` is the only writable location.
+- `/tmp` is ephemeral: it resets on redeployment and is not shared across function instances.
+- For durable storage, replace `fileRunStore` / `fileReportStore` with a database-backed adapter (Postgres, Vercel Blob, Supabase, Neon, or similar) behind the same `RunStore` / `ReportStore` interface.
+- File-backed storage is appropriate for local development, demos, and single-instance private use only.
 
 ## GitHub Token Scope
 
@@ -83,6 +95,7 @@ Vercel builds run in a clean environment each time, so the cache restore timeout
 
 ## Post-Deploy Smoke Tests
 
+### Scanner
 1. Visit `/dashboard`.
 2. Enter access key.
 3. Confirm `/api/repos` loads or returns mock repos if no GitHub token.
@@ -95,6 +108,24 @@ Vercel builds run in a clean environment each time, so the cache restore timeout
 10. Confirm no secrets appear in the browser devtools response.
 11. If `ENABLE_LLM_AUDITORS=false`, confirm no LLM call is made.
 12. If `ENABLE_LLM_AUDITORS=true` and API key exists, confirm Prompt Auditor runs only on prompt evidence.
+
+### Trace Ingestion
+13. Run the seed script locally: `npm run seed:traces`.
+14. Open `http://localhost:3000/dashboard/runs` and confirm the seeded Campaign Sandbox run appears.
+15. Open the run detail page and confirm the trace timeline, model calls, eval results, and artifact are visible.
+16. Confirm the run status badge shows `degraded` (the seed run has one failing eval by design).
+17. Call `POST /api/runs/start` without a key and confirm 401.
+18. Call `POST /api/traces/events` without a key and confirm 401.
+19. Call `POST /api/traces/events` with a malformed event body and confirm 400 with an error message.
+20. Call `POST /api/traces/events` with a duplicate `event_id` and confirm 200 with `{ appended: false }`.
+21. Call `GET /api/runs` with the ingest key and confirm runs are listed.
+22. If `AGENTPULSE_STORE_DIR=/tmp/agentpulse` on Vercel, confirm run data appears after ingestion.
+   Note: data will be lost on redeployment or if a different function instance handles the request.
+
+### Key Separation Check
+23. Confirm `AGENTPULSE_ACCESS_KEY` ≠ `AGENTPULSE_INGEST_KEY` in production.
+24. Call `POST /api/runs/start` with the access key and confirm it is accepted (fallback for local only).
+   In production, only the ingest key should be shared with external projects.
 
 ## Rollback Advice
 

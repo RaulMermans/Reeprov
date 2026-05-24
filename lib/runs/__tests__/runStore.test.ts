@@ -5,7 +5,7 @@
  * Overrides AGENTPULSE_STORE_DIR so tests don't pollute .agentpulse/runs.
  */
 
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -110,8 +110,13 @@ describe("fileRunStore.createRun", () => {
     expect(retrieved?.traceEvents.length).toBe(0);
   });
 
-  it("fails gracefully with invalid store dir", async () => {
-    process.env["AGENTPULSE_STORE_DIR"] = "/nonexistent/deeply/nested/path";
+  it("fails gracefully when store dir is a file (ENOTDIR — no exception thrown)", async () => {
+    // Write a regular file into tmpDir and point AGENTPULSE_STORE_DIR at it.
+    // Trying to create a subdirectory inside a file always fails with ENOTDIR
+    // regardless of OS or file-system permissions — this is deterministic.
+    const blockingFile = join(tmpDir, "not-a-dir.txt");
+    await writeFile(blockingFile, "i am a file, not a directory");
+    process.env["AGENTPULSE_STORE_DIR"] = blockingFile;
     const run = makeRunRecord();
     const result = await fileRunStore.createRun(run);
     expect(result.saved).toBe(false);
@@ -289,6 +294,17 @@ describe("fileRunStore.completeRun", () => {
     const retrieved = await fileRunStore.getRun(run.run_id);
     expect(retrieved?.runRecord.status).toBe("completed");
     expect(retrieved?.runRecord.total_cost_usd).toBe(0.05);
+  });
+
+  it("allows degraded status to pass through", async () => {
+    const run = makeRunRecord();
+    await fileRunStore.createRun(run);
+    await fileRunStore.completeRun(run.run_id, {
+      status: "degraded",
+      summary: "Completed with failing evals.",
+    });
+    const retrieved = await fileRunStore.getRun(run.run_id);
+    expect(retrieved?.runRecord.status).toBe("degraded");
   });
 
   it("returns false for unknown runId", async () => {

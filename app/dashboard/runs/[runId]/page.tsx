@@ -29,6 +29,7 @@ export default async function RunDetailPage({
   let traceEvents: TraceEvent[];
   let evalResults: EvalResult[];
   let isLive = false;
+  let isSeeded = false;
 
   if (savedRun) {
     run = savedRun.runRecord;
@@ -37,6 +38,7 @@ export default async function RunDetailPage({
     );
     evalResults = savedRun.evalResults;
     isLive = true;
+    isSeeded = run.run_id.startsWith("seed-");
   } else {
     const exampleRun = getRunById(runId);
     if (!exampleRun) {
@@ -52,6 +54,9 @@ export default async function RunDetailPage({
   const errorEvents = traceEvents.filter((event) => event.event_type === "error" || event.event_type === "node_failed" || event.event_type === "tool_call_failed");
   const retryEvents = traceEvents.filter((event) => event.event_type === "retry_started");
   const artifactEvents = traceEvents.filter((event) => event.event_type === "artifact_created");
+  const approvalEvents = traceEvents.filter((event) =>
+    event.event_type === "approval_requested" || event.event_type === "approval_granted" || event.event_type === "approval_rejected"
+  );
 
   return (
     <main className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:px-8">
@@ -66,24 +71,35 @@ export default async function RunDetailPage({
       <Card className="p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-medium text-teal-700">Run timeline</p>
-              {isLive ? (
+              {isLive && !isSeeded ? (
                 <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
                   Live
+                </span>
+              ) : isSeeded ? (
+                <span className="rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-xs font-medium text-violet-700">
+                  Seeded
                 </span>
               ) : (
                 <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
                   Example data
                 </span>
               )}
+              {run.status === "degraded" && (
+                <span className="rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-xs font-medium text-orange-700">
+                  ⚠ Degraded
+                </span>
+              )}
             </div>
             <h1 className="mt-1 text-3xl font-semibold text-slate-950">{run.project_name}</h1>
+            <p className="mt-1 text-xs font-mono text-slate-400">{run.run_id}</p>
             <p className="mt-2 max-w-3xl text-sm text-slate-600">{run.summary}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge tone={run.status === "completed" ? "success" : run.status === "failed" ? "danger" : "warning"}>{run.status}</Badge>
+            <Badge tone={run.status === "completed" ? "success" : run.status === "failed" ? "danger" : run.status === "degraded" ? "warning" : "neutral"}>{run.status}</Badge>
             <Badge tone="info">{run.workflow_id}</Badge>
+            {run.project_id ? <Badge tone="neutral">{run.project_id}</Badge> : null}
           </div>
         </div>
         <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
@@ -160,6 +176,12 @@ export default async function RunDetailPage({
       <RunSection title="Eval Results">
         <EvalResultsPanel evalResults={evalResults} />
       </RunSection>
+
+      {approvalEvents.length > 0 && (
+        <RunSection title="Approval Gates">
+          <ApprovalGates events={approvalEvents} />
+        </RunSection>
+      )}
 
       <RunSection title="Errors and Retries">
         <ErrorsAndRetries errors={errorEvents} retries={retryEvents} />
@@ -251,11 +273,54 @@ function Artifacts({ events, fallbackRefs }: { events: TraceEvent[]; fallbackRef
       {artifactRefs.map((ref) => (
         <Card key={ref} className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-slate-950">{ref}</h3>
-            <Badge tone="info">artifact</Badge>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-950">{ref}</h3>
+              {events.find((e) => e.metadata?.["artifact_ref"] === ref)?.output_summary ? (
+                <p className="mt-1 text-xs text-slate-500">
+                  {events.find((e) => e.metadata?.["artifact_ref"] === ref)?.output_summary}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex gap-2">
+              {(() => {
+                const artifactType = events.find((e) => e.metadata?.["artifact_ref"] === ref)?.metadata?.["artifact_type"];
+                return typeof artifactType === "string" ? <Badge tone="neutral">{artifactType}</Badge> : null;
+              })()}
+              <Badge tone="info">artifact</Badge>
+            </div>
           </div>
         </Card>
       ))}
+    </div>
+  );
+}
+
+function ApprovalGates({ events }: { events: TraceEvent[] }) {
+  return (
+    <div className="grid gap-3">
+      {events.map((event) => {
+        const tone =
+          event.event_type === "approval_granted" ? "success"
+          : event.event_type === "approval_rejected" ? "danger"
+          : "warning";
+        const label =
+          event.event_type === "approval_granted" ? "Approved"
+          : event.event_type === "approval_rejected" ? "Rejected"
+          : "Pending";
+        return (
+          <Card key={event.event_id} className="p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-950">{event.node_id ?? "approval-gate"}</h3>
+                <p className="text-xs text-slate-500">{event.event_type}</p>
+              </div>
+              <Badge tone={tone}>{label}</Badge>
+            </div>
+            {event.input_summary ? <p className="mt-3 text-sm text-slate-700">Request: {event.input_summary}</p> : null}
+            {event.output_summary ? <p className="mt-2 text-sm text-slate-700">Decision: {event.output_summary}</p> : null}
+          </Card>
+        );
+      })}
     </div>
   );
 }
