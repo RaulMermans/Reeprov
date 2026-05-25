@@ -153,6 +153,13 @@ export default function SavedReportPage() {
           >
             Compare
           </Link>
+          <Link
+            href={`/dashboard/reports/${report.reportId}/reconstruction`}
+            className="rounded-md border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 transition hover:border-violet-300 hover:bg-violet-100"
+            title="Generate a suggested WorkflowSpec from static scan evidence"
+          >
+            Generate proof spec
+          </Link>
         </div>
       </div>
 

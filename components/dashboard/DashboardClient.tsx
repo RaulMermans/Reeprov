@@ -8,6 +8,7 @@ import { MappingGaps } from "@/components/dashboard/MappingGaps";
 import { ModelMatrix } from "@/components/dashboard/ModelMatrix";
 import { RepoSelector } from "@/components/dashboard/RepoSelector";
 import { ScanSummary } from "@/components/dashboard/ScanSummary";
+import { StaticProofReconstructionPanel } from "@/components/dashboard/StaticProofReconstructionPanel";
 import { SystemGraphView } from "@/components/dashboard/SystemGraphView";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import { Card } from "@/components/ui/Card";
@@ -486,6 +487,10 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
               <MappingGaps graph={report.systemGraph} />
             </ScannerSection>
           ) : null}
+
+          <ScannerSection title="Static Proof Reconstruction">
+            <StaticProofReconstructionPanel report={report} />
+          </ScannerSection>
 
           <ScannerSection title="Detected Agents">
             <div className="grid gap-4 lg:grid-cols-2">

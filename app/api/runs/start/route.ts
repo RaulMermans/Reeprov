@@ -70,7 +70,15 @@ export async function POST(request: Request) {
     const result = await fileRunStore.createRun(runRecord);
 
     if (!result.saved) {
-      console.warn(`[runs/start] Run persistence warning: ${result.warning}`);
+      console.error(`[runs/start] Run persistence failed: ${result.warning}`);
+      return NextResponse.json(
+        {
+          code: "persistence_unavailable",
+          message: "Run could not be persisted. Check server storage configuration.",
+          details: result.warning ?? "Unknown storage error",
+        },
+        { status: 503 },
+      );
     }
 
     // Auto-emit a run_started trace event.

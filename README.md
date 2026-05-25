@@ -117,6 +117,22 @@ The scanner audits GitHub repos and ZIP uploads for AI system structure.
 
 Scanner results are saved to `.agentpulse/reports/` and viewable at `/dashboard/reports`.
 
+## Static Proof Reconstruction
+
+After scanning a repo, click **"Generate proof spec"** (or "Reconstruct" from the scan history) to produce a suggested WorkflowSpec, AI system graph, and optional instrumentation plan — without modifying the scanned project.
+
+The reconstruction:
+
+- Infers workflow stages from manifest files, detected agents, and file structure
+- Identifies missing links (agents without prompts/models/evals, unmapped eval files)
+- Generates 3 suggested files you can download or copy:
+  - `agentpulse.workflow.suggested.json` — WorkflowSpec ready for the proof dashboard
+  - `ai-system.suggested.yaml` — YAML agent/workflow/model inventory
+  - `instrumentation-plan.suggested.md` — optional trace event guide with code snippet
+- Assigns a confidence level: `high` (manifest-backed), `medium` (workflow files / manifest agents), `low` (scattered artifacts)
+
+**Instrumentation is always optional.** The reconstruction works without any changes to the scanned project. If you want real run timelines and eval results, the instrumentation plan explains how to add trace events using `AgentPulseClient`.
+
 ### Scan modes
 
 - **GitHub repository**: enter `owner/repo`; AgentPulse fetches files with the server-side GitHub token
@@ -168,11 +184,13 @@ No `GITHUB_TOKEN`, `AGENTPULSE_ACCESS_KEY`, or provider API key required for CI.
 | `/dashboard/workflows` | Workflow gallery (example proof data) |
 | `/dashboard/scanner` | Repository scanner (access-key gated) |
 | `/dashboard/reports` | Scan history with diff and regression candidates |
+| `/dashboard/reports/[reportId]/reconstruction` | Static proof reconstruction for a saved scan report |
 
 ## Docs
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system architecture
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system architecture (incl. Static Proof Reconstruction)
 - [docs/trace_schema.md](docs/trace_schema.md) — trace event schema and ingestion API
+- [docs/workflow_spec.md](docs/workflow_spec.md) — WorkflowSpec schema, SuggestedWorkflowSpec, static vs runtime proof
 - [docs/product_direction.md](docs/product_direction.md) — product positioning and roadmap
 - [docs/ROADMAP.md](docs/ROADMAP.md) — task history and upcoming work
 - [docs/SECURITY.md](docs/SECURITY.md) — security model and deployment guidance

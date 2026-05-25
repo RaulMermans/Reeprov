@@ -68,7 +68,7 @@ export interface CompleteRunInput {
 
 export interface FailRunInput {
   run_id: string;
-  summary: string;
+  error_summary: string;
   error_code?: string;
   total_cost_usd?: number;
   total_duration_ms?: number;

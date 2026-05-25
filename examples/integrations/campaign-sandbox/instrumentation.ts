@@ -107,7 +107,7 @@ export async function failCampaignRun(
 ): Promise<void> {
   await pulse.failRun({
     run_id: runId,
-    summary: `Run failed: ${error.message}`,
+    error_summary: `Run failed: ${error.message}`,
     error_code: error.code,
   });
 }

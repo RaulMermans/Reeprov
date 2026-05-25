@@ -126,12 +126,19 @@ export function ReportHistoryList({ reports, onDelete, deleting }: ReportHistory
             </div>
 
             {/* Right: actions */}
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
               <Link
                 href={`/dashboard/reports/${r.reportId}`}
                 className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
               >
                 View report
+              </Link>
+              <Link
+                href={`/dashboard/reports/${r.reportId}/reconstruction`}
+                className="rounded-md border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 transition hover:border-violet-300 hover:bg-violet-100"
+                title="Generate a suggested WorkflowSpec from static scan evidence"
+              >
+                Reconstruct
               </Link>
               {onDelete ? (
                 <button

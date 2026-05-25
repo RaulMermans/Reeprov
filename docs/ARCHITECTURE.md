@@ -396,3 +396,96 @@ The file store is appropriate for a single-user local dashboard:
 - Interface is swappable: replace `fileReportStore` with a DB adapter later
 
 Future path: replace `fileReportStore` with a Vercel Blob or Postgres adapter behind the same `ReportStore` interface.
+
+---
+
+## Static Proof Reconstruction (Task 6)
+
+Task 6 adds a **zero-instrumentation path**: AgentPulse can scan any repository and immediately produce a suggested WorkflowSpec, AI system graph, mapping summary, missing-link report, and optional instrumentation plan — without requiring any code changes in the target project.
+
+### Two Levels of Proof
+
+| Mode | What it needs | What it produces |
+|---|---|---|
+| **Static inspection** | Only a scan report (static repo analysis) | Suggested WorkflowSpec, AI system graph, missing-link report, optional instrumentation guide |
+| **Instrumented proof** | Trace events emitted by the connected project | Real run timelines, eval results, trace contract validation, cost/latency data |
+
+Static inspection is the entry point. Instrumented proof is the upgrade path — and it is always optional.
+
+### Reconstruction Engine
+
+`lib/reconstruction/reconstructWorkflowSpec.ts` exports `reconstructFromScanReport(report: ScanReport): StaticProofReconstruction`.
+
+The function is **deterministic** — it reads only `ScanReport` fields and applies pure functions. It makes no external API calls, executes no code, and never installs dependencies.
+
+**Confidence levels:**
+
+| Level | Condition |
+|---|---|
+| `high` | Explicit workflow manifest with stagesDetailed or agents.yaml with mapped agents |
+| `medium` | Workflow files present, or manifest agents exist without full mapping |
+| `low` | No manifest; only scattered artifacts (prompts, tools, evals detected but not linked) |
+
+### Output Types
+
+`lib/reconstruction/types.ts` defines:
+
+| Type | Description |
+|---|---|
+| `StaticProofReconstruction` | Top-level result: reconstructionId, confidence, workflowSpecs, systemGraph, mappingSummary, missingLinks, suggestedFiles, instrumentationPlan |
+| `SuggestedWorkflowSpec` | WorkflowSpec extended with source, confidence, evidencePaths, missingFields, recommendations |
+| `MappingSummary` | Counts of mapped/unmapped agent→prompt/tool/eval/model; workflow stage coverage |
+| `MissingLink` | Gap record with type (`agent_missing_prompt`, `agent_missing_model`, `eval_unmapped`, etc.), agentId/workflowId, severity, and suggestion |
+| `InstrumentationPlan` | Always `required: false`, `available: true`; per-stage event suggestions and code hints |
+| `ReconstructedSystemGraph` | Lightweight nodes/edges for UI rendering |
+
+### Suggested Files
+
+`lib/reconstruction/suggestedFiles.ts` generates three output files from the reconstruction:
+
+| File | Description |
+|---|---|
+| `agentpulse.workflow.suggested.json` | WorkflowSpec JSON with `_generated_by`, `_confidence`, and `_note` metadata. Paste into `examples/workflows/` to use with the proof dashboard. |
+| `ai-system.suggested.yaml` | YAML summary of agents, workflows, models, tools, and evals detected in the repo. |
+| `instrumentation-plan.suggested.md` | Markdown guide with env vars, per-stage event suggestions, and a code snippet — clearly marked as optional. |
+
+These files are never written to disk by AgentPulse. They are returned in the API response and rendered in the UI with copy/download controls. The scanned project can choose to adopt them, ignore them, or modify them.
+
+### Missing Links
+
+The reconstruction identifies structural gaps between detected artifacts and the declared spec:
+
+| Type | Description |
+|---|---|
+| `agent_missing_prompt` | Agent has no mapped prompt file |
+| `agent_missing_model` | Agent has no model/provider declared |
+| `agent_missing_tools` | Agent has no tool declarations |
+| `agent_missing_evals` | Agent has no eval file mapped |
+| `workflow_missing_stages` | Workflow detected but no stages found |
+| `prompt_unmapped` | Prompt file detected but not linked to any agent or stage |
+| `eval_unmapped` | Eval file detected but not linked to any agent or stage |
+| `model_unmapped` | Model detected but not mapped to any agent or stage |
+
+Missing links have stable IDs (`ml_<type>_<projectId>_<entityId>`) and are deduplicated across all specs. They do not imply the project is broken — only that the static representation is incomplete.
+
+### API Routes
+
+| Method | Route | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/reports/[reportId]/reconstruction` | Access key | Reconstruct from a saved scan report |
+| `POST` | `/api/reconstruct` | Access key | Reconstruct from inline report body or saved reportId |
+
+### UI Integration
+
+- **Scanner result page** (`/dashboard/scanner`) — "Static Proof Reconstruction" section with "Generate proof spec" button
+- **Scan history** (`/dashboard/reports`) — "Reconstruct" link per report card
+- **Saved report detail** (`/dashboard/reports/[reportId]`) — "Generate proof spec" link
+- **Reconstruction page** (`/dashboard/reports/[reportId]/reconstruction`) — dedicated page with confidence badge, workflow spec cards, mapping coverage bars, missing-links list, suggested-file tabs with preview/copy/download
+
+### Limitations
+
+1. **Static inference can be wrong.** The reconstruction is a best-effort reading of file names, directory structure, and manifest fields. It does not execute the project.
+2. **Unmapped does not mean broken.** A missing link only means AgentPulse cannot confirm a relationship from static evidence — the relationship may exist at runtime.
+3. **Model/provider is inferred, not verified.** If no manifest declares `model: { provider, name }`, the reconstruction can suggest where to add it but cannot guarantee the suggestion matches runtime behavior.
+4. **Runtime proof requires trace events.** Static reconstruction produces a suggested spec. Runtime proof (real run timelines, eval pass/fail, cost/latency) requires the connected project to emit trace events — which is always optional.
+5. **AgentPulse does not execute scanned repositories.** This is non-negotiable. All reconstruction is based on file evidence only.

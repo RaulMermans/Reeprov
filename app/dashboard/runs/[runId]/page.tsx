@@ -1,61 +1,191 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { EvalResultsPanel } from "@/components/proof-layer/EvalResultsPanel";
 import { ToolCallsPanel } from "@/components/proof-layer/ToolCallsPanel";
 import { TraceTimeline } from "@/components/proof-layer/TraceTimeline";
 import { formatCurrency, formatDuration, formatDateTime } from "@/components/proof-layer/format";
-import {
-  getExampleEvalResults,
-  getExampleTraceEvents,
-  getRunById,
-  getWorkflowById,
-} from "@/lib/proof-layer/examples";
-import { fileRunStore } from "@/lib/runs/runStore";
-import type { TraceEvent, EvalResult, RunRecord } from "@/lib/proof-layer/schemas";
+import { mergeAuthHeaders, clearInternalKey } from "@/lib/auth/internalKey";
+import type { TraceEvent, EvalResult, RunRecord, WorkflowSpec } from "@/lib/proof-layer/schemas";
+import type { SavedRun } from "@/lib/runs/runTypes";
 
-export default async function RunDetailPage({
-  params,
-}: {
-  params: Promise<{ runId: string }>;
-}) {
-  const { runId } = await params;
+interface RunDetailState {
+  run: RunRecord;
+  traceEvents: TraceEvent[];
+  evalResults: EvalResult[];
+  workflow?: WorkflowSpec;
+  isLive: boolean;
+  isSeeded: boolean;
+}
 
-  // Try the real run store first; fall back to example data.
-  const savedRun = await fileRunStore.getRun(runId);
+interface ExampleRunData {
+  run: RunRecord;
+  traceEvents: TraceEvent[];
+  evalResults: EvalResult[];
+  workflow?: WorkflowSpec;
+}
 
-  let run: RunRecord;
-  let traceEvents: TraceEvent[];
-  let evalResults: EvalResult[];
-  let isLive = false;
-  let isSeeded = false;
+export default function RunDetailPage() {
+  const params = useParams<{ runId: string }>();
+  const runId = params.runId;
 
-  if (savedRun) {
-    run = savedRun.runRecord;
-    traceEvents = [...savedRun.traceEvents].sort((a, b) =>
-      a.timestamp.localeCompare(b.timestamp)
-    );
-    evalResults = savedRun.evalResults;
-    isLive = true;
-    isSeeded = run.run_id.startsWith("seed-");
-  } else {
-    const exampleRun = getRunById(runId);
-    if (!exampleRun) {
-      notFound();
+  const [state, setState] = useState<RunDetailState | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [unauthorized, setUnauthorized] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    if (!runId) return;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+      setUnauthorized(false);
+      setNotFound(false);
+
+      try {
+        const res = await fetch(`/api/runs/${runId}`, {
+          headers: mergeAuthHeaders(),
+        });
+
+        if (res.status === 401) {
+          clearInternalKey();
+          setUnauthorized(true);
+          return;
+        }
+
+        if (res.status === 404) {
+          // Fall back to example data via API.
+          const examplesRes = await fetch(`/api/runs/examples/${runId}`);
+          if (examplesRes.ok) {
+            const exData = await examplesRes.json() as ExampleRunData;
+            setState({
+              run: exData.run,
+              traceEvents: exData.traceEvents ?? [],
+              evalResults: exData.evalResults ?? [],
+              workflow: exData.workflow,
+              isLive: false,
+              isSeeded: false,
+            });
+            return;
+          }
+          setNotFound(true);
+          return;
+        }
+
+        if (!res.ok) {
+          const data = await res.json() as { message?: string };
+          setError(data.message ?? "Failed to load run.");
+          return;
+        }
+
+        const data = await res.json() as SavedRun & { derivedSummary?: unknown };
+        const traceEvents = [...(data.traceEvents ?? [])].sort((a, b) =>
+          a.timestamp.localeCompare(b.timestamp)
+        );
+
+        // Fetch workflow spec for live runs.
+        let workflow: WorkflowSpec | undefined;
+        try {
+          const wfRes = await fetch(`/api/runs/examples/${data.runRecord.workflow_id}`);
+          if (wfRes.ok) {
+            const wfData = await wfRes.json() as { workflow?: WorkflowSpec };
+            workflow = wfData.workflow;
+          }
+        } catch {
+          // workflow not found — that's fine
+        }
+
+        setState({
+          run: data.runRecord,
+          traceEvents,
+          evalResults: data.evalResults ?? [],
+          workflow,
+          isLive: true,
+          isSeeded: data.runRecord.run_id.startsWith("seed-"),
+        });
+      } catch {
+        setError("Could not connect to AgentPulse. Is the dev server running?");
+      } finally {
+        setLoading(false);
+      }
     }
-    run = exampleRun;
-    traceEvents = getExampleTraceEvents(runId);
-    evalResults = getExampleEvalResults(runId);
+
+    void load();
+  }, [runId]);
+
+  if (loading) {
+    return (
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <Card className="p-8 text-center text-sm text-slate-500">Loading run…</Card>
+      </main>
+    );
   }
 
-  const workflow = getWorkflowById(run.workflow_id);
-  const modelEvents = traceEvents.filter((event) => event.event_type === "model_call_started" || event.event_type === "model_call_completed");
-  const errorEvents = traceEvents.filter((event) => event.event_type === "error" || event.event_type === "node_failed" || event.event_type === "tool_call_failed");
-  const retryEvents = traceEvents.filter((event) => event.event_type === "retry_started");
-  const artifactEvents = traceEvents.filter((event) => event.event_type === "artifact_created");
-  const approvalEvents = traceEvents.filter((event) =>
-    event.event_type === "approval_requested" || event.event_type === "approval_granted" || event.event_type === "approval_rejected"
+  if (unauthorized) {
+    return (
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <Card className="p-8">
+          <p className="text-sm font-medium text-amber-700">Access key required.</p>
+          <p className="mt-2 text-xs text-slate-500">
+            Unlock the dashboard from{" "}
+            <Link href="/dashboard/scanner" className="text-teal-700 hover:underline">
+              Repository Scanner
+            </Link>{" "}
+            to view live run data.
+          </p>
+        </Card>
+      </main>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <nav className="mb-6 flex items-center gap-1.5 text-xs font-medium text-slate-500" aria-label="Breadcrumb">
+          <Link href="/dashboard" className="hover:text-teal-700">Overview</Link>
+          <span>/</span>
+          <Link href="/dashboard/runs" className="hover:text-teal-700">Runs</Link>
+          <span>/</span>
+          <span className="font-mono text-slate-400">{runId}</span>
+        </nav>
+        <Card className="p-8">
+          <p className="text-sm font-medium text-slate-700">Run not found.</p>
+          <p className="mt-2 text-xs text-slate-500">
+            Run <code className="font-mono">{runId}</code> was not found in the store or example data.
+          </p>
+          <Link href="/dashboard/runs" className="mt-4 inline-block text-sm text-teal-700 hover:underline">
+            ← Back to runs
+          </Link>
+        </Card>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <Card className="p-8">
+          <p className="text-sm font-medium text-red-700">{error}</p>
+        </Card>
+      </main>
+    );
+  }
+
+  if (!state) return null;
+
+  const { run, traceEvents, evalResults, workflow, isLive, isSeeded } = state;
+  const modelEvents = traceEvents.filter((e) => e.event_type === "model_call_started" || e.event_type === "model_call_completed");
+  const errorEvents = traceEvents.filter((e) => e.event_type === "error" || e.event_type === "node_failed" || e.event_type === "tool_call_failed");
+  const retryEvents = traceEvents.filter((e) => e.event_type === "retry_started");
+  const artifactEvents = traceEvents.filter((e) => e.event_type === "artifact_created");
+  const approvalEvents = traceEvents.filter((e) =>
+    e.event_type === "approval_requested" || e.event_type === "approval_granted" || e.event_type === "approval_rejected"
   );
 
   return (
@@ -120,9 +250,9 @@ export default async function RunDetailPage({
           {workflow ? (
             <div className="mt-4 grid gap-3">
               {workflow.nodes.map((node, index) => {
-                const nodeEvents = traceEvents.filter((event) => event.node_id === node.id);
-                const failed = nodeEvents.some((event) => event.event_type === "node_failed" || event.event_type === "error");
-                const completed = nodeEvents.some((event) => event.event_type === "node_completed" || event.event_type === "model_call_completed" || event.event_type === "tool_call_completed");
+                const nodeEvents = traceEvents.filter((e) => e.node_id === node.id);
+                const failed = nodeEvents.some((e) => e.event_type === "node_failed" || e.event_type === "error");
+                const completed = nodeEvents.some((e) => e.event_type === "node_completed" || e.event_type === "model_call_completed" || e.event_type === "tool_call_completed");
                 return (
                   <div key={node.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -261,7 +391,7 @@ function ErrorsAndRetries({ errors, retries }: { errors: TraceEvent[]; retries: 
 }
 
 function Artifacts({ events, fallbackRefs }: { events: TraceEvent[]; fallbackRefs: string[] }) {
-  const refs = events.map((event) => event.metadata?.["artifact_ref"]).filter((value): value is string => typeof value === "string");
+  const refs = events.map((e) => e.metadata?.["artifact_ref"]).filter((v): v is string => typeof v === "string");
   const artifactRefs = refs.length ? refs : fallbackRefs;
 
   if (!artifactRefs.length) {

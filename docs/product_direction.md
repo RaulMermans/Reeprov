@@ -31,12 +31,13 @@ The scanner is **not** the primary product. It does not execute workflows and do
 ## Navigation
 
 ```
-/dashboard            — Overview (live runs + example proof data + quick nav)
-/dashboard/runs       — Proof Runs (real trace ingestion runs)
-/dashboard/runs/:id   — Run Detail (trace timeline, evals, tool calls, costs, artifacts)
-/dashboard/workflows  — Workflow Gallery (example workflows with proof data)
-/dashboard/scanner    — Repository Scanner (access-key gated, static audit)
-/dashboard/reports    — Scan History (saved scanner reports and diffs)
+/dashboard                                    — Overview (live runs + example proof data + quick nav)
+/dashboard/runs                               — Proof Runs (real trace ingestion runs)
+/dashboard/runs/:id                           — Run Detail (trace timeline, evals, tool calls, costs, artifacts)
+/dashboard/workflows                          — Workflow Gallery (example workflows with proof data)
+/dashboard/scanner                            — Repository Scanner (access-key gated, static audit)
+/dashboard/reports                            — Scan History (saved scanner reports and diffs)
+/dashboard/reports/:reportId/reconstruction   — Static Proof Reconstruction for a saved scan report
 ```
 
 ## Core Questions AgentPulse Answers
@@ -76,6 +77,18 @@ Internal static audit runner, access-key gated.
 - Requires `AGENTPULSE_ACCESS_KEY` set server-side
 - Does **not** execute scanned code, install dependencies, or make live LLM calls
 
+### Mode 3 — Static Proof Reconstruction (`/dashboard/reports/[reportId]/reconstruction`)
+
+Zero-instrumentation path for connecting a project to the proof layer without code changes.
+
+- Takes a scan report and reconstructs a best-effort WorkflowSpec + AI system graph
+- Generates three suggested files: `agentpulse.workflow.suggested.json`, `ai-system.suggested.yaml`, `instrumentation-plan.suggested.md`
+- Identifies missing links: agents without prompts/models/evals, unmapped prompts, unmapped evals
+- Instrumentation plan explains how to add trace events if desired — always optional, never required
+- Reconstruction confidence is `high` (explicit manifest), `medium` (workflow files or manifest agents), or `low` (scattered artifacts only)
+- Does **not** write files to disk in the scanned project; does not execute any code; does not require any changes to the target repo
+- Available from scanner result, scan history, and saved report detail pages
+
 ## Authentication Model
 
 | Key                       | Used for                                          |
@@ -101,10 +114,11 @@ The correct model: your AI project runs itself and emits traces to AgentPulse. A
 1. ✅ Static proof UI — example workflows, runs, workflow inspector, trace timeline, eval display (Task 2)
 2. ✅ Durable reports — scanner report persistence, diff, regression candidates (Task 4)
 3. ✅ Real trace ingestion — AgentPulse client, file-backed run store, ingestion API, live dashboard (Task 5)
-4. **Next** — Project integrations: Website Auditor, Campaign Sandbox, Content Trend Analyzer, Blog Agent
-5. Eval assertion layer — stronger trace contracts, tool-call assertions, safety/output records
-6. Workflow spec validator — YAML/JSON definitions, graph validation, node registry, permissions
-7. Later: thin runtime only if justified by proof-layer usage
+4. ✅ Static proof reconstruction — zero-instrumentation path, suggested WorkflowSpec, AI system graph, missing links, optional instrumentation guide (Task 6)
+5. **Next** — Project integrations: Website Auditor, Campaign Sandbox, Content Trend Analyzer, Blog Agent (emit real trace events using the reconstruction plan as the starting point)
+6. Eval assertion layer — stronger trace contracts, tool-call assertions, safety/output records
+7. Workflow spec validator — YAML/JSON definitions, graph validation, node registry, permissions
+8. Later: thin runtime only if justified by proof-layer usage
 
 ## Language
 

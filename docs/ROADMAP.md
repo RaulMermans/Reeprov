@@ -60,6 +60,36 @@ AgentPulse moves from "static proof prototype" to "real trace receiver."
 - TraceEvent status enum extended: `running`, `degraded`, `blocked` added
 - 66 new tests (run store, ingest auth, trace contracts, schemas); all 557 tests pass
 
+## Task 5A + Task 6 — Stabilize Trace Ingestion + Static-to-Proof Reconstruction ✓
+
+AgentPulse adds a zero-instrumentation path: scan any repo and immediately get a suggested WorkflowSpec, AI system graph, mapping summary, and optional instrumentation plan — without requiring code changes in the target project.
+
+### Task 5A — Trace Ingestion Stability
+
+- `eval_completed` trace events now create `EvalResult` records automatically during ingestion
+- `POST /api/runs/start` returns `503` if persistence fails (was silently swallowing the error)
+- `FailRunInput` field corrected: `error_summary` (was `summary`) across client + integration examples
+- `/dashboard/runs/[runId]` converted to client component (removes server-only `fs` imports from browser bundle); falls back to `/api/runs/examples/[runId]` for example data
+- Duplicate example files cleaned up
+
+### Task 6 — Static Proof Reconstruction
+
+- `lib/reconstruction/types.ts` — full TypeScript types: `StaticProofReconstruction`, `SuggestedWorkflowSpec`, `MappingSummary`, `MissingLink`, `InstrumentationPlan`, `ReconstructedSystemGraph`
+- `lib/reconstruction/reconstructWorkflowSpec.ts` — deterministic engine that reads a `ScanReport` and returns a `StaticProofReconstruction`; no external API calls, no code execution
+- `lib/reconstruction/suggestedFiles.ts` — generates 3 suggested output files: `agentpulse.workflow.suggested.json`, `ai-system.suggested.yaml`, `instrumentation-plan.suggested.md`
+- Confidence levels: `high` (explicit manifest), `medium` (workflow files or manifest agents present), `low` (scattered artifacts only)
+- Missing links: `agent_missing_prompt`, `agent_missing_model`, `workflow_missing_stages`, `prompt_unmapped`, `eval_unmapped`, `model_unmapped` — all deduplicated with stable IDs
+- Instrumentation plan: always `required: false`, `available: true`; never implies instrumentation is mandatory
+- `GET /api/reports/[reportId]/reconstruction` — reconstruct from a saved scan report
+- `POST /api/reconstruct` — reconstruct from inline report body or saved reportId
+- `GET /api/runs/examples/[runId]` — example run data for the client-side run detail page
+- `components/dashboard/StaticProofReconstructionPanel.tsx` — "Generate proof spec" UI with confidence badge, workflow spec cards, mapping coverage bars, missing links list, suggested file previewer with copy/download
+- Scanner UI: "Static Proof Reconstruction" section added to `DashboardClient.tsx`
+- `/dashboard/reports/[reportId]/reconstruction` — dedicated reconstruction page for saved reports
+- "Reconstruct" link added to scan history list; "Generate proof spec" link added to saved report detail
+- `tests/fixtures/reports/campaign-sandbox-scan.json` — fixture with 12 workflow stages, evals, tools, no model — used for reconstruction tests
+- 54 new tests (reconstruction engine, suggested files, instrumentation plan, type well-formedness, campaign sandbox fixture, cleanup regression); all 649 tests pass
+
 ## V1 — Trace SDK
 
 Projects emit AgentPulse-compatible traces without AgentPulse executing the project.
@@ -68,6 +98,7 @@ Projects emit AgentPulse-compatible traces without AgentPulse executing the proj
 - Standard event schema ✓ (Task 5)
 - `emitTraceEvent` and `validateTraceEvent` helpers ✓ (earlier tasks)
 - Run summaries derived from traces and evals ✓ (Task 5)
+- Zero-instrumentation static reconstruction path ✓ (Task 6)
 - No network-dependent default CI tests ✓
 
 ## V2 — Eval and Assertion Layer

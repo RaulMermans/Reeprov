@@ -1,0 +1,83 @@
+{
+  "_description": "Fixture: Campaign Sandbox scan report — used to test static proof reconstruction",
+  "reportVersion": "2.0",
+  "reportId": "rpt_fixture_campaign_sandbox",
+  "projectId": "proj_campaign-sandbox",
+  "scanId": "rpt_fixture_campaign_sandbox",
+  "scannerVersion": "agentpulse-static-scanner-v2",
+  "generatedAt": "2025-01-01T00:10:00.000Z",
+  "repoName": "campaign-sandbox",
+  "scanSource": { "type": "mock", "label": "campaign-sandbox" },
+  "scannedAt": "2025-01-01T00:10:00.000Z",
+  "filesScanned": 42,
+  "ignoredFiles": 8,
+  "projectType": "workflow_system",
+  "detectedAgents": [],
+  "detectedWorkflowsDetailed": [
+    {
+      "id": "campaign-sandbox-v1",
+      "name": "Campaign Sandbox",
+      "type": "hybrid_workflow_agent",
+      "source": "explicit",
+      "confidence": "high",
+      "configPath": "workflow.yaml",
+      "stagesDetailed": [
+        { "id": "messy-brief-intake",     "name": "Messy Brief Intake" },
+        { "id": "normalize-brief",         "name": "Normalize Brief" },
+        { "id": "extract-strategic-tension", "name": "Extract Strategic Tension" },
+        { "id": "generate-routes",         "name": "Generate Routes" },
+        { "id": "build-personas",          "name": "Build Personas" },
+        { "id": "simulate-reactions",      "name": "Simulate Reactions" },
+        { "id": "score-routes",            "name": "Score Routes" },
+        { "id": "premortem-review",        "name": "Premortem Review" },
+        { "id": "compare-routes",          "name": "Compare Routes" },
+        { "id": "human-selection",         "name": "Human Selection", "approvalGate": true },
+        { "id": "generate-execution-plan", "name": "Generate Execution Plan" },
+        { "id": "export-artifact",         "name": "Export Artifact", "artifacts": ["campaign_plan.json"] }
+      ],
+      "evals": ["evals/route_quality.yaml", "evals/tension_validity.yaml"],
+      "tools": ["web_search", "brief_parser"],
+      "approvalGates": ["human-selection"],
+      "artifacts": ["campaign_plan.json"]
+    }
+  ],
+  "detectedCIWorkflows": [
+    { "name": "CI", "path": ".github/workflows/ci.yml", "provider": "github_actions" }
+  ],
+  "detectedPrompts": [
+    "prompts/normalize_brief.md",
+    "prompts/generate_routes.md",
+    "prompts/premortem.md"
+  ],
+  "detectedTools": ["web_search", "brief_parser"],
+  "detectedEvals": ["evals/route_quality.yaml", "evals/tension_validity.yaml"],
+  "detectedTests": ["tests/test_workflow.py"],
+  "detectedWorkflows": ["workflow.yaml"],
+  "detectedModels": [],
+  "findings": [
+    {
+      "id": "f_model_missing",
+      "category": "architecture",
+      "severity": "medium",
+      "title": "No model/provider declared in workflow stages",
+      "summary": "workflow.yaml stages do not declare model provider or name.",
+      "evidencePaths": ["workflow.yaml"],
+      "recommendation": "Add model: { provider, name } to each LLM stage.",
+      "confidence": 0.8
+    }
+  ],
+  "scores": {
+    "architecture": 70,
+    "promptQuality": 65,
+    "toolGovernance": 60,
+    "evalCoverage": 75,
+    "security": 88,
+    "documentation": 65,
+    "maintainability": 78,
+    "overall": 71
+  },
+  "recommendations": [
+    "Declare model provider and name for each LLM workflow stage.",
+    "Map prompt files to specific workflow stages in workflow.yaml."
+  ]
+}
