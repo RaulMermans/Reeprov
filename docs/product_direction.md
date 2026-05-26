@@ -136,3 +136,58 @@ Raul first. The tool exists to make personal AI workflow projects inspectable an
 - **Campaign Sandbox**: generates route options, simulates personas, scores strategies.
 - **Content Trend Analyzer**: collects signals, classifies trends, extracts angles for content.
 - **Blog Agent**: takes a topic, researches, drafts, and publishes a post.
+
+---
+
+## Static Proof Reconstruction — Strict Mode (Task 6A)
+
+AgentPulse will not invent a WorkflowSpec for a repository that contains no AI evidence. This is intentional. The product's value depends on being trustworthy enough to say "this repo is not an AI system" without hedging.
+
+### What counts as evidence
+
+A repository qualifies for static proof reconstruction when at least one of the following is true:
+
+- An `agents.yaml` / `agents.json` manifest is present (manifest agents)
+- A `workflow.yaml` / `workflow.json` / `pipeline.yaml` manifest is present
+- Product prompts, tools, evals, or models are detected
+- The `projectType` is `agent_system`, `workflow_system`, or `hybrid_workflow_agent`
+- The system graph contains product-scoped agent / workflow / prompt / tool / model nodes
+
+### What does not count as evidence
+
+- CI workflows alone (`.github/workflows/*`)
+- Generic software tests
+- Package configuration files (`package.json`, `pyproject.toml`)
+- README mentions of "AI" with no artifacts
+- SVG/asset files named "agent" or "robot"
+- Assistant tooling (`.claude/`, `.cursor/`, `.vscode/`, `.windsurf/`)
+- An `ai_application` classification by itself with no concrete AI artifacts
+
+### What "no reconstruction" looks like
+
+A non-AI repo gets a clear, dignified result — not a low-confidence fake:
+
+- `workflowSpecs: []`
+- `confidence: "low"`
+- One explanation-only suggested file: `no-reconstruction.md`
+- `instrumentationPlan.required: false` (and irrelevant — no workflow to instrument)
+- Empty `systemGraph` and `missingLinks`
+
+### Levels of proof
+
+| Level | Requires | Produces |
+|---|---|---|
+| Static inspection | A scan report with AI evidence | Suggested WorkflowSpec, missing-link report, optional instrumentation plan |
+| Runtime proof | Trace events from the connected project | Run timelines, eval pass/fail, cost/latency data |
+
+Static inspection is the entry point. Runtime proof is the upgrade path — it is always optional, and the absence of trace events never means a project is broken.
+
+### Principles
+
+1. **Static reconstruction requires evidence.**
+2. **AgentPulse will not invent WorkflowSpecs for non-AI repos.**
+3. **Static proof reconstruction is not runtime proof.**
+4. **Unmapped does not mean broken.**
+5. **Runtime trace proof is optional and requires trace ingestion.**
+6. **Suggested manifests are starting points, not verified truth.**
+7. **Non-AI repos are reported as no reconstruction / not applicable.**

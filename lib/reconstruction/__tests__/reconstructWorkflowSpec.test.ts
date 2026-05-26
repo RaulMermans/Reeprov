@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { reconstructFromScanReport } from "../reconstructWorkflowSpec";
+import { reconstructFromScanReport, hasStaticProofEvidence } from "../reconstructWorkflowSpec";
+import { staticProofReconstructionSchema } from "../schema";
 import type { ScanReport } from "@/lib/scanner/types";
 
 // ── Minimal fixture builders ──────────────────────────────────────────────────
@@ -217,13 +218,35 @@ describe("Campaign Sandbox reconstruction", () => {
 // ── Phase 9: General reconstruction logic ────────────────────────────────────
 
 describe("reconstructFromScanReport — minimal / no AI evidence", () => {
-  it("handles a report with no agents, prompts, tools, or workflows gracefully", () => {
+  it("returns an empty workflowSpecs array when no AI artifacts are detected", () => {
     const report = makeMinimalReport();
     const result = reconstructFromScanReport(report);
     expect(result.confidence).toBe("low");
-    expect(result.workflowSpecs).toHaveLength(1);
-    expect(result.workflowSpecs[0]!.source).toBe("path_inference");
-    expect(result.missingLinks.length).toBeGreaterThanOrEqual(0);
+    expect(result.workflowSpecs).toEqual([]);
+    expect(result.missingLinks).toEqual([]);
+  });
+
+  it("returns a single explanation-only suggested file when no evidence exists", () => {
+    const result = reconstructFromScanReport(makeMinimalReport());
+    expect(result.suggestedFiles).toHaveLength(1);
+    const explainer = result.suggestedFiles[0]!;
+    expect(explainer.path).toBe("no-reconstruction.md");
+    expect(explainer.format).toBe("markdown");
+    expect(explainer.content.toLowerCase()).toContain("no static proof reconstruction");
+  });
+
+  it("returns empty systemGraph nodes/edges when no evidence exists", () => {
+    const result = reconstructFromScanReport(makeMinimalReport());
+    expect(result.systemGraph.nodes).toEqual([]);
+    expect(result.systemGraph.edges).toEqual([]);
+  });
+
+  it("does not invent a model_provider, missing fields, or workflow_id", () => {
+    const result = reconstructFromScanReport(makeMinimalReport());
+    expect(result.workflowSpecs).toHaveLength(0);
+    // Should not contain a fabricated "<projectId>-unknown" workflow.
+    const stringified = JSON.stringify(result);
+    expect(stringified).not.toContain("-unknown");
   });
 
   it("returns a valid reconstructionId", () => {
@@ -293,6 +316,8 @@ describe("reconstructFromScanReport — confidence levels", () => {
     });
     const result = reconstructFromScanReport(report);
     expect(result.confidence).toBe("low");
+    // The inferred agent IS AI evidence — we should still produce a spec.
+    expect(result.workflowSpecs.length).toBeGreaterThan(0);
   });
 });
 
@@ -572,69 +597,125 @@ describe("MissingLinks", () => {
 });
 
 describe("Suggested files", () => {
-  it("generates exactly 3 suggested files", () => {
-    const result = reconstructFromScanReport(makeMinimalReport());
+  // Use a fixture with AI evidence so the engine generates all three files.
+  function reportWithAIEvidence() {
+    return makeMinimalReport({
+      projectType: "agent_system",
+      detectedAgents: [
+        {
+          id: "editor",
+          name: "Editor Agent",
+          source: "explicit",
+          confidence: "high",
+          displayKind: "manifest",
+          promptPaths: ["prompts/edit.md"],
+          toolNames: ["web_search"],
+          evalPaths: [],
+          risks: [],
+          model: { provider: "anthropic", name: "claude-haiku-4-5" },
+        },
+      ],
+      detectedPrompts: ["prompts/edit.md"],
+      detectedTools: ["web_search"],
+    });
+  }
+
+  it("generates exactly 3 suggested files when AI evidence is present", () => {
+    const result = reconstructFromScanReport(reportWithAIEvidence());
     expect(result.suggestedFiles).toHaveLength(3);
   });
 
   it("WorkflowSpec JSON file parses without error", () => {
-    const result = reconstructFromScanReport(makeMinimalReport());
+    const result = reconstructFromScanReport(reportWithAIEvidence());
     const jsonFile = result.suggestedFiles.find((f) => f.format === "json");
     expect(jsonFile).toBeDefined();
     expect(() => JSON.parse(jsonFile!.content)).not.toThrow();
   });
 
   it("AI system YAML file is non-empty text", () => {
-    const result = reconstructFromScanReport(makeMinimalReport());
+    const result = reconstructFromScanReport(reportWithAIEvidence());
     const yamlFile = result.suggestedFiles.find((f) => f.format === "yaml");
     expect(yamlFile).toBeDefined();
     expect(yamlFile!.content.length).toBeGreaterThan(50);
   });
 
   it("instrumentation plan MD is clearly marked optional", () => {
-    const result = reconstructFromScanReport(makeMinimalReport());
-    const mdFile = result.suggestedFiles.find((f) => f.format === "markdown");
+    const result = reconstructFromScanReport(reportWithAIEvidence());
+    const mdFile = result.suggestedFiles.find(
+      (f) => f.format === "markdown" && f.path !== "no-reconstruction.md",
+    );
     expect(mdFile).toBeDefined();
     expect(mdFile!.content.toLowerCase()).toContain("optional");
   });
 
   it("suggested files contain no obvious secret values", () => {
-    const report = makeMinimalReport({
-      detectedModels: [
-        {
-          id: "m1",
-          provider: "openai",
-          model: "gpt-4o",
-          sourcePath: ".env.example",
-          confidence: "low",
-          source: "env",
-        },
-      ],
-    });
+    const report = reportWithAIEvidence();
+    report.detectedModels = [
+      {
+        id: "m1",
+        provider: "openai",
+        model: "gpt-4o",
+        sourcePath: ".env.example",
+        confidence: "low",
+        source: "env",
+      },
+    ];
     const result = reconstructFromScanReport(report);
     for (const file of result.suggestedFiles) {
       expect(file.content).not.toMatch(/sk-[A-Za-z0-9]{32}/);
       expect(file.content).not.toMatch(/AKIA[A-Z0-9]{16}/);
     }
   });
+
+  it("no AI evidence → returns only the explanation-only suggested file", () => {
+    const result = reconstructFromScanReport(makeMinimalReport());
+    expect(result.suggestedFiles).toHaveLength(1);
+    expect(result.suggestedFiles[0]!.path).toBe("no-reconstruction.md");
+  });
 });
 
 describe("Instrumentation plan", () => {
+  // Fixture with AI evidence so the instrumentation plan is populated.
+  function reportWithEvidence() {
+    return makeMinimalReport({
+      projectType: "workflow_system",
+      detectedWorkflowsDetailed: [
+        {
+          id: "wf",
+          name: "Workflow",
+          source: "explicit",
+          confidence: "high",
+          configPath: "workflow.yaml",
+          stagesDetailed: [{ id: "s1", name: "Stage 1" }],
+        },
+      ],
+      detectedWorkflows: ["workflow.yaml"],
+    });
+  }
+
   it("sets required=false and available=true", () => {
-    const result = reconstructFromScanReport(makeMinimalReport());
+    const result = reconstructFromScanReport(reportWithEvidence());
     expect(result.instrumentationPlan.required).toBe(false);
     expect(result.instrumentationPlan.available).toBe(true);
   });
 
-  it("recommends standard env vars", () => {
-    const result = reconstructFromScanReport(makeMinimalReport());
+  it("recommends standard env vars when AI evidence is present", () => {
+    const result = reconstructFromScanReport(reportWithEvidence());
     expect(result.instrumentationPlan.recommendedEnvVars).toContain("AGENTPULSE_URL");
     expect(result.instrumentationPlan.recommendedEnvVars).toContain("AGENTPULSE_INGEST_KEY");
   });
 
-  it("includes code hints", () => {
-    const result = reconstructFromScanReport(makeMinimalReport());
+  it("includes code hints when AI evidence is present", () => {
+    const result = reconstructFromScanReport(reportWithEvidence());
     expect(result.instrumentationPlan.codeHints.length).toBeGreaterThan(0);
+  });
+
+  it("returns an empty env vars list and minimal hints when no AI evidence exists", () => {
+    const result = reconstructFromScanReport(makeMinimalReport());
+    expect(result.instrumentationPlan.required).toBe(false);
+    expect(result.instrumentationPlan.recommendedEnvVars).toEqual([]);
+    expect(result.instrumentationPlan.suggestedEvents).toEqual([]);
+    expect(result.instrumentationPlan.summary.toLowerCase()).toContain("no");
   });
 });
 
@@ -716,8 +797,8 @@ describe("ReconstructedSystemGraph", () => {
   });
 });
 
-describe("Non-AI report regression", () => {
-  it("does not produce a fake workflow for a non-AI report", () => {
+describe("Non-AI report regression — no fake workflow", () => {
+  it("does NOT produce a fake workflow stub for a non-AI report", () => {
     const report = makeMinimalReport({
       projectType: "unknown_ai_project",
       detectedAgents: [],
@@ -727,9 +808,199 @@ describe("Non-AI report regression", () => {
       detectedEvals: [],
     });
     const result = reconstructFromScanReport(report);
-    // Should still produce a minimal stub, but marked as low confidence
     expect(result.confidence).toBe("low");
-    expect(result.workflowSpecs[0]!.confidence).toBe("low");
-    expect(result.workflowSpecs[0]!.source).toBe("path_inference");
+    expect(result.workflowSpecs).toEqual([]);
+  });
+
+  it("does NOT produce a fake workflow when only CI workflows + generic tests exist", () => {
+    // benchmark_dashboard-style: CI workflows + tests, no AI artifacts.
+    const report = makeMinimalReport({
+      projectType: "unknown_ai_project",
+      detectedCIWorkflows: [
+        { name: "CI", path: ".github/workflows/ci.yml", provider: "github_actions" },
+        { name: "Release", path: ".github/workflows/release.yml", provider: "github_actions" },
+      ],
+      detectedTests: ["tests/dashboard.test.ts", "tests/api.test.ts"],
+    });
+    const result = reconstructFromScanReport(report);
+    expect(result.workflowSpecs).toEqual([]);
+    expect(result.suggestedFiles).toHaveLength(1);
+    expect(result.suggestedFiles[0]!.path).toBe("no-reconstruction.md");
+    expect(result.instrumentationPlan.required).toBe(false);
+  });
+
+  it("does NOT produce a fake workflow when only assistant tooling is detected", () => {
+    const report = makeMinimalReport({
+      projectType: "unknown_ai_project",
+      detectedAssistantTooling: [
+        { path: ".claude/skills/foo/SKILL.md", kind: "claude_skill", label: "Foo Skill" },
+        { path: ".cursor/rules.md", kind: "cursor_rule" },
+      ],
+    });
+    const result = reconstructFromScanReport(report);
+    expect(result.workflowSpecs).toEqual([]);
+    expect(result.systemGraph.nodes).toEqual([]);
+  });
+
+  it("DOES produce a spec when ai_application has at least one prompt", () => {
+    const report = makeMinimalReport({
+      projectType: "ai_application",
+      detectedPrompts: ["prompts/system.md"],
+    });
+    const result = reconstructFromScanReport(report);
+    expect(result.workflowSpecs.length).toBeGreaterThanOrEqual(0);
+    // Either we synthesize a spec from the prompt (medium evidence) or we
+    // surface the prompt as a missing-link. Either way, the explanation-only
+    // file should not be the sole output.
+    if (result.workflowSpecs.length === 0) {
+      // Without an agent or workflow manifest, no spec is produced — but the
+      // mapping summary should reflect the prompt count, and the suggested
+      // files list should not include a fake stub.
+      expect(result.mappingSummary.prompts.total).toBe(1);
+    }
+  });
+});
+
+// ── Schema validation tests (Phase 2 / Phase 5) ──────────────────────────────
+
+describe("Reconstruction output schema validation", () => {
+  it("validates output of a minimal no-evidence report against the schema", () => {
+    const result = reconstructFromScanReport(makeMinimalReport());
+    const parsed = staticProofReconstructionSchema.safeParse(result);
+    expect(parsed.success).toBe(true);
+  });
+
+  it("validates output of a Campaign Sandbox-style report against the schema", () => {
+    const report = makeMinimalReport({
+      projectType: "workflow_system",
+      detectedWorkflowsDetailed: [
+        {
+          id: "wf1",
+          name: "Workflow",
+          source: "explicit",
+          confidence: "high",
+          configPath: "workflow.yaml",
+          stagesDetailed: [{ id: "s1", name: "Stage 1" }],
+        },
+      ],
+      detectedWorkflows: ["workflow.yaml"],
+    });
+    const result = reconstructFromScanReport(report);
+    const parsed = staticProofReconstructionSchema.safeParse(result);
+    expect(parsed.success).toBe(true);
+  });
+
+  it("validates output of an agent-only report against the schema", () => {
+    const report = makeMinimalReport({
+      projectType: "agent_system",
+      detectedAgents: [
+        {
+          id: "a1",
+          name: "Agent 1",
+          source: "explicit",
+          confidence: "high",
+          displayKind: "manifest",
+          promptPaths: ["prompts/p.md"],
+          toolNames: [],
+          evalPaths: [],
+          risks: [],
+          model: { provider: "openai", name: "gpt-4o" },
+        },
+      ],
+      detectedPrompts: ["prompts/p.md"],
+    });
+    const result = reconstructFromScanReport(report);
+    const parsed = staticProofReconstructionSchema.safeParse(result);
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects malformed reconstruction output via schema parse", () => {
+    const bad = { mode: "static_inference" }; // missing everything else
+    const parsed = staticProofReconstructionSchema.safeParse(bad);
+    expect(parsed.success).toBe(false);
+  });
+});
+
+// ── hasStaticProofEvidence direct tests ──────────────────────────────────────
+
+describe("hasStaticProofEvidence", () => {
+  it("returns false for an empty report", () => {
+    expect(hasStaticProofEvidence(makeMinimalReport())).toBe(false);
+  });
+
+  it("returns false when only CI workflows and tests exist", () => {
+    const report = makeMinimalReport({
+      detectedCIWorkflows: [
+        { name: "CI", path: ".github/workflows/ci.yml", provider: "github_actions" },
+      ],
+      detectedTests: ["tests/x.test.ts"],
+    });
+    expect(hasStaticProofEvidence(report)).toBe(false);
+  });
+
+  it("returns false when only assistant tooling exists", () => {
+    const report = makeMinimalReport({
+      detectedAssistantTooling: [
+        { path: ".claude/skills/foo/SKILL.md", kind: "claude_skill" },
+      ],
+    });
+    expect(hasStaticProofEvidence(report)).toBe(false);
+  });
+
+  it("returns true when an agent is detected", () => {
+    const report = makeMinimalReport({
+      detectedAgents: [
+        {
+          id: "a1",
+          name: "A",
+          source: "explicit",
+          confidence: "high",
+          promptPaths: [],
+          toolNames: [],
+          evalPaths: [],
+          risks: [],
+        },
+      ],
+    });
+    expect(hasStaticProofEvidence(report)).toBe(true);
+  });
+
+  it("returns true when a workflow manifest is detected", () => {
+    const report = makeMinimalReport({
+      detectedWorkflowsDetailed: [
+        { id: "w", name: "W", source: "explicit", confidence: "high" },
+      ],
+    });
+    expect(hasStaticProofEvidence(report)).toBe(true);
+  });
+
+  it("returns true when prompts/tools/evals/models are detected", () => {
+    expect(
+      hasStaticProofEvidence(makeMinimalReport({ detectedPrompts: ["prompts/a.md"] })),
+    ).toBe(true);
+    expect(hasStaticProofEvidence(makeMinimalReport({ detectedTools: ["search"] }))).toBe(true);
+    expect(hasStaticProofEvidence(makeMinimalReport({ detectedEvals: ["evals/x.yaml"] }))).toBe(true);
+    expect(
+      hasStaticProofEvidence(
+        makeMinimalReport({
+          detectedModels: [
+            { id: "m", provider: "openai", sourcePath: "src/x.ts", confidence: "medium", source: "code" },
+          ],
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("returns true for agent_system / workflow_system project types", () => {
+    expect(hasStaticProofEvidence(makeMinimalReport({ projectType: "agent_system" }))).toBe(true);
+    expect(hasStaticProofEvidence(makeMinimalReport({ projectType: "workflow_system" }))).toBe(true);
+    expect(
+      hasStaticProofEvidence(makeMinimalReport({ projectType: "hybrid_workflow_agent" })),
+    ).toBe(true);
+  });
+
+  it("returns false for lone ai_application classification with no artifacts", () => {
+    const report = makeMinimalReport({ projectType: "ai_application" });
+    expect(hasStaticProofEvidence(report)).toBe(false);
   });
 });

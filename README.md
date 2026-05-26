@@ -131,6 +131,14 @@ The reconstruction:
   - `instrumentation-plan.suggested.md` — optional trace event guide with code snippet
 - Assigns a confidence level: `high` (manifest-backed), `medium` (workflow files / manifest agents), `low` (scattered artifacts)
 
+**No fake reconstructions.** If the scanner finds no agent, workflow, prompt, tool, eval, or model evidence — for example a CI/dashboard repo with no AI artifacts — the reconstruction returns `workflowSpecs: []` and a single explanation file (`no-reconstruction.md`). AgentPulse does not invent a placeholder WorkflowSpec for non-AI repos. Assistant tooling (`.claude/`, `.cursor/`) and CI workflows alone do not count as AI evidence.
+
+**Suggested ≠ verified.** Suggested manifest files are starting points generated from static evidence. Review them before adopting them.
+
+**Static proof ≠ runtime proof.** Static reconstruction describes intent inferred from files. Real run timelines, eval pass/fail, cost, and latency require trace events from the scanned project — which is always optional.
+
+**Schema-validated output.** Every reconstruction returned by `/api/reconstruct` or `GET /api/reports/[reportId]/reconstruction` is validated against `staticProofReconstructionSchema` (Zod) before being serialized. Malformed objects never leave the engine.
+
 **Instrumentation is always optional.** The reconstruction works without any changes to the scanned project. If you want real run timelines and eval results, the instrumentation plan explains how to add trace events using `AgentPulseClient`.
 
 ### Scan modes

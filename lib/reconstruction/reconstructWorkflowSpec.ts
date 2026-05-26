@@ -28,6 +28,7 @@ import type {
   ReconstructionConfidence,
 } from "./types";
 import { generateSuggestedFiles } from "./suggestedFiles";
+import { staticProofReconstructionSchema } from "./schema";
 
 // ── ID helpers ─────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,75 @@ function reconstructionId(): string {
 
 function missingLinkId(type: MissingLinkType, targetId: string): string {
   return `ml::${type}::${targetId}`;
+}
+
+// ── Evidence detection ─────────────────────────────────────────────────────────
+
+/**
+ * Returns true when the scan report contains enough AI/workflow evidence to
+ * justify producing a static proof reconstruction.
+ *
+ * A reconstruction must NOT be generated when the only signals come from:
+ *   - CI workflows alone
+ *   - Generic tests
+ *   - Package files
+ *   - README mentions of AI without artifacts
+ *   - SVG/assets named "agent"
+ *   - assistant tooling (.claude/**, .cursor/**) by itself
+ *
+ * Evidence (any one is sufficient):
+ *   - manifest agents (displayKind=manifest) or agent files
+ *   - product workflow manifests in detectedWorkflowsDetailed
+ *   - product prompts / tools / evals / models
+ *   - system graph nodes that include agent/workflow/prompt/tool/model entities
+ *   - projectType of agent_system / workflow_system / hybrid_workflow_agent
+ *   - ai_application projectType combined with at least one AI artifact
+ */
+export function hasStaticProofEvidence(report: ScanReport): boolean {
+  if (report.detectedWorkflowsDetailed.length > 0) return true;
+
+  if (report.detectedAgents.length > 0) return true;
+
+  if (report.detectedPrompts.length > 0) return true;
+
+  if (report.detectedTools.length > 0) return true;
+
+  if (report.detectedEvals.length > 0) return true;
+
+  if ((report.detectedModels?.length ?? 0) > 0) return true;
+
+  // System graph from the scanner — only treat as evidence if it contains
+  // meaningful product nodes (not just assistant tooling or CI).
+  const graphNodes = report.systemGraph?.nodes ?? [];
+  const meaningfulGraphNode = graphNodes.find((n) => {
+    if (n.scope === "assistant_tooling" || n.scope === "ci") return false;
+    return (
+      n.type === "agent" ||
+      n.type === "workflow" ||
+      n.type === "workflow_step" ||
+      n.type === "prompt" ||
+      n.type === "tool" ||
+      n.type === "model" ||
+      n.type === "eval"
+    );
+  });
+  if (meaningfulGraphNode) return true;
+
+  // Strict project types that imply AI structure regardless of artifact lists.
+  if (
+    report.projectType === "agent_system" ||
+    report.projectType === "workflow_system" ||
+    report.projectType === "hybrid_workflow_agent"
+  ) {
+    return true;
+  }
+
+  // ai_application only counts as evidence when paired with at least one
+  // concrete AI artifact — but we already returned true above for any of
+  // those. So lone ai_application classification with no artifacts is not
+  // evidence on its own.
+
+  return false;
 }
 
 // ── Confidence determination ────────────────────────────────────────────────────
@@ -768,6 +838,93 @@ function buildInstrumentationPlan(
  * It does not execute code, call external APIs, or modify the scanned repo.
  */
 export function reconstructFromScanReport(report: ScanReport): StaticProofReconstruction {
+  const evidence = hasStaticProofEvidence(report);
+
+  // No evidence → do NOT invent a fake WorkflowSpec. Return a clearly empty
+  // reconstruction with a single explanation-only suggested file.
+  if (!evidence) {
+    const emptyMappingSummary: MappingSummary = {
+      agents: { total: 0, mappedToPrompts: 0, mappedToTools: 0, mappedToEvals: 0, mappedToModels: 0 },
+      workflows: {
+        total: 0,
+        withStages: 0,
+        stagesMappedToAgents: 0,
+        stagesMappedToPrompts: 0,
+        stagesMappedToTools: 0,
+        stagesMappedToEvals: 0,
+        stagesMappedToModels: 0,
+      },
+      prompts: { total: 0, mapped: 0, unmapped: 0 },
+      tools: { total: 0, mapped: 0, withPermissionClass: 0, requiringApproval: 0 },
+      evals: { total: 0, mapped: 0, unmapped: 0 },
+      models: { total: 0, mapped: 0, unmapped: 0 },
+    };
+
+    const explanationFile: SuggestedManifestFile = {
+      path: "no-reconstruction.md",
+      format: "markdown",
+      purpose: "Explanation — no static proof reconstruction generated",
+      content: [
+        `# No static proof reconstruction generated`,
+        ``,
+        `**Repository:** ${report.repoName}`,
+        `**Report ID:** ${report.reportId}`,
+        `**Project type:** ${report.projectType}`,
+        ``,
+        `AgentPulse did not find enough agent, workflow, prompt, tool, eval, or model evidence`,
+        `to generate a proof-layer WorkflowSpec for this repository.`,
+        ``,
+        `Static proof reconstruction is intentionally **not generated** for repositories with`,
+        `no detected AI artifacts. The following signals do NOT count as AI evidence:`,
+        ``,
+        `- CI workflows (\`.github/workflows/\`)`,
+        `- Generic software tests`,
+        `- Package configuration files`,
+        `- README mentions of AI without concrete artifacts`,
+        `- Assistant tooling (\`.claude/\`, \`.cursor/\`, etc.)`,
+        ``,
+        `To enable reconstruction, add at least one of:`,
+        `- An \`agents.yaml\` / \`agents.json\` manifest`,
+        `- A \`workflow.yaml\` / \`workflow.json\` manifest`,
+        `- A \`/prompts/\` directory with prompt files`,
+        `- A \`/tools/\` declaration or agent tool registry`,
+        `- A \`/evals/\` suite`,
+        ``,
+        `This is not a failure — it's the correct outcome when the repository is not an AI system.`,
+      ].join("\n"),
+    };
+
+    const instrumentationPlan: InstrumentationPlan = {
+      required: false,
+      available: true,
+      summary:
+        "No AI workflow evidence detected. Static reconstruction was not generated. " +
+        "Runtime trace instrumentation would also have no workflow to bind to.",
+      recommendedEnvVars: [],
+      suggestedEvents: [],
+      codeHints: [
+        "Add an agents.yaml or workflow.yaml manifest to enable reconstruction.",
+      ],
+    };
+
+    const emptyResult: StaticProofReconstruction = {
+      reconstructionId: reconstructionId(),
+      reportId: report.reportId,
+      projectId: report.projectId,
+      sourceReportVersion: report.reportVersion,
+      generatedAt: new Date().toISOString(),
+      mode: "static_inference",
+      confidence: "low",
+      workflowSpecs: [],
+      systemGraph: { nodes: [], edges: [] },
+      mappingSummary: emptyMappingSummary,
+      missingLinks: [],
+      suggestedFiles: [explanationFile],
+      instrumentationPlan,
+    };
+    return staticProofReconstructionSchema.parse(emptyResult);
+  }
+
   const confidence = determineConfidence(report);
 
   // Build workflow specs.
@@ -784,32 +941,19 @@ export function reconstructFromScanReport(report: ScanReport): StaticProofRecons
     workflowSpecs.push(buildWorkflowSpecFromAgents(report.detectedAgents, report));
   }
 
-  // If no workflows and no agents: produce a minimal stub.
-  if (workflowSpecs.length === 0) {
-    workflowSpecs.push({
-      workflow_id: `${report.projectId}-unknown`,
-      name: `${report.repoName} — AI System`,
-      version: "1.0.0",
-      description: "No explicit workflow or agent manifests detected. This is a minimal stub.",
-      architecture_type: "single_llm_call",
-      nodes: [{ id: "trigger", type: "trigger", label: "Trigger" }],
-      source: "path_inference",
-      confidence: "low",
-      evidencePaths: [],
-      missingFields: ["nodes", "agents", "workflows"],
-      recommendations: [
-        "Add an agents.yaml or workflow.yaml manifest to enable high-confidence reconstruction.",
-      ],
-    });
-  }
-
+  // If we have AI evidence (prompts/tools/evals/models) but no agents or
+  // workflows, we still don't invent a workflow — the artifacts are reported
+  // via mappingSummary and missingLinks instead.
   const mappingSummary = buildMappingSummary(report);
   const missingLinks = buildMissingLinks(report);
   const systemGraph = buildReconstructedGraph(workflowSpecs, report);
   const instrumentationPlan = buildInstrumentationPlan(workflowSpecs, report);
-  const suggestedFiles = generateSuggestedFiles(workflowSpecs, report, instrumentationPlan);
+  const suggestedFiles =
+    workflowSpecs.length > 0
+      ? generateSuggestedFiles(workflowSpecs, report, instrumentationPlan)
+      : [];
 
-  return {
+  const result: StaticProofReconstruction = {
     reconstructionId: reconstructionId(),
     reportId: report.reportId,
     projectId: report.projectId,
@@ -824,4 +968,5 @@ export function reconstructFromScanReport(report: ScanReport): StaticProofRecons
     suggestedFiles,
     instrumentationPlan,
   };
+  return staticProofReconstructionSchema.parse(result);
 }

@@ -489,3 +489,75 @@ Missing links have stable IDs (`ml_<type>_<projectId>_<entityId>`) and are dedup
 3. **Model/provider is inferred, not verified.** If no manifest declares `model: { provider, name }`, the reconstruction can suggest where to add it but cannot guarantee the suggestion matches runtime behavior.
 4. **Runtime proof requires trace events.** Static reconstruction produces a suggested spec. Runtime proof (real run timelines, eval pass/fail, cost/latency) requires the connected project to emit trace events — which is always optional.
 5. **AgentPulse does not execute scanned repositories.** This is non-negotiable. All reconstruction is based on file evidence only.
+
+---
+
+## Task 6A — Reconstruction Correctness + Schema Hardening
+
+Task 6A makes static proof reconstruction stricter, runtime-validated, and impossible to misread.
+
+### Evidence Gate
+
+Static reconstruction is now gated by `hasStaticProofEvidence(report)`. Reports that contain only CI workflows, generic tests, package files, README mentions of AI, or assistant tooling (`.claude/`, `.cursor/`, etc.) produce **no** WorkflowSpec.
+
+Evidence requires at least one of:
+- Detected agent (`detectedAgents.length > 0`)
+- Detected workflow manifest (`detectedWorkflowsDetailed.length > 0`)
+- Detected prompts / tools / evals / models
+- System graph nodes scoped to `product` (not `assistant_tooling`, `ci`, `docs`)
+- `projectType` in `agent_system`, `workflow_system`, `hybrid_workflow_agent`
+
+An `ai_application` classification by itself, with no AI artifacts, is **not** evidence.
+
+### No Fake WorkflowSpec
+
+When no evidence is present, the engine returns:
+
+- `workflowSpecs: []`
+- `confidence: "low"`
+- `missingLinks: []`
+- `systemGraph: { nodes: [], edges: [] }`
+- `suggestedFiles: [no-reconstruction.md]` — a single explanation-only file
+- `instrumentationPlan.required: false`, `summary` explicitly states no reconstruction was generated
+
+The previous fallback that produced `<projectId>-unknown` with a trigger-only `single_llm_call` node has been removed.
+
+### Runtime Schema Validation
+
+`lib/reconstruction/schema.ts` defines Zod schemas for every reconstruction output type:
+
+- `staticProofReconstructionSchema`
+- `suggestedWorkflowSpecSchema`
+- `reconstructedSystemGraphSchema`
+- `mappingSummarySchema`
+- `missingLinkSchema`
+- `suggestedManifestFileSchema`
+- `instrumentationPlanSchema`
+
+`reconstructFromScanReport` validates its output against `staticProofReconstructionSchema` before returning. The API routes re-validate before serializing. Tests fail if any reconstruction output is missing required fields.
+
+### Clean API Contract
+
+| Method | Route | Body |
+|---|---|---|
+| `GET` | `/api/reports/[reportId]/reconstruction` | (none) — loads saved report by ID |
+| `POST` | `/api/reconstruct` | `{ reportId: string }` *or* `{ report: ScanReport }` (validated against `scanReportSchema`) |
+
+Behaviors:
+- Missing `x-agentpulse-key` → `401`
+- Missing `reportId` → `404`
+- Missing body / missing both `reportId` and `report` → `400`
+- Both `reportId` and `report` provided → `400`
+- Malformed `report` (fails `scanReportSchema`) → `400` with structured `issues`
+- The deprecated `POST /api/reports/[reportId]/reconstruction` handler has been removed; the `GET` form is canonical.
+
+### Shared Eval Conversion
+
+`lib/proof-layer/evalFromTrace.ts` exports `tryBuildEvalResultFromTraceEvent(event)`:
+
+- Returns `null` for any event whose `event_type !== "eval_completed"`
+- Returns `null` when `metadata` is missing or required fields (`eval_id`, `eval_name`) are absent
+- Never throws — malformed metadata produces `null`
+- `POST /api/traces/events` calls this helper to derive `EvalResult` records during ingestion
+
+Tests now import the production helper directly instead of duplicating the conversion logic.

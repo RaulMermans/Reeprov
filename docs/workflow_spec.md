@@ -159,3 +159,34 @@ Project integrations: Website Auditor, Campaign Sandbox, Content Trend Analyzer,
   ]
 }
 ```
+
+---
+
+## Suggested vs. authored WorkflowSpecs (Task 6A)
+
+A WorkflowSpec can arrive in two ways:
+
+1. **Authored** — a project commits a `workflow.yaml` / `workflow.json` (or an `agents.yaml`) and AgentPulse parses it directly.
+2. **Suggested** — AgentPulse reconstructs a `SuggestedWorkflowSpec` from static evidence and returns it via `/api/reconstruct`.
+
+A `SuggestedWorkflowSpec` is **not** a `WorkflowSpec` until a human reviews and adopts it. The suggested form carries reconstruction metadata:
+
+| Field | Meaning |
+|---|---|
+| `source` | `manifest`, `framework_adapter`, `path_inference`, `readme_inference`, `mixed` |
+| `confidence` | `high` / `medium` / `low` |
+| `evidencePaths` | files that contributed evidence |
+| `missingFields` | fields AgentPulse could not infer |
+| `recommendations` | concrete improvements to raise confidence |
+
+### When no SuggestedWorkflowSpec is generated
+
+If `hasStaticProofEvidence(report) === false`, the reconstruction returns `workflowSpecs: []`. The UI does not offer a "Download WorkflowSpec" action in that case. The repository is reported as not applicable for proof-layer reconstruction.
+
+### Runtime validation
+
+`SuggestedWorkflowSpec` instances are validated against `suggestedWorkflowSpecSchema` in `lib/reconstruction/schema.ts`. The full reconstruction output is validated against `staticProofReconstructionSchema`. Both schemas are enforced inside the engine and at the API boundary.
+
+### Authored WorkflowSpec strictness
+
+Authored specs (used as proof-layer contracts) continue to be validated against the stricter `workflowSpecSchema` in `lib/proof-layer/schemas.ts`, which enforces edge integrity and approval-node requirements. The suggested schema is intentionally more permissive because suggestions describe incomplete repositories — gaps are surfaced via `missingFields`, not validation errors.

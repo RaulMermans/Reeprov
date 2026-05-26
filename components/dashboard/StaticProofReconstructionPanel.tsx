@@ -133,6 +133,45 @@ export function StaticProofReconstructionPanel({ report }: Props) {
 
       {reconstruction && !loading ? (
         <>
+          {/* No-evidence empty state — shown when no workflowSpecs were generated. */}
+          {reconstruction.workflowSpecs.length === 0 ? (
+            <Card className="border-slate-200 bg-slate-50 p-6">
+              <p className="text-base font-semibold text-slate-900">
+                No AI workflow reconstruction generated
+              </p>
+              <p className="mt-2 max-w-2xl text-sm text-slate-700">
+                AgentPulse did not find enough agent, workflow, prompt, tool, eval, or model
+                evidence to generate a proof-layer WorkflowSpec.
+              </p>
+              <p className="mt-2 text-xs text-slate-500">
+                CI workflows, generic tests, package files, README mentions, and assistant
+                tooling (<code className="font-mono">.claude/</code>, <code className="font-mono">.cursor/</code>)
+                do not count as AI evidence on their own.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <a
+                  href="#findings"
+                  className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300"
+                >
+                  View scan findings
+                </a>
+                <button
+                  type="button"
+                  className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300"
+                  onClick={() =>
+                    downloadText(
+                      `${report.repoName}-scan-report.json`,
+                      JSON.stringify(report, null, 2),
+                      "application/json",
+                    )
+                  }
+                >
+                  Download report JSON
+                </button>
+              </div>
+            </Card>
+          ) : null}
+
           {/* Confidence + overview */}
           <Card className="p-4">
             <div className="flex flex-wrap items-center gap-3">
@@ -157,15 +196,21 @@ export function StaticProofReconstructionPanel({ report }: Props) {
             </div>
             <p className="mt-3 rounded-md border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
               Mode: <strong>static_inference</strong> — inferred from repo files, not runtime execution.
-              {reconstruction.confidence === "low" && (
+              {reconstruction.confidence === "low" && reconstruction.workflowSpecs.length > 0 && (
                 <span className="ml-1 text-amber-700">
-                  Add an agents.yaml or workflow.yaml to improve confidence.
+                  Low-confidence static reconstruction. Review suggested files before using them.
+                </span>
+              )}
+              {reconstruction.confidence === "low" && reconstruction.workflowSpecs.length === 0 && (
+                <span className="ml-1 text-amber-700">
+                  Add an agents.yaml or workflow.yaml to enable reconstruction.
                 </span>
               )}
             </p>
           </Card>
 
-          {/* Inferred WorkflowSpecs */}
+          {/* Inferred WorkflowSpecs — only when at least one exists */}
+          {reconstruction.workflowSpecs.length > 0 ? (
           <div className="flex flex-col gap-3">
             <h3 className="text-sm font-semibold text-slate-950">Inferred Workflow Specs</h3>
             {reconstruction.workflowSpecs.map((spec) => (
@@ -218,6 +263,7 @@ export function StaticProofReconstructionPanel({ report }: Props) {
               </Card>
             ))}
           </div>
+          ) : null}
 
           {/* Mapping Summary */}
           <Card className="p-4">
@@ -257,10 +303,19 @@ export function StaticProofReconstructionPanel({ report }: Props) {
             </Card>
           ) : null}
 
-          {/* Suggested Files */}
+          {/* Suggested Files — clearly labeled as suggestions, only shown when present */}
+          {reconstruction.suggestedFiles.length > 0 ? (
           <Card className="p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-slate-950">Suggested Manifest Files</h3>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-950">Suggested Manifest Files</h3>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Generated suggestions — review before using.{" "}
+                  {reconstruction.workflowSpecs.length === 0
+                    ? "No WorkflowSpec was generated because no AI evidence was detected."
+                    : "These are starting points, not verified truth."}
+                </p>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {reconstruction.suggestedFiles.map((file) => (
                   <button
@@ -315,6 +370,7 @@ export function StaticProofReconstructionPanel({ report }: Props) {
               </div>
             ) : null}
           </Card>
+          ) : null}
 
           {/* Instrumentation Plan callout */}
           <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">

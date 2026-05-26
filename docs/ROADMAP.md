@@ -90,6 +90,26 @@ AgentPulse adds a zero-instrumentation path: scan any repo and immediately get a
 - `tests/fixtures/reports/campaign-sandbox-scan.json` — fixture with 12 workflow stages, evals, tools, no model — used for reconstruction tests
 - 54 new tests (reconstruction engine, suggested files, instrumentation plan, type well-formedness, campaign sandbox fixture, cleanup regression); all 649 tests pass
 
+## Task 6A — Reconstruction Correctness + Schema Hardening ✓
+
+Task 6A tightens Static Proof Reconstruction to stop overclaiming and adds runtime validation.
+
+- **Evidence gate** — `hasStaticProofEvidence(report)` returns true only when product agents, product workflow manifests, prompts, tools, evals, models, or product-scoped graph nodes are present. CI workflows, generic tests, package files, and assistant tooling (`.claude/`, `.cursor/`, `.vscode/`) do not count.
+- **No fake WorkflowSpec** — when no evidence exists, the engine returns `workflowSpecs: []`, an empty `systemGraph`, no missing links, and a single explanation-only `no-reconstruction.md` suggested file. The previous `<projectId>-unknown` / trigger-only fallback is gone.
+- **Runtime schema validation** — `lib/reconstruction/schema.ts` defines Zod schemas (`staticProofReconstructionSchema`, `suggestedWorkflowSpecSchema`, `mappingSummarySchema`, `missingLinkSchema`, `suggestedManifestFileSchema`, `instrumentationPlanSchema`, `reconstructedSystemGraphSchema`). The engine and the API routes both validate before returning.
+- **Clean API contract** — `GET /api/reports/[reportId]/reconstruction` loads by saved ID. `POST /api/reconstruct` accepts either `{ reportId }` or `{ report }` (validated via `scanReportSchema`). The deprecated POST handler on the reportId route is removed.
+- **Shared eval conversion** — `lib/proof-layer/evalFromTrace.ts` exports `tryBuildEvalResultFromTraceEvent`. `POST /api/traces/events` and unit tests both call this single production helper.
+- **UI empty states** — `StaticProofReconstructionPanel` renders a "No AI workflow reconstruction generated" callout when `workflowSpecs.length === 0`, hides the Inferred Workflow Specs and Suggested Files sections in that case, and labels low-confidence reconstructions explicitly.
+- New tests: no-evidence regression, schema validation, `/api/reconstruct` body validation (401/400/404), `/api/reports/[reportId]/reconstruction` GET behavior, eval helper unit tests using the production helper.
+
+### Static reconstruction principles (clarified in Task 6A)
+
+1. **Static reconstruction requires evidence.** Repos without AI artifacts get no WorkflowSpec.
+2. **Unmapped is not broken.** A missing link only means AgentPulse cannot confirm a relationship from static evidence.
+3. **Static proof is not runtime proof.** A suggested spec describes intent; only trace events prove execution.
+4. **Suggested manifests are starting points.** They are not verified truth and should be reviewed before adoption.
+5. **AgentPulse never invents structure.** Non-AI repos are reported as "no reconstruction generated" — not as a fake AI workflow.
+
 ## V1 — Trace SDK
 
 Projects emit AgentPulse-compatible traces without AgentPulse executing the project.
