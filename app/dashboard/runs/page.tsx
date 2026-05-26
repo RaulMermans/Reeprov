@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { mergeAuthHeaders } from "@/lib/auth/internalKey";
+import { clearInternalKey, mergeAuthHeaders } from "@/lib/auth/internalKey";
 import type { RunSummary } from "@/lib/runs/runTypes";
 
 function statusTone(status: string): "success" | "warning" | "danger" | "neutral" {
@@ -55,7 +55,8 @@ export default function RunsPage() {
           headers: mergeAuthHeaders(),
         });
         if (res.status === 401) {
-          setError("Access key required. Unlock the dashboard from Repository Scanner.");
+          clearInternalKey();
+          setError("Access key required. This page requires dashboard access.");
           return;
         }
         if (!res.ok) {

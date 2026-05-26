@@ -110,6 +110,19 @@ Task 6A tightens Static Proof Reconstruction to stop overclaiming and adds runti
 4. **Suggested manifests are starting points.** They are not verified truth and should be reviewed before adoption.
 5. **AgentPulse never invents structure.** Non-AI repos are reported as "no reconstruction generated" — not as a fake AI workflow.
 
+## Task 7 — Global Dashboard Access + Overview IA Polish ✓
+
+- All `/dashboard/*` routes protected by a global `AGENTPULSE_ACCESS_KEY` gate
+- `DashboardShell` client component manages auth state at layout level
+- `POST /api/auth/validate` — shared key validation endpoint
+- Scanner no longer has an isolated access model; uses global gate
+- `DashboardAuthContext` provides `lock` and `onUnauthorized` to child components
+- NavBar shows "Lock dashboard" button for explicit session termination
+- Overview redesigned with product mode cards (Live Proof Runs, Static Repository Intelligence, Workflow Registry, Saved Proof Reports)
+- Live runs empty state explains runtime vs static scan distinction
+- WorkflowGallery and WorkflowCard overflow/text-collision fixes
+- README and docs updated with dual-key access model and operating modes
+
 ## V1 — Trace SDK
 
 Projects emit AgentPulse-compatible traces without AgentPulse executing the project.

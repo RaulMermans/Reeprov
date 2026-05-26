@@ -5,23 +5,26 @@ metadata:
   type: project
 ---
 
-Commit 8 (dashboard semantics + report readability) is complete as of 2026-05-14.
+Task 7 (Global Dashboard Access + Overview IA Polish) is complete as of 2026-05-26.
 
-**Why:** Real-world scans showed "Unknown AI project" for repos that use AI SDKs (e.g. website-auditor). Overlapping recommendations and vague project types made reports feel like engineering dumps rather than audit reports.
+**Why:** Dashboard felt like a partially gated demo — only the scanner had an access gate. All /dashboard/* routes now share a single global access gate backed by AGENTPULSE_ACCESS_KEY.
 
 **State:**
-- 148 tests pass (32 new tests for Commit 8)
+- 709 tests pass (60 new tests for Task 7)
 - Lint, tsc, build all pass
-- `ai_application` project type added — repos with AI SDK imports, AI API env names, or AI function patterns but no explicit manifest
-- `projectTypeDescription()` added to format utils
-- `lib/reports/recommendations.ts` — project-type-aware, de-duplicated recommendations
-- `lib/reports/findingSummary.ts` — severity/category/secret-context counts
-- `lib/reports/scoreExplanations.ts` — positives, penalties, related finding count per category
-- Dashboard: score rows expand with positives/penalties; project card shows type description; finding table has summary bar + category badge + context label; detected sections adapt to project type
-- Markdown export: project type description inline, Score Explanations section, Findings Summary section
-- `NEXT_PUBLIC_AGENTPULSE_VERSION` env var supported (defaults to "local")
-- CLAUDE.md invariants updated for ai_application, recommendation de-dup, report semantics
 
-**Next commit:** Commit 9 — Scan history (persist redacted reports, score trend chart, finding diff). Or Tool Auditor behind feature flag if scanner/report quality feels stable enough for real LLM auditing.
+**Key changes:**
+- `POST /api/auth/validate` — shared key validation endpoint
+- `lib/auth/dashboardAuthContext.tsx` — React context with `isUnlocked`, `lock()`, `onUnauthorized()`
+- `components/dashboard/DashboardShell.tsx` — global access gate at layout level
+- `app/dashboard/layout.tsx` — now just `<DashboardShell>{children}</DashboardShell>`
+- `components/layout/NavBar.tsx` — accepts `onLock` prop, shows "Lock dashboard" button
+- `components/dashboard/DashboardClient.tsx` — removed isolated scanner gate, uses `useDashboardAuth()` for 401 handling
+- `app/dashboard/page.tsx` — Overview redesigned with product mode cards (Live Proof Runs, Static Repository Intelligence, Workflow Registry, Saved Proof Reports)
+- `components/proof-layer/WorkflowGallery.tsx` — overflow/truncation fixes
+- `docs/ARCHITECTURE.md` — Global Dashboard Access Gate section added
+- `docs/ROADMAP.md` — Task 7 entry added
+- `docs/product_direction.md` — created with operating modes documentation
+- `README.md` — Access Model and Operating Modes sections added
 
-**How to apply:** When planning next work, start from Commit 9 scope. Reports now read as interpreted audit outputs, not raw finding dumps.
+**How to apply:** When planning next work, the dashboard is fully gated. The scanner no longer has its own isolated access model. AGENTPULSE_INGEST_KEY remains separate for runtime trace ingestion.

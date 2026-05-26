@@ -47,15 +47,34 @@ The scanner surface adds a fifth route:
 
 This layer does not add a database, authentication changes, external API calls, workflow execution, or scanned-repository execution.
 
+## Global Dashboard Access Gate
+
+All `/dashboard/*` routes are protected by a single client-side access gate backed by
+`AGENTPULSE_ACCESS_KEY`. The gate is implemented in `components/dashboard/DashboardShell.tsx`
+and runs at the dashboard layout level.
+
+**Flow:**
+1. On mount, `DashboardShell` reads the stored key from `sessionStorage`.
+2. If no key: the global access form is shown — no navbar, no page content.
+3. User enters key → validated against `POST /api/auth/validate`.
+4. On success: key stored in `sessionStorage`; full dashboard renders.
+5. If any API call later returns 401: `onUnauthorized()` clears the key and returns to the gate.
+6. User can explicitly lock via the "Lock dashboard" button in the navbar.
+
+**Important:** The Repository Scanner no longer owns its own access model.
+The global gate replaces the isolated scanner gate.
+
+`POST /api/auth/validate` accepts `x-agentpulse-key` and returns `{ ok: true, scope: "dashboard" }` on success or `{ ok: false, error: "Invalid access key." }` on failure (401). The expected key is never returned in the response.
+
 ## Access Model
 
 The scanner and all protected API routes require an `AGENTPULSE_ACCESS_KEY` environment variable set server-side. The HTTP header name is `x-agentpulse-key`. All three protected routes — `/api/repos`, `/api/scan`, and `/api/scan-zip` — call `requireAccessKey(request)` before any other logic.
 
 Client-side:
-- The access key form at `/dashboard/scanner` validates the candidate key against `/api/repos` before storing it.
-- A `200` response stores the key in `sessionStorage` and unlocks the scanner UI.
+- `DashboardShell` validates the candidate key against `POST /api/auth/validate` before storing it.
+- A `200` response stores the key in `sessionStorage` and unlocks the full dashboard.
 - A `401` response shows "Invalid access key." and does not unlock.
-- Any subsequent `401` from scan routes clears the stored key and returns the user to the access form.
+- Any subsequent `401` from any dashboard API call clears the stored key and returns the user to the global access gate.
 - The key is never stored in `localStorage`, never sent to the browser via `NEXT_PUBLIC_` env vars, and never written to the page source.
 
 ## How Connected Projects Send Trace Events

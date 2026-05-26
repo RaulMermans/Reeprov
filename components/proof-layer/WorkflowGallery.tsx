@@ -19,30 +19,30 @@ export function WorkflowGallery({ items }: { items: WorkflowGalleryItem[] }) {
                 {latestRun?.status ?? "planned"}
               </Badge>
             </div>
-            <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <dt className="text-xs font-medium uppercase text-slate-500">Architecture</dt>
-                <dd className="mt-1 text-slate-800">{workflow.architecture_type}</dd>
+            <dl className="mt-5 grid grid-cols-2 gap-3 text-xs">
+              <div className="min-w-0 overflow-hidden">
+                <dt className="font-medium uppercase text-slate-500">Architecture</dt>
+                <dd className="mt-1 truncate text-slate-800">{workflow.architecture_type}</dd>
               </div>
-              <div>
-                <dt className="text-xs font-medium uppercase text-slate-500">Nodes</dt>
-                <dd className="mt-1 text-slate-800">{workflow.nodes.length}</dd>
+              <div className="min-w-0 overflow-hidden">
+                <dt className="font-medium uppercase text-slate-500">Nodes</dt>
+                <dd className="mt-1 truncate text-slate-800">{workflow.nodes.length}</dd>
               </div>
-              <div>
-                <dt className="text-xs font-medium uppercase text-slate-500">Edges</dt>
-                <dd className="mt-1 text-slate-800">{workflow.edges?.length ?? 0}</dd>
+              <div className="min-w-0 overflow-hidden">
+                <dt className="font-medium uppercase text-slate-500">Edges</dt>
+                <dd className="mt-1 truncate text-slate-800">{workflow.edges?.length ?? 0}</dd>
               </div>
-              <div>
-                <dt className="text-xs font-medium uppercase text-slate-500">Evals</dt>
-                <dd className="mt-1 text-slate-800">{evalResults.length || workflow.evals?.length || 0}</dd>
+              <div className="min-w-0 overflow-hidden">
+                <dt className="font-medium uppercase text-slate-500">Evals</dt>
+                <dd className="mt-1 truncate text-slate-800">{evalResults.length || workflow.evals?.length || 0}</dd>
               </div>
-              <div>
-                <dt className="text-xs font-medium uppercase text-slate-500">Eval Score</dt>
-                <dd className="mt-1 text-slate-800">{averageEvalScore === null ? "No score" : formatPercent(averageEvalScore)}</dd>
+              <div className="min-w-0 overflow-hidden">
+                <dt className="font-medium uppercase text-slate-500">Eval Score</dt>
+                <dd className="mt-1 truncate text-slate-800">{averageEvalScore === null ? "No score" : formatPercent(averageEvalScore)}</dd>
               </div>
-              <div>
-                <dt className="text-xs font-medium uppercase text-slate-500">Latest</dt>
-                <dd className="mt-1 text-slate-800">{formatDateTime(latestRun?.started_at)}</dd>
+              <div className="min-w-0 overflow-hidden">
+                <dt className="font-medium uppercase text-slate-500">Latest</dt>
+                <dd className="mt-1 truncate text-slate-800">{formatDateTime(latestRun?.started_at)}</dd>
               </div>
             </dl>
           </Card>
@@ -56,22 +56,22 @@ export function WorkflowGallery({ items }: { items: WorkflowGalleryItem[] }) {
           </div>
           <Badge tone="neutral">planned</Badge>
         </div>
-        <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <dt className="text-xs font-medium uppercase text-slate-500">Architecture</dt>
-            <dd className="mt-1 text-slate-800">hybrid_workflow_agent</dd>
+        <dl className="mt-5 grid grid-cols-2 gap-3 text-xs">
+          <div className="min-w-0 overflow-hidden">
+            <dt className="font-medium uppercase text-slate-500">Architecture</dt>
+            <dd className="mt-1 truncate text-slate-800">hybrid_workflow_agent</dd>
           </div>
-          <div>
-            <dt className="text-xs font-medium uppercase text-slate-500">Nodes</dt>
-            <dd className="mt-1 text-slate-800">Planned</dd>
+          <div className="min-w-0 overflow-hidden">
+            <dt className="font-medium uppercase text-slate-500">Nodes</dt>
+            <dd className="mt-1 truncate text-slate-800">Planned</dd>
           </div>
-          <div>
-            <dt className="text-xs font-medium uppercase text-slate-500">Edges</dt>
-            <dd className="mt-1 text-slate-800">Planned</dd>
+          <div className="min-w-0 overflow-hidden">
+            <dt className="font-medium uppercase text-slate-500">Edges</dt>
+            <dd className="mt-1 truncate text-slate-800">Planned</dd>
           </div>
-          <div>
-            <dt className="text-xs font-medium uppercase text-slate-500">Evals</dt>
-            <dd className="mt-1 text-slate-800">Planned</dd>
+          <div className="min-w-0 overflow-hidden">
+            <dt className="font-medium uppercase text-slate-500">Evals</dt>
+            <dd className="mt-1 truncate text-slate-800">Planned</dd>
           </div>
         </dl>
       </Card>

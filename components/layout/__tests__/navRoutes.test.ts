@@ -45,6 +45,14 @@ describe("NavBar routes", () => {
   it("uses sticky positioning", () => {
     expect(navBarSrc).toContain("sticky");
   });
+
+  it("NavBar accepts onLock prop", () => {
+    expect(navBarSrc).toContain("onLock");
+  });
+
+  it("NavBar has Lock dashboard button", () => {
+    expect(navBarSrc).toContain("Lock dashboard");
+  });
 });
 
 describe("scanner page", () => {

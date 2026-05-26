@@ -17,7 +17,6 @@ export default async function DashboardPage() {
   const galleryItems = getWorkflowGalleryItems();
   const recentFailures = exampleRuns.filter((run) => run.status === "failed" || run.status === "degraded");
   const successRate = metrics.totalRuns ? metrics.successfulRuns / metrics.totalRuns : 0;
-  const latestExampleRunId = exampleRuns[0]?.run_id ?? "";
 
   // Load real runs from the store (non-fatal).
   let liveRuns: import("@/lib/runs/runTypes").RunSummary[] = [];
@@ -31,32 +30,51 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:px-8">
-      <section className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-950">AgentPulse</h1>
-            <span className="rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-xs font-medium text-teal-700">
-              Agentic workflow observability
-            </span>
-          </div>
-          <p className="mt-2 max-w-2xl text-sm text-slate-500">
-            Black-box recorder and proof layer for agentic AI workflows. Record traces, validate
-            contracts, inspect runs, and measure what your AI systems actually do.
-          </p>
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
+      <section>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">AgentPulse</h1>
+          <span className="rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-xs font-medium text-teal-700">
+            Agentic workflow observability
+          </span>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+        <p className="mt-2 max-w-3xl text-sm text-slate-500">
+          AgentPulse is an internal black-box recorder and proof layer for agentic AI workflows. Inspect runtime traces, static repository scans, workflow specs, evals, tool calls, model usage, cost, latency, and proof artifacts.
+        </p>
+      </section>
+
+      {/* ── Product mode cards ───────────────────────────────────────────── */}
+      <section>
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Operating modes</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <ProductModeCard
             href="/dashboard/runs"
-          >
-            All Runs
-          </Link>
-          <Link
-            className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-teal-800"
-            href="/dashboard/runs"
-          >
-            Proof Runs →
-          </Link>
+            title="Live Proof Runs"
+            badge="Live traces"
+            description="Runtime trace events from connected projects."
+            badgeTone="teal"
+          />
+          <ProductModeCard
+            href="/dashboard/scanner"
+            title="Static Repository Intelligence"
+            badge="Static scan"
+            description="Scan repositories without code execution."
+            badgeTone="amber"
+          />
+          <ProductModeCard
+            href="/dashboard/workflows"
+            title="Workflow Registry"
+            badge="Specs"
+            description="Inspect workflow specs, examples, and reconstructed systems."
+            badgeTone="slate"
+          />
+          <ProductModeCard
+            href="/dashboard/reports"
+            title="Saved Proof Reports"
+            badge="History"
+            description="Review saved scans, diffs, and reconstruction outputs."
+            badgeTone="slate"
+          />
         </div>
       </section>
 
@@ -64,7 +82,7 @@ export default async function DashboardPage() {
       <section>
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold text-slate-950">Live Runs</h2>
+            <h2 className="text-base font-semibold text-slate-950">Live Proof Runs</h2>
             <p className="mt-0.5 text-xs text-slate-500">
               Real trace ingestion runs from connected AI projects.
             </p>
@@ -103,56 +121,37 @@ export default async function DashboardPage() {
             ))}
           </div>
         ) : (
-          <Card className="p-5">
-            <p className="text-sm font-medium text-slate-700">No live runs yet.</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Emit traces from your AI project or run the seed script:
+          <Card className="p-6">
+            <p className="text-sm font-medium text-slate-700">No live proof runs yet.</p>
+            <p className="mt-2 text-sm text-slate-500">
+              Runtime runs appear here only after a project emits AgentPulse trace events. Static repository scans are available in Repository Scanner.
             </p>
-            <pre className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
-              npm run seed:traces
-            </pre>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link
+                href="/dashboard/runs"
+                className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                View Runs
+              </Link>
+              <Link
+                href="/dashboard/scanner"
+                className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-teal-800"
+              >
+                Open Repository Scanner
+              </Link>
+            </div>
           </Card>
         )}
-      </section>
-
-      {/* ── Quick Navigation ────────────────────────────────────────────────── */}
-      <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Navigate</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <QuickNavCard
-            href="/dashboard/runs"
-            title="Proof Runs"
-            description="Inspect real trace ingestion runs"
-            badge="Primary"
-          />
-          <QuickNavCard
-            href="/dashboard/workflows"
-            title="Workflow Gallery"
-            description="Workflow specs with example proof data"
-            badge="Example"
-          />
-          <QuickNavCard
-            href="/dashboard/scanner"
-            title="Repository Scanner"
-            description="Static AI system audit for GitHub repos"
-            badge="Scanner"
-          />
-          <QuickNavCard
-            href="/dashboard/reports"
-            title="Scan History"
-            description="Saved scanner reports and diffs"
-            badge="Scanner"
-          />
-        </div>
       </section>
 
       {/* ── Example Data Overview ───────────────────────────────────────────── */}
       <section>
         <div className="mb-3 flex items-center gap-2">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Example data</h2>
+          <h2 className="text-base font-semibold text-slate-950">Example Data</h2>
           <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-            Static examples
+            Static demo workflows
           </span>
+          <span className="text-xs text-slate-400">Not connected to live ingestion</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard label="Example Runs" value={String(metrics.totalRuns)} sub={`${metrics.successfulRuns} successful`} />
@@ -236,17 +235,26 @@ export default async function DashboardPage() {
   );
 }
 
-function QuickNavCard({
+function ProductModeCard({
   href,
   title,
-  description,
   badge,
+  description,
+  badgeTone,
 }: {
   href: string;
   title: string;
-  description: string;
   badge: string;
+  description: string;
+  badgeTone: "teal" | "amber" | "slate";
 }) {
+  const badgeClass =
+    badgeTone === "teal"
+      ? "border-teal-200 bg-teal-50 text-teal-700"
+      : badgeTone === "amber"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-slate-200 bg-slate-50 text-slate-600";
+
   return (
     <Link
       href={href}
@@ -254,7 +262,7 @@ function QuickNavCard({
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-semibold text-slate-950 group-hover:text-teal-700">{title}</p>
-        <span className="rounded border border-slate-200 px-1.5 py-0.5 text-xs font-medium text-slate-500">{badge}</span>
+        <span className={`shrink-0 rounded border px-1.5 py-0.5 text-xs font-medium ${badgeClass}`}>{badge}</span>
       </div>
       <p className="mt-1 text-xs text-slate-500">{description}</p>
     </Link>

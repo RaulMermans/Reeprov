@@ -115,7 +115,8 @@ The correct model: your AI project runs itself and emits traces to AgentPulse. A
 2. ✅ Durable reports — scanner report persistence, diff, regression candidates (Task 4)
 3. ✅ Real trace ingestion — AgentPulse client, file-backed run store, ingestion API, live dashboard (Task 5)
 4. ✅ Static proof reconstruction — zero-instrumentation path, suggested WorkflowSpec, AI system graph, missing links, optional instrumentation guide (Task 6)
-5. **Next** — Project integrations: Website Auditor, Campaign Sandbox, Content Trend Analyzer, Blog Agent (emit real trace events using the reconstruction plan as the starting point)
+5. ✅ Global dashboard access gate — DashboardShell replaces isolated scanner gate; NavBar lock button; product mode overview IA (Task 7)
+6. **Next** — Project integrations: Website Auditor, Campaign Sandbox, Content Trend Analyzer, Blog Agent (emit real trace events using the reconstruction plan as the starting point)
 6. Eval assertion layer — stronger trace contracts, tool-call assertions, safety/output records
 7. Workflow spec validator — YAML/JSON definitions, graph validation, node registry, permissions
 8. Later: thin runtime only if justified by proof-layer usage

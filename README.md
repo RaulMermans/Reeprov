@@ -148,6 +148,25 @@ The reconstruction:
 
 ZIP uploads are capped at 4 MB. For larger repos, use GitHub scanning.
 
+## Access Model
+
+AgentPulse uses a dual-key access model:
+
+| Key | Purpose |
+|-----|---------|
+| `AGENTPULSE_ACCESS_KEY` | Protects all dashboard routes and scanner APIs |
+| `AGENTPULSE_INGEST_KEY` | Used by external AI projects to POST trace events |
+
+The dashboard prompts for the access key on first visit. The key is validated server-side
+and stored only in `sessionStorage` for the current browser session. No cookies, no OAuth.
+
+## Operating Modes
+
+- **Live Proof Runs** — ingest and inspect trace events from connected AI projects (`/dashboard/runs`)
+- **Static Repository Intelligence** — scan repos and ZIP files without code execution (`/dashboard/scanner`)
+- **Workflow Registry** — inspect workflow specs and example proof data (`/dashboard/workflows`)
+- **Saved Proof Reports** — review scan history, diffs, and reconstruction outputs (`/dashboard/reports`)
+
 ## Security Posture
 
 - Repository code is never executed.

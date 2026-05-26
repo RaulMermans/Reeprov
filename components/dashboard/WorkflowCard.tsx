@@ -18,9 +18,9 @@ export function WorkflowCard({ workflow }: { workflow: DetectedWorkflow }) {
     <Card className="p-5">
       <div className="flex items-start gap-3">
         <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex items-start justify-between gap-2">
-            <div className="font-medium text-slate-950">{workflow.name}</div>
+            <div className="min-w-0 truncate font-medium text-slate-950">{workflow.name}</div>
             <div className="flex shrink-0 flex-wrap gap-1">
               {isInferred ? (
                 <Badge tone={isLowConfidence ? "warning" : "neutral"}>
