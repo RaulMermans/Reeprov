@@ -53,11 +53,22 @@ All `/dashboard/*` routes are protected by a single client-side access gate back
 `AGENTPULSE_ACCESS_KEY`. The gate is implemented in `components/dashboard/DashboardShell.tsx`
 and runs at the dashboard layout level.
 
-**Flow:**
-1. On mount, `DashboardShell` reads the stored key from `sessionStorage`.
-2. If no key: the global access form is shown — no navbar, no page content.
-3. User enters key → validated against `POST /api/auth/validate`.
-4. On success: key stored in `sessionStorage`; full dashboard renders.
+**Flow (Task 7A corrected):**
+1. On mount, `DashboardShell` reads any stored key from `sessionStorage`.
+2. If no key: the global access form is shown immediately — no navbar, no page content.
+3. **If a key is found**: `DashboardShell` calls `POST /api/auth/validate` before unlocking. A neutral skeleton is shown while validating.
+   - If `200`: key is valid → full dashboard renders.
+   - If `401` (or network error): key is cleared → user sees "Access key expired or invalid. Please unlock again."
+4. User enters key → validated against `POST /api/auth/validate`.
+5. On success: key stored in `sessionStorage`; full dashboard renders.
+6. Any protected API call returning `401` calls `onUnauthorized()` via `DashboardAuthContext`, which clears the key and re-shows the access gate.
+7. User can explicitly lock via the "Lock dashboard" button in the navbar.
+
+**Do not trust `sessionStorage` alone.** The stored key is always revalidated server-side on mount.
+
+**Centralised `onUnauthorized`**: All dashboard pages and components that call protected endpoints use `useDashboardAuth().onUnauthorized("Access key expired or invalid. Please unlock again.")` on `401`. This ensures the whole shell returns to locked state, not just one component.
+
+**Overview live runs**: `app/dashboard/page.tsx` is a server component with no direct store access. Live runs are loaded by `components/dashboard/OverviewLiveRuns.tsx` — a client component that fetches `GET /api/runs?limit=5` with `mergeAuthHeaders()` after the shell unlocks.
 5. If any API call later returns 401: `onUnauthorized()` clears the key and returns to the gate.
 6. User can explicitly lock via the "Lock dashboard" button in the navbar.
 
@@ -76,6 +87,19 @@ Client-side:
 - A `401` response shows "Invalid access key." and does not unlock.
 - Any subsequent `401` from any dashboard API call clears the stored key and returns the user to the global access gate.
 - The key is never stored in `localStorage`, never sent to the browser via `NEXT_PUBLIC_` env vars, and never written to the page source.
+
+## Demo Run
+
+`POST /api/runs/demo` creates a complete, self-contained Website Auditor demo run using the existing run store and trace schemas. It is designed so the runtime proof layer is explorable from the dashboard UI without any external project integration.
+
+- Requires `AGENTPULSE_ACCESS_KEY` (dashboard key, not ingest key).
+- Creates 8 workflow nodes, 4 model calls, 3 tool calls, 4 eval results, 1 artifact.
+- Marks the run as `degraded` (a source grounding eval warning is included by design to show the degraded state).
+- All events are validated with Zod schemas before storage.
+- All trace events satisfy `assertTraceContract`.
+- Returns `{ ok: true, runId: "demo-...", redirectTo: "/dashboard/runs/{runId}" }`.
+
+The demo run is for product testing only. Real external integrations use the ingest endpoints below.
 
 ## How Connected Projects Send Trace Events
 

@@ -7,10 +7,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ReportHistoryList } from "@/components/dashboard/ReportHistoryList";
 import { Card } from "@/components/ui/Card";
-import { clearInternalKey, getInternalKey, mergeAuthHeaders } from "@/lib/auth/internalKey";
+import { mergeAuthHeaders } from "@/lib/auth/internalKey";
+import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
 import type { SavedReportSummary } from "@/lib/reports/reportTypes";
 
 export default function ReportsHistoryPage() {
+  const { onUnauthorized } = useDashboardAuth();
   const [reports, setReports] = useState<SavedReportSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,20 +26,19 @@ export default function ReportsHistoryPage() {
   useEffect(() => {
     if (!mounted) return;
     void loadReports();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted]);
 
   async function loadReports() {
     setLoading(true);
     setError(null);
     try {
-      const key = getInternalKey();
       const response = await fetch("/api/reports", {
-        headers: mergeAuthHeaders(key ? { "x-agentpulse-key": key } : {}),
+        headers: mergeAuthHeaders(),
       });
 
       if (response.status === 401) {
-        clearInternalKey();
-        setError("Access key required. Go to the Scanner and unlock first.");
+        onUnauthorized("Access key expired or invalid. Please unlock again.");
         return;
       }
 
@@ -58,11 +59,15 @@ export default function ReportsHistoryPage() {
   async function handleDelete(reportId: string) {
     setDeleting(reportId);
     try {
-      const key = getInternalKey();
       const response = await fetch(`/api/reports/${reportId}`, {
         method: "DELETE",
-        headers: mergeAuthHeaders(key ? { "x-agentpulse-key": key } : {}),
+        headers: mergeAuthHeaders(),
       });
+
+      if (response.status === 401) {
+        onUnauthorized("Access key expired or invalid. Please unlock again.");
+        return;
+      }
 
       if (response.ok) {
         setReports((prev) => prev.filter((r) => r.reportId !== reportId));

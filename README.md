@@ -85,6 +85,7 @@ await pulse.completeRun({ run_id: run.run_id, summary: "Done." });
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
+| `POST` | `/api/runs/demo` | Access key | Create demo run (no external project needed) |
 | `POST` | `/api/runs/start` | Ingest key | Create a run |
 | `POST` | `/api/traces/events` | Ingest key | Append trace events |
 | `POST` | `/api/runs/complete` | Ingest key | Complete a run |
@@ -97,7 +98,24 @@ Auth header: `x-agentpulse-key: <key>`
 
 Trace events are validated before storage. Duplicate `event_id` values are silently skipped (idempotent ingestion). See [docs/trace_schema.md](docs/trace_schema.md) for the full schema.
 
-### Seed script
+### Demo run (UI-driven)
+
+The easiest way to explore the runtime proof layer is the built-in demo run:
+
+1. Unlock the dashboard with your `AGENTPULSE_ACCESS_KEY`.
+2. Go to `/dashboard/runs`.
+3. Click **"Create demo run"**.
+4. Inspect the generated Website Auditor run — trace timeline, model calls, tool calls, evals, cost, latency, and artifact events.
+
+The demo run route requires only the dashboard access key (not the ingest key):
+
+```bash
+curl -X POST http://localhost:3000/api/runs/demo \
+  -H "x-agentpulse-key: $AGENTPULSE_ACCESS_KEY"
+# Returns: { ok: true, runId: "demo-...", redirectTo: "/dashboard/runs/demo-..." }
+```
+
+### Seed script (local CLI)
 
 The seed script creates a realistic Campaign Sandbox run without a live project:
 
@@ -160,12 +178,30 @@ AgentPulse uses a dual-key access model:
 The dashboard prompts for the access key on first visit. The key is validated server-side
 and stored only in `sessionStorage` for the current browser session. No cookies, no OAuth.
 
+**Stored keys are revalidated on every page load.** `DashboardShell` calls `POST /api/auth/validate`
+on mount to verify any key already in `sessionStorage` before unlocking. An expired or invalid stored
+key is cleared and the user is returned to the access gate. Any protected API call that returns `401`
+also calls `onUnauthorized()`, which clears the key and re-shows the access gate.
+
 ## Operating Modes
 
 - **Live Proof Runs** — ingest and inspect trace events from connected AI projects (`/dashboard/runs`)
 - **Static Repository Intelligence** — scan repos and ZIP files without code execution (`/dashboard/scanner`)
 - **Workflow Registry** — inspect workflow specs and example proof data (`/dashboard/workflows`)
 - **Saved Proof Reports** — review scan history, diffs, and reconstruction outputs (`/dashboard/reports`)
+
+## How to test the product end-to-end
+
+After starting the dev server (`npm run dev`):
+
+1. **Unlock** the dashboard at `http://localhost:3000/dashboard` using your `AGENTPULSE_ACCESS_KEY`.
+2. **Verify key revalidation**: refresh the page — the stored key is re-validated against `/api/auth/validate` before the dashboard unlocks. An expired key returns you to the access gate.
+3. **Scan a repo**: go to `/dashboard/scanner`, enter a GitHub repo (`owner/repo`), and run a scan.
+4. **Check scan history**: confirm the report appears in `/dashboard/reports`.
+5. **Generate Static Proof Reconstruction**: click "Reconstruct" on any saved report. For repos with no AI artifacts, the reconstruction panel shows "No AI workflow reconstruction generated" rather than a fake spec.
+6. **Create a demo run**: go to `/dashboard/runs` and click **"Create demo run"**. The UI POSTs `/api/runs/demo`, creates a complete Website Auditor run, and redirects to the run detail page.
+7. **Inspect the run**: the run detail page shows the trace timeline, 4 model calls (brand/UX/SEO/synthesis), 3 tool calls (fetch_page, sitemap_crawl, screenshot), 4 eval results (3 pass / 1 warning), 1 artifact, cost, and latency. The run is marked **degraded** because the source grounding eval raised a warning.
+8. **Verify 401 handling**: try calling a protected endpoint with a wrong key and confirm the dashboard returns to the access gate (not a blank or half-loaded state).
 
 ## Security Posture
 

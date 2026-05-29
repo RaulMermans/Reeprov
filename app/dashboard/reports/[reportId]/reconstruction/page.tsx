@@ -6,17 +6,18 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { StaticProofReconstructionPanel } from "@/components/dashboard/StaticProofReconstructionPanel";
-import { mergeAuthHeaders, clearInternalKey } from "@/lib/auth/internalKey";
+import { mergeAuthHeaders } from "@/lib/auth/internalKey";
+import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
 import type { ScanReport } from "@/lib/scanner/types";
 
 export default function ReportReconstructionPage() {
   const params = useParams<{ reportId: string }>();
   const reportId = params.reportId;
+  const { onUnauthorized } = useDashboardAuth();
 
   const [report, setReport] = useState<ScanReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [unauthorized, setUnauthorized] = useState(false);
 
   useEffect(() => {
     if (!reportId) return;
@@ -24,7 +25,6 @@ export default function ReportReconstructionPage() {
     async function load() {
       setLoading(true);
       setError(null);
-      setUnauthorized(false);
 
       try {
         const res = await fetch(`/api/reports/${reportId}`, {
@@ -32,8 +32,7 @@ export default function ReportReconstructionPage() {
         });
 
         if (res.status === 401) {
-          clearInternalKey();
-          setUnauthorized(true);
+          onUnauthorized("Access key expired or invalid. Please unlock again.");
           return;
         }
 
@@ -58,29 +57,13 @@ export default function ReportReconstructionPage() {
     }
 
     void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportId]);
 
   if (loading) {
     return (
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <Card className="p-8 text-center text-sm text-slate-500">Loading report…</Card>
-      </main>
-    );
-  }
-
-  if (unauthorized) {
-    return (
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <Card className="p-8">
-          <p className="text-sm font-medium text-amber-700">Access key required.</p>
-          <p className="mt-2 text-xs text-slate-500">
-            Unlock the dashboard from{" "}
-            <Link href="/dashboard/scanner" className="text-teal-700 hover:underline">
-              Repository Scanner
-            </Link>{" "}
-            to view report reconstructions.
-          </p>
-        </Card>
       </main>
     );
   }

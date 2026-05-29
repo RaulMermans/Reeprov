@@ -114,8 +114,9 @@ describe("Overview page product modes", () => {
     expect(src).toContain("Saved Proof Reports");
   });
 
-  it("has live runs empty state message", () => {
-    const src = read("app/dashboard/page.tsx");
+  it("has live runs empty state message in OverviewLiveRuns component", () => {
+    // Empty state moved to OverviewLiveRuns client component (Task 7A Phase 3).
+    const src = read("components/dashboard/OverviewLiveRuns.tsx");
     expect(src).toContain("No live proof runs yet");
   });
 });

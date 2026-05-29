@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { OverviewLiveRuns } from "@/components/dashboard/OverviewLiveRuns";
 import { WorkflowGallery } from "@/components/proof-layer/WorkflowGallery";
 import { formatCurrency, formatDuration, formatPercent } from "@/components/proof-layer/format";
 import {
@@ -9,24 +10,13 @@ import {
   getProofLayerMetrics,
   getWorkflowGalleryItems,
 } from "@/lib/proof-layer/examples";
-import { fileRunStore } from "@/lib/runs/runStore";
 
-export default async function DashboardPage() {
+export default function DashboardPage() {
   const metrics = getProofLayerMetrics();
   const exampleRuns = getExampleRuns();
   const galleryItems = getWorkflowGalleryItems();
   const recentFailures = exampleRuns.filter((run) => run.status === "failed" || run.status === "degraded");
   const successRate = metrics.totalRuns ? metrics.successfulRuns / metrics.totalRuns : 0;
-
-  // Load real runs from the store (non-fatal).
-  let liveRuns: import("@/lib/runs/runTypes").RunSummary[] = [];
-  try {
-    liveRuns = await fileRunStore.listRuns({ limit: 5 });
-  } catch {
-    // Store not yet initialized or not available — silently degrade.
-  }
-
-  const hasLiveRuns = liveRuns.length > 0;
 
   return (
     <main className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:px-8">
@@ -78,7 +68,7 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      {/* ── Live Runs ───────────────────────────────────────────────────────── */}
+      {/* ── Live Runs — loaded client-side after auth ──────────────────── */}
       <section>
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
@@ -91,57 +81,8 @@ export default async function DashboardPage() {
             View all →
           </Link>
         </div>
-        {hasLiveRuns ? (
-          <div className="grid gap-2">
-            {liveRuns.map((run) => (
-              <Link
-                key={run.run_id}
-                href={`/dashboard/runs/${run.run_id}`}
-                className="group flex items-center justify-between gap-3 rounded-md border border-slate-100 bg-slate-50 p-3 transition hover:border-teal-200 hover:bg-white"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-950">{run.project_name}</p>
-                  <p className="mt-0.5 truncate text-xs text-slate-500">{run.summary}</p>
-                </div>
-                <div className="flex shrink-0 gap-1.5">
-                  <Badge
-                    tone={
-                      run.status === "completed"
-                        ? "success"
-                        : run.status === "failed"
-                          ? "danger"
-                          : "warning"
-                    }
-                  >
-                    {run.status}
-                  </Badge>
-                  <Badge tone="neutral">{run.evals_passed}/{run.evals_passed + run.evals_failed} evals</Badge>
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <Card className="p-6">
-            <p className="text-sm font-medium text-slate-700">No live proof runs yet.</p>
-            <p className="mt-2 text-sm text-slate-500">
-              Runtime runs appear here only after a project emits AgentPulse trace events. Static repository scans are available in Repository Scanner.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link
-                href="/dashboard/runs"
-                className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-              >
-                View Runs
-              </Link>
-              <Link
-                href="/dashboard/scanner"
-                className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-teal-800"
-              >
-                Open Repository Scanner
-              </Link>
-            </div>
-          </Card>
-        )}
+        {/* Client component — fetches /api/runs after auth, handles onUnauthorized */}
+        <OverviewLiveRuns />
       </section>
 
       {/* ── Example Data Overview ───────────────────────────────────────────── */}

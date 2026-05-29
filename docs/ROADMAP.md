@@ -123,6 +123,30 @@ Task 6A tightens Static Proof Reconstruction to stop overclaiming and adds runti
 - WorkflowGallery and WorkflowCard overflow/text-collision fixes
 - README and docs updated with dual-key access model and operating modes
 
+## Task 7A — Access Completion Patch ✓
+
+Task 7A closes the remaining gaps in the global access model.
+
+- **Stored-key revalidation** — `DashboardShell` now calls `POST /api/auth/validate` on mount before unlocking. Stored keys are never trusted by `sessionStorage` alone. Invalid/expired stored keys are cleared and the user is returned to the access gate with "Access key expired or invalid. Please unlock again."
+- **Loading state** — while revalidating a stored key, a neutral skeleton is shown instead of flashing the unlock form.
+- **Centralised `onUnauthorized`** — all dashboard pages and components that fetch protected APIs (`/api/reports`, `/api/runs`, `/api/reconstruct`, etc.) now call `useDashboardAuth().onUnauthorized()` on `401` instead of locally calling `clearInternalKey()`. This guarantees the whole shell returns to the locked state, not just a single component.
+- **Overview loads live runs client-side** — `app/dashboard/page.tsx` no longer reads `fileRunStore.listRuns()` server-side. Live runs are loaded by a new `OverviewLiveRuns` client component via `GET /api/runs` with `mergeAuthHeaders()`.
+- **Stale copy removed** — all "Go to the Scanner and unlock first" and "Unlock the dashboard from Repository Scanner" messages replaced with global dashboard language.
+- 38 new tests (DashboardShell revalidation, centralised unauthorized handling, overview structure, stale copy); all pass.
+
+## Task 8 — Create Demo Run + Runtime Run Detail UX ✓
+
+Task 8 makes the runtime proof layer testable from the deployed UI without requiring any external project integration.
+
+- **`POST /api/runs/demo`** — new dashboard-protected route that creates a complete Website Auditor demo run using the existing run store and trace schemas. Returns `{ ok: true, runId, redirectTo }`. No ingest key required (dashboard key only).
+- **Demo run content**: 8 workflow nodes (URL intake, web crawler, brand audit, UX audit, SEO audit, evidence evaluator, report synthesizer, final artifact), 4 model calls, 3 tool calls, 4 eval results (3 pass / 1 warning), 1 artifact (`audit-report`), realistic cost ($0.0264) and latency (20.7s). Run is marked **degraded** (source grounding eval warning). Trace contract passes.
+- **Runs page empty state** — "No live proof runs yet" with a primary **"Create demo run"** button and secondary "Open Repository Scanner" link. Technical ingestion instructions collapsed in a `<details>` element. Clicking the button POSTs `/api/runs/demo`, then redirects to the run detail.
+- **Runs list** — run cards show a "Demo" badge for `demo-` IDs, "Seeded" for `seed-` IDs, and "Live" for real ingestion runs.
+- **Run detail page** — added "Demo" badge; updated to use `useDashboardAuth().onUnauthorized()` on `401`.
+- **Overview** — `OverviewLiveRuns` client component shows "Create demo run" when no live runs exist. Live runs, if present, are fetched via `GET /api/runs` with the dashboard key.
+- 34 new tests (demo run API auth, run quality, trace contract, runs page UI, run detail structure, overview integration); all pass.
+- Total new tests in Task 7A + 8: 72. All 781 tests pass.
+
 ## V1 — Trace SDK
 
 Projects emit AgentPulse-compatible traces without AgentPulse executing the project.

@@ -15,13 +15,15 @@ import { ScanSummary } from "@/components/dashboard/ScanSummary";
 import { SystemGraphView } from "@/components/dashboard/SystemGraphView";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import { Card } from "@/components/ui/Card";
-import { clearInternalKey, getInternalKey, mergeAuthHeaders } from "@/lib/auth/internalKey";
+import { mergeAuthHeaders } from "@/lib/auth/internalKey";
+import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
 import { exportReportMarkdown } from "@/lib/reports/exportMarkdown";
 import type { SavedReport } from "@/lib/reports/reportTypes";
 
 export default function SavedReportPage() {
   const params = useParams<{ reportId: string }>();
   const reportId = params.reportId;
+  const { onUnauthorized } = useDashboardAuth();
 
   const [report, setReport] = useState<SavedReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,20 +37,19 @@ export default function SavedReportPage() {
   useEffect(() => {
     if (!mounted || !reportId) return;
     void loadReport(reportId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, reportId]);
 
   async function loadReport(id: string) {
     setLoading(true);
     setError(null);
     try {
-      const key = getInternalKey();
       const response = await fetch(`/api/reports/${id}`, {
-        headers: mergeAuthHeaders(key ? { "x-agentpulse-key": key } : {}),
+        headers: mergeAuthHeaders(),
       });
 
       if (response.status === 401) {
-        clearInternalKey();
-        setError("Access key required. Go to the Scanner and unlock first.");
+        onUnauthorized("Access key expired or invalid. Please unlock again.");
         return;
       }
 

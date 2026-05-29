@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ReportDiffView } from "@/components/dashboard/ReportDiffView";
 import { Card } from "@/components/ui/Card";
-import { clearInternalKey, getInternalKey, mergeAuthHeaders } from "@/lib/auth/internalKey";
+import { mergeAuthHeaders } from "@/lib/auth/internalKey";
+import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
 import { diffReports, type ReportDiff } from "@/lib/reports/reportDiff";
 import type { SavedReport, SavedReportSummary } from "@/lib/reports/reportTypes";
 
@@ -14,6 +15,7 @@ import type { SavedReport, SavedReportSummary } from "@/lib/reports/reportTypes"
 function ComparePageInner() {
   const searchParams = useSearchParams();
   const preselectedBase = searchParams.get("base");
+  const { onUnauthorized } = useDashboardAuth();
 
   type Step = "pick" | "loading" | "result" | "error";
 
@@ -29,18 +31,17 @@ function ComparePageInner() {
 
   useEffect(() => {
     void loadReports();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadReports() {
     setLoadingReports(true);
     try {
-      const key = getInternalKey();
       const response = await fetch("/api/reports?limit=100", {
-        headers: mergeAuthHeaders(key ? { "x-agentpulse-key": key } : {}),
+        headers: mergeAuthHeaders(),
       });
       if (response.status === 401) {
-        clearInternalKey();
-        setError("Access key required. Go to the Scanner and unlock first.");
+        onUnauthorized("Access key expired or invalid. Please unlock again.");
         return;
       }
       if (!response.ok) {
@@ -57,10 +58,13 @@ function ComparePageInner() {
   }
 
   async function loadReport(id: string): Promise<SavedReport | null> {
-    const key = getInternalKey();
     const response = await fetch(`/api/reports/${id}`, {
-      headers: mergeAuthHeaders(key ? { "x-agentpulse-key": key } : {}),
+      headers: mergeAuthHeaders(),
     });
+    if (response.status === 401) {
+      onUnauthorized("Access key expired or invalid. Please unlock again.");
+      return null;
+    }
     if (!response.ok) return null;
     return (await response.json()) as SavedReport;
   }

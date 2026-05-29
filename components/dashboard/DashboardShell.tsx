@@ -9,20 +9,49 @@ import type { FormEvent } from "react";
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const [revalidating, setRevalidating] = useState(false);
   const [keyInput, setKeyInput] = useState("");
   const [validating, setValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expiredMessage, setExpiredMessage] = useState<string | null>(null);
 
+  // On mount: revalidate any stored key — do not trust sessionStorage alone.
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    async function init() {
       const stored = getInternalKey();
-      if (stored) {
-        setIsUnlocked(true);
+
+      if (!stored) {
+        // No key stored — show access gate immediately.
+        setMounted(true);
+        return;
       }
-      setMounted(true);
-    }, 0);
-    return () => window.clearTimeout(timer);
+
+      // Key found — validate it server-side before unlocking.
+      setRevalidating(true);
+      try {
+        const response = await fetch("/api/auth/validate", {
+          method: "POST",
+          headers: { "x-agentpulse-key": stored },
+        });
+
+        if (response.ok) {
+          setIsUnlocked(true);
+        } else {
+          // Stored key is invalid or expired.
+          clearInternalKey();
+          setExpiredMessage("Access key expired or invalid. Please unlock again.");
+        }
+      } catch {
+        // Network error — clear key conservatively.
+        clearInternalKey();
+        setExpiredMessage("Access key expired or invalid. Please unlock again.");
+      } finally {
+        setRevalidating(false);
+        setMounted(true);
+      }
+    }
+
+    void init();
   }, []);
 
   const lock = useCallback(() => {
@@ -38,7 +67,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     setIsUnlocked(false);
     setKeyInput("");
     setError(null);
-    setExpiredMessage(message ?? "Your session has expired. Please unlock the dashboard again.");
+    setExpiredMessage(message ?? "Access key expired or invalid. Please unlock again.");
   }, []);
 
   async function handleUnlock(event: FormEvent<HTMLFormElement>) {
@@ -80,8 +109,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Pre-mount: show minimal skeleton
-  if (!mounted) {
+  // Pre-mount or revalidating: show neutral loading skeleton.
+  if (!mounted || revalidating) {
     return (
       <div className="min-h-screen bg-[#f7f8fb]">
         <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-sm">
@@ -96,7 +125,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Not unlocked: show access gate (no navbar)
+  // Not unlocked: show access gate (no navbar, no page content).
   if (!isUnlocked) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#f7f8fb] px-4">
@@ -159,7 +188,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Unlocked: render dashboard with navbar and context
+  // Unlocked: render dashboard with navbar and auth context.
   return (
     <DashboardAuthContext.Provider value={{ isUnlocked: true, lock, onUnauthorized }}>
       <div className="min-h-screen bg-[#f7f8fb]">

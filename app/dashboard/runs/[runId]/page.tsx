@@ -9,7 +9,8 @@ import { EvalResultsPanel } from "@/components/proof-layer/EvalResultsPanel";
 import { ToolCallsPanel } from "@/components/proof-layer/ToolCallsPanel";
 import { TraceTimeline } from "@/components/proof-layer/TraceTimeline";
 import { formatCurrency, formatDuration, formatDateTime } from "@/components/proof-layer/format";
-import { mergeAuthHeaders, clearInternalKey } from "@/lib/auth/internalKey";
+import { mergeAuthHeaders } from "@/lib/auth/internalKey";
+import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
 import type { TraceEvent, EvalResult, RunRecord, WorkflowSpec } from "@/lib/proof-layer/schemas";
 import type { SavedRun } from "@/lib/runs/runTypes";
 
@@ -20,6 +21,7 @@ interface RunDetailState {
   workflow?: WorkflowSpec;
   isLive: boolean;
   isSeeded: boolean;
+  isDemo: boolean;
 }
 
 interface ExampleRunData {
@@ -32,11 +34,11 @@ interface ExampleRunData {
 export default function RunDetailPage() {
   const params = useParams<{ runId: string }>();
   const runId = params.runId;
+  const { onUnauthorized } = useDashboardAuth();
 
   const [state, setState] = useState<RunDetailState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [unauthorized, setUnauthorized] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
@@ -45,7 +47,6 @@ export default function RunDetailPage() {
     async function load() {
       setLoading(true);
       setError(null);
-      setUnauthorized(false);
       setNotFound(false);
 
       try {
@@ -54,8 +55,7 @@ export default function RunDetailPage() {
         });
 
         if (res.status === 401) {
-          clearInternalKey();
-          setUnauthorized(true);
+          onUnauthorized("Access key expired or invalid. Please unlock again.");
           return;
         }
 
@@ -71,6 +71,7 @@ export default function RunDetailPage() {
               workflow: exData.workflow,
               isLive: false,
               isSeeded: false,
+              isDemo: false,
             });
             return;
           }
@@ -108,6 +109,7 @@ export default function RunDetailPage() {
           workflow,
           isLive: true,
           isSeeded: data.runRecord.run_id.startsWith("seed-"),
+          isDemo: data.runRecord.run_id.startsWith("demo-"),
         });
       } catch {
         setError("Could not connect to AgentPulse. Is the dev server running?");
@@ -117,29 +119,13 @@ export default function RunDetailPage() {
     }
 
     void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runId]);
 
   if (loading) {
     return (
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <Card className="p-8 text-center text-sm text-slate-500">Loading run…</Card>
-      </main>
-    );
-  }
-
-  if (unauthorized) {
-    return (
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <Card className="p-8">
-          <p className="text-sm font-medium text-amber-700">Access key required.</p>
-          <p className="mt-2 text-xs text-slate-500">
-            Unlock the dashboard from{" "}
-            <Link href="/dashboard/scanner" className="text-teal-700 hover:underline">
-              Repository Scanner
-            </Link>{" "}
-            to view live run data.
-          </p>
-        </Card>
       </main>
     );
   }
@@ -179,7 +165,7 @@ export default function RunDetailPage() {
 
   if (!state) return null;
 
-  const { run, traceEvents, evalResults, workflow, isLive, isSeeded } = state;
+  const { run, traceEvents, evalResults, workflow, isLive, isSeeded, isDemo } = state;
   const modelEvents = traceEvents.filter((e) => e.event_type === "model_call_started" || e.event_type === "model_call_completed");
   const errorEvents = traceEvents.filter((e) => e.event_type === "error" || e.event_type === "node_failed" || e.event_type === "tool_call_failed");
   const retryEvents = traceEvents.filter((e) => e.event_type === "retry_started");
@@ -203,7 +189,11 @@ export default function RunDetailPage() {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-medium text-teal-700">Run timeline</p>
-              {isLive && !isSeeded ? (
+              {isDemo ? (
+                <span className="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700">
+                  Demo
+                </span>
+              ) : isLive && !isSeeded ? (
                 <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
                   Live
                 </span>
