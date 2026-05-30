@@ -359,14 +359,14 @@ describe("POST /api/runs/demo — workflow registry side-effect", () => {
 
 describe("UI source smoke", () => {
   it("Workflows page includes Registered Workflows section", () => {
-    const src = read("app/dashboard/workflows/page.tsx");
+    const src = read("app/dashboard/workflows/WorkflowsPageClient.tsx");
     expect(src).toContain("Workflow Registry");
     expect(src).toContain("RegistryWorkflowCard");
     expect(src).toContain("Example Workflows");
   });
 
-  it("Workflows page is a client component", () => {
-    const src = read("app/dashboard/workflows/page.tsx");
+  it("Workflows page client component is a client component", () => {
+    const src = read("app/dashboard/workflows/WorkflowsPageClient.tsx");
     expect(src).toContain('"use client"');
   });
 
