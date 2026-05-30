@@ -23,9 +23,47 @@ import { NextResponse } from "next/server";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
 import { apiErrorResponse } from "@/lib/api/errors";
 import { fileRunStore } from "@/lib/runs/runStore";
+import { fileWorkflowStore } from "@/lib/workflows/workflowStore";
 import { generateRunId } from "@/lib/runs/runId";
 import { traceEventSchema, runRecordSchema, evalResultSchema } from "@/lib/proof-layer/schemas";
 import type { TraceEvent, EvalResult, RunRecord } from "@/lib/proof-layer/schemas";
+
+// ── Website Auditor demo WorkflowSpec ─────────────────────────────────────────
+
+const DEMO_WORKFLOW_SPEC = {
+  workflow_id: "website-auditor-v1",
+  name: "Website Auditor",
+  version: "1.0",
+  description: "Multi-agent website auditor: crawls, audits brand/UX/SEO, evaluates, and synthesises a final report.",
+  architecture_type: "hybrid_workflow_agent" as const,
+  nodes: [
+    { id: "url-intake", type: "trigger" as const, label: "URL Intake", description: "Parse and validate target URL" },
+    { id: "web-crawler", type: "tool" as const, label: "Web Crawler", description: "Crawl pages and capture screenshots", allowed_tools: ["fetch_page", "sitemap_crawl", "screenshot"], permission_class: "read_only" as const },
+    { id: "brand-audit", type: "llm" as const, label: "Brand Auditor", description: "Evaluate brand consistency", model_provider: "anthropic", model_name: "claude-haiku-4-5" },
+    { id: "ux-audit", type: "llm" as const, label: "UX Auditor", description: "Evaluate UX quality", model_provider: "anthropic", model_name: "claude-haiku-4-5" },
+    { id: "seo-audit", type: "llm" as const, label: "SEO Auditor", description: "Evaluate SEO quality", model_provider: "anthropic", model_name: "claude-haiku-4-5" },
+    { id: "evidence-evaluator", type: "evaluator" as const, label: "Evidence Evaluator", description: "Run eval suite on audit outputs", eval_refs: ["schema_validity", "output_quality", "safety", "source_grounding"] },
+    { id: "approval-gate", type: "approval" as const, label: "Approval Gate", description: "Human approval for final report release", permission_class: "external_side_effect" as const },
+    { id: "report-synthesizer", type: "llm" as const, label: "Report Synthesizer", description: "Synthesise final audit report", model_provider: "anthropic", model_name: "claude-sonnet-4-6" },
+    { id: "final-artifact", type: "artifact" as const, label: "Audit Report", description: "Final report artifact" },
+  ],
+  edges: [
+    { from: "url-intake", to: "web-crawler" },
+    { from: "web-crawler", to: "brand-audit" },
+    { from: "web-crawler", to: "ux-audit" },
+    { from: "web-crawler", to: "seo-audit" },
+    { from: "brand-audit", to: "evidence-evaluator" },
+    { from: "ux-audit", to: "evidence-evaluator" },
+    { from: "seo-audit", to: "evidence-evaluator" },
+    { from: "evidence-evaluator", to: "approval-gate" },
+    { from: "approval-gate", to: "report-synthesizer" },
+    { from: "report-synthesizer", to: "final-artifact" },
+  ],
+  allowed_tools: ["fetch_page", "sitemap_crawl", "screenshot"],
+  evals: ["schema_validity", "output_quality", "safety", "source_grounding"],
+  approval_gates: ["approval-gate"],
+  artifacts: ["audit-report"],
+};
 
 // ── Deterministic timestamp helpers ──────────────────────────────────────────
 
@@ -707,6 +745,26 @@ export async function POST(request: Request) {
       evals_passed: evalsPassed,
       evals_failed: evalsFailed,
     });
+
+    // ── Register / upsert demo workflow spec ──────────────────────────────────
+    // This ensures the demo run detail can link to a registered WorkflowSpec.
+    // Non-fatal: if registry write fails the run is still returned successfully.
+    try {
+      await fileWorkflowStore.saveWorkflow({
+        workflowId: workflowId,
+        projectId: projectId,
+        projectName: projectName,
+        name: DEMO_WORKFLOW_SPEC.name,
+        source: "example",
+        confidence: "high",
+        status: "active",
+        evidencePaths: [],
+        missingFields: [],
+        spec: DEMO_WORKFLOW_SPEC,
+      });
+    } catch {
+      // Registry persistence failure is non-fatal for demo run creation.
+    }
 
     const redirectTo = `/dashboard/runs/${runId}`;
 

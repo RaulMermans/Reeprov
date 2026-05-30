@@ -147,6 +147,21 @@ Task 8 makes the runtime proof layer testable from the deployed UI without requi
 - 34 new tests (demo run API auth, run quality, trace contract, runs page UI, run detail structure, overview integration); all pass.
 - Total new tests in Task 7A + 8: 72. All 781 tests pass.
 
+## Task 9 — Workflow Registry Unification ✓
+
+Task 9 bridges the two previously disconnected product worlds: static scan/reconstruction and workflow inspection. The Workflows tab is now a live registry, not just a demo gallery.
+
+- **Workflow Registry data model** — `lib/workflows/workflowTypes.ts`, `workflowId.ts`, `workflowStore.ts`: file-backed `fileWorkflowStore` implementing `WorkflowStore` interface. Registry IDs (`wfr_<ts>_<hex>`). Sources: `example`, `scan_reconstruction`, `manual`, `runtime_observed`. Status lifecycle: `draft` → `needs_review` → `active` (or `archived`). Deduplication by `workflowId + sourceReportId`.
+- **Promotion API** — `POST /api/workflows/promote`: three input paths (reportId + workflowId, inline spec + metadata). Status assigned deterministically: `active` if high confidence + no missing fields, `needs_review` otherwise.
+- **Registry CRUD API** — `GET /api/workflows` (list + filters), `GET/PATCH/DELETE /api/workflows/[registryId]`. All protected by dashboard access key.
+- **Promote button in Static Proof Reconstruction** — each `SuggestedWorkflowSpec` card shows "Promote to Workflow Registry" with a status preview. On success, redirects to the registry detail.
+- **Upgraded Workflows tab** — `app/dashboard/workflows/page.tsx` is now a client component showing two sections: **Workflow Registry** (live, from API) and **Example Workflows** (clearly labeled as static demo data). Registry uses `mergeAuthHeaders()` and calls `onUnauthorized()` on 401.
+- **Registry detail page** — `app/dashboard/workflows/registry/[registryId]/page.tsx`: header with source/status/confidence badges, spec summary, node list, edge list, proof readiness panel, related runs (from `/api/runs?workflowId=...`), status update and delete actions.
+- **Run detail linked to registry** — `app/dashboard/runs/[runId]/page.tsx` queries `/api/workflows?workflowId=...` and shows a "Linked spec" chip with status badge when a matching registry entry exists. Shows "Promote a spec →" link when no registry entry found.
+- **Demo workflow registration** — `POST /api/runs/demo` now also upserts the Website Auditor demo WorkflowSpec into the registry (`source: "example"`, `status: "active"`, `confidence: "high"`) so demo run detail can immediately link to a registered spec.
+- **`RegistryWorkflowCard` component** — reusable card for registry workflow summaries with source/status/confidence badges, node/edge counts, and link to detail page.
+- 60 new tests (workflow store, promotion API, registry CRUD, demo link, UI smoke); all 841 tests pass.
+
 ## V1 — Trace SDK
 
 Projects emit AgentPulse-compatible traces without AgentPulse executing the project.

@@ -37,9 +37,10 @@ Task 2 implements this as a static proof UI backed by local example JSON files o
 The UI routes are:
 
 - `/dashboard` — overview metrics, recent workflows, recent failures, and workflow gallery preview.
-- `/dashboard/workflows` — workflow gallery.
-- `/dashboard/workflows/[workflowId]` — workflow inspector.
-- `/dashboard/runs/[runId]` — run detail with trace timeline, model calls, tool calls, evals, errors/retries, artifacts, cost, and latency.
+- `/dashboard/workflows` — Workflow Registry (registered contracts) + Example Workflows (static demo data).
+- `/dashboard/workflows/[workflowId]` — example workflow inspector (from static examples).
+- `/dashboard/workflows/registry/[registryId]` — registered workflow detail (from Workflow Registry).
+- `/dashboard/runs/[runId]` — run detail with trace timeline, model calls, tool calls, evals, errors/retries, artifacts, cost, and latency. Links to matching registered WorkflowSpec if found.
 
 The scanner surface adds a fifth route:
 
@@ -88,6 +89,63 @@ Client-side:
 - Any subsequent `401` from any dashboard API call clears the stored key and returns the user to the global access gate.
 - The key is never stored in `localStorage`, never sent to the browser via `NEXT_PUBLIC_` env vars, and never written to the page source.
 
+## Workflow Registry (Task 9)
+
+The Workflow Registry is the central store of known WorkflowSpecs. It links static scan/reconstruction output to the runtime proof layer through a shared `workflow_id`.
+
+### Sources
+
+| Source | Description |
+|--------|-------------|
+| `example` | Built-in demo specs (Website Auditor, etc.) |
+| `scan_reconstruction` | Promoted from a static proof reconstruction |
+| `manual` | Manually authored and saved via API |
+| `runtime_observed` | Inferred from runtime trace events (future) |
+
+### Status lifecycle
+
+`draft` → `needs_review` → `active` (or `archived`)
+
+- `active`: high confidence, no critical missing fields.
+- `needs_review`: medium/low confidence or missing fields present.
+- `draft`: manually provided or incomplete spec.
+- `archived`: explicitly removed from active use.
+
+### Storage
+
+`lib/workflows/workflowStore.ts` is file-backed, following the same pattern as `fileReportStore` and `fileRunStore`. Persists under `${AGENTPULSE_STORE_DIR}/workflows/`.
+
+Deduplication: if a workflow with the same `workflowId + sourceReportId` already exists, `saveWorkflow()` updates/replaces the existing entry.
+
+### API Routes
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `POST` | `/api/workflows/promote` | Promote a spec into the registry |
+| `GET`  | `/api/workflows` | List registry summaries (with filters) |
+| `GET`  | `/api/workflows/[registryId]` | Get full saved WorkflowSpec |
+| `PATCH` | `/api/workflows/[registryId]` | Update status |
+| `DELETE` | `/api/workflows/[registryId]` | Delete registry entry |
+
+All routes require `x-agentpulse-key` (AGENTPULSE_ACCESS_KEY).
+
+### Promotion flow
+
+1. Scan a repository → scan report saved.
+2. Generate proof spec from Static Proof Reconstruction.
+3. Click "Promote to Workflow Registry" → `POST /api/workflows/promote`.
+4. Status is assigned: `active` (high confidence, no missing fields) or `needs_review`.
+5. Registered spec appears in `/dashboard/workflows` under "Workflow Registry".
+6. Runtime runs that emit matching `workflow_id` link to the registered spec automatically.
+
+### Run → Spec linking
+
+`/dashboard/runs/[runId]` queries `GET /api/workflows?workflowId=<run.workflow_id>`. If a matching registry entry is found, it is shown as a "Linked spec" chip in the Workflow Execution card. If not found, the UI shows a "Promote a spec →" link.
+
+### Demo WorkflowSpec
+
+`POST /api/runs/demo` upserts the Website Auditor demo WorkflowSpec into the registry alongside the run, so the demo run detail page immediately shows a linked spec.
+
 ## Demo Run
 
 `POST /api/runs/demo` creates a complete, self-contained Website Auditor demo run using the existing run store and trace schemas. It is designed so the runtime proof layer is explorable from the dashboard UI without any external project integration.
@@ -97,6 +155,7 @@ Client-side:
 - Marks the run as `degraded` (a source grounding eval warning is included by design to show the degraded state).
 - All events are validated with Zod schemas before storage.
 - All trace events satisfy `assertTraceContract`.
+- Also upserts the Website Auditor WorkflowSpec into the Workflow Registry (`source: "example"`, `status: "active"`).
 - Returns `{ ok: true, runId: "demo-...", redirectTo: "/dashboard/runs/{runId}" }`.
 
 The demo run is for product testing only. Real external integrations use the ingest endpoints below.

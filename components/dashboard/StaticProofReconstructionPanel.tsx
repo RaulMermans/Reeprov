@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { mergeAuthHeaders } from "@/lib/auth/internalKey";
+import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
 import type { ScanReport } from "@/lib/scanner/types";
 import type { StaticProofReconstruction, SuggestedManifestFile } from "@/lib/reconstruction/types";
 
@@ -53,11 +55,50 @@ function MappingRow({ label, value, total }: { label: string; value: number; tot
 }
 
 export function StaticProofReconstructionPanel({ report }: Props) {
+  const router = useRouter();
+  const { onUnauthorized } = useDashboardAuth();
   const [reconstruction, setReconstruction] = useState<StaticProofReconstruction | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeFile, setActiveFile] = useState<SuggestedManifestFile | null>(null);
   const [copiedHint, setCopiedHint] = useState<string | null>(null);
+  const [promotingId, setPromotingId] = useState<string | null>(null);
+  const [promoteError, setPromoteError] = useState<string | null>(null);
+
+  async function promote(workflowId: string) {
+    if (!report.reportId) {
+      setPromoteError("Cannot promote: this scan has no saved reportId. Save the scan first.");
+      return;
+    }
+    setPromotingId(workflowId);
+    setPromoteError(null);
+
+    try {
+      const res = await fetch("/api/workflows/promote", {
+        method: "POST",
+        headers: mergeAuthHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ reportId: report.reportId, workflowId }),
+      });
+
+      if (res.status === 401) {
+        onUnauthorized("Access key expired or invalid. Please unlock again.");
+        return;
+      }
+
+      const data = await res.json() as { ok?: boolean; redirectTo?: string; message?: string };
+
+      if (!res.ok || !data.ok) {
+        setPromoteError(data.message ?? "Promotion failed.");
+        return;
+      }
+
+      router.push(data.redirectTo ?? "/dashboard/workflows");
+    } catch {
+      setPromoteError("Could not connect to AgentPulse API.");
+    } finally {
+      setPromotingId(null);
+    }
+  }
 
   async function generate() {
     setLoading(true);
@@ -260,9 +301,31 @@ export function StaticProofReconstructionPanel({ report }: Props) {
                     {spec.recommendations.map((r) => <li key={r}>{r}</li>)}
                   </ul>
                 ) : null}
+
+                {/* Promote to Workflow Registry */}
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                  <div className="text-xs text-slate-500">
+                    {spec.confidence === "high" && spec.missingFields.length === 0
+                      ? "Will be saved as active — high confidence, no missing fields."
+                      : "Will be saved as needs_review — review before use."}
+                    <span className="ml-1 text-slate-400">Promotion does not modify the source repo.</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex items-center rounded-md bg-teal-700 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    disabled={promotingId === spec.workflow_id || !report.reportId}
+                    onClick={() => void promote(spec.workflow_id)}
+                  >
+                    {promotingId === spec.workflow_id ? "Promoting…" : "Promote to Workflow Registry"}
+                  </button>
+                </div>
               </Card>
             ))}
           </div>
+          ) : null}
+
+          {promoteError ? (
+            <Card className="border-red-200 bg-red-50 p-3 text-xs text-red-800">{promoteError}</Card>
           ) : null}
 
           {/* Mapping Summary */}

@@ -13,12 +13,14 @@ import { mergeAuthHeaders } from "@/lib/auth/internalKey";
 import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
 import type { TraceEvent, EvalResult, RunRecord, WorkflowSpec } from "@/lib/proof-layer/schemas";
 import type { SavedRun } from "@/lib/runs/runTypes";
+import type { SavedWorkflowSummary } from "@/lib/workflows/workflowTypes";
 
 interface RunDetailState {
   run: RunRecord;
   traceEvents: TraceEvent[];
   evalResults: EvalResult[];
   workflow?: WorkflowSpec;
+  registryWorkflow?: SavedWorkflowSummary;
   isLive: boolean;
   isSeeded: boolean;
   isDemo: boolean;
@@ -90,7 +92,7 @@ export default function RunDetailPage() {
           a.timestamp.localeCompare(b.timestamp)
         );
 
-        // Fetch workflow spec for live runs.
+        // Fetch workflow spec (example data) for live runs.
         let workflow: WorkflowSpec | undefined;
         try {
           const wfRes = await fetch(`/api/runs/examples/${data.runRecord.workflow_id}`);
@@ -102,11 +104,27 @@ export default function RunDetailPage() {
           // workflow not found — that's fine
         }
 
+        // Also check the Workflow Registry for a matching registered spec.
+        let registryWorkflow: SavedWorkflowSummary | undefined;
+        try {
+          const regRes = await fetch(
+            `/api/workflows?workflowId=${encodeURIComponent(data.runRecord.workflow_id)}&limit=1`,
+            { headers: mergeAuthHeaders() },
+          );
+          if (regRes.ok) {
+            const regData = await regRes.json() as { workflows: SavedWorkflowSummary[] };
+            registryWorkflow = regData.workflows?.[0];
+          }
+        } catch {
+          // registry lookup is optional
+        }
+
         setState({
           run: data.runRecord,
           traceEvents,
           evalResults: data.evalResults ?? [],
           workflow,
+          registryWorkflow,
           isLive: true,
           isSeeded: data.runRecord.run_id.startsWith("seed-"),
           isDemo: data.runRecord.run_id.startsWith("demo-"),
@@ -165,7 +183,7 @@ export default function RunDetailPage() {
 
   if (!state) return null;
 
-  const { run, traceEvents, evalResults, workflow, isLive, isSeeded, isDemo } = state;
+  const { run, traceEvents, evalResults, workflow, registryWorkflow, isLive, isSeeded, isDemo } = state;
   const modelEvents = traceEvents.filter((e) => e.event_type === "model_call_started" || e.event_type === "model_call_completed");
   const errorEvents = traceEvents.filter((e) => e.event_type === "error" || e.event_type === "node_failed" || e.event_type === "tool_call_failed");
   const retryEvents = traceEvents.filter((e) => e.event_type === "retry_started");
@@ -236,7 +254,28 @@ export default function RunDetailPage() {
 
       <section className="grid gap-6 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-2">
-          <h2 className="text-xl font-semibold text-slate-950">Workflow Execution</h2>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <h2 className="text-xl font-semibold text-slate-950">Workflow Execution</h2>
+            {registryWorkflow ? (
+              <Link
+                href={`/dashboard/workflows/registry/${registryWorkflow.registryId}`}
+                className="inline-flex items-center gap-1.5 rounded-md border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 transition hover:border-teal-300"
+              >
+                Linked spec: {registryWorkflow.name}
+                <Badge tone={registryWorkflow.status === "active" ? "success" : "warning"} className="ml-1 text-[10px]">
+                  {registryWorkflow.status}
+                </Badge>
+              </Link>
+            ) : isLive ? (
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500">
+                No registered WorkflowSpec for{" "}
+                <code className="font-mono">{run.workflow_id}</code>.{" "}
+                <Link href="/dashboard/workflows" className="text-teal-700 hover:underline">
+                  Promote a spec →
+                </Link>
+              </div>
+            ) : null}
+          </div>
           {workflow ? (
             <div className="mt-4 grid gap-3">
               {workflow.nodes.map((node, index) => {
