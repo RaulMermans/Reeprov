@@ -40,11 +40,12 @@ describe("Run detail — linked WorkflowSpec contract (Phase 1+2)", () => {
 
   it("shows no-spec-nodes empty state only when no spec is available", () => {
     expect(src).toContain("data-testid=\"no-spec-nodes\"");
-    // The no-spec-nodes block must be inside the !hasLinkedSpec branch
+    // The no-spec-nodes block must appear after the registryWorkflow truthy branch
+    // (registryWorkflow ? ... : <no-spec-nodes>)
     const noSpecIdx = src.indexOf("data-testid=\"no-spec-nodes\"");
-    const hasLinkedSpecIdx = src.indexOf("!hasLinkedSpec");
-    expect(hasLinkedSpecIdx).toBeGreaterThan(0);
-    expect(noSpecIdx).toBeGreaterThan(hasLinkedSpecIdx);
+    const registryWorkflowIdx = src.indexOf("registryWorkflow ?");
+    expect(registryWorkflowIdx).toBeGreaterThan(0);
+    expect(noSpecIdx).toBeGreaterThan(registryWorkflowIdx);
   });
 
   it("never renders both linked-spec-link and no-linked-spec simultaneously", () => {
