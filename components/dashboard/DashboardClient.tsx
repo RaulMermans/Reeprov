@@ -16,6 +16,7 @@ import { mergeAuthHeaders } from "@/lib/auth/internalKey";
 import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
 import { exportReportMarkdown } from "@/lib/reports/exportMarkdown";
 import { DIRECT_ZIP_UPLOAD_MAX_BYTES, DIRECT_ZIP_UPLOAD_MAX_MB } from "@/lib/zip/limits";
+import { projectTypeLabel } from "@/lib/utils/format";
 import type { FormEvent } from "react";
 import type { ScanReport } from "@/lib/scanner/types";
 
@@ -334,6 +335,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
               </div>
             </div>
           ) : null}
+          <ScanInsightBanner report={report} />
           <HealthOverview report={report} />
           <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -374,7 +376,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
             </ScannerSection>
           ) : null}
 
-          <ScannerSection title="Static Proof Reconstruction">
+          <ScannerSection title="Static Proof Reconstruction" id="static-proof">
             <StaticProofReconstructionPanel report={report} />
           </ScannerSection>
 
@@ -548,9 +550,9 @@ function ciProviderLabel(provider: string) {
   }
 }
 
-function ScannerSection({ title, children }: { title: string; children: React.ReactNode }) {
+function ScannerSection({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
-    <section>
+    <section id={id}>
       <h2 className="mb-3 text-base font-semibold text-slate-950">{title}</h2>
       {children}
     </section>
@@ -587,4 +589,87 @@ function appVersion(): string {
     return process.env.NEXT_PUBLIC_AGENTPULSE_VERSION;
   }
   return "local";
+}
+
+function ScanInsightBanner({ report }: { report: ScanReport }) {
+  const isMock = report.scanSource?.type === "mock";
+  if (isMock) return null;
+
+  const overallScore = report.scores.overall;
+  const projectType = report.projectType;
+  const hasAgents = report.detectedAgents.length > 0;
+  const hasWorkflows = report.detectedWorkflowsDetailed.length > 0;
+  const hasEvals = report.detectedEvals.length > 0;
+  const highSeverityCount = report.findings.filter((f) => f.severity === "high" || f.severity === "critical").length;
+  const hasManifest = hasAgents || hasWorkflows;
+  const hasReportId = Boolean(report.reportId);
+
+  // What this means — 1–2 sentence summary
+  const projectLabel = projectTypeLabel(projectType);
+  let summary = `This is classified as an ${projectLabel}.`;
+  if (projectType === "agent_system") summary = `This is an agent system with ${report.detectedAgents.length} detected agent${report.detectedAgents.length !== 1 ? "s" : ""}.`;
+  else if (projectType === "workflow_system") summary = `This is a workflow system with ${report.detectedWorkflowsDetailed.length} workflow manifest${report.detectedWorkflowsDetailed.length !== 1 ? "s" : ""}.`;
+  else if (projectType === "hybrid_workflow_agent") summary = `This project has both agent and workflow structure — ${report.detectedAgents.length} agent${report.detectedAgents.length !== 1 ? "s" : ""} and ${report.detectedWorkflowsDetailed.length} workflow${report.detectedWorkflowsDetailed.length !== 1 ? "s" : ""} detected.`;
+  else if (projectType === "ai_application") summary = "This project uses AI APIs or SDKs but has no explicit agent or workflow manifest.";
+
+  if (highSeverityCount > 0) {
+    summary += ` ${highSeverityCount} high-severity finding${highSeverityCount !== 1 ? "s" : ""} detected.`;
+  } else if (overallScore >= 80) {
+    summary += " Overall health looks good.";
+  }
+
+  // Next best actions
+  const actions: Array<{ label: string; href: string }> = [];
+
+  if (hasReportId) {
+    actions.push({ label: "Generate proof spec from this scan", href: "#static-proof" });
+  }
+  if (!hasManifest) {
+    actions.push({ label: "Add an agents.yaml or workflow.yaml for stronger analysis", href: "#findings" });
+  }
+  if (!hasEvals) {
+    actions.push({ label: "Add an eval suite to track model quality", href: "#findings" });
+  }
+  if (hasReportId) {
+    actions.push({ label: "View saved report in Scan History", href: "/dashboard/reports" });
+  }
+
+  const scoreColor = overallScore >= 80 ? "border-emerald-200 bg-emerald-50" : overallScore >= 60 ? "border-amber-200 bg-amber-50" : "border-red-200 bg-red-50";
+  const headingColor = overallScore >= 80 ? "text-emerald-800" : overallScore >= 60 ? "text-amber-800" : "text-red-800";
+  const bodyColor = overallScore >= 80 ? "text-emerald-700" : overallScore >= 60 ? "text-amber-700" : "text-red-700";
+
+  return (
+    <div className={`rounded-md border p-4 ${scoreColor}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className={`text-sm font-semibold ${headingColor}`}>What this means</p>
+          <p className={`mt-1 max-w-3xl text-sm ${bodyColor}`}>{summary}</p>
+          <p className="mt-1.5 text-xs text-slate-500">
+            Static scan only — no code was executed. Findings are based on file evidence.
+          </p>
+        </div>
+        <div className={`text-right text-xs ${bodyColor}`}>
+          <span className="font-mono text-2xl font-bold">{Math.round(overallScore)}</span>
+          <span className="text-base">/100</span>
+        </div>
+      </div>
+      {actions.length > 0 ? (
+        <div className="mt-3 border-t border-current border-opacity-20 pt-3">
+          <p className={`text-xs font-semibold ${headingColor}`}>Next best actions</p>
+          <ul className="mt-1.5 flex flex-col gap-1">
+            {actions.map((action) => (
+              <li key={action.href + action.label} className="flex items-start gap-1.5 text-xs">
+                <span className="mt-0.5 text-slate-400">→</span>
+                {action.href.startsWith("/") ? (
+                  <a href={action.href} className={`hover:underline ${bodyColor}`}>{action.label}</a>
+                ) : (
+                  <a href={action.href} className={`hover:underline ${bodyColor}`}>{action.label}</a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
 }

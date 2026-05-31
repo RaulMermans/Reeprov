@@ -347,7 +347,7 @@ export default function RegistryWorkflowDetailPage() {
 
           {workflow.missingFields.length > 0 ? (
             <div className="mt-3">
-              <p className="text-xs font-semibold uppercase text-slate-400">Missing fields</p>
+              <p className="text-xs font-semibold uppercase text-slate-400">Missing spec fields</p>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {workflow.missingFields.map((f) => (
                   <span key={f} className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">{f}</span>
@@ -358,7 +358,13 @@ export default function RegistryWorkflowDetailPage() {
 
           {missingLinks.length > 0 ? (
             <div className="mt-3">
-              <p className="text-xs font-semibold uppercase text-slate-400">Missing links</p>
+              <p className="text-xs font-semibold uppercase text-slate-400">
+                Project-level gaps
+                <span className="ml-1 font-normal normal-case text-slate-400">from source report</span>
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                These gaps come from the full source report, not just this workflow. They are informational — not failures.
+              </p>
               <div className="mt-1.5 grid gap-1.5">
                 {missingLinks.slice(0, 8).map((link, i) => (
                   <div key={i} className="rounded border border-slate-100 bg-slate-50 p-2 text-xs">
@@ -367,15 +373,16 @@ export default function RegistryWorkflowDetailPage() {
                   </div>
                 ))}
                 {missingLinks.length > 8 ? (
-                  <p className="text-xs text-slate-400">+{missingLinks.length - 8} more</p>
+                  <p className="text-xs text-slate-400">+{missingLinks.length - 8} more gaps in source report</p>
                 ) : null}
               </div>
             </div>
           ) : null}
 
-          <p className="mt-4 rounded-md border border-slate-100 bg-slate-50 p-2 text-xs text-slate-500">
-            Optional mappings improve confidence. The source repo does not need to change.
-          </p>
+          <div className="mt-4 rounded-md border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500 space-y-1">
+            <p>Optional mappings improve confidence. No source repo changes are required.</p>
+            <p>Registered does not mean runtime-verified. Link runtime runs to confirm execution.</p>
+          </div>
         </Card>
       </div>
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { mergeAuthHeaders } from "@/lib/auth/internalKey";
@@ -64,6 +65,8 @@ export function StaticProofReconstructionPanel({ report }: Props) {
   const [copiedHint, setCopiedHint] = useState<string | null>(null);
   const [promotingId, setPromotingId] = useState<string | null>(null);
   const [promoteError, setPromoteError] = useState<string | null>(null);
+  // Track workflows promoted in this session: workflowId → registry redirect URL
+  const [promotedMap, setPromotedMap] = useState<Record<string, string>>({});
 
   async function promote(workflowId: string) {
     if (!report.reportId) {
@@ -92,7 +95,9 @@ export function StaticProofReconstructionPanel({ report }: Props) {
         return;
       }
 
-      router.push(data.redirectTo ?? "/dashboard/workflows");
+      const redirectTo = data.redirectTo ?? "/dashboard/workflows";
+      // Mark as promoted in session so the button changes state
+      setPromotedMap((prev) => ({ ...prev, [workflowId]: redirectTo }));
     } catch {
       setPromoteError("Could not connect to AgentPulse API.");
     } finally {
@@ -305,19 +310,36 @@ export function StaticProofReconstructionPanel({ report }: Props) {
                 {/* Promote to Workflow Registry */}
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
                   <div className="text-xs text-slate-500">
-                    {spec.confidence === "high" && spec.missingFields.length === 0
-                      ? "Will be saved as active — high confidence, no missing fields."
-                      : "Will be saved as needs_review — review before use."}
-                    <span className="ml-1 text-slate-400">Promotion does not modify the source repo.</span>
+                    {promotedMap[spec.workflow_id] ? (
+                      <span className="text-emerald-700 font-medium">Promoted to registry.</span>
+                    ) : spec.confidence === "high" && spec.missingFields.length === 0 ? (
+                      "Will be saved as active — high confidence, no missing fields."
+                    ) : (
+                      "Will be saved as needs_review — review before use."
+                    )}
+                    {!promotedMap[spec.workflow_id] && (
+                      <span className="ml-1 text-slate-400">Promotion does not modify the source repo.</span>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    className="inline-flex items-center rounded-md bg-teal-700 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-                    disabled={promotingId === spec.workflow_id || !report.reportId}
-                    onClick={() => void promote(spec.workflow_id)}
-                  >
-                    {promotingId === spec.workflow_id ? "Promoting…" : "Promote to Workflow Registry"}
-                  </button>
+                  {promotedMap[spec.workflow_id] ? (
+                    <Link
+                      href={promotedMap[spec.workflow_id]}
+                      className="inline-flex items-center rounded-md border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 transition hover:border-teal-300"
+                      data-testid={`view-in-registry-${spec.workflow_id}`}
+                    >
+                      View in Registry →
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      className="inline-flex items-center rounded-md bg-teal-700 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                      disabled={promotingId === spec.workflow_id || !report.reportId}
+                      onClick={() => void promote(spec.workflow_id)}
+                      data-testid={`promote-btn-${spec.workflow_id}`}
+                    >
+                      {promotingId === spec.workflow_id ? "Promoting…" : "Promote to Workflow Registry"}
+                    </button>
+                  )}
                 </div>
               </Card>
             ))}

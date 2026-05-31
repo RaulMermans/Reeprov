@@ -225,3 +225,61 @@ Future scanner work can continue after the proof UI is stable:
 - Score trend chart per repository
 - Finding diffs between scans
 - Optional GitHub OAuth or GitHub App for private repo access
+
+---
+
+## Task 10 — Product Stabilization + UX Polish Sprint ✓
+
+Task 10 makes AgentPulse feel like a coherent, polished internal V0 product before external project integrations are added.
+
+- **Run detail contradiction fixed** — Run detail no longer shows a linked WorkflowSpec and "no linked spec" state simultaneously. Uses `registryWorkflow.spec.nodes` as fallback when no example workflow exists.
+- **Run detail hierarchy** — Critical/failed evals are surfaced near the top. Health summary shows duration, cost, model/tool/eval counts, and artifact count at a glance.
+- **Timeline filters** — TraceTimeline has filter tabs: All, Nodes, Models, Tools, Evals, Artifacts, Errors. Each shows event counts. Default is All.
+- **Registry detail clarity** — Missing links are labeled "Project-level gaps from source report" with a note that they are informational, not failures. Copy clarifies: "Registered does not mean runtime-verified."
+- **Registry list filters** — Workflow Registry list has status (all/active/needs_review/draft/archived) and source (all/scan_reconstruction/example/manual/runtime_observed) filter rows.
+- **Promotion UX** — StaticProofReconstructionPanel tracks promoted workflow IDs in session. After promotion, the button changes to "View in Registry →" instead of allowing duplicate promotions. "Promote all" note included.
+- **Scanner insight banner** — "What this means" + "Next best actions" summary appears above the health overview after every scan. Shows project type, high-severity count, overall score, and contextual next actions.
+- **Navbar "Live" indicator** — Replaced the ambiguous green "Live" dot with "Unlocked" text and a teal indicator.
+- **Badge consistency** — Demo, Live ingestion, Seeded, Example data, and registered/example labels are consistently applied across the product.
+
+---
+
+## Good-to-go V0 Test Path
+
+Before connecting real external projects, verify AgentPulse end-to-end using the following path:
+
+1. **Unlock dashboard** — Enter AGENTPULSE_ACCESS_KEY at the access gate.
+2. **Create demo run** — Go to Runs → click "Create demo run". Confirm redirect to the run detail page.
+3. **Inspect run health** — Verify the health summary card shows status, duration, cost, model/tool calls, evals, and artifacts.
+4. **Check failed evals** — Confirm the degraded run shows the eval warning near the top of the page.
+5. **Inspect timeline** — Use filter tabs (Nodes, Models, Tools, Evals, Artifacts, Errors) to isolate events.
+6. **Check linked spec** — Confirm the run detail shows "Registered spec: Website Auditor" with a link to the registry. Confirm no "No workflow spec linked" contradiction appears.
+7. **Scan a GitHub repo or ZIP** — Go to Repository Scanner → scan a repo. Confirm the "What this means" insight banner appears above the health overview.
+8. **Confirm saved report** — Go to Scan History. Confirm the report appears. Click it to open the saved report detail.
+9. **Generate Static Proof Reconstruction** — From the scanner or report detail, click "Generate proof spec". Confirm confidence, workflow specs, mapping coverage, and missing links appear.
+10. **Promote a WorkflowSpec** — Click "Promote to Workflow Registry" for an inferred workflow. Confirm the button changes to "View in Registry →".
+11. **Open Workflows tab** — Go to Workflows → confirm the promoted workflow appears in Workflow Registry. Use status/source filters to verify filtering works.
+12. **Inspect registry workflow** — Open the registry detail. Confirm "Project-level gaps from source report" is labeled correctly. Confirm "Registered does not mean runtime-verified." copy is visible.
+13. **Return to run detail** — Navigate to the demo run. Confirm "Registered spec: Website Auditor" is linked. Confirm no contradiction.
+14. **Lock and re-unlock** — Click "Lock dashboard". Confirm the access gate re-appears. Re-enter the key. Confirm stored key is revalidated.
+
+### Current Limitations
+
+- **File-backed storage** is local/demo-grade. Data is stored under `.agentpulse/` (local) or `/tmp/agentpulse` (Vercel). On Vercel, data is wiped on redeployment.
+- **Runtime proof from external projects** requires a trace-emitting bridge. The Integration Kit is not yet built.
+- **Static reconstruction is deterministic and may be incomplete.** It reads file names and manifest fields — it does not execute the project. Unmapped links are gaps in static evidence, not proof of bugs.
+- **Registered specs are contracts/drafts.** A registered WorkflowSpec describes intent. Only linked runtime runs (with trace events) constitute runtime proof.
+- **No authentication or user accounts.** AgentPulse uses a single shared AGENTPULSE_ACCESS_KEY. Not suitable for multi-user deployments yet.
+- **No durable production storage.** Replace `fileRunStore` / `fileReportStore` / `fileWorkflowStore` with a Postgres, Vercel Blob, or Supabase adapter for persistence across deployments.
+
+---
+
+## What Comes Next — Integration Kit
+
+After V0 is validated internally, the next phase adds real external project tracing without modifying the AgentPulse scanner:
+
+- `@agentpulse/client` SDK for emitting trace events from external projects
+- Project-specific ingest keys (AGENTPULSE_INGEST_KEY per project)
+- Integration guides for Website Auditor, Campaign Sandbox, Blog Agent
+- Run → registered spec automatic linking on ingest
+- Multi-project pulse dashboard on the Overview

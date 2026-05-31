@@ -15,10 +15,31 @@ interface Props {
   exampleItems: WorkflowGalleryItem[];
 }
 
+type StatusFilter = "all" | "active" | "needs_review" | "draft" | "archived";
+type SourceFilter = "all" | "scan_reconstruction" | "example" | "manual" | "runtime_observed";
+
+const STATUS_FILTERS: Array<{ key: StatusFilter; label: string }> = [
+  { key: "all", label: "All" },
+  { key: "active", label: "Active" },
+  { key: "needs_review", label: "Needs review" },
+  { key: "draft", label: "Draft" },
+  { key: "archived", label: "Archived" },
+];
+
+const SOURCE_FILTERS: Array<{ key: SourceFilter; label: string }> = [
+  { key: "all", label: "All sources" },
+  { key: "scan_reconstruction", label: "Reconstructed" },
+  { key: "example", label: "Example" },
+  { key: "manual", label: "Manual" },
+  { key: "runtime_observed", label: "Runtime" },
+];
+
 export function WorkflowsPageClient({ exampleItems }: Props) {
   const { onUnauthorized } = useDashboardAuth();
   const [registered, setRegistered] = useState<SavedWorkflowSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
 
   useEffect(() => {
     void loadRegistered();
@@ -45,6 +66,14 @@ export function WorkflowsPageClient({ exampleItems }: Props) {
     }
   }
 
+  const filtered = registered.filter((wf) => {
+    if (statusFilter !== "all" && wf.status !== statusFilter) return false;
+    if (sourceFilter !== "all" && wf.source !== sourceFilter) return false;
+    return true;
+  });
+
+  const needsReviewCount = registered.filter((wf) => wf.status === "needs_review").length;
+
   return (
     <main className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:px-8">
 
@@ -57,10 +86,61 @@ export function WorkflowsPageClient({ exampleItems }: Props) {
               Known workflow contracts promoted from scan reconstructions, manually authored, or observed at runtime.
             </p>
           </div>
-          <Badge tone="neutral">
-            {loading ? "…" : registered.length} registered
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge tone="neutral">
+              {loading ? "…" : registered.length} registered
+            </Badge>
+            {needsReviewCount > 0 ? (
+              <Badge tone="warning">{needsReviewCount} needs review</Badge>
+            ) : null}
+          </div>
         </div>
+
+        {/* Filter row */}
+        {!loading && registered.length > 0 ? (
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5">
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by status">
+              <span className="text-xs font-medium text-slate-500">Status:</span>
+              {STATUS_FILTERS.map(({ key, label }) => {
+                const count = key === "all" ? registered.length : registered.filter((wf) => wf.status === key).length;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setStatusFilter(key)}
+                    className={`rounded px-2 py-0.5 text-xs font-medium transition ${
+                      statusFilter === key
+                        ? "bg-slate-800 text-white"
+                        : "text-slate-600 hover:bg-slate-200"
+                    }`}
+                    data-testid={`status-filter-${key}`}
+                  >
+                    {label}{count > 0 && key !== "all" ? ` (${count})` : ""}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="h-4 w-px bg-slate-200" />
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by source">
+              <span className="text-xs font-medium text-slate-500">Source:</span>
+              {SOURCE_FILTERS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setSourceFilter(key)}
+                  className={`rounded px-2 py-0.5 text-xs font-medium transition ${
+                    sourceFilter === key
+                      ? "bg-slate-800 text-white"
+                      : "text-slate-600 hover:bg-slate-200"
+                  }`}
+                  data-testid={`source-filter-${key}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {loading ? (
           <Card className="mt-4 p-6 text-sm text-slate-500">Loading registry…</Card>
@@ -75,9 +155,20 @@ export function WorkflowsPageClient({ exampleItems }: Props) {
               after generating a proof spec. Example workflows are shown below.
             </p>
           </Card>
+        ) : filtered.length === 0 ? (
+          <Card className="mt-4 p-6 text-sm text-slate-500">
+            No workflows match the selected filters.{" "}
+            <button
+              type="button"
+              className="text-teal-700 hover:underline"
+              onClick={() => { setStatusFilter("all"); setSourceFilter("all"); }}
+            >
+              Clear filters
+            </button>
+          </Card>
         ) : (
           <div className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-            {registered.map((wf) => (
+            {filtered.map((wf) => (
               <RegistryWorkflowCard key={wf.registryId} workflow={wf} />
             ))}
           </div>

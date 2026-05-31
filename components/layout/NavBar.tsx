@@ -45,9 +45,9 @@ export function NavBar({ onLock }: { onLock?: () => void }) {
           </nav>
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          <div className="hidden items-center gap-2 text-xs text-slate-400 sm:flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
-            Live
+          <div className="hidden items-center gap-1.5 text-xs text-slate-400 sm:flex" title="Dashboard is unlocked">
+            <span className="h-1.5 w-1.5 rounded-full bg-teal-400" aria-hidden />
+            Unlocked
           </div>
           {onLock && (
             <button
