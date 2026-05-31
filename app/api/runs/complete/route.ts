@@ -22,6 +22,7 @@ import { fileRunStore } from "@/lib/runs/runStore";
 import { traceEventSchema } from "@/lib/proof-layer/schemas";
 import { assertTraceContract, summarizeRun } from "@/lib/proof-layer/index";
 import type { TraceEvent } from "@/lib/proof-layer/schemas";
+import { touchIntegrationForProject } from "@/lib/integrations/integrationStore";
 
 export async function POST(request: Request) {
   try {
@@ -84,6 +85,15 @@ export async function POST(request: Request) {
     await fileRunStore.completeRun(run_id, patch as Partial<import("@/lib/proof-layer/schemas").RunRecord>);
 
     const finalRun = await fileRunStore.getRun(run_id);
+    const finalStatus = (patch["status"] as string | undefined) ?? "completed";
+
+    // Mark integration as receiving events (non-fatal).
+    if (saved.runRecord.project_id) {
+      void touchIntegrationForProject(saved.runRecord.project_id, {
+        runId: run_id,
+        runStatus: finalStatus,
+      });
+    }
 
     return NextResponse.json({
       runRecord: finalRun?.runRecord,

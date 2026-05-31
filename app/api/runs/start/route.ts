@@ -20,6 +20,7 @@ import { fileRunStore } from "@/lib/runs/runStore";
 import { generateRunId } from "@/lib/runs/runId";
 import { runRecordSchema, traceEventSchema } from "@/lib/proof-layer/schemas";
 import type { RunRecord, TraceEvent } from "@/lib/proof-layer/schemas";
+import { touchIntegrationForProject } from "@/lib/integrations/integrationStore";
 
 export async function POST(request: Request) {
   try {
@@ -91,6 +92,9 @@ export async function POST(request: Request) {
       status: "running",
     });
     await fileRunStore.appendTraceEvent(run_id, startedEvent);
+
+    // Mark integration as receiving events (non-fatal).
+    void touchIntegrationForProject(project_id, { runId: run_id });
 
     return NextResponse.json(runRecord, { status: 201 });
   } catch (error) {

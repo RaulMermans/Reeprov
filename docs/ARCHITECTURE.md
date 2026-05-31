@@ -46,6 +46,11 @@ The scanner surface adds a fifth route:
 
 - `/dashboard/scanner` — repository scanner (access-key gated, separate from the proof layer).
 
+The integrations surface adds a sixth route group:
+
+- `/dashboard/integrations` — Project Integrations list (status, mode, last event, run count).
+- `/dashboard/integrations/[integrationId]` — Integration detail: connection status, env block, language snippets, test-event button, recent runs, troubleshooting.
+
 This layer does not add a database, authentication changes, external API calls, workflow execution, or scanned-repository execution.
 
 ## Global Dashboard Access Gate
@@ -663,3 +668,89 @@ Behaviors:
 - `POST /api/traces/events` calls this helper to derive `EvalResult` records during ingestion
 
 Tests now import the production helper directly instead of duplicating the conversion logic.
+
+---
+
+## Project Integrations (Task 11)
+
+Task 11 adds a **repeatable live-pulse integration path**: a standard way for any external AI project to connect to AgentPulse and emit runtime trace events.
+
+### Three Levels of Integration
+
+| Level | What is needed | What it produces |
+|---|---|---|
+| **Static scan** | No code changes | Scan reports, Static Proof Reconstruction, WorkflowSpec suggestions |
+| **Integration template** | Env vars + small adapter file | Real runtime runs, model call data, evals, cost, latency |
+| **Gateway (future)** | Collector or OTLP bridge | Multi-source fan-in, batch ingestion |
+
+### Integration Registry
+
+`lib/integrations/` is a file-backed store following the same pattern as `fileRunStore`, `fileReportStore`, and `fileWorkflowStore`.
+
+Each `ProjectIntegration` record tracks:
+
+- `integrationId` — stable ID (`integ_<ts>_<hex>`)
+- `projectId` / `projectName` — project identity
+- `defaultWorkflowId` — optional workflow to link runs to
+- `status` — `waiting_for_first_event` → `receiving_events` (or `stale` / `error`)
+- `mode` — `trace_sdk` | `static_only` | `manual_trace_import` | `gateway_future`
+- `language` — `typescript` | `python` | `other`
+- `lastEventAt` / `lastRunId` / `lastRunStatus` / `runCount` — live connection health
+
+### Status Lifecycle
+
+```
+configured / waiting_for_first_event
+  → receiving_events (first trace event arrives for this projectId)
+  → stale (lastEventAt older than 7 days, computed at read-time)
+  → error (explicit error recorded)
+```
+
+When a new run starts (`POST /api/runs/start`) or trace events arrive (`POST /api/traces/events`), `touchIntegrationForProject(projectId)` is called server-side. This is non-fatal: persistence errors are logged but never propagate to callers.
+
+If no integration exists for an incoming `project_id`, a lightweight integration is auto-created with `mode: "trace_sdk"` and `status: "receiving_events"`.
+
+### API Routes
+
+| Method | Route | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/integrations` | `x-agentpulse-key` | List integrations (filters: status, mode, language, projectId) |
+| `POST` | `/api/integrations` | `x-agentpulse-key` | Create a new integration |
+| `GET` | `/api/integrations/[integrationId]` | `x-agentpulse-key` | Get integration + recent runs |
+| `PATCH` | `/api/integrations/[integrationId]` | `x-agentpulse-key` | Update fields |
+| `DELETE` | `/api/integrations/[integrationId]` | `x-agentpulse-key` | Delete integration (not runs) |
+| `POST` | `/api/integrations/[integrationId]/test-event` | `x-agentpulse-key` | Create a server-side test run for this integration |
+
+The test-event route uses the **dashboard key** (not the ingest key) and creates a small run with 1 model call and 1 eval entirely server-side. Purpose: verify the AgentPulse pipeline works for the project identity before the external project is instrumented.
+
+### Integration Templates
+
+`examples/integrations/` provides copy-pasteable client files:
+
+- `typescript/agentpulseClient.ts` — zero-dependency TypeScript client using built-in `fetch`
+- `python/agentpulse_client.py` — zero-dependency Python client using stdlib `urllib`
+- `rest/README.md` — curl-based REST examples
+
+Both clients:
+- Read env vars: `AGENTPULSE_URL`, `AGENTPULSE_INGEST_KEY`, `AGENTPULSE_PROJECT_ID`, `AGENTPULSE_PROJECT_NAME`, `AGENTPULSE_WORKFLOW_ID`, `AGENTPULSE_ENABLED`
+- Are complete no-ops when `AGENTPULSE_ENABLED` is not `"true"` — safe for local dev without AgentPulse
+- Never log or expose the ingest key
+
+### How to Connect a Project
+
+1. Add an integration in AgentPulse (`/dashboard/integrations` → Add integration).
+2. Copy the env block from the integration detail page into the external project.
+3. Copy `agentpulseClient.ts` or `agentpulse_client.py` into the project.
+4. Wrap the project's main workflow with `startRun()` / `modelCallCompleted()` / `completeRun()`.
+5. Run the external project.
+6. Confirm the run appears in AgentPulse → Runs.
+7. Check integration status in `/dashboard/integrations`.
+
+**Environment variables alone do not send events.** The adapter must be imported and called.
+
+### Security
+
+- Dashboard integration routes require `AGENTPULSE_ACCESS_KEY`.
+- External ingestion routes (`/api/runs/start`, `/api/traces/events`, `/api/runs/complete`, `/api/runs/fail`) require `AGENTPULSE_INGEST_KEY` (falls back to `AGENTPULSE_ACCESS_KEY` in dev).
+- The ingest key is never returned in any API response or rendered in the browser.
+- Project-specific ingest keys are not implemented in V0. All projects share the global ingest key.

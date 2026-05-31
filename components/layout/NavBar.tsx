@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { label: "Overview", href: "/dashboard" },
   { label: "Runs", href: "/dashboard/runs" },
   { label: "Workflows", href: "/dashboard/workflows" },
+  { label: "Integrations", href: "/dashboard/integrations" },
   { label: "Repository Scanner", href: "/dashboard/scanner" },
   { label: "Scan History", href: "/dashboard/reports" },
 ] as const;

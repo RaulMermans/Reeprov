@@ -92,20 +92,20 @@ export function OverviewLiveRuns() {
           <p className="mt-2 text-xs text-red-600">{demoError}</p>
         ) : null}
         <div className="mt-4 flex flex-wrap gap-2">
+          <Link
+            href="/dashboard/integrations"
+            className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-teal-800"
+          >
+            Add integration
+          </Link>
           <button
-            className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={creatingDemo}
             onClick={() => void createDemoRun()}
             type="button"
           >
             {creatingDemo ? "Creating…" : "Create demo run"}
           </button>
-          <Link
-            href="/dashboard/scanner"
-            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-          >
-            Open Repository Scanner
-          </Link>
         </div>
       </Card>
     );

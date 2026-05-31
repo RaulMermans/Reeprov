@@ -274,12 +274,48 @@ Before connecting real external projects, verify AgentPulse end-to-end using the
 
 ---
 
-## What Comes Next — Integration Kit
+## Task 11 — Repeatable Project Integration Kit ✓
 
-After V0 is validated internally, the next phase adds real external project tracing without modifying the AgentPulse scanner:
+Task 11 makes live-pulse integration repeatable. The goal: connect Blog Agent, Website Auditor, Campaign Sandbox, and future projects using the same standard path — without bespoke work per project.
 
-- `@agentpulse/client` SDK for emitting trace events from external projects
-- Project-specific ingest keys (AGENTPULSE_INGEST_KEY per project)
-- Integration guides for Website Auditor, Campaign Sandbox, Blog Agent
-- Run → registered spec automatic linking on ingest
-- Multi-project pulse dashboard on the Overview
+- **Integration Registry** — `lib/integrations/integrationTypes.ts` + `integrationStore.ts`: file-backed `fileIntegrationStore` implementing `IntegrationStore`. Registry IDs (`integ_<ts>_<hex>`). Status: `waiting_for_first_event` → `receiving_events` → `stale` / `error`. Modes: `trace_sdk` | `static_only` | `manual_trace_import` | `gateway_future`.
+- **Integration CRUD API** — `GET/POST /api/integrations`, `GET/PATCH/DELETE /api/integrations/[integrationId]`. All protected by dashboard access key.
+- **Test-event API** — `POST /api/integrations/[integrationId]/test-event`: creates a complete server-side test run (1 model call, 1 eval) for the integration. Uses dashboard key — does not expose the ingest key to the browser.
+- **Ingestion auto-update** — `POST /api/runs/start`, `POST /api/traces/events`, and `POST /api/runs/complete` all call `touchIntegrationForProject(projectId)` non-fatally. If no integration exists for a `project_id`, one is auto-created.
+- **Integrations dashboard page** — `/dashboard/integrations`: list view with status, mode, language, last event, run count. Add integration form (project ID, name, workflow, language, repo URL).
+- **Integration detail / setup page** — `/dashboard/integrations/[integrationId]`: connection status, env block, language snippets (TypeScript / Python / REST tabs), Send test event button, recent runs, troubleshooting.
+- **SDK templates** — `examples/integrations/typescript/agentpulseClient.ts`: zero-dependency TypeScript client. `examples/integrations/python/agentpulse_client.py`: zero-dependency Python client. `examples/integrations/rest/README.md`: curl examples.
+- **NavBar updated** — "Integrations" added between Workflows and Repository Scanner.
+- **Runs + Overview updated** — Empty states now link to Integrations as the primary CTA for connecting real projects.
+- **"Env vars alone do not send events"** — Troubleshooting copy is explicit: the adapter must be imported and called.
+
+### Standard Integration Path
+
+```
+1. Add integration in AgentPulse.
+2. Copy env block into external project.
+3. Copy agentpulseClient.ts (or agentpulse_client.py) into project.
+4. Wrap the project's main workflow with startRun / completeRun.
+5. Run the external project.
+6. Confirm run appears in AgentPulse → Runs.
+7. Check integration status in /dashboard/integrations.
+```
+
+### Updated Current Limitations
+
+- **File-backed storage** is local/demo-grade.
+- **Shared ingest key** — V0 uses one global `AGENTPULSE_INGEST_KEY` for all projects. Project-specific keys are not yet implemented.
+- **No automatic WorkflowSpec linking on ingest** — runs are visible immediately; linking to a registered spec requires the `workflow_id` to match an existing registry entry.
+
+---
+
+## What Comes Next — Real External Project Connections
+
+Now that the integration path is first-class in AgentPulse, the next step is to connect real projects:
+
+- Instrument Blog Agent with `agentpulse_client.py`
+- Instrument Website Auditor with `agentpulseClient.ts`
+- Instrument Campaign Sandbox
+- Verify live runs appear under their Integration entries
+- Consider project-specific ingest keys for multi-project isolation
+- Multi-project pulse on the Overview

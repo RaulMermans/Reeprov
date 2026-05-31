@@ -26,6 +26,7 @@ import { fileRunStore } from "@/lib/runs/runStore";
 import { traceEventSchema } from "@/lib/proof-layer/schemas";
 import type { TraceEvent } from "@/lib/proof-layer/schemas";
 import { tryBuildEvalResultFromTraceEvent } from "@/lib/proof-layer/evalFromTrace";
+import { touchIntegrationForProject } from "@/lib/integrations/integrationStore";
 
 interface EventError {
   event_id: string;
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
     let accepted = 0;
     let rejected = 0;
     const errors: EventError[] = [];
+    const touchedProjects = new Set<string>();
 
     for (const raw of rawEvents) {
       const parseResult = traceEventSchema.safeParse(raw);
@@ -85,6 +87,13 @@ export async function POST(request: Request) {
       const evalResult = tryBuildEvalResultFromTraceEvent(event);
       if (evalResult) {
         await fileRunStore.appendEvalResult(event.run_id, evalResult);
+      }
+
+      // Mark integration active — once per project per batch (non-fatal).
+      const projectId = run.runRecord.project_id;
+      if (!touchedProjects.has(projectId)) {
+        touchedProjects.add(projectId);
+        void touchIntegrationForProject(projectId, { runId: event.run_id });
       }
 
       accepted++;
