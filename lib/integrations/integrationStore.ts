@@ -61,8 +61,9 @@ async function readIndex(): Promise<ProjectIntegration[]> {
     const parsed = JSON.parse(raw) as unknown;
     if (Array.isArray(parsed)) return parsed as ProjectIntegration[];
     return [];
-  } catch {
-    return [];
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw err;
   }
 }
 
@@ -74,8 +75,9 @@ async function readSavedIntegration(integrationId: string): Promise<ProjectInteg
   try {
     const raw = await readFile(integrationPath(integrationId), "utf8");
     return JSON.parse(raw) as ProjectIntegration;
-  } catch {
-    return null;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
   }
 }
 
@@ -122,27 +124,23 @@ export const fileIntegrationStore: IntegrationStore = {
   },
 
   async listIntegrations(filters): Promise<ProjectIntegration[]> {
-    try {
-      let entries = await readIndex();
-      if (filters?.projectId) {
-        entries = entries.filter((e) => e.projectId === filters.projectId);
-      }
-      if (filters?.status) {
-        entries = entries.filter((e) => e.status === filters.status);
-      }
-      if (filters?.mode) {
-        entries = entries.filter((e) => e.mode === filters.mode);
-      }
-      if (filters?.language) {
-        entries = entries.filter((e) => e.language === filters.language);
-      }
-      if (filters?.limit && filters.limit > 0) {
-        entries = entries.slice(0, filters.limit);
-      }
-      return entries;
-    } catch {
-      return [];
+    let entries = await readIndex();
+    if (filters?.projectId) {
+      entries = entries.filter((e) => e.projectId === filters.projectId);
     }
+    if (filters?.status) {
+      entries = entries.filter((e) => e.status === filters.status);
+    }
+    if (filters?.mode) {
+      entries = entries.filter((e) => e.mode === filters.mode);
+    }
+    if (filters?.language) {
+      entries = entries.filter((e) => e.language === filters.language);
+    }
+    if (filters?.limit && filters.limit > 0) {
+      entries = entries.slice(0, filters.limit);
+    }
+    return entries;
   },
 
   async getIntegration(integrationId: string): Promise<ProjectIntegration | null> {

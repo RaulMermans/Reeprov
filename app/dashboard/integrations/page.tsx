@@ -246,6 +246,7 @@ export default function IntegrationsPage() {
     try {
       const res = await fetch("/api/integrations?limit=100", {
         headers: mergeAuthHeaders(),
+        cache: "no-store",
       });
       if (res.status === 401) {
         onUnauthorized("Access key expired or invalid. Please unlock again.");
@@ -267,6 +268,8 @@ export default function IntegrationsPage() {
 
   function handleCreated(integration: ProjectIntegration) {
     setShowAddForm(false);
+    // Invalidate the Router Cache for this URL so navigating back forces a fresh load.
+    router.refresh();
     router.push(`/dashboard/integrations/${integration.integrationId}`);
   }
 

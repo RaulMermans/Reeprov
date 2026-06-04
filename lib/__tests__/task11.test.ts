@@ -647,3 +647,211 @@ describe("GET /api/integrations — filters", () => {
     expect(data.count).toBe(3);
   });
 });
+
+// ── Regression: integration must survive list-after-create ────────────────────
+//
+// Regression for the bug: "create integration → return to /integrations →
+// list shows 'No integrations yet'."
+//
+// Root causes addressed:
+//   1. readIndex() was catching ALL errors including I/O failures and returning [],
+//      masking real persistence failures with a "No integrations yet" empty state.
+//   2. The page fetch() had no cache: 'no-store', allowing browser caching of the
+//      empty response.
+//   3. After creating an integration and navigating away, Next.js Router Cache could
+//      serve a stale version of /integrations without re-running the effect.
+
+describe("Regression: Blog Agent integration persists across create → list (bug: list shows empty after create)", () => {
+  it("Blog Agent (projectId: blog-agent, workflowId: blog-agent-v1, language: python) appears in list after POST then GET", async () => {
+    // Step 1: Create via the POST route handler (simulates the Add integration form submit).
+    const createRes = await integrationsPost(
+      req("POST", "/api/integrations", authHeader(), {
+        projectId: "blog-agent",
+        projectName: "Blog Agent",
+        defaultWorkflowId: "blog-agent-v1",
+        language: "python",
+      }),
+    );
+    expect(createRes.status).toBe(201);
+    const created = await createRes.json() as { integrationId: string; projectId: string };
+    expect(created.projectId).toBe("blog-agent");
+
+    // Step 2: Simulate "refresh" or "navigate back to /integrations" by calling
+    // the GET route handler directly (a fresh request, no shared in-memory state).
+    const listRes = await integrationsGet(
+      req("GET", "/api/integrations", authHeader()),
+    );
+    expect(listRes.status).toBe(200);
+    const list = await listRes.json() as {
+      integrations: Array<{ integrationId: string; projectId: string; defaultWorkflowId?: string; language?: string }>;
+      count: number;
+    };
+
+    // The integration MUST appear — regression assertion.
+    expect(list.count).toBe(1);
+    const found = list.integrations[0];
+    expect(found).toBeDefined();
+    expect(found!.projectId).toBe("blog-agent");
+    expect(found!.defaultWorkflowId).toBe("blog-agent-v1");
+    expect(found!.language).toBe("python");
+    expect(found!.integrationId).toBe(created.integrationId);
+  });
+
+  it("integration persists through multiple GET calls (not consumed or evicted on first read)", async () => {
+    await integrationsPost(req("POST", "/api/integrations", authHeader(), {
+      projectId: "website-auditor",
+      projectName: "Website Auditor",
+    }));
+
+    // Call GET three times — each simulates a page load / refresh.
+    for (let i = 0; i < 3; i++) {
+      const res = await integrationsGet(req("GET", "/api/integrations", authHeader()));
+      expect(res.status).toBe(200);
+      const data = await res.json() as { count: number };
+      expect(data.count).toBe(1, `GET call ${i + 1}: expected 1 integration, got ${data.count}`);
+    }
+  });
+
+  it("multiple integrations all appear in list after creation (no index overwrite)", async () => {
+    await integrationsPost(req("POST", "/api/integrations", authHeader(), {
+      projectId: "blog-agent",
+      projectName: "Blog Agent",
+    }));
+    await integrationsPost(req("POST", "/api/integrations", authHeader(), {
+      projectId: "campaign-sandbox",
+      projectName: "Campaign Sandbox",
+    }));
+    await integrationsPost(req("POST", "/api/integrations", authHeader(), {
+      projectId: "website-auditor",
+      projectName: "Website Auditor",
+    }));
+
+    const listRes = await integrationsGet(req("GET", "/api/integrations", authHeader()));
+    const data = await listRes.json() as { integrations: Array<{ projectId: string }>; count: number };
+    expect(data.count).toBe(3);
+    const ids = data.integrations.map((i) => i.projectId).sort();
+    expect(ids).toEqual(["blog-agent", "campaign-sandbox", "website-auditor"]);
+  });
+
+  it("detail route returns the correct integration after creation (GET by id)", async () => {
+    const createRes = await integrationsPost(
+      req("POST", "/api/integrations", authHeader(), {
+        projectId: "blog-agent",
+        projectName: "Blog Agent",
+        defaultWorkflowId: "blog-agent-v1",
+        language: "python",
+      }),
+    );
+    const created = await createRes.json() as { integrationId: string };
+
+    // Simulate navigating to the detail page (GET by id).
+    const getRes = await integrationGet(
+      req("GET", `/api/integrations/${created.integrationId}`, authHeader()),
+      { params: Promise.resolve({ integrationId: created.integrationId }) },
+    );
+    expect(getRes.status).toBe(200);
+    const data = await getRes.json() as {
+      integration: { projectId: string; defaultWorkflowId?: string; language?: string };
+      recentRuns: unknown[];
+    };
+    expect(data.integration.projectId).toBe("blog-agent");
+    expect(data.integration.defaultWorkflowId).toBe("blog-agent-v1");
+    expect(data.integration.language).toBe("python");
+  });
+
+  it("send test event on a persisted integration works and integration appears in list afterwards", async () => {
+    const createRes = await integrationsPost(
+      req("POST", "/api/integrations", authHeader(), {
+        projectId: "blog-agent",
+        projectName: "Blog Agent",
+        defaultWorkflowId: "blog-agent-v1",
+      }),
+    );
+    const created = await createRes.json() as { integrationId: string };
+
+    const testRes = await testEventPost(
+      req("POST", `/api/integrations/${created.integrationId}/test-event`, authHeader()),
+      { params: Promise.resolve({ integrationId: created.integrationId }) },
+    );
+    expect(testRes.status).toBe(201);
+
+    // Navigate back to the list — integration must still be there.
+    const listRes = await integrationsGet(req("GET", "/api/integrations", authHeader()));
+    const data = await listRes.json() as { integrations: Array<{ projectId: string; status: string }>; count: number };
+    expect(data.count).toBe(1);
+    expect(data.integrations[0]!.projectId).toBe("blog-agent");
+    expect(data.integrations[0]!.status).toBe("receiving_events");
+  });
+
+  it("delete removes the integration from the list (not just the detail)", async () => {
+    const createRes = await integrationsPost(
+      req("POST", "/api/integrations", authHeader(), {
+        projectId: "to-delete",
+        projectName: "To Delete",
+      }),
+    );
+    const created = await createRes.json() as { integrationId: string };
+
+    await integrationDelete(
+      req("DELETE", `/api/integrations/${created.integrationId}`, authHeader()),
+      { params: Promise.resolve({ integrationId: created.integrationId }) },
+    );
+
+    const listRes = await integrationsGet(req("GET", "/api/integrations", authHeader()));
+    const data = await listRes.json() as { count: number };
+    expect(data.count).toBe(0);
+  });
+});
+
+// ── No silent failure: store I/O errors must surface, not hide as empty list ───
+
+describe("Persistence failure visibility: I/O errors surface as 500, not empty list", () => {
+  it("GET /api/integrations returns 200 with empty list when store dir does not exist (legitimate empty state)", async () => {
+    // Store dir doesn't exist yet → empty list (not an error).
+    const res = await integrationsGet(req("GET", "/api/integrations", authHeader()));
+    expect(res.status).toBe(200);
+    const data = await res.json() as { integrations: unknown[]; count: number };
+    expect(data.integrations).toEqual([]);
+    expect(data.count).toBe(0);
+  });
+
+  it("GET /api/integrations returns 500 when index.json is corrupted (not empty list)", async () => {
+    // Ensure the store dir exists and write a corrupted index.json.
+    const { mkdir: mkdirFn, writeFile: writeFn } = await import("node:fs/promises");
+    const { join: joinFn } = await import("node:path");
+    const indexDir = joinFn(tmpDir, "integrations");
+    await mkdirFn(indexDir, { recursive: true });
+    await writeFn(joinFn(indexDir, "index.json"), "NOT VALID JSON !!!", "utf8");
+
+    const res = await integrationsGet(req("GET", "/api/integrations", authHeader()));
+    // A corrupted index MUST return 500, not 200 with an empty list.
+    // This ensures I/O errors cannot masquerade as "No integrations yet."
+    expect(res.status).toBe(500);
+  });
+
+  it("listIntegrations throws when index.json has a parse error (not swallowed to empty)", async () => {
+    const { mkdir: mkdirFn, writeFile: writeFn } = await import("node:fs/promises");
+    const { join: joinFn } = await import("node:path");
+    const indexDir = joinFn(tmpDir, "integrations");
+    await mkdirFn(indexDir, { recursive: true });
+    await writeFn(joinFn(indexDir, "index.json"), "{ broken json", "utf8");
+
+    await expect(fileIntegrationStore.listIntegrations()).rejects.toThrow();
+  });
+});
+
+// ── Page source guards ─────────────────────────────────────────────────────────
+
+describe("Integrations page fetch guards (regression for browser caching stale empty list)", () => {
+  it("loadIntegrations fetch uses cache: no-store to prevent browser caching", () => {
+    const src = read("app/dashboard/integrations/page.tsx");
+    // The fetch must not allow browser caching of the (initially empty) list.
+    expect(src).toContain('cache: "no-store"');
+  });
+
+  it("handleCreated calls router.refresh() to invalidate Next.js Router Cache before navigating", () => {
+    const src = read("app/dashboard/integrations/page.tsx");
+    // Invalidating the Router Cache ensures navigating back shows fresh data.
+    expect(src).toContain("router.refresh()");
+  });
+});
