@@ -16,11 +16,10 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
 import { requireIngestKey } from "@/lib/auth/requireIngestKey";
-import { fileRunStore } from "@/lib/runs/runStore";
+import { getRunStore, touchIntegrationForProject } from "@/lib/db/getStores";
 import { generateRunId } from "@/lib/runs/runId";
 import { runRecordSchema, traceEventSchema } from "@/lib/proof-layer/schemas";
 import type { RunRecord, TraceEvent } from "@/lib/proof-layer/schemas";
-import { touchIntegrationForProject } from "@/lib/integrations/integrationStore";
 
 export async function POST(request: Request) {
   try {
@@ -68,7 +67,7 @@ export async function POST(request: Request) {
       summary,
     } satisfies RunRecord);
 
-    const result = await fileRunStore.createRun(runRecord);
+    const result = await getRunStore().createRun(runRecord);
 
     if (!result.saved) {
       console.error(`[runs/start] Run persistence failed: ${result.warning}`);
@@ -91,7 +90,7 @@ export async function POST(request: Request) {
       event_type: "run_started",
       status: "running",
     });
-    await fileRunStore.appendTraceEvent(run_id, startedEvent);
+    await getRunStore().appendTraceEvent(run_id, startedEvent);
 
     // Mark integration as receiving events (non-fatal).
     void touchIntegrationForProject(project_id, { runId: run_id });

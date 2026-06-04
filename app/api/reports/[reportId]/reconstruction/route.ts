@@ -15,7 +15,7 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
-import { fileReportStore } from "@/lib/reports/reportStore";
+import { getReportStore } from "@/lib/db/getStores";
 import { reconstructFromScanReport } from "@/lib/reconstruction/reconstructWorkflowSpec";
 import { staticProofReconstructionSchema } from "@/lib/reconstruction/schema";
 
@@ -28,7 +28,7 @@ export async function GET(request: Request, { params }: RouteParams) {
     requireAccessKey(request);
 
     const { reportId } = await params;
-    const report = await fileReportStore.getReport(reportId);
+    const report = await getReportStore().getReport(reportId);
 
     if (!report) {
       return NextResponse.json(

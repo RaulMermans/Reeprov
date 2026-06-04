@@ -19,7 +19,7 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
-import { fileIntegrationStore } from "@/lib/integrations/integrationStore";
+import { getIntegrationStore } from "@/lib/db/getStores";
 import type {
   IntegrationLanguage,
   IntegrationMode,
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     const limitParam = url.searchParams.get("limit");
     const limit = limitParam ? Math.max(1, Math.min(200, parseInt(limitParam, 10))) : 50;
 
-    const integrations = await fileIntegrationStore.listIntegrations({
+    const integrations = await getIntegrationStore().listIntegrations({
       projectId,
       status,
       mode,
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     const framework = typeof body["framework"] === "string" ? body["framework"] : undefined;
     const mode = typeof body["mode"] === "string" ? body["mode"] as IntegrationMode : undefined;
 
-    const integration = await fileIntegrationStore.createIntegration({
+    const integration = await getIntegrationStore().createIntegration({
       projectId,
       projectName,
       description,

@@ -5,7 +5,7 @@ import { requireAccessKey } from "@/lib/auth/requireAccessKey";
 import { getGitHubClient } from "@/lib/github/client";
 import { fetchRepoFiles } from "@/lib/github/fetchRepoFiles";
 import { mockReport } from "@/lib/reports/buildReport";
-import { fileReportStore } from "@/lib/reports/reportStore";
+import { getReportStore } from "@/lib/db/getStores";
 import { runScanPipeline } from "@/lib/reports/runScanPipeline";
 
 const scanRequestSchema = z.object({
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     });
 
     // Persist the redacted report. Non-fatal on failure.
-    const persistence = await fileReportStore.saveReport(report);
+    const persistence = await getReportStore().saveReport(report);
 
     return NextResponse.json({
       ...report,

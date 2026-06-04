@@ -21,8 +21,7 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
-import { fileReportStore } from "@/lib/reports/reportStore";
-import { fileWorkflowStore } from "@/lib/workflows/workflowStore";
+import { getReportStore, getWorkflowStore } from "@/lib/db/getStores";
 import { reconstructFromScanReport } from "@/lib/reconstruction/reconstructWorkflowSpec";
 import { workflowSpecSchema } from "@/lib/proof-layer/schemas";
 import type {
@@ -86,7 +85,7 @@ export async function POST(request: Request) {
       const missingFields = Array.isArray(meta["missingFields"]) ? (meta["missingFields"] as string[]) : [];
       const status = assignStatus(confidence, missingFields, source);
 
-      const saved = await fileWorkflowStore.saveWorkflow({
+      const saved = await getWorkflowStore().saveWorkflow({
         workflowId: specParse.data.workflow_id,
         projectId,
         projectName,
@@ -116,7 +115,7 @@ export async function POST(request: Request) {
       throw invalidRequest('Provide "reportId" (with optional "workflowId") or "spec" + "metadata".');
     }
 
-    const savedReport = await fileReportStore.getReport(reportId);
+    const savedReport = await getReportStore().getReport(reportId);
     if (!savedReport) {
       return NextResponse.json(
         { message: `Report "${reportId}" not found.` },
@@ -174,7 +173,7 @@ export async function POST(request: Request) {
     const status = assignStatus(confidence, missingFields, source);
     const reconstructionId = typeof body["reconstructionId"] === "string" ? body["reconstructionId"] : reconstruction.reconstructionId;
 
-    const saved = await fileWorkflowStore.saveWorkflow({
+    const saved = await getWorkflowStore().saveWorkflow({
       workflowId: specParse.data.workflow_id,
       projectId: savedReport.projectId ?? `proj_${savedReport.repoName ?? "unknown"}`,
       projectName: savedReport.repoName ?? savedReport.projectId ?? "Unknown project",

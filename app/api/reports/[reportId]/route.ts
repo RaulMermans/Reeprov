@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
-import { fileReportStore } from "@/lib/reports/reportStore";
+import { getReportStore } from "@/lib/db/getStores";
 
 interface RouteParams {
   params: Promise<{ reportId: string }>;
@@ -15,7 +15,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   try {
     requireAccessKey(request);
     const { reportId } = await params;
-    const report = await fileReportStore.getReport(reportId);
+    const report = await getReportStore().getReport(reportId);
 
     if (!report) {
       return NextResponse.json(
@@ -38,7 +38,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   try {
     requireAccessKey(request);
     const { reportId } = await params;
-    const deleted = await fileReportStore.deleteReport(reportId);
+    const deleted = await getReportStore().deleteReport(reportId);
 
     if (!deleted) {
       return NextResponse.json(

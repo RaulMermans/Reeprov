@@ -10,8 +10,7 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
-import { fileIntegrationStore } from "@/lib/integrations/integrationStore";
-import { fileRunStore } from "@/lib/runs/runStore";
+import { getIntegrationStore, getRunStore } from "@/lib/db/getStores";
 import type { IntegrationLanguage, IntegrationMode, IntegrationStatus } from "@/lib/integrations/integrationTypes";
 
 type RouteContext = { params: Promise<{ integrationId: string }> };
@@ -21,7 +20,7 @@ export async function GET(request: Request, context: RouteContext) {
     requireAccessKey(request);
 
     const { integrationId } = await context.params;
-    const integration = await fileIntegrationStore.getIntegration(integrationId);
+    const integration = await getIntegrationStore().getIntegration(integrationId);
     if (!integration) {
       return NextResponse.json(
         { error: "not_found", message: "Integration not found." },
@@ -32,7 +31,7 @@ export async function GET(request: Request, context: RouteContext) {
     // Include recent runs for this project.
     let recentRuns: unknown[] = [];
     try {
-      recentRuns = await fileRunStore.listRuns({
+      recentRuns = await getRunStore().listRuns({
         projectId: integration.projectId,
         limit: 10,
       });
@@ -64,7 +63,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       ...(typeof body["status"] === "string" ? { status: body["status"] as IntegrationStatus } : {}),
     };
 
-    const updated = await fileIntegrationStore.updateIntegration(integrationId, patch);
+    const updated = await getIntegrationStore().updateIntegration(integrationId, patch);
     if (!updated) {
       return NextResponse.json(
         { error: "not_found", message: "Integration not found." },
@@ -83,7 +82,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     requireAccessKey(request);
 
     const { integrationId } = await context.params;
-    const deleted = await fileIntegrationStore.deleteIntegration(integrationId);
+    const deleted = await getIntegrationStore().deleteIntegration(integrationId);
     if (!deleted) {
       return NextResponse.json(
         { error: "not_found", message: "Integration not found." },

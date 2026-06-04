@@ -13,7 +13,7 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
-import { fileRunStore } from "@/lib/runs/runStore";
+import { getRunStore } from "@/lib/db/getStores";
 
 export async function GET(request: Request) {
   try {
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     const limitParam = url.searchParams.get("limit");
     const limit = limitParam ? Math.max(1, Math.min(200, parseInt(limitParam, 10))) : 50;
 
-    const runs = await fileRunStore.listRuns({ projectId, workflowId, status, limit });
+    const runs = await getRunStore().listRuns({ projectId, workflowId, status, limit });
 
     return NextResponse.json({ runs, count: runs.length });
   } catch (error) {

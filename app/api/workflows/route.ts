@@ -16,7 +16,7 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
-import { fileWorkflowStore } from "@/lib/workflows/workflowStore";
+import { getWorkflowStore } from "@/lib/db/getStores";
 import type {
   WorkflowRegistrySource,
   WorkflowRegistryStatus,
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     const limitParam = url.searchParams.get("limit");
     const limit = limitParam ? Math.max(1, Math.min(200, parseInt(limitParam, 10))) : 50;
 
-    const workflows = await fileWorkflowStore.listWorkflows({
+    const workflows = await getWorkflowStore().listWorkflows({
       projectId,
       source,
       status,

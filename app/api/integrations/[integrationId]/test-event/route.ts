@@ -18,8 +18,7 @@
 import { NextResponse } from "next/server";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
 import { apiErrorResponse } from "@/lib/api/errors";
-import { fileIntegrationStore } from "@/lib/integrations/integrationStore";
-import { fileRunStore } from "@/lib/runs/runStore";
+import { getIntegrationStore, getRunStore } from "@/lib/db/getStores";
 import { generateRunId } from "@/lib/runs/runId";
 import { traceEventSchema, runRecordSchema, evalResultSchema } from "@/lib/proof-layer/schemas";
 import type { TraceEvent, EvalResult, RunRecord } from "@/lib/proof-layer/schemas";
@@ -35,7 +34,7 @@ export async function POST(request: Request, context: RouteContext) {
     requireAccessKey(request);
 
     const { integrationId } = await context.params;
-    const integration = await fileIntegrationStore.getIntegration(integrationId);
+    const integration = await getIntegrationStore().getIntegration(integrationId);
     if (!integration) {
       return NextResponse.json(
         { error: "not_found", message: "Integration not found." },
@@ -175,7 +174,7 @@ export async function POST(request: Request, context: RouteContext) {
       summary: `AgentPulse connection test for ${projectName} — all checks passed`,
     } satisfies RunRecord);
 
-    const createResult = await fileRunStore.createRun(runRecord);
+    const createResult = await getRunStore().createRun(runRecord);
     if (!createResult.saved) {
       return NextResponse.json(
         {
@@ -188,12 +187,12 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     for (const event of events) {
-      await fileRunStore.appendTraceEvent(runId, event);
+      await getRunStore().appendTraceEvent(runId, event);
     }
     for (const evalResult of evalResults) {
-      await fileRunStore.appendEvalResult(runId, evalResult);
+      await getRunStore().appendEvalResult(runId, evalResult);
     }
-    await fileRunStore.completeRun(runId, {
+    await getRunStore().completeRun(runId, {
       status: "completed",
       completed_at: ts(startTime, 950),
       total_duration_ms: 950,
@@ -205,7 +204,7 @@ export async function POST(request: Request, context: RouteContext) {
     });
 
     // Mark the integration as having received an event.
-    await fileIntegrationStore.recordEventSeen(projectId, {
+    await getIntegrationStore().recordEventSeen(projectId, {
       runId,
       runStatus: "completed",
     });

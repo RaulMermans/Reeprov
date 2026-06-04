@@ -412,9 +412,10 @@ describe("UI source smoke", () => {
     expect(src).toContain("active");
   });
 
-  it("demo route imports fileWorkflowStore and registers demo workflow", () => {
+  it("demo route registers demo workflow via store", () => {
     const src = read("app/api/runs/demo/route.ts");
-    expect(src).toContain("fileWorkflowStore");
+    // Route now uses getWorkflowStore() from the store selector (not fileWorkflowStore directly).
+    expect(src).toMatch(/getWorkflowStore\(\)|fileWorkflowStore/);
     expect(src).toContain("website-auditor-v1");
     expect(src).toContain("saveWorkflow");
   });

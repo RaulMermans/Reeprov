@@ -22,11 +22,10 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
 import { requireIngestKey } from "@/lib/auth/requireIngestKey";
-import { fileRunStore } from "@/lib/runs/runStore";
+import { getRunStore, touchIntegrationForProject } from "@/lib/db/getStores";
 import { traceEventSchema } from "@/lib/proof-layer/schemas";
 import type { TraceEvent } from "@/lib/proof-layer/schemas";
 import { tryBuildEvalResultFromTraceEvent } from "@/lib/proof-layer/evalFromTrace";
-import { touchIntegrationForProject } from "@/lib/integrations/integrationStore";
 
 interface EventError {
   event_id: string;
@@ -70,7 +69,7 @@ export async function POST(request: Request) {
 
       const event: TraceEvent = parseResult.data;
 
-      const run = await fileRunStore.getRun(event.run_id);
+      const run = await getRunStore().getRun(event.run_id);
       if (!run) {
         rejected++;
         errors.push({
@@ -80,13 +79,13 @@ export async function POST(request: Request) {
         continue;
       }
 
-      await fileRunStore.appendTraceEvent(event.run_id, event);
+      await getRunStore().appendTraceEvent(event.run_id, event);
 
       // If this is an eval_completed event with well-formed metadata, also
       // append an EvalResult record via the shared helper.
       const evalResult = tryBuildEvalResultFromTraceEvent(event);
       if (evalResult) {
-        await fileRunStore.appendEvalResult(event.run_id, evalResult);
+        await getRunStore().appendEvalResult(event.run_id, evalResult);
       }
 
       // Mark integration active — once per project per batch (non-fatal).

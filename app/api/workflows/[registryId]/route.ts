@@ -9,7 +9,7 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
-import { fileWorkflowStore } from "@/lib/workflows/workflowStore";
+import { getWorkflowStore } from "@/lib/db/getStores";
 import type { WorkflowRegistryStatus } from "@/lib/workflows/workflowTypes";
 
 const VALID_STATUSES: WorkflowRegistryStatus[] = ["draft", "active", "needs_review", "archived"];
@@ -21,7 +21,7 @@ export async function GET(
   try {
     requireAccessKey(request);
     const { registryId } = await params;
-    const workflow = await fileWorkflowStore.getWorkflow(registryId);
+    const workflow = await getWorkflowStore().getWorkflow(registryId);
     if (!workflow) {
       return NextResponse.json({ message: `Workflow "${registryId}" not found.` }, { status: 404 });
     }
@@ -51,7 +51,7 @@ export async function PATCH(
       throw invalidRequest(`"status" must be one of: ${VALID_STATUSES.join(", ")}.`);
     }
 
-    const updated = await fileWorkflowStore.updateWorkflowStatus(registryId, status as WorkflowRegistryStatus);
+    const updated = await getWorkflowStore().updateWorkflowStatus(registryId, status as WorkflowRegistryStatus);
     if (!updated) {
       return NextResponse.json({ message: `Workflow "${registryId}" not found.` }, { status: 404 });
     }
@@ -69,7 +69,7 @@ export async function DELETE(
   try {
     requireAccessKey(request);
     const { registryId } = await params;
-    const deleted = await fileWorkflowStore.deleteWorkflow(registryId);
+    const deleted = await getWorkflowStore().deleteWorkflow(registryId);
     if (!deleted) {
       return NextResponse.json({ message: `Workflow "${registryId}" not found or could not be deleted.` }, { status: 404 });
     }

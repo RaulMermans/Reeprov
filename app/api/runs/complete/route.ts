@@ -18,11 +18,11 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
 import { requireIngestKey } from "@/lib/auth/requireIngestKey";
-import { fileRunStore } from "@/lib/runs/runStore";
+
 import { traceEventSchema } from "@/lib/proof-layer/schemas";
 import { assertTraceContract, summarizeRun } from "@/lib/proof-layer/index";
 import type { TraceEvent } from "@/lib/proof-layer/schemas";
-import { touchIntegrationForProject } from "@/lib/integrations/integrationStore";
+import { getRunStore, touchIntegrationForProject } from "@/lib/db/getStores";
 
 export async function POST(request: Request) {
   try {
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       throw invalidRequest("run_id is required.");
     }
 
-    const saved = await fileRunStore.getRun(run_id);
+    const saved = await getRunStore().getRun(run_id);
     if (!saved) {
       return NextResponse.json(
         { message: `Run "${run_id}" not found.` },
@@ -57,10 +57,10 @@ export async function POST(request: Request) {
       ...(typeof body["total_duration_ms"] === "number" ? { duration_ms: body["total_duration_ms"] } : {}),
       ...(typeof body["summary"] === "string" ? { output_summary: body["summary"] } : {}),
     });
-    await fileRunStore.appendTraceEvent(run_id, completedEvent);
+    await getRunStore().appendTraceEvent(run_id, completedEvent);
 
     // Re-read the updated saved run (with the new event).
-    const updatedSaved = await fileRunStore.getRun(run_id);
+    const updatedSaved = await getRunStore().getRun(run_id);
     const traceEvents = updatedSaved?.traceEvents ?? [];
     const evalResults = updatedSaved?.evalResults ?? [];
 
@@ -82,9 +82,9 @@ export async function POST(request: Request) {
     patch["evals_passed"] = runSummary.evalsPassedCount;
     patch["evals_failed"] = runSummary.evalsFailedCount;
 
-    await fileRunStore.completeRun(run_id, patch as Partial<import("@/lib/proof-layer/schemas").RunRecord>);
+    await getRunStore().completeRun(run_id, patch as Partial<import("@/lib/proof-layer/schemas").RunRecord>);
 
-    const finalRun = await fileRunStore.getRun(run_id);
+    const finalRun = await getRunStore().getRun(run_id);
     const finalStatus = (patch["status"] as string | undefined) ?? "completed";
 
     // Mark integration as receiving events (non-fatal).

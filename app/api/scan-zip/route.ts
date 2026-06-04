@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
-import { fileReportStore } from "@/lib/reports/reportStore";
+import { getReportStore } from "@/lib/db/getStores";
 import { runScanPipeline } from "@/lib/reports/runScanPipeline";
 import { DIRECT_ZIP_UPLOAD_MAX_BYTES, DIRECT_ZIP_UPLOAD_MAX_MB } from "@/lib/zip/limits";
 import { safeExtractZip, ZipExtractionError } from "@/lib/zip/safeExtractZip";
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     });
 
     // Persist the redacted report. Non-fatal on failure.
-    const persistence = await fileReportStore.saveReport(report);
+    const persistence = await getReportStore().saveReport(report);
 
     return NextResponse.json({
       ...report,

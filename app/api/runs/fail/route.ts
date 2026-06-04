@@ -16,7 +16,7 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
 import { requireIngestKey } from "@/lib/auth/requireIngestKey";
-import { fileRunStore } from "@/lib/runs/runStore";
+import { getRunStore } from "@/lib/db/getStores";
 import { traceEventSchema } from "@/lib/proof-layer/schemas";
 import { assertTraceContract } from "@/lib/proof-layer/index";
 import type { TraceEvent, RunRecord } from "@/lib/proof-layer/schemas";
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       throw invalidRequest("error_summary is required.");
     }
 
-    const saved = await fileRunStore.getRun(run_id);
+    const saved = await getRunStore().getRun(run_id);
     if (!saved) {
       return NextResponse.json(
         { message: `Run "${run_id}" not found.` },
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       output_summary: error_summary,
       metadata: { error_summary },
     });
-    await fileRunStore.appendTraceEvent(run_id, errorEvent);
+    await getRunStore().appendTraceEvent(run_id, errorEvent);
 
     const failedEvent: TraceEvent = traceEventSchema.parse({
       event_id: `${run_id}::run_failed`,
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       ...(typeof body["total_cost_usd"] === "number" ? { cost_usd: body["total_cost_usd"] } : {}),
       ...(typeof body["total_duration_ms"] === "number" ? { duration_ms: body["total_duration_ms"] } : {}),
     });
-    await fileRunStore.appendTraceEvent(run_id, failedEvent);
+    await getRunStore().appendTraceEvent(run_id, failedEvent);
 
     const patch: Partial<RunRecord> = {
       completed_at: failedAt,
@@ -81,10 +81,10 @@ export async function POST(request: Request) {
       ...(typeof body["total_duration_ms"] === "number" ? { total_duration_ms: body["total_duration_ms"] as number } : {}),
     };
 
-    await fileRunStore.failRun(run_id, patch);
+    await getRunStore().failRun(run_id, patch);
 
     // Run contract validation on the final state.
-    const finalSaved = await fileRunStore.getRun(run_id);
+    const finalSaved = await getRunStore().getRun(run_id);
     const contractResult = assertTraceContract(finalSaved?.traceEvents ?? []);
 
     return NextResponse.json({

@@ -18,11 +18,13 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
-import { fileReportStore } from "@/lib/reports/reportStore";
+
 import { reconstructFromScanReport } from "@/lib/reconstruction/reconstructWorkflowSpec";
 import { staticProofReconstructionSchema } from "@/lib/reconstruction/schema";
 import { scanReportSchema } from "@/lib/reports/reportSchema";
 import type { ScanReport } from "@/lib/scanner/types";
+
+import { getReportStore } from "@/lib/db/getStores";
 
 export async function POST(request: Request) {
   try {
@@ -54,7 +56,7 @@ export async function POST(request: Request) {
 
     if (hasReportId) {
       const reportId = body["reportId"] as string;
-      const saved = await fileReportStore.getReport(reportId);
+      const saved = await getReportStore().getReport(reportId);
       if (!saved) {
         return NextResponse.json(
           { message: `Report "${reportId}" not found.` },

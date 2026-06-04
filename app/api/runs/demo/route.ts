@@ -22,8 +22,8 @@
 import { NextResponse } from "next/server";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
 import { apiErrorResponse } from "@/lib/api/errors";
-import { fileRunStore } from "@/lib/runs/runStore";
-import { fileWorkflowStore } from "@/lib/workflows/workflowStore";
+
+
 import { generateRunId } from "@/lib/runs/runId";
 import { traceEventSchema, runRecordSchema, evalResultSchema } from "@/lib/proof-layer/schemas";
 import type { TraceEvent, EvalResult, RunRecord } from "@/lib/proof-layer/schemas";
@@ -72,6 +72,8 @@ function ts(base: Date, offsetMs: number): string {
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
+
+import { getRunStore, getWorkflowStore } from "@/lib/db/getStores";
 
 export async function POST(request: Request) {
   try {
@@ -712,7 +714,7 @@ export async function POST(request: Request) {
 
     // ── Persist run ───────────────────────────────────────────────────────────
 
-    const createResult = await fileRunStore.createRun(runRecord);
+    const createResult = await getRunStore().createRun(runRecord);
     if (!createResult.saved) {
       return NextResponse.json(
         {
@@ -726,16 +728,16 @@ export async function POST(request: Request) {
 
     // Append all trace events.
     for (const event of events) {
-      await fileRunStore.appendTraceEvent(runId, event);
+      await getRunStore().appendTraceEvent(runId, event);
     }
 
     // Append eval results.
     for (const evalResult of evalResults) {
-      await fileRunStore.appendEvalResult(runId, evalResult);
+      await getRunStore().appendEvalResult(runId, evalResult);
     }
 
     // Mark run complete (degraded due to source grounding warning).
-    await fileRunStore.completeRun(runId, {
+    await getRunStore().completeRun(runId, {
       status: runStatus,
       completed_at: ts(startTime, 20700),
       total_duration_ms: 20700,
@@ -750,7 +752,7 @@ export async function POST(request: Request) {
     // This ensures the demo run detail can link to a registered WorkflowSpec.
     // Non-fatal: if registry write fails the run is still returned successfully.
     try {
-      await fileWorkflowStore.saveWorkflow({
+      await getWorkflowStore().saveWorkflow({
         workflowId: workflowId,
         projectId: projectId,
         projectName: projectName,

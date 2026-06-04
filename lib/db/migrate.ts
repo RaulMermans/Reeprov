@@ -1,0 +1,198 @@
+/**
+ * Idempotent database schema migration.
+ *
+ * All statements use CREATE TABLE IF NOT EXISTS / CREATE INDEX IF NOT EXISTS,
+ * so this is safe to run on every cold start. Tables are prefixed with `ap_`
+ * to avoid collision with other schemas.
+ *
+ * Run order matters: ap_runs must exist before ap_trace_events (FK dependency).
+ */
+
+import { getDb } from "./client";
+
+let _migrated = false;
+
+export async function ensureSchema(): Promise<void> {
+  if (_migrated) return;
+  await runMigrations();
+  _migrated = true;
+}
+
+/** For testing: reset the migration flag so tests can re-run migrations. */
+export function _resetMigrationFlag(): void {
+  _migrated = false;
+}
+
+async function runMigrations(): Promise<void> {
+  const sql = getDb();
+
+  // ── Integrations ────────────────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_integrations (
+      integration_id    TEXT PRIMARY KEY,
+      project_id        TEXT NOT NULL,
+      project_name      TEXT NOT NULL,
+      description       TEXT,
+      default_workflow_id TEXT,
+      repository_url    TEXT,
+      language          TEXT,
+      framework         TEXT,
+      status            TEXT NOT NULL DEFAULT 'waiting_for_first_event',
+      mode              TEXT NOT NULL DEFAULT 'trace_sdk',
+      ingest_key_hash   TEXT,
+      ingest_key_preview TEXT,
+      last_event_at     TIMESTAMPTZ,
+      last_run_id       TEXT,
+      last_run_status   TEXT,
+      run_count         INTEGER NOT NULL DEFAULT 0,
+      created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_integrations_project_id_idx ON ap_integrations(project_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_integrations_status_idx ON ap_integrations(status)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_integrations_updated_at_idx ON ap_integrations(updated_at DESC)`);
+
+  // ── Runs ────────────────────────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_runs (
+      run_id              TEXT PRIMARY KEY,
+      project_id          TEXT NOT NULL,
+      workflow_id         TEXT NOT NULL,
+      project_name        TEXT NOT NULL,
+      status              TEXT NOT NULL DEFAULT 'running',
+      summary             TEXT NOT NULL DEFAULT '',
+      started_at          TIMESTAMPTZ NOT NULL,
+      completed_at        TIMESTAMPTZ,
+      total_cost_usd      NUMERIC(12,6),
+      total_duration_ms   INTEGER,
+      model_calls_count   INTEGER NOT NULL DEFAULT 0,
+      tool_calls_count    INTEGER NOT NULL DEFAULT 0,
+      evals_passed        INTEGER NOT NULL DEFAULT 0,
+      evals_failed        INTEGER NOT NULL DEFAULT 0,
+      approval_status     TEXT,
+      artifact_refs       TEXT[] NOT NULL DEFAULT '{}',
+      error_summary       TEXT,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_runs_project_id_idx ON ap_runs(project_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_runs_workflow_id_idx ON ap_runs(workflow_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_runs_status_idx ON ap_runs(status)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_runs_started_at_idx ON ap_runs(started_at DESC)`);
+
+  // ── Trace events ─────────────────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_trace_events (
+      event_id        TEXT NOT NULL,
+      run_id          TEXT NOT NULL REFERENCES ap_runs(run_id) ON DELETE CASCADE,
+      workflow_id     TEXT NOT NULL,
+      event_type      TEXT NOT NULL,
+      status          TEXT,
+      node_id         TEXT,
+      timestamp       TIMESTAMPTZ NOT NULL,
+      duration_ms     INTEGER,
+      cost_usd        NUMERIC(12,6),
+      input_summary   TEXT,
+      output_summary  TEXT,
+      metadata        JSONB,
+      PRIMARY KEY (event_id, run_id)
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_trace_events_run_id_idx ON ap_trace_events(run_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_trace_events_timestamp_idx ON ap_trace_events(run_id, timestamp)`);
+
+  // ── Tool calls ───────────────────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_tool_calls (
+      tool_call_id      TEXT NOT NULL,
+      run_id            TEXT NOT NULL REFERENCES ap_runs(run_id) ON DELETE CASCADE,
+      node_id           TEXT NOT NULL,
+      tool_name         TEXT NOT NULL,
+      permission_class  TEXT NOT NULL DEFAULT 'read',
+      input_summary     TEXT,
+      output_summary    TEXT,
+      status            TEXT NOT NULL DEFAULT 'pending',
+      error             TEXT,
+      started_at        TIMESTAMPTZ,
+      completed_at      TIMESTAMPTZ,
+      duration_ms       INTEGER,
+      PRIMARY KEY (tool_call_id, run_id)
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_tool_calls_run_id_idx ON ap_tool_calls(run_id)`);
+
+  // ── Eval results ─────────────────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_eval_results (
+      eval_id         TEXT NOT NULL,
+      run_id          TEXT NOT NULL REFERENCES ap_runs(run_id) ON DELETE CASCADE,
+      node_id         TEXT,
+      name            TEXT NOT NULL,
+      type            TEXT NOT NULL,
+      score           NUMERIC(6,4),
+      passed          BOOLEAN NOT NULL,
+      severity        TEXT NOT NULL DEFAULT 'info',
+      findings        JSONB NOT NULL DEFAULT '[]',
+      recommendation  TEXT,
+      PRIMARY KEY (eval_id, run_id)
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_eval_results_run_id_idx ON ap_eval_results(run_id)`);
+
+  // ── Reports ──────────────────────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_reports (
+      report_id       TEXT PRIMARY KEY,
+      project_id      TEXT NOT NULL,
+      repo_name       TEXT NOT NULL,
+      source_type     TEXT NOT NULL DEFAULT 'mock',
+      overall_score   INTEGER NOT NULL DEFAULT 0,
+      health_status   TEXT NOT NULL DEFAULT 'needs-attention',
+      report_version  TEXT NOT NULL,
+      scanner_version TEXT NOT NULL,
+      generated_at    TIMESTAMPTZ NOT NULL,
+      saved_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      finding_counts  JSONB NOT NULL DEFAULT '{}',
+      detected_counts JSONB NOT NULL DEFAULT '{}',
+      report_data     JSONB NOT NULL
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_reports_project_id_idx ON ap_reports(project_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_reports_saved_at_idx ON ap_reports(saved_at DESC)`);
+
+  // ── Workflow specs ────────────────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_workflow_specs (
+      registry_id             TEXT PRIMARY KEY,
+      workflow_id             TEXT NOT NULL,
+      project_id              TEXT NOT NULL,
+      project_name            TEXT NOT NULL,
+      name                    TEXT NOT NULL,
+      description             TEXT,
+      version                 TEXT NOT NULL DEFAULT '1.0',
+      architecture_type       TEXT NOT NULL,
+      source                  TEXT NOT NULL DEFAULT 'manual',
+      confidence              TEXT NOT NULL DEFAULT 'low',
+      status                  TEXT NOT NULL DEFAULT 'draft',
+      source_report_id        TEXT,
+      source_reconstruction_id TEXT,
+      evidence_paths          JSONB NOT NULL DEFAULT '[]',
+      missing_fields          JSONB NOT NULL DEFAULT '[]',
+      missing_links           JSONB,
+      node_count              INTEGER NOT NULL DEFAULT 0,
+      edge_count              INTEGER NOT NULL DEFAULT 0,
+      tool_count              INTEGER NOT NULL DEFAULT 0,
+      eval_count              INTEGER NOT NULL DEFAULT 0,
+      missing_field_count     INTEGER NOT NULL DEFAULT 0,
+      spec_data               JSONB NOT NULL,
+      created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_workflow_specs_workflow_id_idx ON ap_workflow_specs(workflow_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_workflow_specs_project_id_idx ON ap_workflow_specs(project_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_workflow_specs_status_idx ON ap_workflow_specs(status)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_workflow_specs_updated_at_idx ON ap_workflow_specs(updated_at DESC)`);
+}
