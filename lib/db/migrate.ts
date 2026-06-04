@@ -11,16 +11,33 @@
 import { getDb } from "./client";
 
 let _migrated = false;
+let _migrationPromise: Promise<void> | null = null;
 
 export async function ensureSchema(): Promise<void> {
   if (_migrated) return;
-  await runMigrations();
-  _migrated = true;
+
+  if (!_migrationPromise) {
+    _migrationPromise = (async () => {
+      console.info("Running Postgres migration");
+      await runMigrations();
+      _migrated = true;
+      console.info("Postgres migration complete");
+    })();
+  }
+
+  try {
+    await _migrationPromise;
+  } finally {
+    if (!_migrated) {
+      _migrationPromise = null;
+    }
+  }
 }
 
 /** For testing: reset the migration flag so tests can re-run migrations. */
 export function _resetMigrationFlag(): void {
   _migrated = false;
+  _migrationPromise = null;
 }
 
 async function runMigrations(): Promise<void> {

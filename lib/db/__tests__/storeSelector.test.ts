@@ -97,20 +97,28 @@ describe("getStores — with DATABASE_URL set", () => {
     else process.env["DATABASE_URL"] = savedUrl;
   });
 
-  it("getIntegrationStore() returns pgIntegrationStore", () => {
-    expect(getIntegrationStore()).toBe(pgIntegrationStore);
+  it("getIntegrationStore() returns a Postgres-backed integration store", () => {
+    const store = getIntegrationStore();
+    expect(store).not.toBe(fileIntegrationStore);
+    expect(typeof store.listIntegrations).toBe("function");
   });
 
-  it("getRunStore() returns pgRunStore", () => {
-    expect(getRunStore()).toBe(pgRunStore);
+  it("getRunStore() returns a Postgres-backed run store", () => {
+    const store = getRunStore();
+    expect(store).not.toBe(fileRunStore);
+    expect(typeof store.listRuns).toBe("function");
   });
 
-  it("getReportStore() returns pgReportStore", () => {
-    expect(getReportStore()).toBe(pgReportStore);
+  it("getReportStore() returns a Postgres-backed report store", () => {
+    const store = getReportStore();
+    expect(store).not.toBe(fileReportStore);
+    expect(typeof store.listReports).toBe("function");
   });
 
-  it("getWorkflowStore() returns pgWorkflowStore", () => {
-    expect(getWorkflowStore()).toBe(pgWorkflowStore);
+  it("getWorkflowStore() returns a Postgres-backed workflow store", () => {
+    const store = getWorkflowStore();
+    expect(store).not.toBe(fileWorkflowStore);
+    expect(typeof store.listWorkflows).toBe("function");
   });
 });
 

@@ -11,6 +11,7 @@
  */
 
 import { hasDatabaseUrl } from "./client";
+import { ensureSchema } from "./migrate";
 import { fileIntegrationStore } from "@/lib/integrations/integrationStore";
 import { pgIntegrationStore } from "@/lib/integrations/pgIntegrationStore";
 import { fileRunStore } from "@/lib/runs/runStore";
@@ -24,6 +25,9 @@ import type { RunStore } from "@/lib/runs/runTypes";
 import type { ReportStore } from "@/lib/reports/reportTypes";
 import type { WorkflowStore } from "@/lib/workflows/workflowTypes";
 
+let loggedPostgresStore = false;
+const postgresStoreWrappers = new WeakMap<object, object>();
+
 function isProduction(): boolean {
   return process.env["NODE_ENV"] === "production";
 }
@@ -36,26 +40,52 @@ function assertDatabaseConfigured(): void {
   );
 }
 
+function usePostgresStore<T extends object>(store: T): T {
+  if (!loggedPostgresStore) {
+    console.info("AgentPulse using Postgres store");
+    loggedPostgresStore = true;
+  }
+
+  const cached = postgresStoreWrappers.get(store);
+  if (cached) return cached as T;
+
+  const wrapped = new Proxy(store, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver);
+      if (typeof value !== "function") return value;
+
+      const method = value as (...args: unknown[]) => unknown;
+      return async (...args: unknown[]) => {
+        await ensureSchema();
+        return method.apply(target, args);
+      };
+    },
+  });
+
+  postgresStoreWrappers.set(store, wrapped);
+  return wrapped;
+}
+
 export function getIntegrationStore(): IntegrationStore {
-  if (hasDatabaseUrl()) return pgIntegrationStore;
+  if (hasDatabaseUrl()) return usePostgresStore(pgIntegrationStore);
   if (isProduction()) assertDatabaseConfigured();
   return fileIntegrationStore;
 }
 
 export function getRunStore(): RunStore {
-  if (hasDatabaseUrl()) return pgRunStore;
+  if (hasDatabaseUrl()) return usePostgresStore(pgRunStore);
   if (isProduction()) assertDatabaseConfigured();
   return fileRunStore;
 }
 
 export function getReportStore(): ReportStore {
-  if (hasDatabaseUrl()) return pgReportStore;
+  if (hasDatabaseUrl()) return usePostgresStore(pgReportStore);
   if (isProduction()) assertDatabaseConfigured();
   return fileReportStore;
 }
 
 export function getWorkflowStore(): WorkflowStore {
-  if (hasDatabaseUrl()) return pgWorkflowStore;
+  if (hasDatabaseUrl()) return usePostgresStore(pgWorkflowStore);
   if (isProduction()) assertDatabaseConfigured();
   return fileWorkflowStore;
 }

@@ -63,3 +63,11 @@ export function getDb(): Sql {
 export function _resetDbClient(): void {
   _sql = null;
 }
+
+/** Close the cached client, primarily for one-shot scripts and tests. */
+export async function closeDb(): Promise<void> {
+  if (!_sql) return;
+  const sql = _sql;
+  _sql = null;
+  await sql.end({ timeout: 5 });
+}

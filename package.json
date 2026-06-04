@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "db:migrate": "node --experimental-strip-types scripts/db-migrate.ts",
     "seed:traces": "node --experimental-strip-types scripts/seed-trace-run.ts",
     "seed:cs": "node --experimental-strip-types scripts/seed-campaign-sandbox-run.ts",
     "ci": "npm run lint && npm run typecheck && npm run test && npm run build"
