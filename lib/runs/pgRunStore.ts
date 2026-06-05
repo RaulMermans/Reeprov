@@ -18,25 +18,79 @@ import type { AppendResult, RunStore, RunSummary, SavedRun, SaveRunResult } from
 
 // ── Row → Domain mappers ──────────────────────────────────────────────────────
 
+export function safeJson<T>(value: unknown, fallback: T): T {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return fallback;
+    }
+  }
+  if (typeof value === "object") return value as T;
+  return fallback;
+}
+
+function objectOrUndefined(value: unknown): Record<string, unknown> | undefined {
+  const parsed = safeJson<Record<string, unknown> | null>(value, null);
+  return parsed && !Array.isArray(parsed) && typeof parsed === "object" ? parsed : undefined;
+}
+
+function arrayOrEmpty<T>(value: unknown): T[] {
+  const parsed = safeJson<unknown>(value, []);
+  return Array.isArray(parsed) ? parsed as T[] : [];
+}
+
+function isoString(value: unknown, fallback = new Date(0).toISOString()): string {
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? fallback : date.toISOString();
+  }
+  return fallback;
+}
+
+function optionalIsoString(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  return isoString(value);
+}
+
+function numberOrUndefined(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+}
+
+function numberOrZero(value: unknown): number {
+  return numberOrUndefined(value) ?? 0;
+}
+
+function booleanOrFalse(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value.toLowerCase() === "true";
+  if (typeof value === "number") return value !== 0;
+  return false;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToRunRecord(row: Record<string, any>): RunRecord {
   return {
-    run_id: row["run_id"] as string,
-    workflow_id: row["workflow_id"] as string,
-    project_id: row["project_id"] as string,
-    project_name: row["project_name"] as string,
-    status: row["status"] as RunRecord["status"],
+    run_id: (row["run_id"] as string) ?? "",
+    workflow_id: (row["workflow_id"] as string) ?? "",
+    project_id: (row["project_id"] as string) ?? "",
+    project_name: (row["project_name"] as string) ?? "",
+    status: (row["status"] as RunRecord["status"]) ?? "running",
     summary: (row["summary"] as string) || "",
-    started_at: (row["started_at"] as Date).toISOString(),
-    completed_at: row["completed_at"] ? (row["completed_at"] as Date).toISOString() : undefined,
-    total_cost_usd: row["total_cost_usd"] != null ? Number(row["total_cost_usd"]) : undefined,
-    total_duration_ms: row["total_duration_ms"] != null ? Number(row["total_duration_ms"]) : undefined,
-    model_calls_count: Number(row["model_calls_count"]),
-    tool_calls_count: Number(row["tool_calls_count"]),
-    evals_passed: Number(row["evals_passed"]),
-    evals_failed: Number(row["evals_failed"]),
+    started_at: isoString(row["started_at"]),
+    completed_at: optionalIsoString(row["completed_at"]),
+    total_cost_usd: numberOrUndefined(row["total_cost_usd"]),
+    total_duration_ms: numberOrUndefined(row["total_duration_ms"]),
+    model_calls_count: numberOrZero(row["model_calls_count"]),
+    tool_calls_count: numberOrZero(row["tool_calls_count"]),
+    evals_passed: numberOrZero(row["evals_passed"]),
+    evals_failed: numberOrZero(row["evals_failed"]),
     approval_status: (row["approval_status"] as RunRecord["approval_status"]) ?? undefined,
-    artifact_refs: (row["artifact_refs"] as string[]) ?? [],
+    artifact_refs: arrayOrEmpty<string>(row["artifact_refs"]),
   };
 }
 
@@ -59,61 +113,65 @@ function rowToRunSummary(row: Record<string, any>, traceEventCount: number): Run
     evals_failed: runRecord.evals_failed,
     trace_event_count: traceEventCount,
     summary: runRecord.summary,
-    createdAt: (row["created_at"] as Date).toISOString(),
-    updatedAt: (row["updated_at"] as Date).toISOString(),
+    createdAt: isoString(row["created_at"]),
+    updatedAt: isoString(row["updated_at"]),
   };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToTraceEvent(row: Record<string, any>): TraceEvent {
   return {
-    event_id: row["event_id"] as string,
-    run_id: row["run_id"] as string,
-    workflow_id: row["workflow_id"] as string,
-    event_type: row["event_type"] as TraceEvent["event_type"],
+    event_id: (row["event_id"] as string) ?? "",
+    run_id: (row["run_id"] as string) ?? "",
+    workflow_id: (row["workflow_id"] as string) ?? "",
+    event_type: (row["event_type"] as TraceEvent["event_type"]) ?? "error",
     status: (row["status"] as TraceEvent["status"]) ?? undefined,
     node_id: (row["node_id"] as string | null) ?? undefined,
-    timestamp: (row["timestamp"] as Date).toISOString(),
-    duration_ms: row["duration_ms"] != null ? Number(row["duration_ms"]) : undefined,
-    cost_usd: row["cost_usd"] != null ? Number(row["cost_usd"]) : undefined,
+    timestamp: isoString(row["timestamp"]),
+    duration_ms: numberOrUndefined(row["duration_ms"]),
+    cost_usd: numberOrUndefined(row["cost_usd"]),
     input_summary: (row["input_summary"] as string | null) ?? undefined,
     output_summary: (row["output_summary"] as string | null) ?? undefined,
-    metadata: (row["metadata"] as Record<string, unknown> | null) ?? undefined,
+    metadata: objectOrUndefined(row["metadata"]),
   };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToToolCall(row: Record<string, any>): ToolCallRecord {
-  return {
-    tool_call_id: row["tool_call_id"] as string,
-    run_id: row["run_id"] as string,
-    node_id: row["node_id"] as string,
-    tool_name: row["tool_name"] as string,
-    permission_class: (row["permission_class"] as ToolCallRecord["permission_class"]) ?? "read",
+  const toolCall = {
+    tool_call_id: (row["tool_call_id"] as string) ?? "",
+    run_id: (row["run_id"] as string) ?? "",
+    node_id: (row["node_id"] as string) ?? "",
+    tool_name: (row["tool_name"] as string) ?? "",
+    permission_class: (row["permission_class"] as ToolCallRecord["permission_class"]) ?? "read_only",
     input_summary: (row["input_summary"] as string | null) ?? undefined,
     output_summary: (row["output_summary"] as string | null) ?? undefined,
-    status: row["status"] as ToolCallRecord["status"],
+    status: (row["status"] as ToolCallRecord["status"]) ?? "pending",
     error: (row["error"] as string | null) ?? undefined,
-    started_at: row["started_at"] ? (row["started_at"] as Date).toISOString() : new Date().toISOString(),
-    completed_at: row["completed_at"] ? (row["completed_at"] as Date).toISOString() : undefined,
-    duration_ms: row["duration_ms"] != null ? Number(row["duration_ms"]) : undefined,
-  };
+    started_at: isoString(row["started_at"]),
+    completed_at: optionalIsoString(row["completed_at"]),
+    duration_ms: numberOrUndefined(row["duration_ms"]),
+    metadata: objectOrUndefined(row["metadata"]),
+  } as ToolCallRecord & { metadata?: Record<string, unknown> };
+  return toolCall;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToEvalResult(row: Record<string, any>): EvalResult {
-  return {
-    eval_id: row["eval_id"] as string,
-    run_id: row["run_id"] as string,
+  const evalResult = {
+    eval_id: (row["eval_id"] as string) ?? "",
+    run_id: (row["run_id"] as string) ?? "",
     node_id: (row["node_id"] as string | null) ?? undefined,
-    name: row["name"] as string,
-    type: row["type"] as EvalResult["type"],
-    score: row["score"] != null ? Number(row["score"]) : undefined,
-    passed: row["passed"] as boolean,
-    severity: row["severity"] as EvalResult["severity"],
-    findings: (row["findings"] as string[]) ?? [],
+    name: (row["name"] as string) ?? "",
+    type: (row["type"] as EvalResult["type"]) ?? "output_quality",
+    score: numberOrUndefined(row["score"]),
+    passed: booleanOrFalse(row["passed"]),
+    severity: (row["severity"] as EvalResult["severity"]) ?? "info",
+    findings: arrayOrEmpty<string>(row["findings"]),
     recommendation: (row["recommendation"] as string | null) ?? undefined,
-  };
+    metadata: objectOrUndefined(row["metadata"]),
+  } as EvalResult & { metadata?: Record<string, unknown> };
+  return evalResult;
 }
 
 // ── Postgres implementation ───────────────────────────────────────────────────
@@ -341,8 +399,8 @@ export const pgRunStore: RunStore = {
         toolCalls: toolRows.map((r) => rowToToolCall(r as Record<string, unknown>)),
         evalResults: evalRows.map((r) => rowToEvalResult(r as Record<string, unknown>)),
         artifactRefs: runRecord.artifact_refs,
-        createdAt: (runRow["created_at"] as Date).toISOString(),
-        updatedAt: (runRow["updated_at"] as Date).toISOString(),
+        createdAt: isoString(runRow["created_at"]),
+        updatedAt: isoString(runRow["updated_at"]),
       };
     } catch {
       return null;
