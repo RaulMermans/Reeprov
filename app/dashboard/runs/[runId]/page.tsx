@@ -8,7 +8,20 @@ import { Card } from "@/components/ui/Card";
 import { EvalResultsPanel } from "@/components/proof-layer/EvalResultsPanel";
 import { ToolCallsPanel } from "@/components/proof-layer/ToolCallsPanel";
 import { TraceTimeline } from "@/components/proof-layer/TraceTimeline";
+import { WorkflowMap } from "@/components/proof-layer/WorkflowMap";
+import { WorkflowStageCards } from "@/components/proof-layer/WorkflowStageCards";
+import { IssuesPanel } from "@/components/proof-layer/IssuesPanel";
+import { ArtifactPreviewPanel } from "@/components/proof-layer/ArtifactPreviewPanel";
+import { RunSummaryHeader } from "@/components/proof-layer/RunSummaryHeader";
+import { RunDetailTabs, type RunDetailTab } from "@/components/proof-layer/RunDetailTabs";
 import { formatCurrency, formatDuration, formatDateTime } from "@/components/proof-layer/format";
+import {
+  groupTraceEventsIntoStages,
+  extractRunIssues,
+  buildArtifactCards,
+  buildWorkflowMap,
+  buildInferredWorkflowSummary,
+} from "@/lib/runs/runIntelligence";
 import { mergeAuthHeaders } from "@/lib/auth/internalKey";
 import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
 import type { TraceEvent, EvalResult, RunRecord, WorkflowSpec } from "@/lib/proof-layer/schemas";
@@ -203,110 +216,126 @@ export default function RunDetailPage() {
   // SavedWorkflowSummary (registry summary) does not include full node list — that requires the full SavedWorkflowSpec.
   const specNodes = workflow?.nodes;
 
-  return (
-    <main className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:px-8">
-      <nav className="flex items-center gap-1.5 text-xs font-medium text-slate-500" aria-label="Breadcrumb">
-        <Link href="/dashboard" className="hover:text-teal-700">Overview</Link>
-        <span>/</span>
-        <Link href="/dashboard/runs" className="hover:text-teal-700">Runs</Link>
-        <span>/</span>
-        <span className="font-mono text-slate-400">{run.run_id}</span>
-      </nav>
+  // ── Run intelligence derivations — turn the raw run into the building blocks
+  // for the visual dashboard: grouped stages, a pipeline map, an issues list,
+  // artifact cards, and (when no spec is linked) an inferred-workflow summary.
+  const { stages } = groupTraceEventsIntoStages(traceEvents, specNodes);
+  const issues = extractRunIssues(traceEvents, evalResults, specNodes);
+  const artifactCards = buildArtifactCards(traceEvents, run.artifact_refs);
+  const workflowMapNodes = buildWorkflowMap(stages, specNodes);
+  const inferredWorkflowSummary = hasLinkedSpec ? null : buildInferredWorkflowSummary(stages);
+  const artifactCount = run.artifact_refs?.length || artifactCards.length;
 
-      {/* ── 1. Run Health Summary ── */}
-      <Card className="p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-sm font-medium text-teal-700">Runtime proof run</p>
-              {isDemo ? (
-                <span className="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700">
-                  Demo
-                </span>
-              ) : isLive && !isSeeded ? (
-                <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
-                  Live ingestion
-                </span>
-              ) : isSeeded ? (
-                <span className="rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-xs font-medium text-violet-700">
-                  Seeded
-                </span>
-              ) : (
-                <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-                  Example data
-                </span>
-              )}
-              {run.status === "degraded" && (
-                <span className="rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-xs font-medium text-orange-700">
-                  ⚠ Degraded
-                </span>
-              )}
-            </div>
-            <h1 className="mt-1 text-3xl font-semibold text-slate-950">{run.project_name}</h1>
-            <p className="mt-1 text-xs font-mono text-slate-400">{run.run_id}</p>
-            <p className="mt-2 max-w-3xl text-sm text-slate-600">{run.summary}</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge tone={run.status === "completed" ? "success" : run.status === "failed" ? "danger" : run.status === "degraded" ? "warning" : "neutral"}>{run.status}</Badge>
-            <Badge tone="info">{run.workflow_id}</Badge>
-            {run.project_id ? <Badge tone="neutral">{run.project_id}</Badge> : null}
-          </div>
-        </div>
-        <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
-          <SummaryItem label="Duration" value={formatDuration(run.total_duration_ms)} />
-          <SummaryItem label="Total Cost" value={formatCurrency(run.total_cost_usd ?? 0)} />
-          <SummaryItem label="Model Calls" value={String(run.model_calls_count)} />
-          <SummaryItem label="Tool Calls" value={String(run.tool_calls_count)} />
-          <SummaryItem label="Evals" value={`${run.evals_passed} passed / ${run.evals_failed} failed`} />
-          <SummaryItem label="Artifacts" value={String(run.artifact_refs?.length ?? artifactEvents.length)} />
-          <SummaryItem label="Started" value={formatDateTime(run.started_at)} />
-          <SummaryItem label="Approval" value={run.approval_status ?? "not recorded"} />
-        </dl>
-      </Card>
+  const badges = (
+    <>
+      {isDemo ? (
+        <span className="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700">
+          Demo
+        </span>
+      ) : isLive && !isSeeded ? (
+        <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
+          Live ingestion
+        </span>
+      ) : isSeeded ? (
+        <span className="rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-xs font-medium text-violet-700">
+          Seeded
+        </span>
+      ) : (
+        <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+          Example data
+        </span>
+      )}
+      {run.status === "degraded" && (
+        <span className="rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-xs font-medium text-orange-700">
+          ⚠ Degraded
+        </span>
+      )}
+    </>
+  );
 
-      {/* ── 2. Critical Findings — pinned near top if failures exist ── */}
-      {failedEvals.length > 0 ? (
-        <Card className="border-orange-200 bg-orange-50 p-5">
-          <h2 className="text-base font-semibold text-orange-900">
-            {failedEvals.some((e) => !e.passed || e.severity === "critical" || e.severity === "fail")
-              ? "Failed Evals"
-              : "Eval Warnings"}
-          </h2>
-          <p className="mt-1 text-xs text-orange-700">
-            {failedEvals.length} eval result{failedEvals.length !== 1 ? "s" : ""} require attention.
-          </p>
-          <div className="mt-3 grid gap-2">
-            {failedEvals.map((ev) => (
-              <div key={ev.eval_id} className="rounded-md border border-orange-200 bg-white p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-slate-800">{ev.name}</p>
-                  <div className="flex gap-2">
-                    <Badge tone={!ev.passed ? "danger" : "warning"}>{ev.passed ? "warning" : "fail"}</Badge>
-                    <Badge tone={ev.severity === "critical" || ev.severity === "fail" ? "danger" : "warning"}>{ev.severity}</Badge>
-                  </div>
-                </div>
-                {typeof ev.score === "number" ? (
-                  <p className="mt-1 text-xs text-slate-500">Score: {ev.score}</p>
-                ) : null}
-                {ev.findings.length > 0 ? (
-                  <ul className="mt-2 list-inside list-disc space-y-0.5 text-sm text-slate-700">
-                    {ev.findings.map((f, i) => <li key={i}>{f}</li>)}
-                  </ul>
-                ) : null}
-                {ev.recommendation ? (
-                  <p className="mt-1 text-xs text-teal-700">{ev.recommendation}</p>
-                ) : null}
+  // ── Critical Findings — failing/critical eval results, pinned near the top
+  // of the Overview tab so they are never buried in the raw trace. ──
+  const criticalFindings = failedEvals.length > 0 ? (
+    <Card className="border-orange-200 bg-orange-50 p-5">
+      <h2 className="text-base font-semibold text-orange-900">
+        {failedEvals.some((e) => !e.passed || e.severity === "critical" || e.severity === "fail")
+          ? "Failed Evals"
+          : "Eval Warnings"}
+      </h2>
+      <p className="mt-1 text-xs text-orange-700">
+        {failedEvals.length} eval result{failedEvals.length !== 1 ? "s" : ""} require attention.
+      </p>
+      <div className="mt-3 grid gap-2">
+        {failedEvals.map((ev) => (
+          <div key={ev.eval_id} className="rounded-md border border-orange-200 bg-white p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium text-slate-800">{ev.name}</p>
+              <div className="flex gap-2">
+                <Badge tone={!ev.passed ? "danger" : "warning"}>{ev.passed ? "warning" : "fail"}</Badge>
+                <Badge tone={ev.severity === "critical" || ev.severity === "fail" ? "danger" : "warning"}>{ev.severity}</Badge>
               </div>
-            ))}
+            </div>
+            {typeof ev.score === "number" ? (
+              <p className="mt-1 text-xs text-slate-500">Score: {ev.score}</p>
+            ) : null}
+            {ev.findings.length > 0 ? (
+              <ul className="mt-2 list-inside list-disc space-y-0.5 text-sm text-slate-700">
+                {ev.findings.map((f, i) => <li key={i}>{f}</li>)}
+              </ul>
+            ) : null}
+            {ev.recommendation ? (
+              <p className="mt-1 text-xs text-teal-700">{ev.recommendation}</p>
+            ) : null}
           </div>
-        </Card>
-      ) : isLive ? (
-        <Card className="border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-sm font-medium text-emerald-800">No failed evals — all eval results passed.</p>
-        </Card>
-      ) : null}
+        ))}
+      </div>
+    </Card>
+  ) : isLive ? (
+    <Card className="border-emerald-200 bg-emerald-50 p-4">
+      <p className="text-sm font-medium text-emerald-800">No failed evals — all eval results passed.</p>
+    </Card>
+  ) : null;
 
-      {/* ── 3. Workflow Execution + Cost/Latency ── */}
+  // ── Tab content ──────────────────────────────────────────────────────────
+
+  const overviewTab = (
+    <div className="grid gap-6">
+      <RunSummaryHeader run={run} issues={issues} evalResults={evalResults} artifactCount={artifactCount} badges={badges} />
+
+      {criticalFindings}
+
+      <Card className="p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-semibold text-slate-950">Workflow Map</h2>
+          {hasLinkedSpec ? (
+            <Badge tone="info">From linked spec</Badge>
+          ) : inferredWorkflowSummary ? (
+            <Badge tone="neutral">Inferred from run events</Badge>
+          ) : null}
+        </div>
+        {inferredWorkflowSummary ? (
+          <p className="mt-2 text-sm text-teal-700" data-testid="inferred-workflow-summary">
+            {inferredWorkflowSummary.message}
+          </p>
+        ) : null}
+        <div className="mt-4">
+          <WorkflowMap nodes={workflowMapNodes} />
+        </div>
+      </Card>
+    </div>
+  );
+
+  const workflowTab = (
+    <div className="grid gap-6">
+      <div>
+        <h2 className="mb-3 text-lg font-semibold text-slate-950">Workflow Stages</h2>
+        <p className="mb-3 text-xs text-slate-500">
+          Trace events grouped by stage — the default way to read what this run did, with raw events tucked behind an expander.
+        </p>
+        <WorkflowStageCards stages={stages} />
+      </div>
+
+      {/* ── Workflow Execution + Cost/Latency ── */}
       <section className="grid gap-6 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -393,7 +422,7 @@ export default function RunDetailPage() {
           <h2 className="text-xl font-semibold text-slate-950">Cost and Latency</h2>
           <dl className="mt-4 grid gap-3 text-sm">
             <SummaryItem label="Total Duration" value={formatDuration(run.total_duration_ms)} />
-            <SummaryItem label="Total Model Cost" value={formatCurrency(run.total_cost_usd ?? 0)} />
+            <SummaryItem label="Total Model Cost" value={formatCurrency(run.total_cost_usd)} />
             <SummaryItem label="Model Events" value={String(modelEvents.length)} />
             <SummaryItem label="Trace Events" value={String(traceEvents.length)} />
             <SummaryItem label="Error Events" value={String(errorEvents.length)} />
@@ -412,8 +441,43 @@ export default function RunDetailPage() {
           ) : null}
         </Card>
       </section>
+    </div>
+  );
 
-      {/* ── 4. Trace Timeline (with filters) ── */}
+  const issuesTab = (
+    <div className="grid gap-6">
+      <div>
+        <h2 className="mb-1 text-lg font-semibold text-slate-950">Issues</h2>
+        <p className="mb-3 text-xs text-slate-500">
+          Errors, recoveries, and failing evals pulled out of the trace — stage, message, severity, and a recommended fix where available.
+        </p>
+        <IssuesPanel issues={issues} />
+      </div>
+    </div>
+  );
+
+  const artifactsTab = (
+    <div className="grid gap-6">
+      <div>
+        <h2 className="mb-1 text-lg font-semibold text-slate-950">Final Artifacts</h2>
+        <p className="mb-3 text-xs text-slate-500">
+          Prominent previews of what this run produced — markdown articles get an expandable preview with copy/download actions.
+        </p>
+        <ArtifactPreviewPanel artifacts={artifactCards} />
+      </div>
+
+      <RunSection title="Artifacts">
+        <Artifacts events={artifactEvents} fallbackRefs={run.artifact_refs} />
+      </RunSection>
+    </div>
+  );
+
+  const rawTraceTab = (
+    <div className="grid gap-8">
+      <p className="text-xs text-slate-500">
+        The raw event-by-event trace — secondary to the grouped views above. Use the filters to narrow down to a specific kind of event.
+      </p>
+
       <RunSection title="Trace Timeline">
         <TraceTimeline traceEvents={traceEvents} />
       </RunSection>
@@ -439,10 +503,28 @@ export default function RunDetailPage() {
       <RunSection title="Errors and Retries">
         <ErrorsAndRetries errors={errorEvents} retries={retryEvents} />
       </RunSection>
+    </div>
+  );
 
-      <RunSection title="Artifacts">
-        <Artifacts events={artifactEvents} fallbackRefs={run.artifact_refs} />
-      </RunSection>
+  const tabs: RunDetailTab[] = [
+    { key: "overview", label: "Overview", content: overviewTab },
+    { key: "workflow", label: "Workflow", badge: stages.length || undefined, content: workflowTab },
+    { key: "issues", label: "Issues", badge: issues.length || undefined, content: issuesTab },
+    { key: "artifacts", label: "Artifacts", badge: artifactCount || undefined, content: artifactsTab },
+    { key: "raw", label: "Raw Trace", badge: traceEvents.length || undefined, content: rawTraceTab },
+  ];
+
+  return (
+    <main className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:px-8">
+      <nav className="flex items-center gap-1.5 text-xs font-medium text-slate-500" aria-label="Breadcrumb">
+        <Link href="/dashboard" className="hover:text-teal-700">Overview</Link>
+        <span>/</span>
+        <Link href="/dashboard/runs" className="hover:text-teal-700">Runs</Link>
+        <span>/</span>
+        <span className="font-mono text-slate-400">{run.run_id}</span>
+      </nav>
+
+      <RunDetailTabs tabs={tabs} />
     </main>
   );
 }

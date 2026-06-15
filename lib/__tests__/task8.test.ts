@@ -246,7 +246,10 @@ describe("Run detail page structure", () => {
   const src = () => read("app/dashboard/runs/[runId]/page.tsx");
 
   it("renders run summary fields", () => {
-    const code = src();
+    // The run summary metrics are rendered via the extracted RunSummaryHeader
+    // component (part of the visual run-intelligence dashboard), composed
+    // into this page rather than inlined — check both sources together.
+    const code = src() + read("components/proof-layer/RunSummaryHeader.tsx");
     expect(code).toContain("Started");
     expect(code).toContain("Duration");
     expect(code).toContain("Total Cost");

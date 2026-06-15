@@ -88,8 +88,12 @@ describe("Run detail — linked WorkflowSpec contract (Phase 1+2)", () => {
   });
 
   it("uses 'Runtime proof run' label instead of old 'Run timeline'", () => {
-    expect(src).toContain("Runtime proof run");
-    expect(src).not.toContain('"Run timeline"');
+    // The run summary header was extracted into a reusable RunSummaryHeader
+    // component as part of the visual run-intelligence dashboard — the label
+    // now lives there, composed into the page rather than inlined.
+    const headerSrc = read("components/proof-layer/RunSummaryHeader.tsx");
+    expect(src + headerSrc).toContain("Runtime proof run");
+    expect(src + headerSrc).not.toContain('"Run timeline"');
   });
 
   it("uses 'Live ingestion' badge label instead of bare 'Live'", () => {
