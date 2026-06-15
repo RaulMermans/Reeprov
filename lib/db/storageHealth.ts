@@ -1,4 +1,6 @@
 import { getDb, hasDatabaseUrl } from "./client";
+import { fileRunStore } from "@/lib/runs/runStore";
+import packageJson from "@/package.json";
 
 export const AGENTPULSE_TABLES = [
   "ap_integrations",
@@ -10,20 +12,55 @@ export const AGENTPULSE_TABLES = [
   "ap_workflow_specs",
 ] as const;
 
+export type DeploymentEnvironment = "production" | "preview" | "development";
+
 export type StorageHealth = {
   driver: "postgres" | "file";
   databaseUrlPresent: boolean;
   tablesPresent: string[];
+  missingTables: string[];
+  runCount: number;
+  environment: DeploymentEnvironment;
+  version: string;
 };
+
+/**
+ * Resolves the deployment environment from Vercel's system env vars,
+ * falling back to NODE_ENV for local/dev use.
+ */
+export function getDeploymentEnvironment(): DeploymentEnvironment {
+  const vercelEnv = process.env["VERCEL_ENV"];
+  if (vercelEnv === "production" || vercelEnv === "preview" || vercelEnv === "development") {
+    return vercelEnv;
+  }
+  return process.env["NODE_ENV"] === "production" ? "production" : "development";
+}
+
+/**
+ * Best-effort build identifier: Vercel's git commit SHA when deployed,
+ * otherwise the package.json version.
+ */
+export function getAppVersion(): string {
+  const commitSha = process.env["VERCEL_GIT_COMMIT_SHA"];
+  if (commitSha) return commitSha.slice(0, 7);
+  return packageJson.version;
+}
 
 export async function getStorageHealth(): Promise<StorageHealth> {
   const databaseUrlPresent = hasDatabaseUrl();
+  const environment = getDeploymentEnvironment();
+  const version = getAppVersion();
 
   if (!databaseUrlPresent) {
+    const runCount = (await fileRunStore.listRuns()).length;
     return {
       driver: "file",
       databaseUrlPresent,
       tablesPresent: [],
+      missingTables: [...AGENTPULSE_TABLES],
+      runCount,
+      environment,
+      version,
     };
   }
 
@@ -36,9 +73,22 @@ export async function getStorageHealth(): Promise<StorageHealth> {
     ORDER BY tablename ASC
   `;
 
+  const tablesPresent = rows.map((row) => String(row["tablename"]));
+  const missingTables = AGENTPULSE_TABLES.filter((table) => !tablesPresent.includes(table));
+
+  let runCount = 0;
+  if (tablesPresent.includes("ap_runs")) {
+    const countRows = await sql`SELECT COUNT(*)::int AS count FROM ap_runs`;
+    runCount = Number(countRows[0]?.["count"] ?? 0);
+  }
+
   return {
     driver: "postgres",
     databaseUrlPresent,
-    tablesPresent: rows.map((row) => String(row["tablename"])),
+    tablesPresent,
+    missingTables,
+    runCount,
+    environment,
+    version,
   };
 }

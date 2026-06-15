@@ -196,9 +196,10 @@ describe("Docs safety — no real secrets in integration guide", () => {
     expect(readme).toContain("different");
   });
 
-  it("README mentions Vercel /tmp storage limitation", () => {
+  it("README documents DATABASE_URL as the production storage requirement", () => {
     const readme = readFileSync(README_PATH, "utf-8");
-    expect(readme).toContain("/tmp");
+    expect(readme).toContain("DATABASE_URL");
+    expect(readme).toContain("Postgres");
   });
 });
 
@@ -438,10 +439,10 @@ describe("Deployment docs", () => {
     expect(content).toContain("Trace Ingestion");
   });
 
-  it("DEPLOYMENT.md documents storage limitations on Vercel", () => {
+  it("DEPLOYMENT.md documents durable Postgres storage requirements", () => {
     const content = readFileSync(DEPLOYMENT_PATH, "utf-8");
-    expect(content).toContain("/tmp");
-    expect(content).toContain("ephemeral");
+    expect(content).toContain("DATABASE_URL");
+    expect(content).toContain("Postgres");
   });
 
   it("DEPLOYMENT.md documents AGENTPULSE_INGEST_KEY", () => {

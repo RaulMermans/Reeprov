@@ -30,10 +30,11 @@ npm run seed:traces
 
 | Variable                  | Required          | Description                                                                         |
 |---------------------------|-------------------|-------------------------------------------------------------------------------------|
+| `DATABASE_URL`            | **Yes (production)** | Postgres connection string (Neon, Vercel Postgres, etc.). Required in production — `getStores()` throws on startup if `NODE_ENV=production` and `DATABASE_URL` is unset. Optional in local dev (falls back to file-backed stores). |
 | `AGENTPULSE_ACCESS_KEY`   | **Yes**           | Dashboard and scanner access key. Stored in sessionStorage client-side. Must be a long random value. |
 | `AGENTPULSE_INGEST_KEY`   | **Recommended**   | External trace ingestion key for connected AI projects. Should differ from `AGENTPULSE_ACCESS_KEY` in deployed environments. If unset, AgentPulse falls back to `AGENTPULSE_ACCESS_KEY` for local/dev convenience only. |
 | `GITHUB_TOKEN`            | For scanner       | Server-side read-only GitHub token for repository scanning. Use a fine-grained token with `contents: read` on selected repos. |
-| `AGENTPULSE_STORE_DIR`    | No                | Override the run/report storage directory (default: `.agentpulse/` in cwd). **On Vercel, set to `/tmp/agentpulse`** — but note `/tmp` is ephemeral and not durable across deployments or instances. For persistent storage, replace the file store adapter with Postgres, Vercel Blob, Supabase, or Neon. |
+| `AGENTPULSE_STORE_DIR`    | Local-only        | Override the file-backed run/report storage directory (default: `.agentpulse/` in cwd). Only used when `DATABASE_URL` is unset. Ignored entirely once `DATABASE_URL` is set. Not supported in production. |
 | `ENABLE_LLM_AUDITORS`     | No                | Set to `true` to enable LLM-based scanner auditors (disabled by default). Keep `false` in CI. |
 | `LLM_PROVIDER`            | No                | `openai` or `anthropic`. Only used when `ENABLE_LLM_AUDITORS=true`.                |
 | `OPENAI_API_KEY`          | Conditional       | Required only when `ENABLE_LLM_AUDITORS=true` and `LLM_PROVIDER=openai`.           |
@@ -43,7 +44,7 @@ npm run seed:traces
 **Rules:**
 - Never prefix secrets with `NEXT_PUBLIC_`. All secrets are server-side only.
 - `AGENTPULSE_INGEST_KEY` and `AGENTPULSE_ACCESS_KEY` must be **different** in any deployed environment so that external projects cannot reach dashboard-only routes.
-- File-backed storage (`.agentpulse/` or `/tmp/agentpulse`) is local/dev/demo-grade only. Vercel `/tmp` is not shared across serverless function instances and is erased on redeployment.
+- File-backed storage (`.agentpulse/` or `AGENTPULSE_STORE_DIR`) is local/dev/test only. Production always uses Postgres via `DATABASE_URL`.
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment checklist.
 

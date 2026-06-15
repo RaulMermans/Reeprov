@@ -23,24 +23,43 @@ If a future scheduled scan workflow is added, it should use only a server-side r
 
 | Variable                | Required          | Notes                                                                                         |
 |-------------------------|-------------------|-----------------------------------------------------------------------------------------------|
+| `DATABASE_URL`          | **Yes**           | Postgres connection string (Neon, Vercel Postgres, etc.). `getStores()` throws on startup in production if this is unset — there is no file-store fallback in production. |
 | `AGENTPULSE_ACCESS_KEY` | **Yes**           | Long random string. Dashboard and scanner gate. Never expose to client.                       |
-| `AGENTPULSE_INGEST_KEY` | **Recommended**   | Separate from access key. Used by external AI projects to POST trace events. Falls back to access key if unset (local/dev only). |
+| `AGENTPULSE_INGEST_KEY` | **Yes**           | Separate from access key. Used by external AI projects (e.g. BlogAgent) to POST trace events. Must differ from `AGENTPULSE_ACCESS_KEY` in production. |
 | `GITHUB_TOKEN`          | For scanner       | Fine-grained read-only token. `contents: read`, selected repos, 30–90 day expiration.        |
-| `AGENTPULSE_STORE_DIR`  | For Vercel demo   | Set to `/tmp/agentpulse`. Ephemeral — not durable across deploys or instances.                |
 | `ENABLE_LLM_AUDITORS`   | No                | `false` (default). Do not enable until scanner is confirmed working.                          |
 | `LLM_PROVIDER`          | Conditional       | `openai` or `anthropic`. Required only when LLM auditors enabled.                             |
 | `OPENAI_API_KEY`        | Conditional       | Server-side only. Required when `LLM_PROVIDER=openai` and auditors enabled.                   |
 | `ANTHROPIC_API_KEY`     | Conditional       | Server-side only. Required when `LLM_PROVIDER=anthropic` and auditors enabled.                |
+| `AGENTPULSE_STORE_DIR`  | Local-only        | File-backed store directory for local dev without Postgres. Ignored once `DATABASE_URL` is set. Not valid in production. |
 
 **Never use `NEXT_PUBLIC_` for any token, access key, or provider API key.**
 
-### Storage Limitations on Vercel
+### Durable Storage (Postgres)
 
-The default file-backed store writes to `AGENTPULSE_STORE_DIR`. On Vercel serverless functions:
-- `/tmp` is the only writable location.
-- `/tmp` is ephemeral: it resets on redeployment and is not shared across function instances.
-- For durable storage, replace `fileRunStore` / `fileReportStore` with a database-backed adapter (Postgres, Vercel Blob, Supabase, Neon, or similar) behind the same `RunStore` / `ReportStore` interface.
-- File-backed storage is appropriate for local development, demos, and single-instance private use only.
+Production persistence uses Postgres via `lib/db/`. `lib/db/getStores.ts` selects `pg*Store` implementations whenever `DATABASE_URL` is set, and throws a startup error if `NODE_ENV=production` and `DATABASE_URL` is unset — there is no silent fallback to file storage in production.
+
+- Tables are prefixed `ap_`: `ap_integrations`, `ap_runs`, `ap_trace_events`, `ap_tool_calls`, `ap_eval_results`, `ap_reports`, `ap_workflow_specs`.
+- Schema migration (`lib/db/migrate.ts`) is idempotent (`CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS`) and safe to run on every cold start.
+- `ensureSchema()` runs automatically before every Postgres store call (via a wrapping proxy in `getStores.ts`), so a fresh database self-migrates on first request.
+
+**Manual migration:**
+- Local: `npm run db:migrate` (runs `lib/db/migrate.ts#ensureSchema` against `DATABASE_URL`).
+- Deployed: `POST /api/admin/migrate` with header `x-agentpulse-key: $AGENTPULSE_ACCESS_KEY`. Returns `{ ok: true, ...storageHealth }`.
+
+### Local dev without Postgres
+
+If `DATABASE_URL` is unset locally, AgentPulse falls back to file-backed stores under `AGENTPULSE_STORE_DIR` (default `.agentpulse/` in cwd). This path is for local development and tests only — production always requires `DATABASE_URL`.
+
+### Health Checks
+
+| Route | Auth | Purpose |
+|-------|------|---------|
+| `GET /api/health` | None | Lightweight liveness check, no database access. Returns `{ ok, environment, version, time }`. Safe for uptime monitors. |
+| `GET /api/storage/health` | `x-agentpulse-key` | Storage diagnostics: `{ driver, databaseUrlPresent, tablesPresent, missingTables, runCount, environment, version }`. In production this should report `driver: "postgres"`, all 7 `ap_%` tables in `tablesPresent`, and `missingTables: []`. |
+| `POST /api/admin/migrate` | `x-agentpulse-key` | Runs `ensureSchema()` then returns `{ ok: true, ...storageHealth }`. Use after provisioning a new database or to confirm migrations applied. |
+
+`environment` is derived from Vercel's `VERCEL_ENV` (`production` / `preview` / `development`), falling back to `NODE_ENV`. `version` is the short Vercel git commit SHA (`VERCEL_GIT_COMMIT_SHA`), falling back to the `package.json` version.
 
 ## GitHub Token Scope
 
