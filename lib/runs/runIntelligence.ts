@@ -366,7 +366,10 @@ export function buildWorkflowMap(stages: RunStage[], specNodes?: WorkflowNode[])
   const matchesBlogAgent = BLOGAGENT_STAGE_ORDER.some((id) => observedIds.has(id));
 
   if (matchesBlogAgent) {
-    const canonical: WorkflowMapNode[] = BLOGAGENT_STAGE_ORDER.map((id) => {
+    // Return only the canonical pipeline stages — internal implementation nodes
+    // (e.g. build_query_contract_node, audit_writer_output_node) belong in
+    // the stage cards view, not the high-level pipeline map.
+    return BLOGAGENT_STAGE_ORDER.map((id) => {
       const stage = stageById.get(id);
       return {
         id,
@@ -374,10 +377,6 @@ export function buildWorkflowMap(stages: RunStage[], specNodes?: WorkflowNode[])
         status: stage?.status ?? "not_observed",
       };
     });
-    const extras = stages
-      .filter((s) => !BLOGAGENT_STAGE_ORDER.includes(s.id))
-      .map((s) => ({ id: s.id, label: s.label, status: s.status }));
-    return [...canonical, ...extras];
   }
 
   return stages.map((s) => ({ id: s.id, label: s.label, status: s.status }));

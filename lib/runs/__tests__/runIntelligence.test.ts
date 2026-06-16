@@ -365,6 +365,20 @@ describe("buildWorkflowMap — BlogAgent visual ordering", () => {
     expect(nodes[1].status).toBe("completed");
   });
 
+  it("does not append internal non-canonical nodes to the BlogAgent pipeline map", () => {
+    const events: TraceEvent[] = [
+      event({ event_id: "e1", event_type: "node_started", node_id: "draft_writing", timestamp: "2026-06-01T10:00:00.000Z" }),
+      event({ event_id: "e2", event_type: "node_completed", node_id: "draft_writing", timestamp: "2026-06-01T10:00:10.000Z" }),
+      event({ event_id: "e3", event_type: "node_started", node_id: "build_query_contract_node", timestamp: "2026-06-01T10:00:15.000Z" }),
+      event({ event_id: "e4", event_type: "node_completed", node_id: "build_query_contract_node", timestamp: "2026-06-01T10:00:20.000Z" }),
+    ];
+    const { stages } = groupTraceEventsIntoStages(events);
+    const nodes = buildWorkflowMap(stages);
+
+    expect(nodes.map((n) => n.id)).toEqual(BLOGAGENT_STAGE_ORDER);
+    expect(nodes.find((n) => n.id === "build_query_contract_node")).toBeUndefined();
+  });
+
   it("falls back to chronological observation order for non-BlogAgent workflows", () => {
     const events: TraceEvent[] = [
       event({ event_id: "e1", event_type: "node_started", node_id: "fetch_campaign_data", timestamp: "2026-06-01T10:00:00.000Z" }),

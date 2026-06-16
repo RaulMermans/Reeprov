@@ -14,13 +14,14 @@ import { IssuesPanel } from "@/components/proof-layer/IssuesPanel";
 import { ArtifactPreviewPanel } from "@/components/proof-layer/ArtifactPreviewPanel";
 import { RunSummaryHeader } from "@/components/proof-layer/RunSummaryHeader";
 import { RunDetailTabs, type RunDetailTab } from "@/components/proof-layer/RunDetailTabs";
-import { formatCurrency, formatDuration, formatDateTime } from "@/components/proof-layer/format";
+import { formatCurrency, formatDuration, formatDateTime, formatPercent } from "@/components/proof-layer/format";
 import {
   groupTraceEventsIntoStages,
   extractRunIssues,
   buildArtifactCards,
   buildWorkflowMap,
   buildInferredWorkflowSummary,
+  deriveEventDurationMs,
 } from "@/lib/runs/runIntelligence";
 import { mergeAuthHeaders } from "@/lib/auth/internalKey";
 import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
@@ -276,7 +277,7 @@ export default function RunDetailPage() {
               </div>
             </div>
             {typeof ev.score === "number" ? (
-              <p className="mt-1 text-xs text-slate-500">Score: {ev.score}</p>
+              <p className="mt-1 text-xs text-slate-500">Score: {formatPercent(ev.score)}</p>
             ) : null}
             {ev.findings.length > 0 ? (
               <ul className="mt-2 list-inside list-disc space-y-0.5 text-sm text-slate-700">
@@ -565,6 +566,7 @@ function ModelCalls({ events }: { events: TraceEvent[] }) {
               {typeof event.metadata?.["model_provider"] === "string" ? <Badge tone="info">{event.metadata["model_provider"]}</Badge> : null}
               {typeof event.metadata?.["model_name"] === "string" ? <Badge tone="neutral">{event.metadata["model_name"]}</Badge> : null}
               {event.cost_usd ? <Badge tone="success">{formatCurrency(event.cost_usd)}</Badge> : null}
+              {(() => { const ms = deriveEventDurationMs(event); return ms ? <Badge tone="neutral">{formatDuration(ms)}</Badge> : null; })()}
             </div>
           </div>
           {event.input_summary ? <p className="mt-3 text-sm text-slate-700">Input: {event.input_summary}</p> : null}

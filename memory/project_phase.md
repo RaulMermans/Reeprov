@@ -1,30 +1,31 @@
 ---
 name: project-phase
-description: Current phase and commit status for AgentPulse
+description: Current phase, last known commit, and test count
 metadata:
   type: project
 ---
 
-Task 7 (Global Dashboard Access + Overview IA Polish) is complete as of 2026-05-26.
+Production QA pass on real BlogAgent run complete (2026-06-16).
+Run ID: 910b2ce1-be0b-49e6-9dd1-eb1cc1b6976a
 
-**Why:** Dashboard felt like a partially gated demo — only the scanner had an access gate. All /dashboard/* routes now share a single global access gate backed by AGENTPULSE_ACCESS_KEY.
+Last deployed commit: 7df8d81 — Add production health checks and durable-storage deployment docs
+Production URL: https://agent-pulse-alpha.vercel.app
+
+Test count after QA fixes: 1071 passing across 46 test files.
+
+Storage: Postgres on Vercel (`driver: postgres`, 8 runs in production, all 7 tables present, missingTables=[]).
 
 **State:**
-- 709 tests pass (60 new tests for Task 7)
-- Lint, tsc, build all pass
+- Tasks 11 + 12 complete (Integration Kit + Postgres durable storage)
+- Run-intelligence dashboard tested against real BlogAgent data (102 trace events, 37 nodes, 4 evals)
+- 4 defects fixed in this session (see commit history)
 
-**Key changes:**
-- `POST /api/auth/validate` — shared key validation endpoint
-- `lib/auth/dashboardAuthContext.tsx` — React context with `isUnlocked`, `lock()`, `onUnauthorized()`
-- `components/dashboard/DashboardShell.tsx` — global access gate at layout level
-- `app/dashboard/layout.tsx` — now just `<DashboardShell>{children}</DashboardShell>`
-- `components/layout/NavBar.tsx` — accepts `onLock` prop, shows "Lock dashboard" button
-- `components/dashboard/DashboardClient.tsx` — removed isolated scanner gate, uses `useDashboardAuth()` for 401 handling
-- `app/dashboard/page.tsx` — Overview redesigned with product mode cards (Live Proof Runs, Static Repository Intelligence, Workflow Registry, Saved Proof Reports)
-- `components/proof-layer/WorkflowGallery.tsx` — overflow/truncation fixes
-- `docs/ARCHITECTURE.md` — Global Dashboard Access Gate section added
-- `docs/ROADMAP.md` — Task 7 entry added
-- `docs/product_direction.md` — created with operating modes documentation
-- `README.md` — Access Model and Operating Modes sections added
+**Key fixes applied in QA session:**
+- `app/dashboard/runs/[runId]/page.tsx` — eval score in criticalFindings panel now uses `formatPercent()` not raw number
+- `app/dashboard/runs/[runId]/page.tsx` — model call latency now shown in raw trace view via `deriveEventDurationMs`
+- `components/proof-layer/ToolCallsPanel.tsx` — tool durations now use `deriveEventDurationMs` (reads `metadata.latency_ms` fallback)
+- `lib/runs/runIntelligence.ts:buildWorkflowMap` — BlogAgent canonical map no longer appends internal implementation nodes (was 37 nodes → now clean 10-node pipeline map)
 
-**How to apply:** When planning next work, the dashboard is fully gated. The scanner no longer has its own isolated access model. AGENTPULSE_INGEST_KEY remains separate for runtime trace ingestion.
+**How to apply:** Next work builds on the validated run-intelligence dashboard. BlogAgent emits latency as `metadata.latency_ms`, not `duration_ms`. Always use `deriveEventDurationMs()` for display.
+
+[[feedback-instrument-events]]

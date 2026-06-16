@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { formatDuration, formatDateTime } from "@/components/proof-layer/format";
+import { deriveEventDurationMs } from "@/lib/runs/runIntelligence";
 import type { TraceEvent } from "@/lib/proof-layer/schemas";
 
 interface ToolCallView {
@@ -57,7 +58,7 @@ function buildToolCalls(traceEvents: TraceEvent[]): ToolCallView[] {
       status: completion?.event_type === "tool_call_failed" ? "failed" : completion ? "completed" : "pending",
       startedAt: start.timestamp,
       completedAt: completion?.timestamp,
-      durationMs: completion?.duration_ms,
+      durationMs: completion ? deriveEventDurationMs(completion) : undefined,
       inputSummary: start.input_summary,
       outputSummary: completion?.output_summary,
       error: metadataString(completion, "error") ?? completion?.output_summary,
