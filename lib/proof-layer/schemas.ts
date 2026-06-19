@@ -16,6 +16,11 @@ export const workflowNodeSchema = z.object({
   type: nodeTypeSchema,
   label: z.string(),
   description: z.string().optional(),
+  stage_category: z.string().optional(),
+  expected_inputs: z.array(z.string()).optional(),
+  expected_outputs: z.array(z.string()).optional(),
+  risk_gates: z.array(z.string()).optional(),
+  quality_gates: z.array(z.string()).optional(),
   model_provider: z.string().optional(),
   model_name: z.string().optional(),
   allowed_tools: z.array(z.string()).optional(),
@@ -40,15 +45,19 @@ export const architectureTypeSchema = z.enum([
 
 export const workflowSpecSchema = z.object({
   workflow_id: z.string(),
+  project_id: z.string().optional(),
   name: z.string(),
   version: z.string().optional(),
   description: z.string().optional(),
   architecture_type: architectureTypeSchema,
   nodes: z.array(workflowNodeSchema),
+  expected_order: z.array(z.string()).optional(),
   edges: z.array(workflowEdgeSchema).optional(),
   allowed_tools: z.array(z.string()).optional(),
   evals: z.array(z.string()).optional(),
   approval_gates: z.array(z.string()).optional(),
+  risk_gates: z.array(z.string()).optional(),
+  quality_gates: z.array(z.string()).optional(),
   artifacts: z.array(z.string()).optional(),
 }).refine(
   (spec) => {
@@ -57,6 +66,16 @@ export const workflowSpecSchema = z.object({
     return spec.edges.every(e => nodeIds.has(e.from) && nodeIds.has(e.to));
   },
   { message: "Edge references a node ID not present in nodes" }
+).refine(
+  (spec) => {
+    if (!spec.expected_order) return true;
+    const nodeIds = new Set(spec.nodes.map((node) => node.id));
+    const orderedNodeIds = new Set(spec.expected_order);
+    return spec.expected_order.length === nodeIds.size
+      && orderedNodeIds.size === nodeIds.size
+      && spec.expected_order.every((nodeId) => nodeIds.has(nodeId));
+  },
+  { message: "Expected order must contain every workflow node exactly once" }
 ).refine(
   (spec) => {
     const needsApproval = spec.nodes.some(n =>

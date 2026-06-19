@@ -60,10 +60,9 @@ describe("Run detail — linked WorkflowSpec contract (Phase 1+2)", () => {
     expect(linkedIdx).toBeLessThan(unlinkedIdx);
   });
 
-  it("uses only workflow.nodes for the node list (SavedWorkflowSummary has no spec)", () => {
+  it("uses the resolved full workflow spec for the node list", () => {
     expect(src).toContain("const specNodes = workflow?.nodes");
-    // The registry summary shows a count + link when no example workflow exists
-    expect(src).toContain("nodes registered in spec");
+    expect(src).toContain("registryWorkflow.spec.nodes.length");
   });
 
   it("uses specNodes for the workflow node list when example workflow available", () => {
@@ -102,7 +101,7 @@ describe("Run detail — linked WorkflowSpec contract (Phase 1+2)", () => {
 
   it("registry workflow summary shown in Cost and Latency side card", () => {
     expect(src).toContain("registryWorkflow.registryId");
-    expect(src).toContain("nodeCount");
+    expect(src).toContain("registryWorkflow.spec.nodes.length");
     expect(src).toContain("Linked spec");
   });
 });
