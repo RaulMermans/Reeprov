@@ -22,19 +22,21 @@ import {
   buildWorkflowMap,
   buildInferredWorkflowSummary,
   deriveEventDurationMs,
+  workflowSourceLabel,
 } from "@/lib/runs/runIntelligence";
 import { mergeAuthHeaders } from "@/lib/auth/internalKey";
 import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
+import { getBuiltInWorkflowSpec } from "@/lib/workflows/builtInWorkflowSpecs";
 import type { TraceEvent, EvalResult, RunRecord, WorkflowSpec } from "@/lib/proof-layer/schemas";
 import type { SavedRun } from "@/lib/runs/runTypes";
-import type { SavedWorkflowSummary } from "@/lib/workflows/workflowTypes";
+import type { SavedWorkflowSpec, SavedWorkflowSummary } from "@/lib/workflows/workflowTypes";
 
 interface RunDetailState {
   run: RunRecord;
   traceEvents: TraceEvent[];
   evalResults: EvalResult[];
   workflow?: WorkflowSpec;
-  registryWorkflow?: SavedWorkflowSummary;
+  registryWorkflow?: SavedWorkflowSpec;
   isLive: boolean;
   isSeeded: boolean;
   isDemo: boolean;
@@ -84,7 +86,10 @@ export default function RunDetailPage() {
               run: exData.run,
               traceEvents: exData.traceEvents ?? [],
               evalResults: exData.evalResults ?? [],
-              workflow: exData.workflow,
+              workflow: exData.workflow ?? getBuiltInWorkflowSpec(
+                exData.run.project_id,
+                exData.run.workflow_id,
+              ),
               isLive: false,
               isSeeded: false,
               isDemo: false,
@@ -106,34 +111,51 @@ export default function RunDetailPage() {
           a.timestamp.localeCompare(b.timestamp)
         );
 
-        // Fetch workflow spec (example data) for live runs.
-        let workflow: WorkflowSpec | undefined;
-        try {
-          const wfRes = await fetch(`/api/runs/examples/${data.runRecord.workflow_id}`);
-          if (wfRes.ok) {
-            const wfData = await wfRes.json() as { workflow?: WorkflowSpec };
-            workflow = wfData.workflow;
-          }
-        } catch {
-          // workflow not found — that's fine
-        }
+        let workflow = getBuiltInWorkflowSpec(
+          data.runRecord.project_id,
+          data.runRecord.workflow_id,
+        );
 
-        // Also check the Workflow Registry for a matching registered spec.
-        let registryWorkflow: SavedWorkflowSummary | undefined;
+        // Persisted registry entries take precedence over built-in templates.
+        let registryWorkflow: SavedWorkflowSpec | undefined;
         try {
           const regRes = await fetch(
-            `/api/workflows?workflowId=${encodeURIComponent(data.runRecord.workflow_id)}&limit=1`,
+            `/api/workflows?projectId=${encodeURIComponent(data.runRecord.project_id)}&workflowId=${encodeURIComponent(data.runRecord.workflow_id)}&limit=1`,
             { headers: mergeAuthHeaders() },
           );
           if (regRes.ok) {
             const regData = await regRes.json() as { workflows: SavedWorkflowSummary[] };
-            registryWorkflow = regData.workflows?.[0];
+            const registrySummary = regData.workflows?.[0];
+            if (registrySummary) {
+              const fullSpecRes = await fetch(
+                `/api/workflows/${encodeURIComponent(registrySummary.registryId)}`,
+                { headers: mergeAuthHeaders() },
+              );
+              if (fullSpecRes.ok) {
+                registryWorkflow = await fullSpecRes.json() as SavedWorkflowSpec;
+                workflow = registryWorkflow.spec;
+              }
+            }
           } else if (regRes.status === 401) {
             onUnauthorized("Access key expired or invalid. Please unlock again.");
             return;
           }
         } catch {
           // registry lookup is optional
+        }
+
+        // Legacy example specs remain available when no registered or built-in
+        // workflow template matches the run.
+        if (!workflow) {
+          try {
+            const wfRes = await fetch(`/api/runs/examples/${data.runRecord.workflow_id}`);
+            if (wfRes.ok) {
+              const wfData = await wfRes.json() as { workflow?: WorkflowSpec };
+              workflow = wfData.workflow;
+            }
+          } catch {
+            // Unknown workflows fall back to trace inference below.
+          }
         }
 
         setState({
@@ -211,10 +233,10 @@ export default function RunDetailPage() {
   );
 
   const failedEvals = evalResults.filter((e) => !e.passed || e.severity === "critical" || e.severity === "fail");
-  const hasLinkedSpec = Boolean(workflow ?? registryWorkflow);
+  const hasLinkedSpec = Boolean(workflow);
 
-  // Nodes to display from the example workflow spec if available.
-  // SavedWorkflowSummary (registry summary) does not include full node list — that requires the full SavedWorkflowSpec.
+  // Registered templates define the main map. Stage cards still use every
+  // observed node, including internal implementation events.
   const specNodes = workflow?.nodes;
 
   // ── Run intelligence derivations — turn the raw run into the building blocks
@@ -223,7 +245,7 @@ export default function RunDetailPage() {
   const { stages } = groupTraceEventsIntoStages(traceEvents, specNodes);
   const issues = extractRunIssues(traceEvents, evalResults, specNodes);
   const artifactCards = buildArtifactCards(traceEvents, run.artifact_refs);
-  const workflowMapNodes = buildWorkflowMap(stages, specNodes);
+  const workflowMapNodes = buildWorkflowMap(stages, workflow);
   const inferredWorkflowSummary = hasLinkedSpec ? null : buildInferredWorkflowSummary(stages);
   const artifactCount = run.artifact_refs?.length || artifactCards.length;
 
@@ -308,11 +330,9 @@ export default function RunDetailPage() {
       <Card className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold text-slate-950">Workflow Map</h2>
-          {hasLinkedSpec ? (
-            <Badge tone="info">From linked spec</Badge>
-          ) : inferredWorkflowSummary ? (
-            <Badge tone="neutral">Inferred from run events</Badge>
-          ) : null}
+          <Badge tone={hasLinkedSpec ? "info" : "neutral"} data-testid="workflow-source-label">
+            {workflowSourceLabel(workflow)}
+          </Badge>
         </div>
         {inferredWorkflowSummary ? (
           <p className="mt-2 text-sm text-teal-700" data-testid="inferred-workflow-summary">
@@ -353,18 +373,18 @@ export default function RunDetailPage() {
                   {registryWorkflow.status}
                 </Badge>
               </Link>
+            ) : workflow ? (
+              <div className="rounded-md border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700">
+                {workflowSourceLabel(workflow)}
+              </div>
             ) : isLive ? (
-              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500" data-testid="no-linked-spec">
-                No registered WorkflowSpec for{" "}
-                <code className="font-mono">{run.workflow_id}</code>.{" "}
-                <Link href="/dashboard/workflows" className="text-teal-700 hover:underline">
-                  Promote a WorkflowSpec →
-                </Link>
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600" data-testid="no-linked-spec">
+                Workflow inferred from run events
               </div>
             ) : null}
           </div>
 
-          {/* Workflow node list — from example workflow data if available */}
+          {/* Canonical template nodes; observed internal nodes remain in stage cards above. */}
           {specNodes && specNodes.length > 0 ? (
             <div className="mt-4 grid gap-3">
               {specNodes.map((node, index) => {
@@ -390,31 +410,13 @@ export default function RunDetailPage() {
                 );
               })}
             </div>
-          ) : registryWorkflow ? (
-            /* Registered spec exists in registry — show a summary link, no node list available from summary */
-            <div className="mt-4 rounded-md border border-teal-100 bg-teal-50 p-4 text-sm text-teal-700">
-              <p className="font-medium">{registryWorkflow.nodeCount} nodes registered in spec.</p>
-              <p className="mt-0.5 text-xs text-teal-600">
-                Node details available in the full registry entry.{" "}
-                <Link href={`/dashboard/workflows/registry/${registryWorkflow.registryId}`} className="font-medium hover:underline">
-                  View full spec →
-                </Link>
-              </p>
-            </div>
           ) : (
-            /* No spec available at all */
+            /* Unknown workflows remain useful through trace-derived stages. */
             <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500" data-testid="no-spec-nodes">
-              No registered WorkflowSpec found for <code className="font-mono">{run.workflow_id}</code>.
-              <span className="ml-1 text-slate-400">Nodes are shown in the trace timeline below.</span>
-              <div className="mt-3">
-                <Link href="/dashboard/workflows" className="text-xs text-teal-700 hover:underline">
-                  Promote or register a WorkflowSpec →
-                </Link>
-                <span className="mx-1.5 text-slate-300">·</span>
-                <Link href="/dashboard/scanner" className="text-xs text-teal-700 hover:underline">
-                  Scan a repo to generate one
-                </Link>
-              </div>
+              <p className="font-medium text-slate-700">Workflow inferred from run events</p>
+              <p className="mt-1 text-xs text-slate-500">
+                All observed nodes remain available in the stage cards and raw trace.
+              </p>
             </div>
           )}
         </Card>
@@ -437,7 +439,7 @@ export default function RunDetailPage() {
               >
                 {registryWorkflow.name}
               </Link>
-              <p className="text-xs text-slate-500">{registryWorkflow.nodeCount} nodes · {registryWorkflow.confidence} confidence</p>
+              <p className="text-xs text-slate-500">{registryWorkflow.spec.nodes.length} nodes · {registryWorkflow.confidence} confidence</p>
             </div>
           ) : null}
         </Card>

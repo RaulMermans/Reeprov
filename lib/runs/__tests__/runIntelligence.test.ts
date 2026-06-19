@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { EvalResult, RunRecord, TraceEvent, WorkflowNode } from "@/lib/proof-layer/schemas";
+import type { EvalResult, RunRecord, TraceEvent, WorkflowNode, WorkflowSpec } from "@/lib/proof-layer/schemas";
 import {
   BLOGAGENT_STAGE_ORDER,
   buildArtifactCards,
@@ -20,7 +20,12 @@ import {
   extractRunIssues,
   groupTraceEventsIntoStages,
   normalizeScorePercent,
+  workflowSourceLabel,
 } from "@/lib/runs/runIntelligence";
+import {
+  BLOG_AGENT_WORKFLOW_SPEC,
+  getBuiltInWorkflowSpec,
+} from "@/lib/workflows/builtInWorkflowSpecs";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -307,6 +312,11 @@ describe("groupTraceEventsIntoStages", () => {
 // ── BlogAgent visual stage ordering ───────────────────────────────────────────
 
 describe("buildWorkflowMap — BlogAgent visual ordering", () => {
+  it("resolves the registered BlogAgent WorkflowSpec by project and workflow id", () => {
+    expect(getBuiltInWorkflowSpec("blog-agent", "blog-agent-v1")).toBe(BLOG_AGENT_WORKFLOW_SPEC);
+    expect(getBuiltInWorkflowSpec("other-project", "blog-agent-v1")).toBeUndefined();
+  });
+
   it("exposes the canonical BlogAgent stage order", () => {
     expect(BLOGAGENT_STAGE_ORDER).toEqual([
       "intake_request_parsing",
@@ -320,6 +330,7 @@ describe("buildWorkflowMap — BlogAgent visual ordering", () => {
       "reviewer_critic_pass",
       "final_article_packaging",
     ]);
+    expect(BLOG_AGENT_WORKFLOW_SPEC.expected_order).toEqual(BLOGAGENT_STAGE_ORDER);
   });
 
   it("orders observed BlogAgent stages canonically even when the trace arrives out of order", () => {
@@ -329,8 +340,8 @@ describe("buildWorkflowMap — BlogAgent visual ordering", () => {
       event({ event_id: "e3", event_type: "node_started", node_id: "intake_request_parsing", timestamp: "2026-06-01T10:00:00.000Z" }),
       event({ event_id: "e4", event_type: "node_completed", node_id: "intake_request_parsing", timestamp: "2026-06-01T10:00:05.000Z" }),
     ];
-    const { stages } = groupTraceEventsIntoStages(events);
-    const nodes = buildWorkflowMap(stages);
+    const { stages } = groupTraceEventsIntoStages(events, BLOG_AGENT_WORKFLOW_SPEC.nodes);
+    const nodes = buildWorkflowMap(stages, BLOG_AGENT_WORKFLOW_SPEC);
 
     expect(nodes.map((n) => n.id)).toEqual(BLOGAGENT_STAGE_ORDER);
     expect(nodes.find((n) => n.id === "intake_request_parsing")?.status).toBe("completed");
@@ -342,23 +353,29 @@ describe("buildWorkflowMap — BlogAgent visual ordering", () => {
       event({ event_id: "e1", event_type: "node_started", node_id: "intake_request_parsing", timestamp: "2026-06-01T10:00:00.000Z" }),
       event({ event_id: "e2", event_type: "node_completed", node_id: "intake_request_parsing", timestamp: "2026-06-01T10:00:05.000Z" }),
     ];
-    const { stages } = groupTraceEventsIntoStages(events);
-    const nodes = buildWorkflowMap(stages);
+    const { stages } = groupTraceEventsIntoStages(events, BLOG_AGENT_WORKFLOW_SPEC.nodes);
+    const nodes = buildWorkflowMap(stages, BLOG_AGENT_WORKFLOW_SPEC);
 
     expect(nodes.find((n) => n.id === "final_article_packaging")?.status).toBe("not_observed");
   });
 
   it("prefers the registered WorkflowSpec node order over the canonical BlogAgent order", () => {
-    const specNodes: WorkflowNode[] = [
-      { id: "draft_writing", type: "llm", label: "Draft" },
-      { id: "intake_request_parsing", type: "trigger", label: "Intake" },
-    ];
+    const workflowSpec: WorkflowSpec = {
+      workflow_id: "custom-workflow",
+      name: "Custom workflow",
+      architecture_type: "prompt_chain",
+      nodes: [
+        { id: "draft_writing", type: "llm", label: "Draft" },
+        { id: "intake_request_parsing", type: "trigger", label: "Intake" },
+      ],
+      expected_order: ["draft_writing", "intake_request_parsing"],
+    };
     const events: TraceEvent[] = [
       event({ event_id: "e1", event_type: "node_started", node_id: "intake_request_parsing", timestamp: "2026-06-01T10:00:00.000Z" }),
       event({ event_id: "e2", event_type: "node_completed", node_id: "intake_request_parsing", timestamp: "2026-06-01T10:00:05.000Z" }),
     ];
-    const { stages } = groupTraceEventsIntoStages(events, specNodes);
-    const nodes = buildWorkflowMap(stages, specNodes);
+    const { stages } = groupTraceEventsIntoStages(events, workflowSpec.nodes);
+    const nodes = buildWorkflowMap(stages, workflowSpec);
 
     expect(nodes.map((n) => n.id)).toEqual(["draft_writing", "intake_request_parsing"]);
     expect(nodes[0].status).toBe("not_observed");
@@ -372,11 +389,12 @@ describe("buildWorkflowMap — BlogAgent visual ordering", () => {
       event({ event_id: "e3", event_type: "node_started", node_id: "build_query_contract_node", timestamp: "2026-06-01T10:00:15.000Z" }),
       event({ event_id: "e4", event_type: "node_completed", node_id: "build_query_contract_node", timestamp: "2026-06-01T10:00:20.000Z" }),
     ];
-    const { stages } = groupTraceEventsIntoStages(events);
-    const nodes = buildWorkflowMap(stages);
+    const { stages } = groupTraceEventsIntoStages(events, BLOG_AGENT_WORKFLOW_SPEC.nodes);
+    const nodes = buildWorkflowMap(stages, BLOG_AGENT_WORKFLOW_SPEC);
 
     expect(nodes.map((n) => n.id)).toEqual(BLOGAGENT_STAGE_ORDER);
     expect(nodes.find((n) => n.id === "build_query_contract_node")).toBeUndefined();
+    expect(stages.find((stage) => stage.id === "build_query_contract_node")).toBeDefined();
   });
 
   it("falls back to chronological observation order for non-BlogAgent workflows", () => {
@@ -387,6 +405,29 @@ describe("buildWorkflowMap — BlogAgent visual ordering", () => {
     const { stages } = groupTraceEventsIntoStages(events);
     const nodes = buildWorkflowMap(stages);
     expect(nodes.map((n) => n.id)).toEqual(["fetch_campaign_data", "generate_creative"]);
+  });
+
+  it("does not assume BlogAgent from a canonical-looking node when no spec is registered", () => {
+    const events: TraceEvent[] = [
+      event({ event_id: "e1", event_type: "node_started", node_id: "draft_writing", timestamp: "2026-06-01T10:00:00.000Z" }),
+      event({ event_id: "e2", event_type: "node_started", node_id: "internal_quality_probe", timestamp: "2026-06-01T10:01:00.000Z" }),
+    ];
+    const { stages } = groupTraceEventsIntoStages(events);
+
+    expect(buildWorkflowMap(stages).map((node) => node.id)).toEqual([
+      "draft_writing",
+      "internal_quality_probe",
+    ]);
+  });
+});
+
+describe("workflowSourceLabel", () => {
+  it("labels registered workflows as templates", () => {
+    expect(workflowSourceLabel(BLOG_AGENT_WORKFLOW_SPEC)).toBe("Workflow template: BlogAgent v1");
+  });
+
+  it("labels unknown workflows as inferred", () => {
+    expect(workflowSourceLabel()).toBe("Workflow inferred from run events");
   });
 });
 

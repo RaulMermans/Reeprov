@@ -10,6 +10,8 @@
  */
 
 import type { EvalResult, RunRecord, TraceEvent, WorkflowNode } from "@/lib/proof-layer/schemas";
+import type { WorkflowSpec } from "@/lib/proof-layer/schemas";
+export { BLOG_AGENT_STAGE_ORDER as BLOGAGENT_STAGE_ORDER } from "@/lib/workflows/builtInWorkflowSpecs";
 
 // ── Status vocabulary shared across stages and the workflow map ──────────────
 
@@ -323,63 +325,39 @@ export interface WorkflowMapNode {
 }
 
 /**
- * Canonical BlogAgent pipeline order. Used to render a stable, readable
- * pipeline map even when trace events arrive out of declared order, and to
- * surface stages that were never observed (gray, "not observed").
- */
-export const BLOGAGENT_STAGE_ORDER: readonly string[] = [
-  "intake_request_parsing",
-  "generate_research_questions",
-  "topic_product_research",
-  "extract_webpages",
-  "score_sources",
-  "outline_generation",
-  "draft_writing",
-  "seo_optimization",
-  "reviewer_critic_pass",
-  "final_article_packaging",
-];
-
-/**
  * Builds the ordered list of nodes for the visual workflow map.
  *
  * Preference order:
- * 1. Registered/example WorkflowSpec node order (highest confidence).
- * 2. The canonical BlogAgent stage order, when observed stage IDs match it.
+ * 1. Registered/example WorkflowSpec expected order (highest confidence).
+ * 2. Registered/example WorkflowSpec node order.
  * 3. Chronological order of first observation in the trace.
  */
-export function buildWorkflowMap(stages: RunStage[], specNodes?: WorkflowNode[]): WorkflowMapNode[] {
+export function buildWorkflowMap(stages: RunStage[], workflowSpec?: WorkflowSpec): WorkflowMapNode[] {
   const stageById = new Map(stages.map((s) => [s.id, s]));
+  const specNodes = workflowSpec?.nodes;
 
   if (specNodes && specNodes.length > 0) {
-    return specNodes.map((node) => {
-      const stage = stageById.get(node.id);
-      return {
-        id: node.id,
-        label: node.label,
-        status: stage?.status ?? "not_observed",
-      };
-    });
-  }
+    const nodeById = new Map(specNodes.map((node) => [node.id, node]));
+    const expectedOrder = workflowSpec.expected_order ?? specNodes.map((node) => node.id);
 
-  const observedIds = new Set(stages.map((s) => s.id));
-  const matchesBlogAgent = BLOGAGENT_STAGE_ORDER.some((id) => observedIds.has(id));
-
-  if (matchesBlogAgent) {
-    // Return only the canonical pipeline stages — internal implementation nodes
-    // (e.g. build_query_contract_node, audit_writer_output_node) belong in
-    // the stage cards view, not the high-level pipeline map.
-    return BLOGAGENT_STAGE_ORDER.map((id) => {
-      const stage = stageById.get(id);
+    return expectedOrder.map((nodeId) => {
+      const node = nodeById.get(nodeId);
+      const stage = stageById.get(nodeId);
       return {
-        id,
-        label: stage?.label ?? humanizeStageId(id),
+        id: nodeId,
+        label: node?.label ?? humanizeStageId(nodeId),
         status: stage?.status ?? "not_observed",
       };
     });
   }
 
   return stages.map((s) => ({ id: s.id, label: s.label, status: s.status }));
+}
+
+export function workflowSourceLabel(workflowSpec?: WorkflowSpec): string {
+  return workflowSpec
+    ? `Workflow template: ${workflowSpec.name}`
+    : "Workflow inferred from run events";
 }
 
 // ── Status chip ───────────────────────────────────────────────────────────────
@@ -515,6 +493,6 @@ export function buildInferredWorkflowSummary(stages: RunStage[]): InferredWorkfl
   return {
     inferred: true,
     stageCount: stages.length,
-    message: `Workflow inferred from run events — ${stages.length} stage${stages.length === 1 ? "" : "s"} observed in the trace. No registered WorkflowSpec was used.`,
+    message: `Workflow inferred from run events — ${stages.length} stage${stages.length === 1 ? "" : "s"} observed in the trace.`,
   };
 }
