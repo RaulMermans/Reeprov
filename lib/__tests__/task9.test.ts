@@ -380,7 +380,8 @@ describe("UI source smoke", () => {
   it("Run detail page imports SavedWorkflowSummary type", () => {
     const src = read("app/dashboard/runs/[runId]/page.tsx");
     expect(src).toContain("SavedWorkflowSummary");
-    expect(src).toContain("/api/workflows?workflowId=");
+    expect(src).toContain("/api/workflows?projectId=");
+    expect(src).toContain("&workflowId=");
     expect(src).toContain("registryWorkflow");
   });
 
