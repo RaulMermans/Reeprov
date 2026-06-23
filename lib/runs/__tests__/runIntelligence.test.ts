@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 import type { EvalResult, RunRecord, TraceEvent, WorkflowNode, WorkflowSpec } from "@/lib/proof-layer/schemas";
 import {
+  BLOGAGENT_STAGE_ORDER,
   buildArtifactCards,
   buildInferredWorkflowSummary,
   buildWorkflowMap,
