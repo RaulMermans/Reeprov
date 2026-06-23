@@ -10,7 +10,6 @@
 import { describe, expect, it } from "vitest";
 import type { EvalResult, RunRecord, TraceEvent, WorkflowNode, WorkflowSpec } from "@/lib/proof-layer/schemas";
 import {
-  BLOGAGENT_STAGE_ORDER,
   buildArtifactCards,
   buildInferredWorkflowSummary,
   buildWorkflowMap,
@@ -309,7 +308,7 @@ describe("groupTraceEventsIntoStages", () => {
   });
 });
 
-// ── BlogAgent visual stage ordering ───────────────────────────────────────────
+// ── buildWorkflowMap — ordering ───────────────────────────────────────────────
 
 describe("buildWorkflowMap — BlogAgent visual ordering", () => {
   it("resolves the registered BlogAgent WorkflowSpec by project and workflow id", () => {

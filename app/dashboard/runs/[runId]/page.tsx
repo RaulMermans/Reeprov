@@ -9,7 +9,7 @@ import { EvalResultsPanel } from "@/components/proof-layer/EvalResultsPanel";
 import { ToolCallsPanel } from "@/components/proof-layer/ToolCallsPanel";
 import { TraceTimeline } from "@/components/proof-layer/TraceTimeline";
 import { WorkflowMap } from "@/components/proof-layer/WorkflowMap";
-import { WorkflowStageCards } from "@/components/proof-layer/WorkflowStageCards";
+import { RunWorkflowGraph } from "@/components/proof-layer/RunWorkflowGraph";
 import { IssuesPanel } from "@/components/proof-layer/IssuesPanel";
 import { ArtifactPreviewPanel } from "@/components/proof-layer/ArtifactPreviewPanel";
 import { RunSummaryHeader } from "@/components/proof-layer/RunSummaryHeader";
@@ -24,16 +24,18 @@ import {
   deriveEventDurationMs,
   workflowSourceLabel,
 } from "@/lib/runs/runIntelligence";
+import { buildRunGraph } from "@/lib/runs/runGraph";
 import { mergeAuthHeaders } from "@/lib/auth/internalKey";
 import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
 import { getBuiltInWorkflowSpec } from "@/lib/workflows/builtInWorkflowSpecs";
-import type { TraceEvent, EvalResult, RunRecord, WorkflowSpec } from "@/lib/proof-layer/schemas";
+import type { TraceEvent, EvalResult, RunRecord, ToolCallRecord, WorkflowSpec } from "@/lib/proof-layer/schemas";
 import type { SavedRun } from "@/lib/runs/runTypes";
 import type { SavedWorkflowSpec, SavedWorkflowSummary } from "@/lib/workflows/workflowTypes";
 
 interface RunDetailState {
   run: RunRecord;
   traceEvents: TraceEvent[];
+  toolCalls: ToolCallRecord[];
   evalResults: EvalResult[];
   workflow?: WorkflowSpec;
   registryWorkflow?: SavedWorkflowSpec;
@@ -85,6 +87,7 @@ export default function RunDetailPage() {
             setState({
               run: exData.run,
               traceEvents: exData.traceEvents ?? [],
+              toolCalls: [],
               evalResults: exData.evalResults ?? [],
               workflow: exData.workflow ?? getBuiltInWorkflowSpec(
                 exData.run.project_id,
@@ -161,6 +164,7 @@ export default function RunDetailPage() {
         setState({
           run: data.runRecord,
           traceEvents,
+          toolCalls: data.toolCalls ?? [],
           evalResults: data.evalResults ?? [],
           workflow,
           registryWorkflow,
@@ -222,7 +226,7 @@ export default function RunDetailPage() {
 
   if (!state) return null;
 
-  const { run, traceEvents, evalResults, workflow, registryWorkflow, isLive, isSeeded, isDemo } = state;
+  const { run, traceEvents, toolCalls, evalResults, workflow, registryWorkflow, isLive, isSeeded, isDemo } = state;
 
   const modelEvents = traceEvents.filter((e) => e.event_type === "model_call_started" || e.event_type === "model_call_completed");
   const errorEvents = traceEvents.filter((e) => e.event_type === "error" || e.event_type === "node_failed" || e.event_type === "tool_call_failed");
@@ -248,6 +252,17 @@ export default function RunDetailPage() {
   const workflowMapNodes = buildWorkflowMap(stages, workflow);
   const inferredWorkflowSummary = hasLinkedSpec ? null : buildInferredWorkflowSummary(stages);
   const artifactCount = run.artifact_refs?.length || artifactCards.length;
+
+  // ── Generic RunGraph — powers the primary workflow visualization.
+  const runGraph = buildRunGraph({
+    runRecord: run,
+    traceEvents,
+    toolCalls,
+    evalResults,
+    specNodes,
+    specEdges: workflow?.edges,
+    templateName: registryWorkflow?.name ?? workflow?.name,
+  });
 
   const badges = (
     <>
@@ -348,102 +363,61 @@ export default function RunDetailPage() {
 
   const workflowTab = (
     <div className="grid gap-6">
-      <div>
-        <h2 className="mb-3 text-lg font-semibold text-slate-950">Workflow Stages</h2>
-        <p className="mb-3 text-xs text-slate-500">
-          Trace events grouped by stage — the default way to read what this run did, with raw events tucked behind an expander.
-        </p>
-        <WorkflowStageCards stages={stages} />
-      </div>
-
-      {/* ── Workflow Execution + Cost/Latency ── */}
-      <section className="grid gap-6 lg:grid-cols-3">
-        <Card className="p-5 lg:col-span-2">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <h2 className="text-xl font-semibold text-slate-950">Workflow Execution</h2>
-            {/* Linked WorkflowSpec — exactly one of these states renders, never both */}
-            {registryWorkflow ? (
-              <Link
-                href={`/dashboard/workflows/registry/${registryWorkflow.registryId}`}
-                className="inline-flex items-center gap-1.5 rounded-md border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 transition hover:border-teal-300"
-                data-testid="linked-spec-link"
-              >
-                Registered spec: {registryWorkflow.name}
-                <Badge tone={registryWorkflow.status === "active" ? "success" : "warning"} className="ml-1 text-[10px]">
-                  {registryWorkflow.status}
-                </Badge>
-              </Link>
-            ) : workflow ? (
-              <div className="rounded-md border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700">
-                {workflowSourceLabel(workflow)}
-              </div>
-            ) : isLive ? (
-              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600" data-testid="no-linked-spec">
-                Workflow inferred from run events
-              </div>
-            ) : null}
-          </div>
-
-          {/* Canonical template nodes; observed internal nodes remain in stage cards above. */}
-          {specNodes && specNodes.length > 0 ? (
-            <div className="mt-4 grid gap-3">
-              {specNodes.map((node, index) => {
-                const nodeEvents = traceEvents.filter((e) => e.node_id === node.id);
-                const failed = nodeEvents.some((e) => e.event_type === "node_failed" || e.event_type === "error");
-                const completed = nodeEvents.some((e) => e.event_type === "node_completed" || e.event_type === "model_call_completed" || e.event_type === "tool_call_completed");
-                return (
-                  <div key={node.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-700 text-xs font-semibold text-white">{index + 1}</span>
-                        <div>
-                          <p className="text-sm font-semibold text-slate-950">{node.label}</p>
-                          <p className="text-xs text-slate-500">{node.id}</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Badge tone="info">{node.type}</Badge>
-                        <Badge tone={failed ? "danger" : completed ? "success" : "neutral"}>{failed ? "failed" : completed ? "observed" : "not observed"}</Badge>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            /* Unknown workflows remain useful through trace-derived stages. */
-            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500" data-testid="no-spec-nodes">
-              <p className="font-medium text-slate-700">Workflow inferred from run events</p>
-              <p className="mt-1 text-xs text-slate-500">
-                All observed nodes remain available in the stage cards and raw trace.
-              </p>
-            </div>
-          )}
-        </Card>
-
-        <Card className="p-5">
-          <h2 className="text-xl font-semibold text-slate-950">Cost and Latency</h2>
-          <dl className="mt-4 grid gap-3 text-sm">
-            <SummaryItem label="Total Duration" value={formatDuration(run.total_duration_ms)} />
-            <SummaryItem label="Total Model Cost" value={formatCurrency(run.total_cost_usd)} />
-            <SummaryItem label="Model Events" value={String(modelEvents.length)} />
-            <SummaryItem label="Trace Events" value={String(traceEvents.length)} />
-            <SummaryItem label="Error Events" value={String(errorEvents.length)} />
-          </dl>
+      {/* ── Primary workflow visualization ── */}
+      <Card className="p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-semibold text-slate-950">Workflow Graph</h2>
+          {/* Linked WorkflowSpec — exactly one of these states renders, never both */}
           {registryWorkflow ? (
-            <div className="mt-4 border-t border-slate-100 pt-4">
-              <p className="text-xs font-medium uppercase text-slate-400">Linked spec</p>
-              <Link
-                href={`/dashboard/workflows/registry/${registryWorkflow.registryId}`}
-                className="mt-1 block text-sm font-medium text-teal-700 hover:underline"
-              >
-                {registryWorkflow.name}
+            <Link
+              href={`/dashboard/workflows/registry/${registryWorkflow.registryId}`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 transition hover:border-teal-300"
+              data-testid="linked-spec-link"
+            >
+              Registered spec: {registryWorkflow.name}
+              <Badge tone={registryWorkflow.status === "active" ? "success" : "warning"} className="ml-1 text-[10px]">
+                {registryWorkflow.status}
+              </Badge>
+            </Link>
+          ) : isLive ? (
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500" data-testid="no-linked-spec">
+              No registered WorkflowSpec for{" "}
+              <code className="font-mono">{run.workflow_id}</code>.{" "}
+              <Link href="/dashboard/workflows" className="text-teal-700 hover:underline">
+                Promote a spec →
               </Link>
-              <p className="text-xs text-slate-500">{registryWorkflow.spec.nodes.length} nodes · {registryWorkflow.confidence} confidence</p>
             </div>
           ) : null}
-        </Card>
-      </section>
+        </div>
+        <div className="mt-5">
+          <RunWorkflowGraph graph={runGraph} />
+        </div>
+      </Card>
+
+      {/* ── Cost and Latency ── */}
+      <Card className="p-5">
+        <h2 className="text-xl font-semibold text-slate-950">Cost and Latency</h2>
+        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          <SummaryItem label="Total Duration" value={formatDuration(run.total_duration_ms)} />
+          <SummaryItem label="Total Model Cost" value={formatCurrency(run.total_cost_usd)} />
+          <SummaryItem label="Model Events" value={String(modelEvents.length)} />
+          <SummaryItem label="Trace Events" value={String(traceEvents.length)} />
+          <SummaryItem label="Error Events" value={String(errorEvents.length)} />
+          <SummaryItem label="Stages Observed" value={String(runGraph.summary.totalStages - runGraph.summary.notObservedStages)} />
+        </dl>
+        {registryWorkflow ? (
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <p className="text-xs font-medium uppercase text-slate-400">Linked spec</p>
+            <Link
+              href={`/dashboard/workflows/registry/${registryWorkflow.registryId}`}
+              className="mt-1 block text-sm font-medium text-teal-700 hover:underline"
+            >
+              {registryWorkflow.name}
+            </Link>
+            <p className="text-xs text-slate-500">{registryWorkflow.spec.nodes.length} nodes · {registryWorkflow.confidence} confidence</p>
+          </div>
+        ) : null}
+      </Card>
     </div>
   );
 
@@ -511,7 +485,7 @@ export default function RunDetailPage() {
 
   const tabs: RunDetailTab[] = [
     { key: "overview", label: "Overview", content: overviewTab },
-    { key: "workflow", label: "Workflow", badge: stages.length || undefined, content: workflowTab },
+    { key: "workflow", label: "Workflow", badge: runGraph.summary.totalStages || undefined, content: workflowTab },
     { key: "issues", label: "Issues", badge: issues.length || undefined, content: issuesTab },
     { key: "artifacts", label: "Artifacts", badge: artifactCount || undefined, content: artifactsTab },
     { key: "raw", label: "Raw Trace", badge: traceEvents.length || undefined, content: rawTraceTab },

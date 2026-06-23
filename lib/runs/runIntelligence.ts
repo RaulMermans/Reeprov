@@ -327,10 +327,9 @@ export interface WorkflowMapNode {
 /**
  * Builds the ordered list of nodes for the visual workflow map.
  *
- * Preference order:
- * 1. Registered/example WorkflowSpec expected order (highest confidence).
- * 2. Registered/example WorkflowSpec node order.
- * 3. Chronological order of first observation in the trace.
+ * When a WorkflowSpec is provided, spec node order (or expected_order) is
+ * authoritative and unobserved spec nodes are shown as "not_observed".
+ * Without a spec, chronological observation order is used.
  */
 export function buildWorkflowMap(stages: RunStage[], workflowSpec?: WorkflowSpec): WorkflowMapNode[] {
   const stageById = new Map(stages.map((s) => [s.id, s]));
