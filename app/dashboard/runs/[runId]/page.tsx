@@ -381,8 +381,7 @@ export default function RunDetailPage() {
             </Link>
           ) : isLive ? (
             <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500" data-testid="no-linked-spec">
-              No registered WorkflowSpec for{" "}
-              <code className="font-mono">{run.workflow_id}</code>.{" "}
+              Workflow inferred from run events.{" "}
               <Link href="/dashboard/workflows" className="text-teal-700 hover:underline">
                 Promote a spec →
               </Link>

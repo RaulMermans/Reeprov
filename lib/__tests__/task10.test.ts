@@ -38,14 +38,15 @@ describe("Run detail — linked WorkflowSpec contract (Phase 1+2)", () => {
     expect(src).toContain("data-testid=\"no-linked-spec\"");
   });
 
-  it("shows no-spec-nodes empty state only when no spec is available", () => {
-    expect(src).toContain("data-testid=\"no-spec-nodes\"");
-    // The no-spec-nodes block must appear after the registryWorkflow truthy branch
-    // (registryWorkflow ? ... : <no-spec-nodes>)
-    const noSpecIdx = src.indexOf("data-testid=\"no-spec-nodes\"");
+  it("shows the workflow graph as the primary view in the workflow tab", () => {
+    // RunWorkflowGraph replaces the old node-list empty state; the graph renders
+    // for every run — inferred when no spec is available, template-based when registered.
+    expect(src).toContain("<RunWorkflowGraph");
+    expect(src).toContain("buildRunGraph(");
+    const graphIdx = src.indexOf("<RunWorkflowGraph");
     const registryWorkflowIdx = src.indexOf("registryWorkflow ?");
     expect(registryWorkflowIdx).toBeGreaterThan(0);
-    expect(noSpecIdx).toBeGreaterThan(registryWorkflowIdx);
+    expect(graphIdx).toBeGreaterThan(registryWorkflowIdx);
   });
 
   it("never renders both linked-spec-link and no-linked-spec simultaneously", () => {
@@ -65,9 +66,11 @@ describe("Run detail — linked WorkflowSpec contract (Phase 1+2)", () => {
     expect(src).toContain("registryWorkflow.spec.nodes.length");
   });
 
-  it("uses specNodes for the workflow node list when example workflow available", () => {
-    expect(src).toContain("specNodes.map(");
-    expect(src).toContain("specNodes && specNodes.length > 0");
+  it("uses RunWorkflowGraph for the workflow visualization with spec and inferred modes", () => {
+    // The generic RunGraph engine powers the graph; specNodes still feed into it.
+    expect(src).toContain("specNodes,");
+    expect(src).toContain("specEdges: workflow?.edges");
+    expect(src).toContain("templateName:");
   });
 
   it("surfaces failed evals near the top using passed/severity fields (Phase 2)", () => {
