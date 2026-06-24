@@ -50,7 +50,7 @@ export type RunGraphNodeStatus =
 
 // ── Attachments — sub-items associated with a graph node ─────────────────────
 
-export type RunGraphAttachmentKind = "model_call" | "tool_call" | "eval" | "artifact" | "issue";
+export type RunGraphAttachmentKind = "model_call" | "tool_call" | "skill" | "cli" | "eval" | "artifact" | "issue";
 
 export interface RunGraphAttachment {
   id: string;
@@ -60,6 +60,8 @@ export interface RunGraphAttachment {
   durationMs?: number;
   costUsd?: number;
   detail?: string;
+  /** True when an issue attachment was recovered later in the same stage. */
+  recovered?: boolean;
   rawEvents: TraceEvent[];
 }
 
@@ -79,6 +81,7 @@ export interface RunGraphNode {
   toolCallCount: number;
   evalCount: number;
   skillCount: number;
+  cliCount: number;
   artifactCount: number;
   issueCount: number;
   attachments: RunGraphAttachment[];
@@ -275,6 +278,72 @@ function buildArtifactAttachments(events: TraceEvent[]): RunGraphAttachment[] {
     });
 }
 
+function buildSkillAttachments(events: TraceEvent[]): RunGraphAttachment[] {
+  return events
+    .filter(
+      (e) =>
+        e.event_type === "skill_call_completed" ||
+        e.event_type === "skill_call_started" ||
+        typeof e.metadata?.["skill_name"] === "string" ||
+        typeof e.metadata?.["skill"] === "string",
+    )
+    .filter(
+      (e) =>
+        e.event_type !== "model_call_completed" &&
+        e.event_type !== "model_call_started" &&
+        e.event_type !== "tool_call_completed" &&
+        e.event_type !== "tool_call_started",
+    )
+    .map((e) => {
+      const name =
+        typeof e.metadata?.["skill_name"] === "string"
+          ? e.metadata["skill_name"]
+          : typeof e.metadata?.["skill"] === "string"
+          ? e.metadata["skill"]
+          : "Skill";
+      return {
+        id: e.event_id,
+        kind: "skill" as const,
+        label: String(name),
+        status: e.status,
+        durationMs:
+          typeof e.duration_ms === "number" && e.duration_ms > 0
+            ? e.duration_ms
+            : undefined,
+        detail: e.output_summary,
+        rawEvents: [e],
+      };
+    });
+}
+
+function buildCLIAttachments(events: TraceEvent[]): RunGraphAttachment[] {
+  return events
+    .filter(
+      (e) =>
+        e.event_type === "cli_call_completed" ||
+        e.event_type === "cli_call_started" ||
+        typeof e.metadata?.["cli_command"] === "string",
+    )
+    .map((e) => {
+      const cmd =
+        typeof e.metadata?.["cli_command"] === "string"
+          ? e.metadata["cli_command"]
+          : "CLI command";
+      return {
+        id: e.event_id,
+        kind: "cli" as const,
+        label: String(cmd),
+        status: e.status,
+        durationMs:
+          typeof e.duration_ms === "number" && e.duration_ms > 0
+            ? e.duration_ms
+            : undefined,
+        detail: e.output_summary,
+        rawEvents: [e],
+      };
+    });
+}
+
 function buildIssueAttachments(
   nodeId: string,
   issues: RunIssue[],
@@ -287,6 +356,7 @@ function buildIssueAttachments(
       label: iss.message.slice(0, 80),
       status: iss.severity,
       detail: iss.recommendedFix,
+      recovered: iss.recovered,
       rawEvents: [],
     }));
 }
@@ -413,6 +483,8 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
     const stageEvents = c.stage?.events ?? [];
     const modelAttachments = buildModelCallAttachments(stageEvents);
     const toolAttachments = buildToolCallAttachments(c.id, toolCalls);
+    const skillAttachments = buildSkillAttachments(stageEvents);
+    const cliAttachments = buildCLIAttachments(stageEvents);
     const evalAttachments = buildEvalAttachments(c.id, evalResults);
     const artifactAttachments = buildArtifactAttachments(stageEvents);
     const issueAttachments = buildIssueAttachments(c.id, issues);
@@ -440,12 +512,15 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
       modelCallCount: modelAttachments.length || c.stage?.modelCallCount || 0,
       toolCallCount: toolAttachments.length || c.stage?.toolCallCount || 0,
       evalCount: evalAttachments.length || c.stage?.evalCount || 0,
-      skillCount: 0,
+      skillCount: skillAttachments.length,
+      cliCount: cliAttachments.length,
       artifactCount: artifactAttachments.length,
       issueCount: issueAttachments.length,
       attachments: [
         ...modelAttachments,
         ...toolAttachments,
+        ...skillAttachments,
+        ...cliAttachments,
         ...evalAttachments,
         ...artifactAttachments,
         ...issueAttachments,
@@ -458,6 +533,8 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
     const stageEvents = c.stage?.events ?? [];
     const modelAttachments = buildModelCallAttachments(stageEvents);
     const toolAttachments = buildToolCallAttachments(c.id, toolCalls);
+    const skillAttachments = buildSkillAttachments(stageEvents);
+    const cliAttachments = buildCLIAttachments(stageEvents);
     const evalAttachments = buildEvalAttachments(c.id, evalResults);
     const artifactAttachments = buildArtifactAttachments(stageEvents);
     const issueAttachments = buildIssueAttachments(c.id, issues);
@@ -476,12 +553,15 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
       modelCallCount: modelAttachments.length || c.stage?.modelCallCount || 0,
       toolCallCount: toolAttachments.length || c.stage?.toolCallCount || 0,
       evalCount: evalAttachments.length || c.stage?.evalCount || 0,
-      skillCount: 0,
+      skillCount: skillAttachments.length,
+      cliCount: cliAttachments.length,
       artifactCount: artifactAttachments.length,
       issueCount: issueAttachments.length,
       attachments: [
         ...modelAttachments,
         ...toolAttachments,
+        ...skillAttachments,
+        ...cliAttachments,
         ...evalAttachments,
         ...artifactAttachments,
         ...issueAttachments,

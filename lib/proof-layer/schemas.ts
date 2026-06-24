@@ -94,6 +94,8 @@ export const traceEventTypeSchema = z.enum([
   "node_started", "node_completed", "node_failed",
   "model_call_started", "model_call_completed",
   "tool_call_started", "tool_call_completed", "tool_call_failed",
+  "skill_call_started", "skill_call_completed", "skill_call_failed",
+  "cli_call_started", "cli_call_completed", "cli_call_failed",
   "eval_started", "eval_completed",
   "approval_requested", "approval_granted", "approval_rejected",
   "artifact_created",
