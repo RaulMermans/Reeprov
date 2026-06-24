@@ -95,6 +95,43 @@ export interface RunIssue {
   timestamp?: string;
 }
 
+/** A RunIssue with identical-or-near-identical duplicates collapsed into one card. */
+export interface GroupedRunIssue extends RunIssue {
+  count: number;
+  allIds: string[];
+}
+
+function normalizeMessage(msg: string): string {
+  return msg.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Groups RunIssues that share the same stageId and normalized message into a
+ * single GroupedRunIssue with an occurrence count. Preserves the first issue's
+ * properties (including recommendedFix) and collects all ids for trace access.
+ */
+export function groupRunIssues(issues: RunIssue[]): GroupedRunIssue[] {
+  const groups = new Map<string, GroupedRunIssue>();
+
+  for (const issue of issues) {
+    const key = `${issue.stageId ?? ""}::${normalizeMessage(issue.message)}`;
+    if (groups.has(key)) {
+      const existing = groups.get(key)!;
+      existing.count += 1;
+      existing.allIds.push(issue.id);
+      // Escalate severity if needed.
+      const SEVERITY_RANK: Record<IssueSeverity, number> = { info: 0, warning: 1, fail: 2, critical: 3 };
+      if (SEVERITY_RANK[issue.severity] > SEVERITY_RANK[existing.severity]) {
+        existing.severity = issue.severity;
+      }
+    } else {
+      groups.set(key, { ...issue, count: 1, allIds: [issue.id] });
+    }
+  }
+
+  return [...groups.values()];
+}
+
 const ERROR_EVENT_TYPES = new Set<TraceEvent["event_type"]>(["error", "node_failed", "tool_call_failed"]);
 const RECOVERY_EVENT_TYPES = new Set<TraceEvent["event_type"]>([
   "node_completed",

@@ -124,7 +124,14 @@ export interface RunGraph {
   mode: "registered_spec" | "inferred";
   templateName?: string;
   lanes: RunGraphLane[];
+  /** Primary nodes: spec nodes (registered_spec mode) or all observed stages (inferred mode). */
   nodes: RunGraphNode[];
+  /**
+   * Extra observed nodes that are not declared in the WorkflowSpec.
+   * Only populated in registered_spec mode. Empty in inferred mode.
+   * These are internal implementation nodes accessible via the inspector.
+   */
+  extraNodes: RunGraphNode[];
   edges: RunGraphEdge[];
   issues: RunIssue[];
   artifacts: ArtifactCard[];
@@ -348,8 +355,8 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
   const artifacts = buildArtifactCards(traceEvents, runRecord.artifact_refs);
 
   // Step 2: Build ordered node candidates.
-  // Spec mode: spec nodes drive order; extra observed stages appended last.
-  // Inferred mode: observed stages in chronological order.
+  // Spec mode: spec nodes are primary (candidates); extra observed stages go to extraCandidates.
+  // Inferred mode: observed stages in chronological order; no extraCandidates.
   interface Candidate {
     id: string;
     label: string;
@@ -359,6 +366,7 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
   }
 
   const candidates: Candidate[] = [];
+  const extraCandidates: Candidate[] = [];
 
   if (hasSpec && specNodes) {
     specNodes.forEach((node, index) => {
@@ -370,15 +378,16 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
         order: index,
       });
     });
-    // Append observed stages not declared in the spec (unrecognized nodes).
+    // Extra observed stages not declared in the spec stay out of the primary graph.
+    // They go to extraNodes so the inspector can surface them without cluttering the view.
     const specNodeIds = new Set(specNodes.map((n) => n.id));
     stages.forEach((stage, index) => {
       if (!specNodeIds.has(stage.id)) {
-        candidates.push({
+        extraCandidates.push({
           id: stage.id,
           label: stage.label,
           stage,
-          order: specNodes.length + index,
+          order: index,
         });
       }
     });
@@ -393,9 +402,9 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
     });
   }
 
-  // Step 3: Assign lanes from event metadata.
+  // Step 3: Assign lanes from event metadata (primary + extra candidates).
   const laneEntries = new Map<string, { id: string; label: string }>();
-  for (const c of candidates) {
+  for (const c of [...candidates, ...extraCandidates]) {
     laneEntries.set(c.id, inferLaneEntry(c.stage?.events ?? []));
   }
 
@@ -444,6 +453,42 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
     };
   });
 
+  // Step 4b: Build extra nodes (spec mode only — internal observed nodes not in spec).
+  const extraNodes: RunGraphNode[] = extraCandidates.map((c) => {
+    const stageEvents = c.stage?.events ?? [];
+    const modelAttachments = buildModelCallAttachments(stageEvents);
+    const toolAttachments = buildToolCallAttachments(c.id, toolCalls);
+    const evalAttachments = buildEvalAttachments(c.id, evalResults);
+    const artifactAttachments = buildArtifactAttachments(stageEvents);
+    const issueAttachments = buildIssueAttachments(c.id, issues);
+    const lane = laneEntries.get(c.id) ?? { id: DEFAULT_LANE_ID, label: DEFAULT_LANE_LABEL };
+
+    return {
+      id: c.id,
+      type: "stage" as const,
+      label: c.label,
+      laneId: lane.id,
+      status: (c.stage?.status ?? "completed") as RunGraphNodeStatus,
+      order: c.order,
+      durationMs: c.stage?.durationMs,
+      inputSummary: c.stage?.inputSummary,
+      outputSummary: c.stage?.outputSummary,
+      modelCallCount: modelAttachments.length || c.stage?.modelCallCount || 0,
+      toolCallCount: toolAttachments.length || c.stage?.toolCallCount || 0,
+      evalCount: evalAttachments.length || c.stage?.evalCount || 0,
+      skillCount: 0,
+      artifactCount: artifactAttachments.length,
+      issueCount: issueAttachments.length,
+      attachments: [
+        ...modelAttachments,
+        ...toolAttachments,
+        ...evalAttachments,
+        ...artifactAttachments,
+        ...issueAttachments,
+      ],
+    };
+  });
+
   // Step 5: Build edges and lanes.
   const edges = buildEdges(nodes, specEdges);
   const lanes = buildLanes(nodes, laneEntries);
@@ -469,6 +514,7 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
     templateName,
     lanes,
     nodes,
+    extraNodes,
     edges,
     issues,
     artifacts,

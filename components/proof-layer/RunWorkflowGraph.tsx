@@ -6,6 +6,62 @@ import { Card } from "@/components/ui/Card";
 import { formatDuration, formatCurrency } from "@/components/proof-layer/format";
 import type { RunGraph, RunGraphNode, RunGraphAttachment, RunGraphNodeStatus } from "@/lib/runs/runGraph";
 
+// ── Extra nodes accordion ─────────────────────────────────────────────────────
+
+function ExtraNodesPanel({ nodes }: { nodes: RunGraphNode[] }) {
+  const [open, setOpen] = useState(false);
+
+  if (!nodes.length) return null;
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50" data-testid="extra-nodes-panel">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        aria-expanded={open}
+      >
+        <span className="text-xs font-medium text-slate-500">
+          {nodes.length} internal observed node{nodes.length !== 1 ? "s" : ""} (not in spec)
+        </span>
+        <span className="text-slate-400 text-xs">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="flex flex-wrap gap-2 border-t border-slate-200 px-4 pb-4 pt-3">
+          {nodes.map((node) => {
+            const style = STATUS_STYLES[node.status];
+            return (
+              <div
+                key={node.id}
+                className={`flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm ring-1 ${style.ring}`}
+                data-testid={`extra-node-${node.id}`}
+              >
+                <span className={`h-2 w-2 shrink-0 rounded-full ${style.dot}`} aria-hidden="true" />
+                <span className="text-xs text-slate-700">{node.label}</span>
+                {node.modelCallCount > 0 && (
+                  <span className="rounded bg-sky-50 px-1 py-0.5 text-[10px] font-medium text-sky-700">
+                    {node.modelCallCount}m
+                  </span>
+                )}
+                {node.toolCallCount > 0 && (
+                  <span className="rounded bg-violet-50 px-1 py-0.5 text-[10px] font-medium text-violet-700">
+                    {node.toolCallCount}t
+                  </span>
+                )}
+                {node.issueCount > 0 && (
+                  <span className="rounded bg-red-50 px-1 py-0.5 text-[10px] font-medium text-red-600">
+                    ⚠{node.issueCount}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Status styles ─────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<RunGraphNodeStatus, {
@@ -308,7 +364,7 @@ function GraphLegend() {
 export function RunWorkflowGraph({ graph }: { graph: RunGraph }) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
-  if (graph.nodes.length === 0) {
+  if (graph.nodes.length === 0 && graph.extraNodes.length === 0) {
     return (
       <Card className="p-5">
         <p className="text-sm text-slate-500">No workflow stages observed yet.</p>
@@ -325,52 +381,65 @@ export function RunWorkflowGraph({ graph }: { graph: RunGraph }) {
     setSelectedNodeId((prev) => (prev === nodeId ? null : nodeId));
   }
 
+  const stageCount = graph.nodes.length;
+  const notObserved = graph.summary.notObservedStages;
+
   return (
     <div className="grid gap-5" data-testid="run-workflow-graph">
-      {/* Mode label */}
+      {/* Mode label — exactly one label, no conflicting copy */}
       <div className="flex flex-wrap items-center gap-2">
         {graph.mode === "registered_spec" ? (
-          <Badge tone="info">
+          <Badge tone="info" data-testid="graph-mode-registered">
             Workflow template{graph.templateName ? `: ${graph.templateName}` : ""}
           </Badge>
         ) : (
-          <Badge tone="neutral">Workflow inferred from run events</Badge>
+          <Badge tone="neutral" data-testid="graph-mode-inferred">
+            Workflow inferred from run events
+          </Badge>
         )}
         <span className="text-xs text-slate-400">
-          {graph.summary.totalStages} stage{graph.summary.totalStages !== 1 ? "s" : ""}
-          {graph.summary.notObservedStages > 0
-            ? ` · ${graph.summary.notObservedStages} not observed`
+          {stageCount} stage{stageCount !== 1 ? "s" : ""}
+          {notObserved > 0 ? ` · ${notObserved} not observed` : ""}
+          {graph.extraNodes.length > 0
+            ? ` · ${graph.extraNodes.length} internal node${graph.extraNodes.length !== 1 ? "s" : ""}`
             : ""}
         </span>
       </div>
 
-      {/* Lane rows */}
-      <div className="grid gap-5 overflow-x-auto pb-1">
-        {graph.lanes.map((lane) => {
-          const laneNodes = lane.nodeIds
-            .map((id) => graph.nodes.find((n) => n.id === id))
-            .filter((n): n is RunGraphNode => n !== undefined);
+      {/* Primary lane rows — spec nodes only in registered_spec mode */}
+      {graph.nodes.length > 0 && (
+        <div className="grid gap-5 overflow-x-auto pb-1">
+          {graph.lanes.map((lane) => {
+            const laneNodes = lane.nodeIds
+              .map((id) => graph.nodes.find((n) => n.id === id))
+              .filter((n): n is RunGraphNode => n !== undefined);
 
-          return (
-            <LaneRow
-              key={lane.id}
-              laneLabel={lane.label}
-              showLaneHeader={showLaneHeaders}
-              nodes={laneNodes}
-              selectedNodeId={selectedNodeId}
-              onNodeClick={handleNodeClick}
-            />
-          );
-        })}
-      </div>
+            if (!laneNodes.length) return null;
 
-      {/* Stage inspector */}
+            return (
+              <LaneRow
+                key={lane.id}
+                laneLabel={lane.label}
+                showLaneHeader={showLaneHeaders}
+                nodes={laneNodes}
+                selectedNodeId={selectedNodeId}
+                onNodeClick={handleNodeClick}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* Stage inspector — shown when a primary node is selected */}
       {selectedNode && (
         <StageInspector
           node={selectedNode}
           onClose={() => setSelectedNodeId(null)}
         />
       )}
+
+      {/* Extra observed nodes accordion (spec mode only) */}
+      <ExtraNodesPanel nodes={graph.extraNodes} />
 
       <GraphLegend />
     </div>

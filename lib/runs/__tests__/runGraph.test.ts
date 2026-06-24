@@ -125,7 +125,7 @@ describe("buildRunGraph — registered_spec mode", () => {
     expect(graph.nodes.find((n) => n.id === "stage_a")?.status).toBe("completed");
   });
 
-  it("appends observed stages not in the spec as extra nodes at the end", () => {
+  it("places observed stages not in the spec in extraNodes, not the primary nodes array", () => {
     const specNodes: WorkflowNode[] = [
       { id: "stage_a", type: "llm", label: "Stage A" },
     ];
@@ -136,9 +136,10 @@ describe("buildRunGraph — registered_spec mode", () => {
       makeEvent({ event_id: "e4", event_type: "node_completed", node_id: "extra_stage", timestamp: "2026-06-01T10:03:00.000Z" }),
     ];
     const graph = buildRunGraph(baseParams({ specNodes, traceEvents }));
-    const ids = graph.nodes.map((n) => n.id);
-    expect(ids[0]).toBe("stage_a");
-    expect(ids[1]).toBe("extra_stage");
+    // Primary nodes contain only spec nodes.
+    expect(graph.nodes.map((n) => n.id)).toEqual(["stage_a"]);
+    // Extra observed nodes are in extraNodes, accessible for the inspector.
+    expect(graph.extraNodes.map((n) => n.id)).toContain("extra_stage");
   });
 
   it("uses spec edges when provided", () => {
@@ -523,7 +524,7 @@ describe("buildRunGraph — BlogAgent fixture via WorkflowSpec data", () => {
     expect(graph.summary.notObservedStages).toBe(8);
   });
 
-  it("BlogAgent internal nodes do not appear in the pipeline because the spec excludes them — not because the engine filters them", () => {
+  it("BlogAgent internal nodes go to extraNodes so the primary graph stays clean", () => {
     // Internal implementation nodes (build_query_contract_node etc.) not in spec
     const traceEvents: TraceEvent[] = [
       makeEvent({ event_id: "e1", event_type: "node_started", node_id: "draft_writing", timestamp: "2026-06-01T10:00:00.000Z" }),
@@ -533,12 +534,14 @@ describe("buildRunGraph — BlogAgent fixture via WorkflowSpec data", () => {
     ];
     const graph = buildRunGraph(baseParams({ specNodes: BLOGAGENT_SPEC_NODES, traceEvents }));
 
-    // build_query_contract_node is appended (not filtered) — engine is generic
-    const nodeIds = graph.nodes.map((n) => n.id);
-    // Spec nodes come first in spec order
-    expect(nodeIds.slice(0, BLOGAGENT_SPEC_NODES.length)).toEqual(BLOGAGENT_SPEC_NODES.map((n) => n.id));
-    // Extra observed node is appended
-    expect(nodeIds).toContain("build_query_contract_node");
+    // Primary nodes are only spec nodes — no internal noise in the main graph.
+    const primaryIds = graph.nodes.map((n) => n.id);
+    expect(primaryIds).toEqual(BLOGAGENT_SPEC_NODES.map((n) => n.id));
+    expect(primaryIds).not.toContain("build_query_contract_node");
+
+    // Internal node is accessible via extraNodes for the inspector.
+    const extraIds = graph.extraNodes.map((n) => n.id);
+    expect(extraIds).toContain("build_query_contract_node");
   });
 
   it("same BlogAgent spec works for any project_id or run_id — engine is generic", () => {

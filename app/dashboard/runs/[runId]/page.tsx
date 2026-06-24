@@ -379,7 +379,7 @@ export default function RunDetailPage() {
                 {registryWorkflow.status}
               </Badge>
             </Link>
-          ) : isLive ? (
+          ) : isLive && !workflow ? (
             <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500" data-testid="no-linked-spec">
               Workflow inferred from run events.{" "}
               <Link href="/dashboard/workflows" className="text-teal-700 hover:underline">
