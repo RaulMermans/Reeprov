@@ -542,14 +542,46 @@ describe("RunWorkflowGraph visual component — source code checks", () => {
     expect(graphSource).toContain('data-testid="graph-canvas"');
   });
 
-  it("renders skill count chips", () => {
+  it("renders skill count chips with readable 'Skills' label", () => {
     expect(graphSource).toContain("skillCount");
-    expect(graphSource).toContain("sk");
+    expect(graphSource).toContain("Skills");
   });
 
-  it("renders CLI count chips", () => {
+  it("renders CLI count chips with readable 'CLI' label, not '$'", () => {
     expect(graphSource).toContain("cliCount");
-    expect(graphSource).toContain('$');
+    expect(graphSource).toContain("CLI");
+    // The chip label must not use $ as the CLI indicator
+    expect(graphSource).not.toContain("{node.cliCount}$");
+  });
+
+  it("attachment count pills use fully readable labels for all types", () => {
+    expect(graphSource).toContain("Models");
+    expect(graphSource).toContain("Tools");
+    expect(graphSource).toContain("Evals");
+    expect(graphSource).toContain("Skills");
+    expect(graphSource).toContain("Artifact");
+    expect(graphSource).toContain("Issues");
+    expect(graphSource).toContain("CLI");
+  });
+
+  it("NodeCard does not render laneId as a visible chip or header", () => {
+    const nodeCardStart = graphSource.indexOf("function NodeCard(");
+    const nodeCardEnd = graphSource.indexOf("\nfunction ", nodeCardStart + 1);
+    const nodeCardSource = graphSource.slice(nodeCardStart, nodeCardEnd);
+    expect(nodeCardSource).not.toContain("laneId");
+  });
+
+  it("inspector shows Upstream and Downstream connection labels", () => {
+    expect(graphSource).toContain("Upstream");
+    expect(graphSource).toContain("Downstream");
+  });
+
+  it("AttachmentRow uses CLI label not $ for cli kind", () => {
+    const rowStart = graphSource.indexOf("function AttachmentRow(");
+    const rowEnd = graphSource.indexOf("\nfunction ", rowStart + 1);
+    const rowSource = graphSource.slice(rowStart, rowEnd);
+    expect(rowSource).toContain("CLI");
+    expect(rowSource).not.toContain('"$"');
   });
 
   it("inspector shows Skills section", () => {
@@ -582,5 +614,25 @@ describe("RunWorkflowGraph visual component — source code checks", () => {
 
   it("shows recovered badge for recovered issues", () => {
     expect(graphSource).toContain("recovered");
+  });
+});
+
+// ── Workflow tab duration derivation ──────────────────────────────────────────
+
+describe("Workflow tab duration — source code check", () => {
+  const pageSource = readFileSync(
+    path.join(root, "app/dashboard/runs/[runId]/page.tsx"),
+    "utf8",
+  );
+
+  it("imports deriveRunDurationMs for consistent duration display", () => {
+    expect(pageSource).toContain("deriveRunDurationMs");
+  });
+
+  it("uses deriveRunDurationMs in the Cost and Latency section", () => {
+    // Should call deriveRunDurationMs(run) not just run.total_duration_ms
+    expect(pageSource).toContain("deriveRunDurationMs(run)");
+    // Raw total_duration_ms must not be the sole argument to formatDuration
+    expect(pageSource).not.toContain("formatDuration(run.total_duration_ms)");
   });
 });

@@ -22,6 +22,7 @@ import {
   buildWorkflowMap,
   buildInferredWorkflowSummary,
   deriveEventDurationMs,
+  deriveRunDurationMs,
   workflowSourceLabel,
 } from "@/lib/runs/runIntelligence";
 import { buildRunGraph } from "@/lib/runs/runGraph";
@@ -397,7 +398,7 @@ export default function RunDetailPage() {
       <Card className="p-5">
         <h2 className="text-xl font-semibold text-slate-950">Cost and Latency</h2>
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-          <SummaryItem label="Total Duration" value={formatDuration(run.total_duration_ms)} />
+          <SummaryItem label="Total Duration" value={formatDuration(deriveRunDurationMs(run))} />
           <SummaryItem label="Total Model Cost" value={formatCurrency(run.total_cost_usd)} />
           <SummaryItem label="Model Events" value={String(modelEvents.length)} />
           <SummaryItem label="Trace Events" value={String(traceEvents.length)} />

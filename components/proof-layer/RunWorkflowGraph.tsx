@@ -14,10 +14,10 @@ import type {
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 
-const NODE_W = 176;
-const NODE_H = 92;
+const NODE_W = 208;
+const NODE_H = 116;
 const H_GAP = 80;
-const V_GAP = 20;
+const V_GAP = 24;
 const CANVAS_PAD = 24;
 const HSTEP = NODE_W + H_GAP;
 const VSTEP = NODE_H + V_GAP;
@@ -159,7 +159,9 @@ function AttachmentRow({ item }: { item: RunGraphAttachment }) {
     <div className="flex flex-wrap items-start gap-2 rounded border border-slate-100 bg-slate-50 px-3 py-2">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {item.kind === "cli" && (
-          <span className="shrink-0 font-mono text-[10px] text-slate-500">$</span>
+          <span className="shrink-0 rounded bg-slate-200 px-1 text-[10px] font-semibold text-slate-600">
+            CLI
+          </span>
         )}
         {item.kind === "skill" && (
           <span className="shrink-0 text-[10px] text-purple-500">✦</span>
@@ -213,9 +215,13 @@ function AttachmentSection({
 
 function StageInspector({
   node,
+  allNodes,
+  edges,
   onClose,
 }: {
   node: RunGraphNode;
+  allNodes: RunGraphNode[];
+  edges: RunGraphEdge[];
   onClose: () => void;
 }) {
   const style = STATUS_STYLES[node.status];
@@ -226,6 +232,15 @@ function StageInspector({
   const evals      = node.attachments.filter((a) => a.kind === "eval");
   const artifacts  = node.attachments.filter((a) => a.kind === "artifact");
   const issues     = node.attachments.filter((a) => a.kind === "issue");
+
+  const upstream = edges
+    .filter((e) => e.to === node.id)
+    .map((e) => allNodes.find((n) => n.id === e.from))
+    .filter((n): n is RunGraphNode => n !== undefined);
+  const downstream = edges
+    .filter((e) => e.from === node.id)
+    .map((e) => allNodes.find((n) => n.id === e.to))
+    .filter((n): n is RunGraphNode => n !== undefined);
 
   return (
     <div
@@ -274,17 +289,41 @@ function StageInspector({
         )}
       </div>
 
-      {/* Upstream / downstream connections */}
-      <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-        <div>
-          <span className="font-medium text-slate-500">Lane</span>
-          <p className="mt-0.5 font-mono text-slate-700">{node.laneId}</p>
+      {/* Upstream / Downstream connections */}
+      {(upstream.length > 0 || downstream.length > 0) && (
+        <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <span className="font-medium text-slate-500">Upstream</span>
+            {upstream.length === 0 ? (
+              <p className="mt-0.5 text-slate-400">—</p>
+            ) : (
+              <ul className="mt-1 space-y-1">
+                {upstream.map((n) => (
+                  <li key={n.id} className="flex items-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_STYLES[n.status].dot}`} />
+                    <span className="text-slate-700">{n.label}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div>
+            <span className="font-medium text-slate-500">Downstream</span>
+            {downstream.length === 0 ? (
+              <p className="mt-0.5 text-slate-400">—</p>
+            ) : (
+              <ul className="mt-1 space-y-1">
+                {downstream.map((n) => (
+                  <li key={n.id} className="flex items-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_STYLES[n.status].dot}`} />
+                    <span className="text-slate-700">{n.label}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
-        <div>
-          <span className="font-medium text-slate-500">Order</span>
-          <p className="mt-0.5 text-slate-700">#{node.order + 1}</p>
-        </div>
-      </div>
+      )}
 
       {node.inputSummary && (
         <div className="mt-4">
@@ -361,28 +400,28 @@ function ExtraNodesPanel({ nodes }: { nodes: RunGraphNode[] }) {
                 />
                 <span className="text-xs text-slate-700">{node.label}</span>
                 {node.modelCallCount > 0 && (
-                  <span className="rounded bg-sky-50 px-1 py-0.5 text-[10px] font-medium text-sky-700">
-                    {node.modelCallCount}m
+                  <span className="rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">
+                    Models {node.modelCallCount}
                   </span>
                 )}
                 {node.toolCallCount > 0 && (
-                  <span className="rounded bg-violet-50 px-1 py-0.5 text-[10px] font-medium text-violet-700">
-                    {node.toolCallCount}t
+                  <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
+                    Tools {node.toolCallCount}
                   </span>
                 )}
                 {node.skillCount > 0 && (
-                  <span className="rounded bg-purple-50 px-1 py-0.5 text-[10px] font-medium text-purple-700">
-                    {node.skillCount}sk
+                  <span className="rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700">
+                    Skills {node.skillCount}
                   </span>
                 )}
                 {node.cliCount > 0 && (
-                  <span className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px] font-medium text-slate-600">
-                    {node.cliCount}$
+                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                    CLI {node.cliCount}
                   </span>
                 )}
                 {node.issueCount > 0 && (
-                  <span className="rounded bg-red-50 px-1 py-0.5 text-[10px] font-medium text-red-600">
-                    ⚠{node.issueCount}
+                  <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
+                    Issues {node.issueCount}
                   </span>
                 )}
               </div>
@@ -446,41 +485,41 @@ function NodeCard({
         </p>
       )}
 
-      {/* Attachment count pills */}
+      {/* Attachment count pills — readable labels */}
       <div className="mt-2 flex flex-wrap gap-1">
         {node.modelCallCount > 0 && (
           <span className="rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">
-            {node.modelCallCount}m
+            Models {node.modelCallCount}
           </span>
         )}
         {node.toolCallCount > 0 && (
           <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
-            {node.toolCallCount}t
+            Tools {node.toolCallCount}
           </span>
         )}
         {node.evalCount > 0 && (
           <span className="rounded bg-teal-50 px-1.5 py-0.5 text-[10px] font-medium text-teal-700">
-            {node.evalCount}e
+            Evals {node.evalCount}
           </span>
         )}
         {node.skillCount > 0 && (
           <span className="rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700">
-            {node.skillCount}sk
+            Skills {node.skillCount}
           </span>
         )}
         {node.cliCount > 0 && (
-          <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-medium text-slate-600">
-            {node.cliCount}$
+          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+            CLI {node.cliCount}
           </span>
         )}
         {node.artifactCount > 0 && (
           <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-            {node.artifactCount}a
+            Artifact {node.artifactCount}
           </span>
         )}
         {node.issueCount > 0 && (
           <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
-            ⚠{node.issueCount}
+            Issues {node.issueCount}
           </span>
         )}
       </div>
@@ -508,11 +547,11 @@ function EdgeLayer({
           viewBox="0 0 10 10"
           refX="9"
           refY="5"
-          markerWidth="6"
-          markerHeight="6"
+          markerWidth="7"
+          markerHeight="7"
           orient="auto"
         >
-          <path d="M 0 1 L 9 5 L 0 9 z" fill="#94a3b8" />
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#64748b" />
         </marker>
       </defs>
       {edges.map((edge) => {
@@ -524,8 +563,8 @@ function EdgeLayer({
             key={`${edge.from}--${edge.to}`}
             d={bezierEdgePath(from, to)}
             fill="none"
-            stroke="#cbd5e1"
-            strokeWidth="1.5"
+            stroke="#94a3b8"
+            strokeWidth="2"
             markerEnd="url(#run-graph-arrow)"
           />
         );
@@ -558,7 +597,7 @@ function GraphLegend() {
       ))}
       <span className="text-slate-300" aria-hidden="true">·</span>
       <span>
-        m=model · t=tool · e=eval · sk=skill · $=cli · a=artifact · ⚠=issue
+        Models · Tools · Evals · Skills · CLI · Artifact · Issues
       </span>
     </div>
   );
@@ -661,6 +700,8 @@ export function RunWorkflowGraph({ graph }: { graph: RunGraph }) {
       {selectedNode && (
         <StageInspector
           node={selectedNode}
+          allNodes={graph.nodes}
+          edges={graph.edges}
           onClose={() => setSelectedNodeId(null)}
         />
       )}
