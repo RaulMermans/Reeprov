@@ -10,6 +10,7 @@ import { ToolCallsPanel } from "@/components/proof-layer/ToolCallsPanel";
 import { TraceTimeline } from "@/components/proof-layer/TraceTimeline";
 import { WorkflowMap } from "@/components/proof-layer/WorkflowMap";
 import { RunWorkflowGraph } from "@/components/proof-layer/RunWorkflowGraph";
+import { VisualExecutionCanvas } from "@/components/proof-layer/VisualExecutionCanvas";
 import { IssuesPanel } from "@/components/proof-layer/IssuesPanel";
 import { ArtifactPreviewPanel } from "@/components/proof-layer/ArtifactPreviewPanel";
 import { RunSummaryHeader } from "@/components/proof-layer/RunSummaryHeader";
@@ -61,6 +62,7 @@ export default function RunDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [showLegacyGraph, setShowLegacyGraph] = useState(false);
 
   useEffect(() => {
     if (!runId) return;
@@ -390,8 +392,20 @@ export default function RunDetailPage() {
           ) : null}
         </div>
         <div className="mt-5">
-          <RunWorkflowGraph graph={runGraph} />
+          {showLegacyGraph ? (
+            <RunWorkflowGraph graph={runGraph} />
+          ) : (
+            <VisualExecutionCanvas runGraph={runGraph} traceEvents={traceEvents} />
+          )}
         </div>
+        <button
+          type="button"
+          onClick={() => setShowLegacyGraph((v) => !v)}
+          className="mt-3 text-xs text-slate-400 hover:text-slate-600 hover:underline"
+          data-testid="toggle-legacy-graph"
+        >
+          {showLegacyGraph ? "← Back to visual canvas" : "Debug: view legacy card graph"}
+        </button>
       </Card>
 
       {/* ── Cost and Latency ── */}

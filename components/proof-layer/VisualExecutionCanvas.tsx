@@ -1,0 +1,716 @@
+"use client";
+
+/**
+ * Visual Execution Canvas — read-only, n8n-style node canvas for a run's
+ * workflow execution. Renders the primary workflow path (stages/agents) as
+ * large nodes with real pan/zoom/fit-view (via @xyflow/react), and attaches
+ * observed evidence (models/tools/skills/CLI/evals/artifacts/issues/
+ * recoveries) as connected child nodes.
+ *
+ * This is a proof/debugging layer, not a workflow builder: nodes are not
+ * draggable or connectable, and there is no execute/run/edit action anywhere
+ * in this file.
+ */
+
+import { useMemo, useState } from "react";
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  Handle,
+  Position,
+  MarkerType,
+  type Node as RFNode,
+  type Edge as RFEdge,
+  type NodeProps,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { formatDuration, formatCurrency, formatDateTime } from "@/components/proof-layer/format";
+import type { RunGraph } from "@/lib/runs/runGraph";
+import type { TraceEvent } from "@/lib/proof-layer/schemas";
+import { buildVisualRunGraph } from "@/lib/visualGraph/buildVisualRunGraph";
+import type { VisualEdgeType, VisualNode, VisualNodeType, VisualRunGraph } from "@/lib/visualGraph/types";
+import {
+  evidenceCountLabel,
+  visualNodeStatusDefinition,
+  visualNodeTypeDefinition,
+} from "@/lib/visualGraph/nodeRegistry";
+
+// ── Layout constants ──────────────────────────────────────────────────────────
+
+const STAGE_W = 224;
+const STAGE_H = 104;
+const EVIDENCE_W = 172;
+const EVIDENCE_H = 44;
+const EVIDENCE_COLS = 2;
+const EVIDENCE_GAP = 8;
+const H_GAP = 90;
+const ROW_GAP = 40;
+const CANVAS_PAD = 40;
+
+const EVIDENCE_EDGE_COLOR: Record<VisualEdgeType, string> = {
+  workflow: "#64748b",
+  uses: "#a5b4fc",
+  produces: "#fbbf24",
+  evaluates: "#5eead4",
+  fails: "#fca5a5",
+  recovers: "#6ee7b7",
+  contains: "#cbd5e1",
+};
+
+// ── DAG layout (primary nodes only — internal nodes stay off-canvas) ──────────
+
+function computePrimaryColumns(nodes: VisualNode[], edges: VisualRunGraph["edges"]): Map<string, number> {
+  const ids = new Set(nodes.map((n) => n.id));
+  const parents = new Map<string, Set<string>>();
+  for (const n of nodes) parents.set(n.id, new Set());
+  for (const e of edges) {
+    if (ids.has(e.from) && ids.has(e.to)) parents.get(e.to)?.add(e.from);
+  }
+  const col = new Map<string, number>();
+  const visiting = new Set<string>();
+  function resolve(id: string): number {
+    if (col.has(id)) return col.get(id)!;
+    if (visiting.has(id)) {
+      col.set(id, 0);
+      return 0;
+    }
+    visiting.add(id);
+    const parentIds = [...(parents.get(id) ?? [])];
+    const value = parentIds.length > 0 ? Math.max(...parentIds.map(resolve)) + 1 : 0;
+    col.set(id, value);
+    visiting.delete(id);
+    return value;
+  }
+  for (const n of nodes) resolve(n.id);
+  return col;
+}
+
+interface CanvasLayout {
+  primaryPositions: Map<string, { x: number; y: number }>;
+  evidencePositions: Map<string, { x: number; y: number }>;
+  width: number;
+  height: number;
+}
+
+function layoutVisualGraph(graph: VisualRunGraph): CanvasLayout {
+  const nodes = graph.primaryNodes;
+  const evidenceByParent = new Map<string, VisualNode[]>();
+  for (const e of graph.evidenceNodes) {
+    if (!e.parentId) continue;
+    const list = evidenceByParent.get(e.parentId);
+    if (list) list.push(e);
+    else evidenceByParent.set(e.parentId, [e]);
+  }
+
+  if (nodes.length === 0) {
+    return { primaryPositions: new Map(), evidencePositions: new Map(), width: CANVAS_PAD * 2, height: CANVAS_PAD * 2 };
+  }
+
+  const colMap = computePrimaryColumns(nodes, graph.edges);
+  const colGroups = new Map<number, VisualNode[]>();
+  for (const n of nodes) {
+    const c = colMap.get(n.id) ?? 0;
+    const list = colGroups.get(c);
+    if (list) list.push(n);
+    else colGroups.set(c, [n]);
+  }
+  const rowMap = new Map<string, number>();
+  for (const group of colGroups.values()) {
+    group.sort((a, b) => a.order - b.order);
+    group.forEach((n, i) => rowMap.set(n.id, i));
+  }
+
+  let maxBlockHeight = STAGE_H;
+  const evidenceColWidth = EVIDENCE_COLS * EVIDENCE_W + (EVIDENCE_COLS - 1) * EVIDENCE_GAP;
+  for (const n of nodes) {
+    const count = evidenceByParent.get(n.id)?.length ?? 0;
+    const rows = count > 0 ? Math.ceil(count / EVIDENCE_COLS) : 0;
+    const h = STAGE_H + (rows > 0 ? EVIDENCE_GAP + rows * (EVIDENCE_H + EVIDENCE_GAP) : 0);
+    if (h > maxBlockHeight) maxBlockHeight = h;
+  }
+  const vStep = maxBlockHeight + ROW_GAP;
+  const hStep = Math.max(STAGE_W, evidenceColWidth) + H_GAP;
+
+  const primaryPositions = new Map<string, { x: number; y: number }>();
+  const evidencePositions = new Map<string, { x: number; y: number }>();
+  let maxCol = 0;
+  let maxRow = 0;
+
+  for (const n of nodes) {
+    const c = colMap.get(n.id) ?? 0;
+    const r = rowMap.get(n.id) ?? 0;
+    maxCol = Math.max(maxCol, c);
+    maxRow = Math.max(maxRow, r);
+    const x = CANVAS_PAD + c * hStep;
+    const y = CANVAS_PAD + r * vStep;
+    primaryPositions.set(n.id, { x, y });
+
+    const evidence = evidenceByParent.get(n.id) ?? [];
+    evidence.forEach((ev, i) => {
+      const evCol = i % EVIDENCE_COLS;
+      const evRow = Math.floor(i / EVIDENCE_COLS);
+      evidencePositions.set(ev.id, {
+        x: x + evCol * (EVIDENCE_W + EVIDENCE_GAP),
+        y: y + STAGE_H + EVIDENCE_GAP + evRow * (EVIDENCE_H + EVIDENCE_GAP),
+      });
+    });
+  }
+
+  return {
+    primaryPositions,
+    evidencePositions,
+    width: CANVAS_PAD * 2 + (maxCol + 1) * hStep,
+    height: CANVAS_PAD * 2 + (maxRow + 1) * vStep,
+  };
+}
+
+// ── React Flow node data ───────────────────────────────────────────────────────
+
+type CanvasNodeData = { visualNode: VisualNode };
+type PrimaryFlowNode = RFNode<CanvasNodeData, "primary">;
+type EvidenceFlowNode = RFNode<CanvasNodeData, "evidence">;
+
+function EvidencePill({ type, count }: { type: VisualNodeType; count: number }) {
+  const def = visualNodeTypeDefinition(type);
+  return (
+    <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${def.bgClass} ${def.accentClass}`}>
+      {evidenceCountLabel(type, count)}
+    </span>
+  );
+}
+
+function PrimaryNodeCard({ data, selected }: NodeProps<PrimaryFlowNode>) {
+  const node = data.visualNode;
+  const typeDef = visualNodeTypeDefinition(node.type);
+  const statusDef = visualNodeStatusDefinition(node.status);
+  const Icon = typeDef.icon;
+  const counts = node.evidenceCounts;
+  const hasEvidence = Boolean(counts && Object.values(counts).some((c) => c > 0));
+
+  return (
+    <div
+      data-testid={`canvas-node-${node.id}`}
+      data-status={node.status}
+      data-node-kind={node.kind}
+      className={[
+        "rounded-xl border border-l-4 bg-white px-3 py-2.5 text-left shadow-sm transition-shadow",
+        statusDef.borderClass,
+        selected ? "ring-2 ring-teal-400 shadow-md" : "border-slate-200 hover:shadow-md",
+      ].join(" ")}
+      style={{ width: STAGE_W }}
+    >
+      <Handle type="target" position={Position.Left} id="left-target" className="!h-2 !w-2 !bg-slate-400" />
+      <div className="flex items-start gap-2">
+        <span className={`mt-0.5 shrink-0 rounded-md p-1 ${typeDef.bgClass}`}>
+          <Icon className={`h-3.5 w-3.5 ${typeDef.accentClass}`} aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-xs font-semibold leading-tight text-slate-900">{node.label}</p>
+          <p className="mt-0.5 text-[10px] text-slate-400">{statusDef.label}</p>
+        </div>
+        <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${statusDef.dotClass}`} aria-hidden="true" />
+      </div>
+      {typeof node.durationMs === "number" && (
+        <p className="mt-1 text-[10px] text-slate-400">{formatDuration(node.durationMs)}</p>
+      )}
+      {counts && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {counts.models > 0 && <EvidencePill type="model" count={counts.models} />}
+          {counts.tools > 0 && <EvidencePill type="tool" count={counts.tools} />}
+          {counts.evals > 0 && <EvidencePill type="eval" count={counts.evals} />}
+          {counts.skills > 0 && <EvidencePill type="skill" count={counts.skills} />}
+          {counts.cli > 0 && <EvidencePill type="cli" count={counts.cli} />}
+          {counts.artifacts > 0 && <EvidencePill type="artifact" count={counts.artifacts} />}
+          {counts.issues > 0 && <EvidencePill type="issue" count={counts.issues} />}
+        </div>
+      )}
+      <Handle type="source" position={Position.Right} id="right-source" className="!h-2 !w-2 !bg-slate-400" />
+      {hasEvidence && (
+        <Handle type="source" position={Position.Bottom} id="bottom-source" className="!h-2 !w-2 !bg-slate-300" />
+      )}
+    </div>
+  );
+}
+
+function EvidenceNodeChip({ data, selected }: NodeProps<EvidenceFlowNode>) {
+  const node = data.visualNode;
+  const typeDef = visualNodeTypeDefinition(node.type);
+  const statusDef = visualNodeStatusDefinition(node.status);
+  const Icon = typeDef.icon;
+
+  return (
+    <div
+      data-testid={`canvas-evidence-${node.id}`}
+      data-status={node.status}
+      data-node-type={node.type}
+      className={[
+        "flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left shadow-sm",
+        typeDef.bgClass,
+        typeDef.borderClass,
+        selected ? "ring-2 ring-teal-400" : "",
+      ].join(" ")}
+      style={{ width: EVIDENCE_W }}
+    >
+      <Handle type="target" position={Position.Top} id="top-target" className="!h-1.5 !w-1.5 !bg-slate-300" />
+      <Icon className={`h-3 w-3 shrink-0 ${typeDef.accentClass}`} aria-hidden="true" />
+      <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-slate-700">{node.label}</span>
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusDef.dotClass}`} aria-hidden="true" />
+    </div>
+  );
+}
+
+const NODE_TYPES = { primary: PrimaryNodeCard, evidence: EvidenceNodeChip };
+
+// ── React Flow node/edge builders ──────────────────────────────────────────────
+
+function toFlowNodes(graph: VisualRunGraph, layout: CanvasLayout): RFNode[] {
+  const primary: PrimaryFlowNode[] = graph.primaryNodes.map((n) => ({
+    id: n.id,
+    type: "primary",
+    position: layout.primaryPositions.get(n.id) ?? { x: 0, y: 0 },
+    data: { visualNode: n },
+    draggable: false,
+    connectable: false,
+    style: { width: STAGE_W },
+  }));
+  const evidence: EvidenceFlowNode[] = graph.evidenceNodes
+    .filter((n) => layout.evidencePositions.has(n.id))
+    .map((n) => ({
+      id: n.id,
+      type: "evidence",
+      position: layout.evidencePositions.get(n.id) ?? { x: 0, y: 0 },
+      data: { visualNode: n },
+      draggable: false,
+      connectable: false,
+      style: { width: EVIDENCE_W },
+    }));
+  return [...primary, ...evidence];
+}
+
+function toFlowEdges(graph: VisualRunGraph): RFEdge[] {
+  const workflowEdges: RFEdge[] = graph.edges.map((e) => ({
+    id: e.id,
+    source: e.from,
+    target: e.to,
+    sourceHandle: "right-source",
+    targetHandle: "left-target",
+    type: "smoothstep",
+    style: { stroke: EVIDENCE_EDGE_COLOR.workflow, strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: EVIDENCE_EDGE_COLOR.workflow },
+  }));
+  const evidenceEdges: RFEdge[] = graph.evidenceEdges.map((e) => ({
+    id: e.id,
+    source: e.from,
+    target: e.to,
+    sourceHandle: "bottom-source",
+    targetHandle: "top-target",
+    type: "straight",
+    style: { stroke: EVIDENCE_EDGE_COLOR[e.type], strokeWidth: 1.5, strokeDasharray: "4 3" },
+  }));
+  return [...workflowEdges, ...evidenceEdges];
+}
+
+// ── Inspector ────────────────────────────────────────────────────────────────
+
+function findNode(graph: VisualRunGraph, id: string): VisualNode | undefined {
+  return (
+    graph.primaryNodes.find((n) => n.id === id) ??
+    graph.internalNodes.find((n) => n.id === id) ??
+    graph.evidenceNodes.find((n) => n.id === id)
+  );
+}
+
+function RawEventRow({ event }: { event: TraceEvent }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-xs">
+      <span className="font-mono text-slate-500">{event.event_type}</span>
+      {event.status && <Badge tone="neutral" className="text-[10px]">{event.status}</Badge>}
+      <span className="text-slate-400">{formatDateTime(event.timestamp)}</span>
+      {event.output_summary && <span className="min-w-0 truncate text-slate-600">{event.output_summary}</span>}
+    </div>
+  );
+}
+
+function EvidenceGroup({ type, items }: { type: VisualNodeType; items: VisualNode[] }) {
+  if (!items.length) return null;
+  const def = visualNodeTypeDefinition(type);
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{def.pluralLabel}</p>
+      <div className="grid gap-1.5">
+        {items.map((item) => {
+          const statusDef = visualNodeStatusDefinition(item.status);
+          return (
+            <div key={item.id} className="flex flex-wrap items-start gap-2 rounded border border-slate-100 bg-slate-50 px-3 py-2">
+              <span className="min-w-0 flex-1 truncate text-sm text-slate-800">{item.label}</span>
+              <Badge tone={statusDef.badgeTone} className="text-[10px]">{statusDef.label}</Badge>
+              {typeof item.durationMs === "number" && (
+                <Badge tone="neutral" className="text-[10px]">{formatDuration(item.durationMs)}</Badge>
+              )}
+              {typeof item.costUsd === "number" && (
+                <Badge tone="neutral" className="text-[10px]">{formatCurrency(item.costUsd)}</Badge>
+              )}
+              {item.detail && <p className="w-full text-xs text-slate-500 line-clamp-2">{item.detail}</p>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CanvasInspector({
+  node,
+  graph,
+  onClose,
+}: {
+  node: VisualNode;
+  graph: VisualRunGraph;
+  onClose: () => void;
+}) {
+  const typeDef = visualNodeTypeDefinition(node.type);
+  const statusDef = visualNodeStatusDefinition(node.status);
+
+  if (node.kind === "evidence") {
+    const parent = node.parentId ? findNode(graph, node.parentId) : undefined;
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-lg" data-testid="canvas-inspector">
+        <InspectorHeader label={node.label} id={node.id} statusDef={statusDef} onClose={onClose} />
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Badge tone="neutral">{typeDef.label}</Badge>
+          {typeof node.durationMs === "number" && <Badge tone="neutral">{formatDuration(node.durationMs)}</Badge>}
+          {typeof node.costUsd === "number" && <Badge tone="neutral">{formatCurrency(node.costUsd)}</Badge>}
+        </div>
+        {parent && (
+          <p className="mt-3 text-xs text-slate-500">
+            Parent stage: <span className="font-medium text-slate-700">{parent.label}</span>
+          </p>
+        )}
+        {node.detail && (
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Detail</p>
+            <p className="mt-1 text-sm text-slate-700">{node.detail}</p>
+          </div>
+        )}
+        {node.rawEvents.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Raw Trace Events</p>
+            <div className="grid gap-1.5">
+              {node.rawEvents.map((e) => (
+                <RawEventRow key={e.event_id} event={e} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Primary / internal node.
+  const models = graph.evidenceNodes.filter((n) => n.parentId === node.id && n.type === "model");
+  const tools = graph.evidenceNodes.filter((n) => n.parentId === node.id && n.type === "tool");
+  const skills = graph.evidenceNodes.filter((n) => n.parentId === node.id && n.type === "skill");
+  const cli = graph.evidenceNodes.filter((n) => n.parentId === node.id && n.type === "cli");
+  const evals = graph.evidenceNodes.filter((n) => n.parentId === node.id && n.type === "eval");
+  const artifacts = graph.evidenceNodes.filter((n) => n.parentId === node.id && n.type === "artifact");
+  const issues = graph.evidenceNodes.filter((n) => n.parentId === node.id && n.type === "issue");
+  const recoveries = graph.evidenceNodes.filter((n) => n.parentId === node.id && n.type === "recovery");
+
+  const upstream = (node.upstreamIds ?? []).map((id) => findNode(graph, id)).filter((n): n is VisualNode => Boolean(n));
+  const downstream = (node.downstreamIds ?? []).map((id) => findNode(graph, id)).filter((n): n is VisualNode => Boolean(n));
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-lg" data-testid="canvas-inspector">
+      <InspectorHeader label={node.label} id={node.id} statusDef={statusDef} onClose={onClose} />
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Badge tone="neutral">{typeDef.label}</Badge>
+        {node.kind === "internal" && <Badge tone="neutral">Not in spec</Badge>}
+        {typeof node.durationMs === "number" && <Badge tone="neutral">{formatDuration(node.durationMs)}</Badge>}
+      </div>
+
+      {(upstream.length > 0 || downstream.length > 0) && (
+        <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <span className="font-medium text-slate-500">Upstream</span>
+            <ConnectionList nodes={upstream} />
+          </div>
+          <div>
+            <span className="font-medium text-slate-500">Downstream</span>
+            <ConnectionList nodes={downstream} />
+          </div>
+        </div>
+      )}
+
+      {node.inputSummary && (
+        <div className="mt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Input</p>
+          <p className="mt-1 text-sm text-slate-700">{node.inputSummary}</p>
+        </div>
+      )}
+      {node.outputSummary && (
+        <div className="mt-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Output</p>
+          <p className="mt-1 text-sm text-slate-700">{node.outputSummary}</p>
+        </div>
+      )}
+
+      <EvidenceGroup type="model" items={models} />
+      <EvidenceGroup type="tool" items={tools} />
+      <EvidenceGroup type="skill" items={skills} />
+      <EvidenceGroup type="cli" items={cli} />
+      <EvidenceGroup type="eval" items={evals} />
+      <EvidenceGroup type="artifact" items={artifacts} />
+      <EvidenceGroup type="issue" items={issues} />
+      <EvidenceGroup type="recovery" items={recoveries} />
+
+      {graph.internalNodes.length > 0 && (
+        <p className="mt-4 text-xs text-slate-400">
+          {graph.internalNodes.length} internal node{graph.internalNodes.length !== 1 ? "s" : ""} observed elsewhere in
+          this run — see Internal Observed Nodes below.
+        </p>
+      )}
+
+      {node.rawEvents.length > 0 && (
+        <div className="mt-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Raw Trace Events</p>
+          <div className="grid gap-1.5">
+            {node.rawEvents.map((e) => (
+              <RawEventRow key={e.event_id} event={e} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InspectorHeader({
+  label,
+  id,
+  statusDef,
+  onClose,
+}: {
+  label: string;
+  id: string;
+  statusDef: ReturnType<typeof visualNodeStatusDefinition>;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex items-center gap-2.5">
+        <span className={`mt-0.5 h-3 w-3 shrink-0 rounded-full ${statusDef.dotClass}`} aria-hidden="true" />
+        <div>
+          <h3 className="text-base font-semibold text-slate-950">{label}</h3>
+          <p className="font-mono text-xs text-slate-400">{id}</p>
+        </div>
+      </div>
+      <button
+        onClick={onClose}
+        className="flex-shrink-0 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+        aria-label="Close inspector"
+        data-testid="canvas-inspector-close"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+function ConnectionList({ nodes }: { nodes: VisualNode[] }) {
+  if (nodes.length === 0) return <p className="mt-0.5 text-slate-400">—</p>;
+  return (
+    <ul className="mt-1 space-y-1">
+      {nodes.map((n) => {
+        const statusDef = visualNodeStatusDefinition(n.status);
+        return (
+          <li key={n.id} className="flex items-center gap-1.5">
+            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusDef.dotClass}`} />
+            <span className="text-slate-700">{n.label}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+// ── Internal observed nodes panel ───────────────────────────────────────────────
+
+function InternalNodesPanel({
+  nodes,
+  selectedId,
+  onSelect,
+}: {
+  nodes: VisualNode[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!nodes.length) return null;
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50" data-testid="internal-nodes-panel">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        aria-expanded={open}
+        data-testid="internal-nodes-toggle"
+      >
+        <span className="text-xs font-medium text-slate-500">
+          {nodes.length} internal node{nodes.length !== 1 ? "s" : ""} observed but not in the WorkflowSpec
+        </span>
+        <span className="text-xs text-slate-400" aria-hidden="true">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="flex flex-wrap gap-2 border-t border-slate-200 px-4 pb-4 pt-3">
+          {nodes.map((node) => {
+            const statusDef = visualNodeStatusDefinition(node.status);
+            return (
+              <button
+                type="button"
+                key={node.id}
+                onClick={() => onSelect(node.id)}
+                data-testid={`internal-node-${node.id}`}
+                className={[
+                  "flex items-center gap-2 rounded-md border bg-white px-2.5 py-1.5 text-left shadow-sm",
+                  selectedId === node.id ? "border-teal-300 ring-1 ring-teal-300" : "border-slate-200",
+                ].join(" ")}
+              >
+                <span className={`h-2 w-2 shrink-0 rounded-full ${statusDef.dotClass}`} aria-hidden="true" />
+                <span className="text-xs text-slate-700">{node.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Legend ────────────────────────────────────────────────────────────────────
+
+const LEGEND_STATUSES = ["completed", "warning", "failed", "running", "recovered", "not_observed"] as const;
+
+function CanvasLegend() {
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-500">
+      {LEGEND_STATUSES.map((status) => {
+        const def = visualNodeStatusDefinition(status);
+        return (
+          <span key={status} className="inline-flex items-center gap-1.5">
+            <span className={`h-2 w-2 rounded-full ${def.dotClass}`} aria-hidden="true" />
+            {def.label}
+          </span>
+        );
+      })}
+      <span className="text-slate-300" aria-hidden="true">·</span>
+      <span>Solid arrows = workflow path · Dashed lines = attached evidence</span>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+export interface VisualExecutionCanvasProps {
+  runGraph: RunGraph;
+  traceEvents: TraceEvent[];
+}
+
+export function VisualExecutionCanvas({ runGraph, traceEvents }: VisualExecutionCanvasProps) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const visualGraph = useMemo(() => buildVisualRunGraph({ runGraph, traceEvents }), [runGraph, traceEvents]);
+  const layout = useMemo(() => layoutVisualGraph(visualGraph), [visualGraph]);
+  const flowNodes = useMemo(() => toFlowNodes(visualGraph, layout), [visualGraph, layout]);
+  const flowEdges = useMemo(() => toFlowEdges(visualGraph), [visualGraph]);
+
+  if (visualGraph.primaryNodes.length === 0 && visualGraph.internalNodes.length === 0) {
+    return (
+      <Card className="p-5" data-testid="visual-execution-canvas">
+        <p className="text-sm text-slate-500">No workflow stages observed yet.</p>
+      </Card>
+    );
+  }
+
+  const selectedNode = selectedId ? findNode(visualGraph, selectedId) : undefined;
+  const stageCount = visualGraph.primaryNodes.length;
+  const notObserved = visualGraph.summary.notObservedStages;
+
+  function handleNodeClick(_: unknown, node: RFNode) {
+    setSelectedId((prev) => (prev === node.id ? null : node.id));
+  }
+
+  return (
+    <div className="grid gap-5" data-testid="visual-execution-canvas">
+      <div className="flex flex-wrap items-center gap-2">
+        {visualGraph.mode === "registered_spec" ? (
+          <Badge tone="info" data-testid="canvas-mode-registered">
+            Workflow template{visualGraph.templateName ? `: ${visualGraph.templateName}` : ""}
+          </Badge>
+        ) : (
+          <Badge tone="neutral" data-testid="canvas-mode-inferred">
+            Workflow inferred from run events
+          </Badge>
+        )}
+        <span className="text-xs text-slate-400">
+          {stageCount} stage{stageCount !== 1 ? "s" : ""}
+          {notObserved > 0 ? ` · ${notObserved} not observed` : ""}
+          {visualGraph.internalNodes.length > 0
+            ? ` · ${visualGraph.internalNodes.length} internal node${visualGraph.internalNodes.length !== 1 ? "s" : ""}`
+            : ""}
+        </span>
+        {selectedNode && (
+          <button className="ml-auto text-xs text-teal-700 hover:underline" onClick={() => setSelectedId(null)}>
+            Clear selection
+          </button>
+        )}
+      </div>
+
+      <div
+        className="rounded-xl border border-slate-200 bg-slate-50"
+        style={{ height: 560 }}
+        data-testid="visual-canvas-viewport"
+      >
+        <ReactFlow
+          nodes={flowNodes}
+          edges={flowEdges}
+          nodeTypes={NODE_TYPES}
+          onNodeClick={handleNodeClick}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          edgesFocusable={false}
+          elementsSelectable
+          panOnScroll
+          fitView
+          fitViewOptions={{ padding: 0.15 }}
+          proOptions={{ hideAttribution: true }}
+          minZoom={0.2}
+          maxZoom={1.5}
+        >
+          <Background gap={18} color="#e2e8f0" />
+          <Controls showInteractive={false} />
+          <MiniMap pannable zoomable className="!bg-white" />
+        </ReactFlow>
+      </div>
+
+      {selectedNode && (
+        <CanvasInspector node={selectedNode} graph={visualGraph} onClose={() => setSelectedId(null)} />
+      )}
+
+      <InternalNodesPanel
+        nodes={visualGraph.internalNodes}
+        selectedId={selectedId}
+        onSelect={(id) => setSelectedId((prev) => (prev === id ? null : id))}
+      />
+
+      <CanvasLegend />
+    </div>
+  );
+}
