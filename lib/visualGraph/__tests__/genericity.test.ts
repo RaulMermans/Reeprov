@@ -27,7 +27,13 @@ const root = path.resolve(fileURLToPath(import.meta.url), "../../../../");
 const SOURCE_FILES = [
   "lib/visualGraph/types.ts",
   "lib/visualGraph/nodeRegistry.tsx",
+  "lib/visualGraph/iconResolvers.ts",
+  "lib/visualGraph/metadataDisplay.ts",
   "lib/visualGraph/buildVisualRunGraph.ts",
+  "lib/visualGraph/replay.ts",
+  "lib/visualGraph/filters.ts",
+  "components/proof-layer/CanvasFilters.tsx",
+  "components/proof-layer/ReplayControls.tsx",
   "components/proof-layer/VisualExecutionCanvas.tsx",
 ];
 

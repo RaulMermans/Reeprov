@@ -25,6 +25,11 @@ import type {
   VisualNodeType,
   VisualRunGraph,
 } from "@/lib/visualGraph/types";
+import {
+  resolveEvidenceIdentity,
+  resolveEvidenceMetrics,
+  resolvePrimaryIdentity,
+} from "@/lib/visualGraph/metadataDisplay";
 
 // ── Type mapping ──────────────────────────────────────────────────────────────
 
@@ -112,6 +117,8 @@ function toPrimaryVisualNode(
     status: primaryStatus(node.status),
     order: node.order,
     groupId: node.laneId,
+    identity: resolvePrimaryIdentity(node),
+    metrics: {},
     durationMs: node.durationMs,
     inputSummary: node.inputSummary,
     outputSummary: node.outputSummary,
@@ -145,8 +152,13 @@ function toEvidenceVisualNode(
       order,
       groupId: parent.laneId,
       parentId: parent.id,
+      identity: resolveEvidenceIdentity(attachment, type),
+      metrics: resolveEvidenceMetrics(attachment, parent.id),
+      metadata: attachment.metadata,
       durationMs: attachment.durationMs,
       costUsd: attachment.costUsd,
+      inputSummary: attachment.inputSummary,
+      outputSummary: attachment.outputSummary,
       detail: attachment.detail,
       recovered: attachment.recovered,
       rawEvents: attachment.rawEvents,

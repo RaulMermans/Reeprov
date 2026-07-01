@@ -148,12 +148,26 @@ describe("buildVisualRunGraph — evidence attachments", () => {
 
   it("creates a 'model' evidence node with a 'uses' edge for model call events", () => {
     const graph = graphWithEvents([
-      makeEvent({ event_id: "m1", event_type: "model_call_completed", node_id: "stage_a", timestamp: "2026-06-01T10:00:01.000Z", metadata: { model_name: "gpt-4o" } }),
+      makeEvent({
+        event_id: "m1",
+        event_type: "model_call_completed",
+        node_id: "stage_a",
+        timestamp: "2026-06-01T10:00:01.000Z",
+        cost_usd: 0.0123,
+        metadata: { model_provider: "openai", model_name: "gpt-4o", input_tokens: 100, output_tokens: 50, latency_ms: 800 },
+      }),
     ]);
     const modelNode = graph.evidenceNodes.find((n) => n.type === "model");
     expect(modelNode).toBeDefined();
     expect(modelNode!.parentId).toBe("stage_a");
     expect(modelNode!.label).toBe("gpt-4o");
+    expect(modelNode!.identity.provider).toBe("openai");
+    expect(modelNode!.identity.modelName).toBe("gpt-4o");
+    expect(modelNode!.metrics.inputTokens).toBe(100);
+    expect(modelNode!.metrics.outputTokens).toBe(50);
+    expect(modelNode!.metrics.totalTokens).toBe(150);
+    expect(modelNode!.metrics.costUsd).toBe(0.0123);
+    expect(modelNode!.metrics.latencyMs).toBe(800);
     const edge = graph.evidenceEdges.find((e) => e.to === modelNode!.id);
     expect(edge).toMatchObject({ from: "stage_a", type: "uses" });
   });
@@ -163,6 +177,7 @@ describe("buildVisualRunGraph — evidence attachments", () => {
     const toolNode = graph.evidenceNodes.find((n) => n.type === "tool");
     expect(toolNode).toBeDefined();
     expect(toolNode!.label).toBe("web_search");
+    expect(toolNode!.identity.toolSubtype).toBe("web_search");
     expect(graph.evidenceEdges.find((e) => e.to === toolNode!.id)).toMatchObject({ type: "uses" });
   });
 
@@ -182,6 +197,8 @@ describe("buildVisualRunGraph — evidence attachments", () => {
     const cliNode = graph.evidenceNodes.find((n) => n.type === "cli");
     expect(cliNode).toBeDefined();
     expect(cliNode!.label).toBe("npm run build");
+    expect(cliNode!.identity.typeLabel).toBe("CLI");
+    expect(cliNode!.identity.badge).toBe("CLI");
     expect(cliNode!.label).not.toBe("$");
   });
 
@@ -190,7 +207,32 @@ describe("buildVisualRunGraph — evidence attachments", () => {
     const evalNode = graph.evidenceNodes.find((n) => n.type === "eval");
     expect(evalNode).toBeDefined();
     expect(evalNode!.status).toBe("completed");
+    expect(evalNode!.identity.evalSubtype).toBe("source_evidence");
     expect(graph.evidenceEdges.find((e) => e.to === evalNode!.id)).toMatchObject({ type: "evaluates" });
+  });
+
+  it("keeps missing model usage and cost absent instead of inventing zero values", () => {
+    const graph = graphWithEvents([
+      makeEvent({ event_id: "m1", event_type: "model_call_completed", node_id: "stage_a", timestamp: "2026-06-01T10:00:01.000Z", metadata: { model_name: "unknown-model" } }),
+    ]);
+    const modelNode = graph.evidenceNodes.find((n) => n.type === "model")!;
+    expect(modelNode.metrics.inputTokens).toBeUndefined();
+    expect(modelNode.metrics.outputTokens).toBeUndefined();
+    expect(modelNode.metrics.totalTokens).toBeUndefined();
+    expect(modelNode.metrics.costUsd).toBeUndefined();
+  });
+
+  it("carries eval score/pass/fail/reason when present", () => {
+    const graph = graphWithEvents(
+      [],
+      [],
+      [makeEval({ eval_id: "ev1", name: "Output quality", type: "output_quality", node_id: "stage_a", passed: false, score: 0.42, findings: ["Too vague"] })],
+    );
+    const evalNode = graph.evidenceNodes.find((n) => n.type === "eval")!;
+    expect(evalNode.status).toBe("failed");
+    expect(evalNode.metrics.score).toBe(0.42);
+    expect(evalNode.metrics.passed).toBe(false);
+    expect(evalNode.metrics.reason).toBe("Too vague");
   });
 
   it("marks a failing eval evidence node as status='failed'", () => {
@@ -205,6 +247,7 @@ describe("buildVisualRunGraph — evidence attachments", () => {
     ]);
     const artifactNode = graph.evidenceNodes.find((n) => n.type === "artifact");
     expect(artifactNode).toBeDefined();
+    expect(artifactNode!.identity.artifactType).toBe("markdown");
     expect(graph.evidenceEdges.find((e) => e.to === artifactNode!.id)).toMatchObject({ type: "produces" });
   });
 
@@ -215,6 +258,8 @@ describe("buildVisualRunGraph — evidence attachments", () => {
     const issueNode = graph.evidenceNodes.find((n) => n.type === "issue");
     expect(issueNode).toBeDefined();
     expect(issueNode!.status).not.toBe("recovered");
+    expect(issueNode!.identity.typeLabel).toBe("Issue");
+    expect(issueNode!.identity.badge).toBe("warning");
     expect(graph.evidenceEdges.find((e) => e.to === issueNode!.id)).toMatchObject({ type: "fails" });
   });
 
@@ -226,6 +271,8 @@ describe("buildVisualRunGraph — evidence attachments", () => {
     const recoveryNode = graph.evidenceNodes.find((n) => n.type === "recovery");
     expect(recoveryNode).toBeDefined();
     expect(recoveryNode!.status).toBe("recovered");
+    expect(recoveryNode!.identity.typeLabel).toBe("Recovery");
+    expect(recoveryNode!.identity.badge).toBe("recovered");
     expect(graph.evidenceNodes.find((n) => n.type === "issue")).toBeUndefined();
     expect(graph.evidenceEdges.find((e) => e.to === recoveryNode!.id)).toMatchObject({ type: "recovers" });
   });

@@ -59,7 +59,11 @@ export interface RunGraphAttachment {
   status?: string;
   durationMs?: number;
   costUsd?: number;
+  inputSummary?: string;
+  outputSummary?: string;
   detail?: string;
+  error?: string;
+  metadata?: Record<string, unknown>;
   /** True when an issue attachment was recovered later in the same stage. */
   recovered?: boolean;
   rawEvents: TraceEvent[];
@@ -219,7 +223,10 @@ function buildModelCallAttachments(events: TraceEvent[]): RunGraphAttachment[] {
           ? e.duration_ms
           : latencyMs,
         costUsd: typeof e.cost_usd === "number" ? e.cost_usd : undefined,
+        inputSummary: e.input_summary,
+        outputSummary: e.output_summary,
         detail: e.output_summary,
+        metadata: e.metadata,
         rawEvents: [e],
       };
     });
@@ -228,18 +235,41 @@ function buildModelCallAttachments(events: TraceEvent[]): RunGraphAttachment[] {
 function buildToolCallAttachments(
   nodeId: string,
   toolCalls: ToolCallRecord[],
+  events: TraceEvent[],
 ): RunGraphAttachment[] {
   return toolCalls
     .filter((tc) => tc.node_id === nodeId)
-    .map((tc) => ({
-      id: tc.tool_call_id,
-      kind: "tool_call" as const,
-      label: tc.tool_name,
-      status: tc.status,
-      durationMs: tc.duration_ms,
-      detail: tc.output_summary ?? tc.input_summary,
-      rawEvents: [],
-    }));
+    .map((tc) => {
+      const matchingEvents = events.filter((event) => {
+        if (!event.event_type.startsWith("tool_call_")) return false;
+        if (event.node_id !== nodeId) return false;
+        const eventToolCallId = event.metadata?.["tool_call_id"];
+        const eventToolName = event.metadata?.["tool_name"];
+        return eventToolCallId === tc.tool_call_id || eventToolName === tc.tool_name;
+      });
+      const fallbackEvents = matchingEvents.length > 0
+        ? matchingEvents
+        : events.filter((event) => event.node_id === nodeId && event.event_type.startsWith("tool_call_"));
+      return {
+        id: tc.tool_call_id,
+        kind: "tool_call" as const,
+        label: tc.tool_name,
+        status: tc.status,
+        durationMs: tc.duration_ms,
+        inputSummary: tc.input_summary,
+        outputSummary: tc.output_summary,
+        detail: tc.output_summary ?? tc.input_summary,
+        error: tc.error,
+        metadata: {
+          tool_name: tc.tool_name,
+          permission_class: tc.permission_class,
+          error: tc.error,
+          input_summary: tc.input_summary,
+          output_summary: tc.output_summary,
+        },
+        rawEvents: fallbackEvents,
+      };
+    });
 }
 
 function buildEvalAttachments(
@@ -253,7 +283,17 @@ function buildEvalAttachments(
       kind: "eval" as const,
       label: er.name,
       status: er.passed ? "passed" : "failed",
-      detail: er.findings[0],
+      detail: er.findings[0] ?? er.recommendation,
+      outputSummary: er.findings[0] ?? er.recommendation,
+      metadata: {
+        eval_name: er.name,
+        eval_type: er.type,
+        score: er.score,
+        passed: er.passed,
+        severity: er.severity,
+        findings: er.findings,
+        recommendation: er.recommendation,
+      },
       rawEvents: [],
     }));
 }
@@ -272,7 +312,11 @@ function buildArtifactAttachments(events: TraceEvent[]): RunGraphAttachment[] {
         id: e.event_id,
         kind: "artifact" as const,
         label: String(ref),
+        status: e.status,
+        inputSummary: e.input_summary,
+        outputSummary: e.output_summary,
         detail: e.output_summary,
+        metadata: e.metadata,
         rawEvents: [e],
       };
     });
@@ -310,7 +354,10 @@ function buildSkillAttachments(events: TraceEvent[]): RunGraphAttachment[] {
           typeof e.duration_ms === "number" && e.duration_ms > 0
             ? e.duration_ms
             : undefined,
+        inputSummary: e.input_summary,
+        outputSummary: e.output_summary,
         detail: e.output_summary,
+        metadata: e.metadata,
         rawEvents: [e],
       };
     });
@@ -338,7 +385,10 @@ function buildCLIAttachments(events: TraceEvent[]): RunGraphAttachment[] {
           typeof e.duration_ms === "number" && e.duration_ms > 0
             ? e.duration_ms
             : undefined,
+        inputSummary: e.input_summary,
+        outputSummary: e.output_summary,
         detail: e.output_summary,
+        metadata: e.metadata,
         rawEvents: [e],
       };
     });
@@ -356,6 +406,12 @@ function buildIssueAttachments(
       label: iss.message.slice(0, 80),
       status: iss.severity,
       detail: iss.recommendedFix,
+      outputSummary: iss.message,
+      metadata: {
+        severity: iss.severity,
+        recovered: iss.recovered,
+        recommended_fix: iss.recommendedFix,
+      },
       recovered: iss.recovered,
       rawEvents: [],
     }));
@@ -482,7 +538,7 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
   const nodes: RunGraphNode[] = candidates.map((c) => {
     const stageEvents = c.stage?.events ?? [];
     const modelAttachments = buildModelCallAttachments(stageEvents);
-    const toolAttachments = buildToolCallAttachments(c.id, toolCalls);
+    const toolAttachments = buildToolCallAttachments(c.id, toolCalls, stageEvents);
     const skillAttachments = buildSkillAttachments(stageEvents);
     const cliAttachments = buildCLIAttachments(stageEvents);
     const evalAttachments = buildEvalAttachments(c.id, evalResults);
@@ -532,7 +588,7 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
   const extraNodes: RunGraphNode[] = extraCandidates.map((c) => {
     const stageEvents = c.stage?.events ?? [];
     const modelAttachments = buildModelCallAttachments(stageEvents);
-    const toolAttachments = buildToolCallAttachments(c.id, toolCalls);
+    const toolAttachments = buildToolCallAttachments(c.id, toolCalls, stageEvents);
     const skillAttachments = buildSkillAttachments(stageEvents);
     const cliAttachments = buildCLIAttachments(stageEvents);
     const evalAttachments = buildEvalAttachments(c.id, evalResults);

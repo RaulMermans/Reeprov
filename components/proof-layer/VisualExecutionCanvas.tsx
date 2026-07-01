@@ -12,7 +12,7 @@
  * in this file.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -24,16 +24,22 @@ import {
   type Node as RFNode,
   type Edge as RFEdge,
   type NodeProps,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { formatDuration, formatCurrency, formatDateTime } from "@/components/proof-layer/format";
+import { CanvasFilters } from "@/components/proof-layer/CanvasFilters";
+import { ReplayControls } from "@/components/proof-layer/ReplayControls";
+import { formatDuration, formatCurrency, formatDateTime, formatPercent } from "@/components/proof-layer/format";
 import type { RunGraph } from "@/lib/runs/runGraph";
 import type { TraceEvent } from "@/lib/proof-layer/schemas";
 import { buildVisualRunGraph } from "@/lib/visualGraph/buildVisualRunGraph";
 import type { VisualEdgeType, VisualNode, VisualNodeType, VisualRunGraph } from "@/lib/visualGraph/types";
+import { DEFAULT_CANVAS_FILTERS, filterVisualGraph } from "@/lib/visualGraph/filters";
+import { buildReplayFrame, deriveVisualReplayEvents, type VisualReplayFrame } from "@/lib/visualGraph/replay";
+import { visualNodeIcon } from "@/lib/visualGraph/iconResolvers";
 import {
   evidenceCountLabel,
   visualNodeStatusDefinition,
@@ -42,10 +48,10 @@ import {
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 
-const STAGE_W = 224;
-const STAGE_H = 104;
-const EVIDENCE_W = 172;
-const EVIDENCE_H = 44;
+const STAGE_W = 252;
+const STAGE_H = 124;
+const EVIDENCE_W = 214;
+const EVIDENCE_H = 78;
 const EVIDENCE_COLS = 2;
 const EVIDENCE_GAP = 8;
 const H_GAP = 90;
@@ -171,9 +177,35 @@ function layoutVisualGraph(graph: VisualRunGraph): CanvasLayout {
 
 // ── React Flow node data ───────────────────────────────────────────────────────
 
-type CanvasNodeData = { visualNode: VisualNode };
+type CanvasNodeData = { visualNode: VisualNode; replayStatus?: VisualNode["status"]; active?: boolean };
 type PrimaryFlowNode = RFNode<CanvasNodeData, "primary">;
 type EvidenceFlowNode = RFNode<CanvasNodeData, "evidence">;
+
+function formatTokens(value?: number): string | undefined {
+  if (typeof value !== "number") return undefined;
+  return `${value.toLocaleString()} tok`;
+}
+
+function metricChips(node: VisualNode): string[] {
+  const chips: string[] = [];
+  if (typeof node.metrics.inputTokens === "number") chips.push(`in ${formatTokens(node.metrics.inputTokens)}`);
+  if (typeof node.metrics.outputTokens === "number") chips.push(`out ${formatTokens(node.metrics.outputTokens)}`);
+  if (typeof node.metrics.totalTokens === "number") chips.push(formatTokens(node.metrics.totalTokens)!);
+  if (typeof node.metrics.costUsd === "number") chips.push(formatCurrency(node.metrics.costUsd));
+  if (typeof node.metrics.latencyMs === "number") chips.push(formatDuration(node.metrics.latencyMs));
+  if (typeof node.metrics.retryCount === "number" && node.metrics.retryCount > 0) chips.push(`${node.metrics.retryCount} retries`);
+  if (typeof node.metrics.errorCount === "number" && node.metrics.errorCount > 0) chips.push(`${node.metrics.errorCount} errors`);
+  if (typeof node.metrics.score === "number") chips.push(`score ${formatPercent(node.metrics.score)}`);
+  if (typeof node.metrics.passed === "boolean") chips.push(node.metrics.passed ? "pass" : "fail");
+  if (typeof node.metrics.threshold === "number") chips.push(`threshold ${formatPercent(node.metrics.threshold)}`);
+  if (typeof node.metrics.sizeBytes === "number") chips.push(`${node.metrics.sizeBytes.toLocaleString()} bytes`);
+  if (node.metrics.contentStatus) chips.push(node.metrics.contentStatus);
+  return chips;
+}
+
+function visualNodeWithReplayStatus(node: VisualNode, replayFrame: VisualReplayFrame): VisualNode {
+  return { ...node, status: replayFrame.nodeStatuses.get(node.id) ?? node.status };
+}
 
 function EvidencePill({ type, count }: { type: VisualNodeType; count: number }) {
   const def = visualNodeTypeDefinition(type);
@@ -185,10 +217,10 @@ function EvidencePill({ type, count }: { type: VisualNodeType; count: number }) 
 }
 
 function PrimaryNodeCard({ data, selected }: NodeProps<PrimaryFlowNode>) {
-  const node = data.visualNode;
+  const node = { ...data.visualNode, status: data.replayStatus ?? data.visualNode.status };
   const typeDef = visualNodeTypeDefinition(node.type);
   const statusDef = visualNodeStatusDefinition(node.status);
-  const Icon = typeDef.icon;
+  const Icon = visualNodeIcon(node);
   const counts = node.evidenceCounts;
   const hasEvidence = Boolean(counts && Object.values(counts).some((c) => c > 0));
 
@@ -197,9 +229,11 @@ function PrimaryNodeCard({ data, selected }: NodeProps<PrimaryFlowNode>) {
       data-testid={`canvas-node-${node.id}`}
       data-status={node.status}
       data-node-kind={node.kind}
+      data-active={data.active ? "true" : "false"}
       className={[
-        "rounded-xl border border-l-4 bg-white px-3 py-2.5 text-left shadow-sm transition-shadow",
+        "visual-run-node rounded-xl border border-l-4 bg-white px-3 py-2.5 text-left shadow-sm transition-all",
         statusDef.borderClass,
+        data.active ? "visual-run-node-active ring-2 ring-cyan-300" : "",
         selected ? "ring-2 ring-teal-400 shadow-md" : "border-slate-200 hover:shadow-md",
       ].join(" ")}
       style={{ width: STAGE_W }}
@@ -210,8 +244,20 @@ function PrimaryNodeCard({ data, selected }: NodeProps<PrimaryFlowNode>) {
           <Icon className={`h-3.5 w-3.5 ${typeDef.accentClass}`} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 text-xs font-semibold leading-tight text-slate-900">{node.label}</p>
-          <p className="mt-0.5 text-[10px] text-slate-400">{statusDef.label}</p>
+          <p className="line-clamp-2 text-xs font-semibold leading-tight text-slate-900">{node.identity.title}</p>
+          <div className="mt-1 flex flex-wrap gap-1">
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+              {node.identity.typeLabel}
+            </span>
+            {node.identity.badge && (
+              <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-500 ring-1 ring-slate-200">
+                {node.identity.badge}
+              </span>
+            )}
+            <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-500 ring-1 ring-slate-200">
+              {statusDef.label}
+            </span>
+          </div>
         </div>
         <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${statusDef.dotClass}`} aria-hidden="true" />
       </div>
@@ -238,28 +284,59 @@ function PrimaryNodeCard({ data, selected }: NodeProps<PrimaryFlowNode>) {
 }
 
 function EvidenceNodeChip({ data, selected }: NodeProps<EvidenceFlowNode>) {
-  const node = data.visualNode;
+  const node = { ...data.visualNode, status: data.replayStatus ?? data.visualNode.status };
   const typeDef = visualNodeTypeDefinition(node.type);
   const statusDef = visualNodeStatusDefinition(node.status);
-  const Icon = typeDef.icon;
+  const Icon = visualNodeIcon(node);
+  const chips = metricChips(node).slice(0, 3);
 
   return (
     <div
       data-testid={`canvas-evidence-${node.id}`}
       data-status={node.status}
       data-node-type={node.type}
+      data-active={data.active ? "true" : "false"}
       className={[
-        "flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left shadow-sm",
+        "visual-run-node visual-run-evidence-node rounded-lg border px-2 py-1.5 text-left shadow-sm transition-all",
         typeDef.bgClass,
         typeDef.borderClass,
+        data.active ? "visual-run-node-active ring-2 ring-cyan-300" : "",
         selected ? "ring-2 ring-teal-400" : "",
       ].join(" ")}
       style={{ width: EVIDENCE_W }}
     >
       <Handle type="target" position={Position.Top} id="top-target" className="!h-1.5 !w-1.5 !bg-slate-300" />
-      <Icon className={`h-3 w-3 shrink-0 ${typeDef.accentClass}`} aria-hidden="true" />
-      <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-slate-700">{node.label}</span>
-      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusDef.dotClass}`} aria-hidden="true" />
+      <div className="flex items-start gap-1.5">
+        <Icon className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${typeDef.accentClass}`} aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-800">{node.identity.title}</span>
+            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusDef.dotClass}`} aria-hidden="true" />
+          </div>
+          <div className="mt-1 flex flex-wrap gap-1">
+            <span className="rounded bg-white/70 px-1.5 py-0.5 text-[9px] font-medium text-slate-600">
+              {node.identity.typeLabel}
+            </span>
+            {node.identity.badge && (
+              <span className="rounded bg-white/70 px-1.5 py-0.5 text-[9px] font-medium text-slate-600">
+                {node.identity.badge}
+              </span>
+            )}
+            <span className="rounded bg-white/70 px-1.5 py-0.5 text-[9px] font-medium text-slate-600">
+              {statusDef.label}
+            </span>
+          </div>
+          {chips.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {chips.map((chip) => (
+                <span key={chip} className="rounded bg-white/70 px-1 py-0.5 text-[9px] text-slate-500">
+                  {chip}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -268,23 +345,32 @@ const NODE_TYPES = { primary: PrimaryNodeCard, evidence: EvidenceNodeChip };
 
 // ── React Flow node/edge builders ──────────────────────────────────────────────
 
-function toFlowNodes(graph: VisualRunGraph, layout: CanvasLayout): RFNode[] {
+function toFlowNodes(graph: VisualRunGraph, layout: CanvasLayout, replayFrame: VisualReplayFrame): RFNode[] {
   const primary: PrimaryFlowNode[] = graph.primaryNodes.map((n) => ({
     id: n.id,
     type: "primary",
     position: layout.primaryPositions.get(n.id) ?? { x: 0, y: 0 },
-    data: { visualNode: n },
+    data: {
+      visualNode: n,
+      replayStatus: replayFrame.nodeStatuses.get(n.id),
+      active: replayFrame.activeNodeId === n.id,
+    },
     draggable: false,
     connectable: false,
     style: { width: STAGE_W },
   }));
   const evidence: EvidenceFlowNode[] = graph.evidenceNodes
     .filter((n) => layout.evidencePositions.has(n.id))
+    .filter((n) => replayFrame.visibleNodeIds.has(n.id))
     .map((n) => ({
       id: n.id,
       type: "evidence",
       position: layout.evidencePositions.get(n.id) ?? { x: 0, y: 0 },
-      data: { visualNode: n },
+      data: {
+        visualNode: n,
+        replayStatus: replayFrame.nodeStatuses.get(n.id),
+        active: replayFrame.activeNodeId === n.id,
+      },
       draggable: false,
       connectable: false,
       style: { width: EVIDENCE_W },
@@ -292,7 +378,7 @@ function toFlowNodes(graph: VisualRunGraph, layout: CanvasLayout): RFNode[] {
   return [...primary, ...evidence];
 }
 
-function toFlowEdges(graph: VisualRunGraph): RFEdge[] {
+function toFlowEdges(graph: VisualRunGraph, replayFrame: VisualReplayFrame): RFEdge[] {
   const workflowEdges: RFEdge[] = graph.edges.map((e) => ({
     id: e.id,
     source: e.from,
@@ -300,18 +386,36 @@ function toFlowEdges(graph: VisualRunGraph): RFEdge[] {
     sourceHandle: "right-source",
     targetHandle: "left-target",
     type: "smoothstep",
-    style: { stroke: EVIDENCE_EDGE_COLOR.workflow, strokeWidth: 2 },
+    label: e.label ?? "workflow",
+    labelStyle: { fontSize: 10, fill: "#64748b" },
+    labelBgStyle: { fill: "#ffffff", fillOpacity: 0.85 },
+    className: replayFrame.activeEdgeId === e.id ? "visual-run-edge-active" : "",
+    style: {
+      stroke: replayFrame.activeEdgeId === e.id ? "#0f766e" : EVIDENCE_EDGE_COLOR.workflow,
+      strokeWidth: replayFrame.activeEdgeId === e.id ? 3 : 2,
+    },
     markerEnd: { type: MarkerType.ArrowClosed, color: EVIDENCE_EDGE_COLOR.workflow },
   }));
-  const evidenceEdges: RFEdge[] = graph.evidenceEdges.map((e) => ({
-    id: e.id,
-    source: e.from,
-    target: e.to,
-    sourceHandle: "bottom-source",
-    targetHandle: "top-target",
-    type: "straight",
-    style: { stroke: EVIDENCE_EDGE_COLOR[e.type], strokeWidth: 1.5, strokeDasharray: "4 3" },
-  }));
+  const visibleNodeIds = replayFrame.visibleNodeIds;
+  const evidenceEdges: RFEdge[] = graph.evidenceEdges
+    .filter((e) => visibleNodeIds.has(e.to))
+    .map((e) => ({
+      id: e.id,
+      source: e.from,
+      target: e.to,
+      sourceHandle: "bottom-source",
+      targetHandle: "top-target",
+      type: "straight",
+      label: e.label ?? e.type,
+      labelStyle: { fontSize: 9, fill: EVIDENCE_EDGE_COLOR[e.type] },
+      labelBgStyle: { fill: "#ffffff", fillOpacity: 0.85 },
+      className: replayFrame.activeEdgeId === e.id ? "visual-run-edge-active" : "",
+      style: {
+        stroke: replayFrame.activeEdgeId === e.id ? "#0f766e" : EVIDENCE_EDGE_COLOR[e.type],
+        strokeWidth: replayFrame.activeEdgeId === e.id ? 2.5 : 1.5,
+        strokeDasharray: "4 3",
+      },
+    }));
   return [...workflowEdges, ...evidenceEdges];
 }
 
@@ -345,9 +449,11 @@ function EvidenceGroup({ type, items }: { type: VisualNodeType; items: VisualNod
       <div className="grid gap-1.5">
         {items.map((item) => {
           const statusDef = visualNodeStatusDefinition(item.status);
+          const chips = metricChips(item).slice(0, 4);
           return (
             <div key={item.id} className="flex flex-wrap items-start gap-2 rounded border border-slate-100 bg-slate-50 px-3 py-2">
-              <span className="min-w-0 flex-1 truncate text-sm text-slate-800">{item.label}</span>
+              <span className="min-w-0 flex-1 truncate text-sm text-slate-800">{item.identity.title}</span>
+              {item.identity.badge && <Badge tone="neutral" className="text-[10px]">{item.identity.badge}</Badge>}
               <Badge tone={statusDef.badgeTone} className="text-[10px]">{statusDef.label}</Badge>
               {typeof item.durationMs === "number" && (
                 <Badge tone="neutral" className="text-[10px]">{formatDuration(item.durationMs)}</Badge>
@@ -355,11 +461,44 @@ function EvidenceGroup({ type, items }: { type: VisualNodeType; items: VisualNod
               {typeof item.costUsd === "number" && (
                 <Badge tone="neutral" className="text-[10px]">{formatCurrency(item.costUsd)}</Badge>
               )}
+              {chips.map((chip) => <Badge key={chip} tone="neutral" className="text-[10px]">{chip}</Badge>)}
               {item.detail && <p className="w-full text-xs text-slate-500 line-clamp-2">{item.detail}</p>}
             </div>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value?: string | number | boolean | null }) {
+  if (value === undefined || value === null || value === "") return null;
+  return (
+    <div className="flex gap-3 border-b border-slate-100 py-1.5 text-xs">
+      <dt className="w-32 shrink-0 text-slate-400">{label}</dt>
+      <dd className="min-w-0 flex-1 break-words text-slate-700">{String(value)}</dd>
+    </div>
+  );
+}
+
+function MetricBadges({ node }: { node: VisualNode }) {
+  const chips = metricChips(node);
+  if (chips.length === 0) return null;
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {chips.map((chip) => <Badge key={chip} tone="neutral">{chip}</Badge>)}
+    </div>
+  );
+}
+
+function MetadataFallback({ node }: { node: VisualNode }) {
+  if (!node.metadata || Object.keys(node.metadata).length === 0) return null;
+  return (
+    <div className="mt-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Metadata</p>
+      <pre className="mt-1 max-h-48 overflow-auto rounded border border-slate-100 bg-slate-50 p-2 text-xs text-slate-600">
+        {JSON.stringify(node.metadata, null, 2)}
+      </pre>
     </div>
   );
 }
@@ -378,18 +517,93 @@ function CanvasInspector({
 
   if (node.kind === "evidence") {
     const parent = node.parentId ? findNode(graph, node.parentId) : undefined;
+    const statusValue = visualNodeStatusDefinition(node.status).label;
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-lg" data-testid="canvas-inspector">
-        <InspectorHeader label={node.label} id={node.id} statusDef={statusDef} onClose={onClose} />
+        <InspectorHeader label={node.identity.title} id={node.id} statusDef={statusDef} onClose={onClose} />
         <div className="mt-3 flex flex-wrap gap-2">
           <Badge tone="neutral">{typeDef.label}</Badge>
+          {node.identity.badge && <Badge tone="neutral">{node.identity.badge}</Badge>}
+          <Badge tone={statusDef.badgeTone}>{statusValue}</Badge>
           {typeof node.durationMs === "number" && <Badge tone="neutral">{formatDuration(node.durationMs)}</Badge>}
           {typeof node.costUsd === "number" && <Badge tone="neutral">{formatCurrency(node.costUsd)}</Badge>}
         </div>
+        <MetricBadges node={node} />
         {parent && (
           <p className="mt-3 text-xs text-slate-500">
             Parent stage: <span className="font-medium text-slate-700">{parent.label}</span>
           </p>
+        )}
+        <dl className="mt-4">
+          {node.type === "model" && (
+            <>
+              <DetailRow label="Provider" value={node.identity.providerLabel ?? "unknown"} />
+              <DetailRow label="Model" value={node.identity.modelName ?? "unknown"} />
+              <DetailRow label="Input tokens" value={node.metrics.inputTokens} />
+              <DetailRow label="Output tokens" value={node.metrics.outputTokens} />
+              <DetailRow label="Total tokens" value={node.metrics.totalTokens} />
+              <DetailRow label="Cost" value={typeof node.metrics.costUsd === "number" ? formatCurrency(node.metrics.costUsd) : undefined} />
+              <DetailRow label="Latency" value={typeof node.metrics.latencyMs === "number" ? formatDuration(node.metrics.latencyMs) : undefined} />
+            </>
+          )}
+          {node.type === "tool" && (
+            <>
+              <DetailRow label="Tool name" value={node.identity.toolName ?? node.identity.title} />
+              <DetailRow label="Subtype" value={node.identity.badge ?? "unknown tool"} />
+              <DetailRow label="Status" value={statusValue} />
+              <DetailRow label="Latency" value={typeof node.metrics.latencyMs === "number" ? formatDuration(node.metrics.latencyMs) : undefined} />
+              <DetailRow label="Retries" value={node.metrics.retryCount} />
+              <DetailRow label="Errors" value={node.metrics.errorCount} />
+            </>
+          )}
+          {node.type === "cli" && (
+            <>
+              <DetailRow label="Command" value={node.identity.commandSummary ?? node.identity.title} />
+              <DetailRow label="Type" value="CLI" />
+              <DetailRow label="Status" value={statusValue} />
+              <DetailRow label="Latency" value={typeof node.metrics.latencyMs === "number" ? formatDuration(node.metrics.latencyMs) : undefined} />
+            </>
+          )}
+          {node.type === "eval" && (
+            <>
+              <DetailRow label="Eval name" value={node.identity.evalName ?? node.identity.title} />
+              <DetailRow label="Subtype" value={node.identity.badge ?? "unknown eval"} />
+              <DetailRow label="Score" value={typeof node.metrics.score === "number" ? formatPercent(node.metrics.score) : undefined} />
+              <DetailRow label="Result" value={typeof node.metrics.passed === "boolean" ? (node.metrics.passed ? "pass" : "fail") : statusValue} />
+              <DetailRow label="Threshold" value={typeof node.metrics.threshold === "number" ? formatPercent(node.metrics.threshold) : undefined} />
+              <DetailRow label="Reason" value={node.metrics.reason} />
+            </>
+          )}
+          {node.type === "artifact" && (
+            <>
+              <DetailRow label="Artifact name" value={node.identity.artifactName ?? node.identity.title} />
+              <DetailRow label="Artifact type" value={node.identity.badge ?? "unknown artifact"} />
+              <DetailRow label="Size" value={typeof node.metrics.sizeBytes === "number" ? `${node.metrics.sizeBytes.toLocaleString()} bytes` : undefined} />
+              <DetailRow label="Content status" value={node.metrics.contentStatus} />
+              <DetailRow label="Producing stage" value={parent?.label ?? node.metrics.producingStageId} />
+            </>
+          )}
+          {(node.type === "issue" || node.type === "recovery") && (
+            <>
+              <DetailRow label="State" value={node.type === "recovery" ? "recovered" : statusValue} />
+              <DetailRow label="Reason" value={node.metrics.reason ?? node.detail} />
+              <DetailRow label="Recovered" value={node.recovered} />
+            </>
+          )}
+        </dl>
+        {node.inputSummary && (
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Input Summary</p>
+            <p className="mt-1 text-sm text-slate-700">{node.inputSummary}</p>
+          </div>
+        )}
+        {node.outputSummary && (
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {node.type === "artifact" ? "Preview" : "Output Summary"}
+            </p>
+            <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{node.outputSummary}</p>
+          </div>
         )}
         {node.detail && (
           <div className="mt-4">
@@ -397,6 +611,8 @@ function CanvasInspector({
             <p className="mt-1 text-sm text-slate-700">{node.detail}</p>
           </div>
         )}
+        {!node.outputSummary && node.type === "artifact" && <MetadataFallback node={node} />}
+        {node.type !== "artifact" && <MetadataFallback node={node} />}
         {node.rawEvents.length > 0 && (
           <div className="mt-4">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Raw Trace Events</p>
@@ -426,12 +642,21 @@ function CanvasInspector({
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-lg" data-testid="canvas-inspector">
-      <InspectorHeader label={node.label} id={node.id} statusDef={statusDef} onClose={onClose} />
+      <InspectorHeader label={node.identity.title} id={node.id} statusDef={statusDef} onClose={onClose} />
       <div className="mt-3 flex flex-wrap gap-2">
         <Badge tone="neutral">{typeDef.label}</Badge>
+        {node.identity.badge && <Badge tone="neutral">{node.identity.badge}</Badge>}
+        <Badge tone={statusDef.badgeTone}>{statusDef.label}</Badge>
         {node.kind === "internal" && <Badge tone="neutral">Not in spec</Badge>}
         {typeof node.durationMs === "number" && <Badge tone="neutral">{formatDuration(node.durationMs)}</Badge>}
       </div>
+
+      {(node.inputSummary || node.outputSummary) && (
+        <div className="mt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Summary</p>
+          <p className="mt-1 text-sm text-slate-700">{node.outputSummary ?? node.inputSummary}</p>
+        </div>
+      )}
 
       {(upstream.length > 0 || downstream.length > 0) && (
         <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
@@ -446,7 +671,7 @@ function CanvasInspector({
         </div>
       )}
 
-      {node.inputSummary && (
+      {node.inputSummary && node.outputSummary && (
         <div className="mt-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Input</p>
           <p className="mt-1 text-sm text-slate-700">{node.inputSummary}</p>
@@ -468,11 +693,17 @@ function CanvasInspector({
       <EvidenceGroup type="issue" items={issues} />
       <EvidenceGroup type="recovery" items={recoveries} />
 
-      {graph.internalNodes.length > 0 && (
-        <p className="mt-4 text-xs text-slate-400">
-          {graph.internalNodes.length} internal node{graph.internalNodes.length !== 1 ? "s" : ""} observed elsewhere in
-          this run — see Internal Observed Nodes below.
-        </p>
+      {graph.internalNodes.length > 0 && node.kind !== "internal" && (
+        <div className="mt-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Internal Observed Nodes</p>
+          <div className="flex flex-wrap gap-1.5">
+            {graph.internalNodes.map((internalNode) => (
+              <Badge key={internalNode.id} tone="neutral" className="text-[10px]">
+                {internalNode.label}
+              </Badge>
+            ))}
+          </div>
+        </div>
       )}
 
       {node.rawEvents.length > 0 && (
@@ -625,11 +856,55 @@ export interface VisualExecutionCanvasProps {
 
 export function VisualExecutionCanvas({ runGraph, traceEvents }: VisualExecutionCanvasProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filters, setFilters] = useState(DEFAULT_CANVAS_FILTERS);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState<1 | 2 | 4>(1);
+  const [replayIndex, setReplayIndex] = useState(-1);
+  const [flowInstance, setFlowInstance] = useState<ReactFlowInstance | null>(null);
 
   const visualGraph = useMemo(() => buildVisualRunGraph({ runGraph, traceEvents }), [runGraph, traceEvents]);
-  const layout = useMemo(() => layoutVisualGraph(visualGraph), [visualGraph]);
-  const flowNodes = useMemo(() => toFlowNodes(visualGraph, layout), [visualGraph, layout]);
-  const flowEdges = useMemo(() => toFlowEdges(visualGraph), [visualGraph]);
+  const replayEvents = useMemo(() => deriveVisualReplayEvents(visualGraph), [visualGraph]);
+  const effectiveReplayIndex = replayIndex < -1 ? -1 : Math.min(replayIndex, replayEvents.length - 1);
+  const replayFrame = useMemo(
+    () => buildReplayFrame(visualGraph, replayEvents, effectiveReplayIndex),
+    [visualGraph, replayEvents, effectiveReplayIndex],
+  );
+  const filteredGraph = useMemo(
+    () => filterVisualGraph(visualGraph, filters, selectedId),
+    [visualGraph, filters, selectedId],
+  );
+  const layout = useMemo(() => layoutVisualGraph(filteredGraph), [filteredGraph]);
+  const flowNodes = useMemo(() => toFlowNodes(filteredGraph, layout, replayFrame), [filteredGraph, layout, replayFrame]);
+  const flowEdges = useMemo(() => toFlowEdges(filteredGraph, replayFrame), [filteredGraph, replayFrame]);
+
+  useEffect(() => {
+    setReplayIndex(replayEvents.length - 1);
+    setPlaying(false);
+  }, [replayEvents.length]);
+
+  useEffect(() => {
+    if (!playing) return;
+    if (effectiveReplayIndex >= replayEvents.length - 1) {
+      setPlaying(false);
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      setReplayIndex((index) => Math.min(index + 1, replayEvents.length - 1));
+    }, 900 / speed);
+    return () => window.clearTimeout(timeout);
+  }, [playing, effectiveReplayIndex, replayEvents.length, speed]);
+
+  useEffect(() => {
+    if (!flowInstance || !replayFrame.activeNodeId) return;
+    const node = flowNodes.find((candidate) => candidate.id === replayFrame.activeNodeId);
+    if (!node) return;
+    const width = node.type === "primary" ? STAGE_W : EVIDENCE_W;
+    const height = node.type === "primary" ? STAGE_H : EVIDENCE_H;
+    void flowInstance.setCenter(node.position.x + width / 2, node.position.y + height / 2, {
+      zoom: 1,
+      duration: 250,
+    });
+  }, [flowInstance, flowNodes, replayFrame.activeNodeId]);
 
   if (visualGraph.primaryNodes.length === 0 && visualGraph.internalNodes.length === 0) {
     return (
@@ -673,6 +948,37 @@ export function VisualExecutionCanvas({ runGraph, traceEvents }: VisualExecution
         )}
       </div>
 
+      <ReplayControls
+        events={replayEvents}
+        currentIndex={effectiveReplayIndex}
+        playing={playing}
+        speed={speed}
+        onPlay={() => {
+          if (effectiveReplayIndex >= replayEvents.length - 1) setReplayIndex(-1);
+          setPlaying(true);
+        }}
+        onPause={() => setPlaying(false)}
+        onReset={() => {
+          setPlaying(false);
+          setReplayIndex(-1);
+        }}
+        onStepForward={() => {
+          setPlaying(false);
+          setReplayIndex((index) => Math.min(index + 1, replayEvents.length - 1));
+        }}
+        onStepBackward={() => {
+          setPlaying(false);
+          setReplayIndex((index) => Math.max(index - 1, -1));
+        }}
+        onScrub={(index) => {
+          setPlaying(false);
+          setReplayIndex(index);
+        }}
+        onSpeedChange={setSpeed}
+      />
+
+      <CanvasFilters filters={filters} onChange={setFilters} />
+
       <div
         className="rounded-xl border border-slate-200 bg-slate-50"
         style={{ height: 560 }}
@@ -683,6 +989,7 @@ export function VisualExecutionCanvas({ runGraph, traceEvents }: VisualExecution
           edges={flowEdges}
           nodeTypes={NODE_TYPES}
           onNodeClick={handleNodeClick}
+          onInit={setFlowInstance}
           nodesDraggable={false}
           nodesConnectable={false}
           edgesFocusable={false}
@@ -705,7 +1012,7 @@ export function VisualExecutionCanvas({ runGraph, traceEvents }: VisualExecution
       )}
 
       <InternalNodesPanel
-        nodes={visualGraph.internalNodes}
+        nodes={filteredGraph.internalNodes}
         selectedId={selectedId}
         onSelect={(id) => setSelectedId((prev) => (prev === id ? null : id))}
       />

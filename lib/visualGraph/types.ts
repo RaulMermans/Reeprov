@@ -57,6 +57,81 @@ export interface VisualEvidenceCounts {
   issues: number;
 }
 
+export type VisualModelProvider =
+  | "openai"
+  | "anthropic"
+  | "google"
+  | "meta"
+  | "mistral"
+  | "local"
+  | "mock"
+  | "unknown";
+
+export type VisualToolSubtype =
+  | "web_search"
+  | "webpage_extract"
+  | "browser"
+  | "filesystem"
+  | "database"
+  | "github"
+  | "http_api"
+  | "scraper"
+  | "validator"
+  | "unknown_tool";
+
+export type VisualEvalSubtype =
+  | "quality"
+  | "factuality"
+  | "publishability"
+  | "contract"
+  | "safety"
+  | "source_evidence"
+  | "unknown_eval";
+
+export type VisualArtifactType =
+  | "markdown"
+  | "json"
+  | "report"
+  | "file"
+  | "image"
+  | "dataset"
+  | "unknown_artifact";
+
+export interface VisualNodeIdentity {
+  title: string;
+  typeLabel: string;
+  badge?: string;
+  provider?: VisualModelProvider;
+  providerLabel?: string;
+  modelName?: string;
+  toolName?: string;
+  toolSubtype?: VisualToolSubtype;
+  skillName?: string;
+  skillSubtype?: string;
+  commandSummary?: string;
+  evalName?: string;
+  evalSubtype?: VisualEvalSubtype;
+  artifactName?: string;
+  artifactType?: VisualArtifactType;
+}
+
+export interface VisualNodeMetrics {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  latencyMs?: number;
+  costUsd?: number;
+  retryCount?: number;
+  errorCount?: number;
+  score?: number;
+  passed?: boolean;
+  threshold?: number;
+  sizeBytes?: number;
+  contentStatus?: string;
+  reason?: string;
+  producingStageId?: string;
+}
+
 // ── Nodes ─────────────────────────────────────────────────────────────────────
 
 export interface VisualNode {
@@ -69,6 +144,9 @@ export interface VisualNode {
   groupId: string;
   /** Set for evidence nodes — the id of the primary/internal node they're attached to. */
   parentId?: string;
+  identity: VisualNodeIdentity;
+  metrics: VisualNodeMetrics;
+  metadata?: Record<string, unknown>;
   durationMs?: number;
   costUsd?: number;
   inputSummary?: string;
