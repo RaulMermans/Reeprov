@@ -10,6 +10,7 @@ const FILTERS: Array<{ key: keyof CanvasFilterState; label: string }> = [
   { key: "evals", label: "Evals" },
   { key: "artifacts", label: "Artifacts" },
   { key: "issues", label: "Issues/Recoveries" },
+  { key: "agents", label: "Agents" },
   { key: "internal", label: "Internal nodes" },
   { key: "failedOnly", label: "Failed/recovered path" },
   { key: "neighborhood", label: "Selected neighborhood" },

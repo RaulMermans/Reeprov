@@ -607,3 +607,68 @@ describe("buildRunGraph — graph metadata", () => {
     expect(graph.summary.totalArtifacts).toBeGreaterThan(0);
   });
 });
+
+// ── Agent attachment extraction ────────────────────────────────────────────────
+
+describe("buildRunGraph — agent attachment extraction", () => {
+  it("creates one deduped 'agent' attachment per stage from generic agent metadata", () => {
+    const traceEvents: TraceEvent[] = [
+      makeEvent({ event_id: "e1", event_type: "node_started", node_id: "stage_a", timestamp: "2026-06-01T10:00:00.000Z", metadata: { agent_name: "Writer Agent", role: "writer" } }),
+      makeEvent({ event_id: "e2", event_type: "model_call_completed", node_id: "stage_a", timestamp: "2026-06-01T10:00:01.000Z", metadata: { agent_name: "Writer Agent" } }),
+      makeEvent({ event_id: "e3", event_type: "node_completed", node_id: "stage_a", timestamp: "2026-06-01T10:00:02.000Z" }),
+    ];
+    const graph = buildRunGraph(baseParams({ traceEvents }));
+    const stage = graph.nodes.find((n) => n.id === "stage_a")!;
+    const agentAttachments = stage.attachments.filter((a) => a.kind === "agent");
+    expect(agentAttachments).toHaveLength(1);
+    expect(agentAttachments[0].label).toBe("Writer Agent");
+    expect(agentAttachments[0].metadata).toMatchObject({ agent_name: "Writer Agent", role: "writer", action_count: 2 });
+    expect(stage.agentCount).toBe(1);
+  });
+
+  it("supports more than one agent per stage when the events reflect that", () => {
+    const traceEvents: TraceEvent[] = [
+      makeEvent({ event_id: "e1", event_type: "node_started", node_id: "stage_a", timestamp: "2026-06-01T10:00:00.000Z", metadata: { agent: "Agent One" } }),
+      makeEvent({ event_id: "e2", event_type: "node_completed", node_id: "stage_a", timestamp: "2026-06-01T10:00:01.000Z", metadata: { agent: "Agent Two" } }),
+    ];
+    const graph = buildRunGraph(baseParams({ traceEvents }));
+    const stage = graph.nodes.find((n) => n.id === "stage_a")!;
+    expect(stage.agentCount).toBe(2);
+  });
+
+  it("never invents an agent attachment when no agent metadata is present", () => {
+    const traceEvents: TraceEvent[] = [
+      makeEvent({ event_id: "e1", event_type: "node_started", node_id: "stage_a", timestamp: "2026-06-01T10:00:00.000Z" }),
+      makeEvent({ event_id: "e2", event_type: "node_completed", node_id: "stage_a", timestamp: "2026-06-01T10:00:01.000Z" }),
+    ];
+    const graph = buildRunGraph(baseParams({ traceEvents }));
+    const stage = graph.nodes.find((n) => n.id === "stage_a")!;
+    expect(stage.agentCount).toBe(0);
+    expect(stage.attachments.some((a) => a.kind === "agent")).toBe(false);
+  });
+});
+
+// ── Reasoning / decision notes ───────────────────────────────────────────────
+
+describe("buildRunGraph — reasoning notes on nodes", () => {
+  it("attaches user-safe notes to the owning node", () => {
+    const traceEvents: TraceEvent[] = [
+      makeEvent({
+        event_id: "note1",
+        event_type: "agent_note_recorded",
+        node_id: "stage_a",
+        timestamp: "2026-06-01T10:00:00.000Z",
+        metadata: { note_type: "decision", summary: "Chose route B for higher conversion.", visibility: "user_safe" },
+      }),
+    ];
+    const graph = buildRunGraph(baseParams({ traceEvents }));
+    const stage = graph.nodes.find((n) => n.id === "stage_a")!;
+    expect(stage.notes).toHaveLength(1);
+    expect(stage.notes[0].noteType).toBe("decision");
+  });
+
+  it("defaults notes to an empty array", () => {
+    const graph = buildRunGraph(baseParams());
+    expect(graph.nodes.every((n) => Array.isArray(n.notes))).toBe(true);
+  });
+});

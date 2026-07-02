@@ -100,8 +100,28 @@ export const traceEventTypeSchema = z.enum([
   "approval_requested", "approval_granted", "approval_rejected",
   "artifact_created",
   "retry_started",
+  "agent_note_recorded",
   "error",
 ]);
+
+// ── Agent notes ────────────────────────────────────────────────────────────
+//
+// Optional, user-safe reasoning/decision summaries an integration may attach
+// to an "agent_note_recorded" trace event's metadata. Never hidden
+// chain-of-thought — only a structured, integration-authored summary.
+// visibility must be exactly "user_safe" for AgentPulse to ever render it;
+// anything else (or missing) is treated as not safe to display.
+
+export const agentNoteTypeSchema = z.enum(["plan", "decision", "critique", "recovery", "confidence", "risk"]);
+export const agentNoteConfidenceSchema = z.enum(["low", "medium", "high"]);
+
+export const agentNoteMetadataSchema = z.object({
+  note_type: agentNoteTypeSchema,
+  agent: z.string().optional(),
+  summary: z.string().min(1),
+  confidence: agentNoteConfidenceSchema.optional(),
+  visibility: z.literal("user_safe"),
+});
 
 export const traceEventSchema = z.object({
   event_id: z.string(),
@@ -190,3 +210,6 @@ export type TraceEvent = z.infer<typeof traceEventSchema>;
 export type ToolCallRecord = z.infer<typeof toolCallRecordSchema>;
 export type EvalResult = z.infer<typeof evalResultSchema>;
 export type RunRecord = z.infer<typeof runRecordSchema>;
+export type AgentNoteType = z.infer<typeof agentNoteTypeSchema>;
+export type AgentNoteConfidence = z.infer<typeof agentNoteConfidenceSchema>;
+export type AgentNoteMetadata = z.infer<typeof agentNoteMetadataSchema>;

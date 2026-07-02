@@ -20,7 +20,7 @@ function node(id: string, type: VisualNode["type"], kind: VisualNode["kind"], pa
 
 function graph(): VisualRunGraph {
   const primary = node("stage-a", "stage", "primary");
-  const evidenceTypes: VisualNode["type"][] = ["model", "tool", "skill", "cli", "eval", "artifact", "issue", "recovery"];
+  const evidenceTypes: VisualNode["type"][] = ["model", "tool", "skill", "cli", "eval", "artifact", "issue", "recovery", "agent"];
   const evidenceNodes = evidenceTypes.map((type) => node(`${type}-1`, type, "evidence", primary.id));
   return {
     workflowId: "wf",
@@ -35,7 +35,7 @@ function graph(): VisualRunGraph {
       id: `edge-${evidence.id}`,
       from: primary.id,
       to: evidence.id,
-      type: evidence.type === "artifact" ? "produces" : evidence.type === "eval" ? "evaluates" : "uses",
+      type: evidence.type === "artifact" ? "produces" : evidence.type === "eval" ? "evaluates" : evidence.type === "agent" ? "contains" : "uses",
     })),
     summary: {
       totalStages: 1,
@@ -63,6 +63,7 @@ describe("visual canvas filters", () => {
       ["evals", ["eval"]],
       ["artifacts", ["artifact"]],
       ["issues", ["issue", "recovery"]],
+      ["agents", ["agent"]],
     ];
     for (const [key, hiddenTypes] of cases) {
       const filtered = filterVisualGraph(g, { ...DEFAULT_CANVAS_FILTERS, [key]: false });
@@ -81,7 +82,7 @@ describe("visual canvas filters", () => {
     const g = graph();
     const filtered = filterVisualGraph(g, { ...DEFAULT_CANVAS_FILTERS, failedOnly: true });
     expect(filtered.evidenceNodes.map((node) => node.type).sort()).toEqual(["issue", "recovery"]);
-    expect(g.evidenceNodes).toHaveLength(8);
+    expect(g.evidenceNodes).toHaveLength(9);
   });
 
   it("keeps selected node neighborhood visible when requested", () => {

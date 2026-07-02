@@ -10,6 +10,7 @@
 
 import type { TraceEvent } from "@/lib/proof-layer/schemas";
 import type { RunGraphSummary } from "@/lib/runs/runGraph";
+import type { AgentNote } from "@/lib/runs/agentNotes";
 
 // ── Node vocabulary ───────────────────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ export interface VisualEvidenceCounts {
   cli: number;
   artifacts: number;
   issues: number;
+  agents: number;
 }
 
 export type VisualModelProvider =
@@ -113,6 +115,12 @@ export interface VisualNodeIdentity {
   evalSubtype?: VisualEvalSubtype;
   artifactName?: string;
   artifactType?: VisualArtifactType;
+  /** Attached-agent evidence nodes and agent-aware stage nodes. */
+  agentName?: string;
+  agentRole?: string;
+  agentOwner?: string;
+  /** Attached-agent evidence nodes — count of trace events attributed to this agent within the stage. */
+  agentActionCount?: number;
 }
 
 export interface VisualNodeMetrics {
@@ -160,6 +168,8 @@ export interface VisualNode {
   /** Primary/internal nodes only — ids of upstream/downstream primary nodes. */
   upstreamIds?: string[];
   downstreamIds?: string[];
+  /** Primary/internal nodes only — user-safe reasoning/decision notes attributed to this node. */
+  notes?: AgentNote[];
   /** Raw trace events relevant to this node, for inspector detail. */
   rawEvents: TraceEvent[];
 }

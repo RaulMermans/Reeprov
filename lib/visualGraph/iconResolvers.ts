@@ -12,24 +12,24 @@ import {
   GitBranch,
   Globe,
   HardDrive,
-  Layers,
   type LucideIcon,
   Package,
+  Puzzle,
   RefreshCw,
   Search,
   ServerCog,
   ShieldCheck,
-  Sparkles,
   Terminal,
+  Workflow,
   Wrench,
 } from "lucide-react";
 import type { VisualNode } from "@/lib/visualGraph/types";
 
 export function visualNodeIcon(node: VisualNode): LucideIcon {
-  if (node.type === "stage") return Layers;
+  if (node.type === "stage") return Workflow;
   if (node.type === "agent") return Bot;
   if (node.type === "model") return BrainCircuit;
-  if (node.type === "skill") return Sparkles;
+  if (node.type === "skill") return Puzzle;
   if (node.type === "cli") return Terminal;
   if (node.type === "issue") return AlertTriangle;
   if (node.type === "recovery") return RefreshCw;

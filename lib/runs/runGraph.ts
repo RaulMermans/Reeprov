@@ -26,6 +26,8 @@ import {
   groupTraceEventsIntoStages,
 } from "@/lib/runs/runIntelligence";
 import type { ArtifactCard, RunIssue, RunStage } from "@/lib/runs/runIntelligence";
+import { extractAgentNotes } from "@/lib/runs/agentNotes";
+import type { AgentNote } from "@/lib/runs/agentNotes";
 
 // ── Node types ────────────────────────────────────────────────────────────────
 
@@ -50,7 +52,7 @@ export type RunGraphNodeStatus =
 
 // ── Attachments — sub-items associated with a graph node ─────────────────────
 
-export type RunGraphAttachmentKind = "model_call" | "tool_call" | "skill" | "cli" | "eval" | "artifact" | "issue";
+export type RunGraphAttachmentKind = "model_call" | "tool_call" | "skill" | "cli" | "eval" | "artifact" | "issue" | "agent";
 
 export interface RunGraphAttachment {
   id: string;
@@ -88,7 +90,10 @@ export interface RunGraphNode {
   cliCount: number;
   artifactCount: number;
   issueCount: number;
+  agentCount: number;
   attachments: RunGraphAttachment[];
+  /** User-safe reasoning/decision notes attributed to this node, if any were emitted. */
+  notes: AgentNote[];
 }
 
 // ── Edges ─────────────────────────────────────────────────────────────────────
@@ -417,6 +422,60 @@ function buildIssueAttachments(
     }));
 }
 
+// ── Agent attachment builder ──────────────────────────────────────────────────
+//
+// Surfaces agent identity when a stage's trace events carry generic agent
+// metadata (agent/agent_id/agent_name/role/owner/actor). Purely metadata-key
+// driven — never invents an agent when no such metadata is present, and
+// supports more than one agent per stage should the events reflect that.
+
+const AGENT_NAME_KEYS = ["agent_name", "agent", "actor", "agent_id"] as const;
+
+function resolveAgentName(metadata: Record<string, unknown> | undefined): string | undefined {
+  for (const key of AGENT_NAME_KEYS) {
+    const value = metadata?.[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
+function slugify(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
+
+function buildAgentAttachments(events: TraceEvent[]): RunGraphAttachment[] {
+  const byName = new Map<string, { events: TraceEvent[]; role?: string; owner?: string }>();
+
+  for (const event of events) {
+    const name = resolveAgentName(event.metadata);
+    if (!name) continue;
+    const role = typeof event.metadata?.["role"] === "string" ? (event.metadata["role"] as string) : undefined;
+    const owner = typeof event.metadata?.["owner"] === "string" ? (event.metadata["owner"] as string) : undefined;
+    const entry = byName.get(name);
+    if (entry) {
+      entry.events.push(event);
+      entry.role = entry.role ?? role;
+      entry.owner = entry.owner ?? owner;
+    } else {
+      byName.set(name, { events: [event], role, owner });
+    }
+  }
+
+  return [...byName.entries()].map(([name, entry]) => ({
+    id: `agent_${slugify(name)}`,
+    kind: "agent" as const,
+    label: name,
+    detail: `${entry.events.length} action${entry.events.length === 1 ? "" : "s"}`,
+    metadata: {
+      agent_name: name,
+      role: entry.role,
+      owner: entry.owner,
+      action_count: entry.events.length,
+    },
+    rawEvents: entry.events,
+  }));
+}
+
 // ── Edge builder ──────────────────────────────────────────────────────────────
 
 function buildEdges(
@@ -544,6 +603,7 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
     const evalAttachments = buildEvalAttachments(c.id, evalResults);
     const artifactAttachments = buildArtifactAttachments(stageEvents);
     const issueAttachments = buildIssueAttachments(c.id, issues);
+    const agentAttachments = buildAgentAttachments(stageEvents);
 
     const status: RunGraphNodeStatus = c.stage
       ? (c.stage.status as RunGraphNodeStatus)
@@ -572,6 +632,7 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
       cliCount: cliAttachments.length,
       artifactCount: artifactAttachments.length,
       issueCount: issueAttachments.length,
+      agentCount: agentAttachments.length,
       attachments: [
         ...modelAttachments,
         ...toolAttachments,
@@ -580,7 +641,9 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
         ...evalAttachments,
         ...artifactAttachments,
         ...issueAttachments,
+        ...agentAttachments,
       ],
+      notes: extractAgentNotes(stageEvents),
     };
   });
 
@@ -594,6 +657,7 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
     const evalAttachments = buildEvalAttachments(c.id, evalResults);
     const artifactAttachments = buildArtifactAttachments(stageEvents);
     const issueAttachments = buildIssueAttachments(c.id, issues);
+    const agentAttachments = buildAgentAttachments(stageEvents);
     const lane = laneEntries.get(c.id) ?? { id: DEFAULT_LANE_ID, label: DEFAULT_LANE_LABEL };
 
     return {
@@ -613,6 +677,7 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
       cliCount: cliAttachments.length,
       artifactCount: artifactAttachments.length,
       issueCount: issueAttachments.length,
+      agentCount: agentAttachments.length,
       attachments: [
         ...modelAttachments,
         ...toolAttachments,
@@ -621,7 +686,9 @@ export function buildRunGraph(params: BuildRunGraphParams): RunGraph {
         ...evalAttachments,
         ...artifactAttachments,
         ...issueAttachments,
+        ...agentAttachments,
       ],
+      notes: extractAgentNotes(stageEvents),
     };
   });
 

@@ -307,3 +307,119 @@ describe("buildVisualRunGraph — groups and summary", () => {
     expect(graph.evidenceEdges).toEqual([]);
   });
 });
+
+// ── Agent visibility ─────────────────────────────────────────────────────────
+
+describe("buildVisualRunGraph — agent visibility", () => {
+  const specNodes: WorkflowNode[] = [{ id: "stage_a", type: "llm", label: "Stage A" }];
+
+  it("creates an 'agent' evidence node with a 'contains' edge when agent metadata is present", () => {
+    const graph = buildVisual(
+      baseParams({
+        specNodes,
+        traceEvents: [
+          makeEvent({
+            event_id: "e1",
+            event_type: "node_started",
+            node_id: "stage_a",
+            timestamp: "2026-06-01T10:00:01.000Z",
+            metadata: { agent_name: "Writer Agent", role: "writer", owner: "content-team" },
+          }),
+        ],
+      }),
+    );
+    const agentNode = graph.evidenceNodes.find((n) => n.type === "agent");
+    expect(agentNode).toBeDefined();
+    expect(agentNode!.parentId).toBe("stage_a");
+    expect(agentNode!.identity.agentName).toBe("Writer Agent");
+    expect(agentNode!.identity.agentRole).toBe("writer");
+    expect(agentNode!.identity.agentOwner).toBe("content-team");
+    const edge = graph.evidenceEdges.find((e) => e.to === agentNode!.id);
+    expect(edge).toMatchObject({ from: "stage_a", type: "contains" });
+  });
+
+  it("also surfaces agent identity directly on the owning stage node", () => {
+    const graph = buildVisual(
+      baseParams({
+        specNodes,
+        traceEvents: [
+          makeEvent({
+            event_id: "e1",
+            event_type: "node_started",
+            node_id: "stage_a",
+            timestamp: "2026-06-01T10:00:01.000Z",
+            metadata: { agent: "Researcher Agent", role: "researcher" },
+          }),
+        ],
+      }),
+    );
+    const stage = graph.primaryNodes.find((n) => n.id === "stage_a")!;
+    expect(stage.identity.agentName).toBe("Researcher Agent");
+    expect(stage.identity.agentRole).toBe("researcher");
+  });
+
+  it("never invents an agent node when no agent metadata is present", () => {
+    const graph = buildVisual(
+      baseParams({
+        specNodes,
+        traceEvents: [
+          makeEvent({ event_id: "e1", event_type: "node_started", node_id: "stage_a", timestamp: "2026-06-01T10:00:01.000Z" }),
+        ],
+      }),
+    );
+    expect(graph.evidenceNodes.some((n) => n.type === "agent")).toBe(false);
+    const stage = graph.primaryNodes.find((n) => n.id === "stage_a")!;
+    expect(stage.identity.agentName).toBeUndefined();
+  });
+});
+
+// ── Reasoning / decision notes ───────────────────────────────────────────────
+
+describe("buildVisualRunGraph — reasoning notes", () => {
+  const specNodes: WorkflowNode[] = [{ id: "stage_a", type: "llm", label: "Stage A" }];
+
+  it("carries user-safe agent notes onto the owning primary node", () => {
+    const graph = buildVisual(
+      baseParams({
+        specNodes,
+        traceEvents: [
+          makeEvent({
+            event_id: "note1",
+            event_type: "agent_note_recorded",
+            node_id: "stage_a",
+            timestamp: "2026-06-01T10:00:01.000Z",
+            metadata: { note_type: "plan", agent: "Writer Agent", summary: "Outline before drafting.", confidence: "high", visibility: "user_safe" },
+          }),
+        ],
+      }),
+    );
+    const stage = graph.primaryNodes.find((n) => n.id === "stage_a")!;
+    expect(stage.notes).toHaveLength(1);
+    expect(stage.notes![0]).toMatchObject({ noteType: "plan", agent: "Writer Agent", summary: "Outline before drafting.", confidence: "high" });
+  });
+
+  it("drops notes without visibility: user_safe", () => {
+    const graph = buildVisual(
+      baseParams({
+        specNodes,
+        traceEvents: [
+          makeEvent({
+            event_id: "note1",
+            event_type: "agent_note_recorded",
+            node_id: "stage_a",
+            timestamp: "2026-06-01T10:00:01.000Z",
+            metadata: { note_type: "plan", summary: "Should not render.", visibility: "internal_only" },
+          }),
+        ],
+      }),
+    );
+    const stage = graph.primaryNodes.find((n) => n.id === "stage_a")!;
+    expect(stage.notes).toEqual([]);
+  });
+
+  it("defaults to an empty notes array when no notes are emitted", () => {
+    const graph = buildVisual(baseParams({ specNodes }));
+    const stage = graph.primaryNodes.find((n) => n.id === "stage_a")!;
+    expect(stage.notes).toEqual([]);
+  });
+});

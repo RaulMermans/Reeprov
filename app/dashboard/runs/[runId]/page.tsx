@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
@@ -27,6 +27,7 @@ import {
   workflowSourceLabel,
 } from "@/lib/runs/runIntelligence";
 import { buildRunGraph } from "@/lib/runs/runGraph";
+import { useLiveRunPolling, type LiveRunPollingPayload } from "@/lib/runs/useLiveRunPolling";
 import { mergeAuthHeaders } from "@/lib/auth/internalKey";
 import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
 import { getBuiltInWorkflowSpec } from "@/lib/workflows/builtInWorkflowSpecs";
@@ -185,6 +186,32 @@ export default function RunDetailPage() {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runId]);
+
+  // Live run polling — while a live (non-example) run is still "running",
+  // refetch the run detail route on an interval so the canvas can follow new
+  // trace events as they arrive. No-op for example data, seeded/demo runs
+  // that already finished, or completed/failed/degraded runs.
+  const handleLiveUpdate = useCallback((data: LiveRunPollingPayload) => {
+    const sortedEvents = [...(data.traceEvents ?? [])].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    setState((prev) =>
+      prev
+        ? {
+            ...prev,
+            run: data.runRecord,
+            traceEvents: sortedEvents,
+            toolCalls: data.toolCalls ?? [],
+            evalResults: data.evalResults ?? [],
+          }
+        : prev,
+    );
+  }, []);
+
+  useLiveRunPolling({
+    runId,
+    enabled: Boolean(state?.isLive && state.run.status === "running"),
+    onUpdate: handleLiveUpdate,
+    onUnauthorized: () => onUnauthorized("Access key expired or invalid. Please unlock again."),
+  });
 
   if (loading) {
     return (
@@ -395,7 +422,7 @@ export default function RunDetailPage() {
           {showLegacyGraph ? (
             <RunWorkflowGraph graph={runGraph} />
           ) : (
-            <VisualExecutionCanvas runGraph={runGraph} traceEvents={traceEvents} />
+            <VisualExecutionCanvas runGraph={runGraph} traceEvents={traceEvents} runStatus={run.status} />
           )}
         </div>
         <button

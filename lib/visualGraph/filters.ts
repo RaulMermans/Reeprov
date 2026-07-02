@@ -8,6 +8,7 @@ export interface CanvasFilterState {
   evals: boolean;
   artifacts: boolean;
   issues: boolean;
+  agents: boolean;
   internal: boolean;
   failedOnly: boolean;
   neighborhood: boolean;
@@ -21,6 +22,7 @@ export const DEFAULT_CANVAS_FILTERS: CanvasFilterState = {
   evals: true,
   artifacts: true,
   issues: true,
+  agents: true,
   internal: true,
   failedOnly: false,
   neighborhood: false,
@@ -34,6 +36,7 @@ function evidenceTypeVisible(node: VisualNode, filters: CanvasFilterState): bool
   if (node.type === "eval") return filters.evals;
   if (node.type === "artifact") return filters.artifacts;
   if (node.type === "issue" || node.type === "recovery") return filters.issues;
+  if (node.type === "agent") return filters.agents;
   return true;
 }
 

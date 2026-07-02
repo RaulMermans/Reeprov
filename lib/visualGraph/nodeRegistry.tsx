@@ -8,11 +8,11 @@
  */
 
 import {
-  Layers,
+  Workflow,
   Bot,
   BrainCircuit,
   Wrench,
-  Sparkles,
+  Puzzle,
   Terminal,
   ShieldCheck,
   Package,
@@ -44,7 +44,7 @@ export const VISUAL_NODE_REGISTRY: Record<VisualNodeType, VisualNodeTypeDefiniti
     type: "stage",
     label: "Stage",
     pluralLabel: "Stages",
-    icon: Layers,
+    icon: Workflow,
     accentClass: "text-slate-600",
     bgClass: "bg-slate-50",
     borderClass: "border-slate-300",
@@ -84,7 +84,7 @@ export const VISUAL_NODE_REGISTRY: Record<VisualNodeType, VisualNodeTypeDefiniti
     type: "skill",
     label: "Skill",
     pluralLabel: "Skills",
-    icon: Sparkles,
+    icon: Puzzle,
     accentClass: "text-purple-600",
     bgClass: "bg-purple-50",
     borderClass: "border-purple-300",

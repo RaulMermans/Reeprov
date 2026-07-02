@@ -34,7 +34,9 @@ import { CanvasFilters } from "@/components/proof-layer/CanvasFilters";
 import { ReplayControls } from "@/components/proof-layer/ReplayControls";
 import { formatDuration, formatCurrency, formatDateTime, formatPercent } from "@/components/proof-layer/format";
 import type { RunGraph } from "@/lib/runs/runGraph";
-import type { TraceEvent } from "@/lib/proof-layer/schemas";
+import type { RunRecord, TraceEvent } from "@/lib/proof-layer/schemas";
+import type { AgentNote } from "@/lib/runs/agentNotes";
+import type { AgentNoteType } from "@/lib/proof-layer/schemas";
 import { buildVisualRunGraph } from "@/lib/visualGraph/buildVisualRunGraph";
 import type { VisualEdgeType, VisualNode, VisualNodeType, VisualRunGraph } from "@/lib/visualGraph/types";
 import { DEFAULT_CANVAS_FILTERS, filterVisualGraph } from "@/lib/visualGraph/filters";
@@ -42,6 +44,7 @@ import { buildReplayFrame, deriveVisualReplayEvents, type VisualReplayFrame } fr
 import { visualNodeIcon } from "@/lib/visualGraph/iconResolvers";
 import {
   evidenceCountLabel,
+  VISUAL_NODE_REGISTRY,
   visualNodeStatusDefinition,
   visualNodeTypeDefinition,
 } from "@/lib/visualGraph/nodeRegistry";
@@ -245,6 +248,12 @@ function PrimaryNodeCard({ data, selected }: NodeProps<PrimaryFlowNode>) {
         </span>
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 text-xs font-semibold leading-tight text-slate-900">{node.identity.title}</p>
+          {node.identity.agentName && (
+            <p className="mt-0.5 truncate text-[10px] text-indigo-600">
+              Agent: {node.identity.agentName}
+              {node.identity.agentRole ? ` · role: ${node.identity.agentRole}` : ""}
+            </p>
+          )}
           <div className="mt-1 flex flex-wrap gap-1">
             <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
               {node.identity.typeLabel}
@@ -266,6 +275,7 @@ function PrimaryNodeCard({ data, selected }: NodeProps<PrimaryFlowNode>) {
       )}
       {counts && (
         <div className="mt-2 flex flex-wrap gap-1">
+          {counts.agents > 0 && <EvidencePill type="agent" count={counts.agents} />}
           {counts.models > 0 && <EvidencePill type="model" count={counts.models} />}
           {counts.tools > 0 && <EvidencePill type="tool" count={counts.tools} />}
           {counts.evals > 0 && <EvidencePill type="eval" count={counts.evals} />}
@@ -471,6 +481,54 @@ function EvidenceGroup({ type, items }: { type: VisualNodeType; items: VisualNod
   );
 }
 
+const NOTE_TYPE_LABELS: Record<AgentNoteType, string> = {
+  plan: "Plan",
+  decision: "Decision",
+  critique: "Critique",
+  recovery: "Recovery note",
+  confidence: "Confidence",
+  risk: "Risk",
+};
+
+/**
+ * Reasoning / Decision Log — renders only structured, integration-authored,
+ * user-safe note summaries (never hidden chain-of-thought). Always renders,
+ * with a clean empty state, so the feature's presence is never ambiguous.
+ */
+function ReasoningLog({ notes }: { notes?: AgentNote[] }) {
+  const list = notes ?? [];
+  return (
+    <div className="mt-4" data-testid="reasoning-log">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Reasoning / Decision Log</p>
+      {list.length === 0 ? (
+        <p className="text-xs text-slate-400" data-testid="reasoning-log-empty">
+          No reasoning notes recorded for this run.
+        </p>
+      ) : (
+        <div className="grid gap-1.5">
+          {list.map((note) => (
+            <div key={note.id} className="rounded border border-slate-100 bg-slate-50 px-3 py-2" data-testid={`reasoning-note-${note.id}`}>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone="neutral" className="text-[10px]">{NOTE_TYPE_LABELS[note.noteType]}</Badge>
+                {note.agent && <span className="text-xs text-slate-500">{note.agent}</span>}
+                {note.confidence && (
+                  <Badge
+                    tone={note.confidence === "high" ? "success" : note.confidence === "low" ? "warning" : "neutral"}
+                    className="text-[10px]"
+                  >
+                    {note.confidence} confidence
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-slate-700">{note.summary}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DetailRow({ label, value }: { label: string; value?: string | number | boolean | null }) {
   if (value === undefined || value === null || value === "") return null;
   return (
@@ -590,6 +648,14 @@ function CanvasInspector({
               <DetailRow label="Recovered" value={node.recovered} />
             </>
           )}
+          {node.type === "agent" && (
+            <>
+              <DetailRow label="Agent" value={node.identity.agentName ?? node.identity.title} />
+              <DetailRow label="Role" value={node.identity.agentRole} />
+              <DetailRow label="Owner" value={node.identity.agentOwner} />
+              <DetailRow label="Actions" value={node.identity.agentActionCount} />
+            </>
+          )}
         </dl>
         {node.inputSummary && (
           <div className="mt-4">
@@ -628,6 +694,7 @@ function CanvasInspector({
   }
 
   // Primary / internal node.
+  const agents = graph.evidenceNodes.filter((n) => n.parentId === node.id && n.type === "agent");
   const models = graph.evidenceNodes.filter((n) => n.parentId === node.id && n.type === "model");
   const tools = graph.evidenceNodes.filter((n) => n.parentId === node.id && n.type === "tool");
   const skills = graph.evidenceNodes.filter((n) => n.parentId === node.id && n.type === "skill");
@@ -650,6 +717,14 @@ function CanvasInspector({
         {node.kind === "internal" && <Badge tone="neutral">Not in spec</Badge>}
         {typeof node.durationMs === "number" && <Badge tone="neutral">{formatDuration(node.durationMs)}</Badge>}
       </div>
+
+      {node.identity.agentName && (
+        <div className="mt-3 rounded border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
+          <span className="font-medium">Agent:</span> {node.identity.agentName}
+          {node.identity.agentRole ? <span> · role: {node.identity.agentRole}</span> : null}
+          {node.identity.agentOwner ? <span> · owner: {node.identity.agentOwner}</span> : null}
+        </div>
+      )}
 
       {(node.inputSummary || node.outputSummary) && (
         <div className="mt-4">
@@ -684,6 +759,7 @@ function CanvasInspector({
         </div>
       )}
 
+      <EvidenceGroup type="agent" items={agents} />
       <EvidenceGroup type="model" items={models} />
       <EvidenceGroup type="tool" items={tools} />
       <EvidenceGroup type="skill" items={skills} />
@@ -692,6 +768,8 @@ function CanvasInspector({
       <EvidenceGroup type="artifact" items={artifacts} />
       <EvidenceGroup type="issue" items={issues} />
       <EvidenceGroup type="recovery" items={recoveries} />
+
+      <ReasoningLog notes={node.notes} />
 
       {graph.internalNodes.length > 0 && node.kind !== "internal" && (
         <div className="mt-4">
@@ -826,23 +904,76 @@ function InternalNodesPanel({
 }
 
 // ── Legend ────────────────────────────────────────────────────────────────────
+//
+// Sourced entirely from VISUAL_NODE_REGISTRY / VISUAL_STATUS_REGISTRY / the
+// canvas's own edge color table, so the legend can never drift from what the
+// canvas actually renders.
 
 const LEGEND_STATUSES = ["completed", "warning", "failed", "running", "recovered", "not_observed"] as const;
 
+const LEGEND_EDGE_TYPES: VisualEdgeType[] = ["workflow", "uses", "produces", "evaluates", "fails", "recovers", "contains"];
+
+const EDGE_TYPE_LABELS: Record<VisualEdgeType, string> = {
+  workflow: "Workflow — main execution path",
+  uses: "Uses — stage/agent uses a model, tool, skill, or CLI",
+  produces: "Produces — stage produces an artifact",
+  evaluates: "Evaluates — eval validates a stage or artifact",
+  fails: "Fails — issue encountered",
+  recovers: "Recovers — issue was resolved",
+  contains: "Contains — agent attached to a stage",
+};
+
 function CanvasLegend() {
+  const nodeTypes = Object.values(VISUAL_NODE_REGISTRY);
   return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-500">
-      {LEGEND_STATUSES.map((status) => {
-        const def = visualNodeStatusDefinition(status);
-        return (
-          <span key={status} className="inline-flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded-full ${def.dotClass}`} aria-hidden="true" />
-            {def.label}
-          </span>
-        );
-      })}
-      <span className="text-slate-300" aria-hidden="true">·</span>
-      <span>Solid arrows = workflow path · Dashed lines = attached evidence</span>
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3" data-testid="canvas-legend">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div>
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Node types</p>
+          <div className="grid gap-1">
+            {nodeTypes.map((def) => {
+              const Icon = def.icon;
+              return (
+                <span key={def.type} className="inline-flex items-center gap-1.5 text-xs text-slate-600" data-testid={`legend-node-${def.type}`}>
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded ${def.bgClass}`}>
+                    <Icon className={`h-3 w-3 ${def.accentClass}`} aria-hidden="true" />
+                  </span>
+                  {def.label}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+        <div>
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Status</p>
+          <div className="grid gap-1">
+            {LEGEND_STATUSES.map((status) => {
+              const def = visualNodeStatusDefinition(status);
+              return (
+                <span key={status} className="inline-flex items-center gap-1.5 text-xs text-slate-600" data-testid={`legend-status-${status}`}>
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${def.dotClass}`} aria-hidden="true" />
+                  {def.label}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+        <div>
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Edges</p>
+          <div className="grid gap-1">
+            {LEGEND_EDGE_TYPES.map((type) => (
+              <span key={type} className="inline-flex items-center gap-1.5 text-xs text-slate-600" data-testid={`legend-edge-${type}`}>
+                <span
+                  className="h-0.5 w-4 shrink-0 rounded-full"
+                  style={{ backgroundColor: EVIDENCE_EDGE_COLOR[type] }}
+                  aria-hidden="true"
+                />
+                {EDGE_TYPE_LABELS[type]}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -852,15 +983,20 @@ function CanvasLegend() {
 export interface VisualExecutionCanvasProps {
   runGraph: RunGraph;
   traceEvents: TraceEvent[];
+  /** When the run is still "running", the canvas shows a Live indicator and auto-follows new events. */
+  runStatus?: RunRecord["status"];
 }
 
-export function VisualExecutionCanvas({ runGraph, traceEvents }: VisualExecutionCanvasProps) {
+export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus }: VisualExecutionCanvasProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filters, setFilters] = useState(DEFAULT_CANVAS_FILTERS);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<1 | 2 | 4>(1);
   const [replayIndex, setReplayIndex] = useState(-1);
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance | null>(null);
+  const [followLive, setFollowLive] = useState(true);
+
+  const isLiveRun = runStatus === "running";
 
   const visualGraph = useMemo(() => buildVisualRunGraph({ runGraph, traceEvents }), [runGraph, traceEvents]);
   const replayEvents = useMemo(() => deriveVisualReplayEvents(visualGraph), [visualGraph]);
@@ -877,10 +1013,15 @@ export function VisualExecutionCanvas({ runGraph, traceEvents }: VisualExecution
   const flowNodes = useMemo(() => toFlowNodes(filteredGraph, layout, replayFrame), [filteredGraph, layout, replayFrame]);
   const flowEdges = useMemo(() => toFlowEdges(filteredGraph, replayFrame), [filteredGraph, replayFrame]);
 
+  // Auto-follow the latest event as new trace events stream in. A user who
+  // pauses follow (or takes manual replay control) during a live run keeps
+  // their scrub position even as polling keeps refreshing data underneath —
+  // resuming follow snaps back to the latest event.
   useEffect(() => {
+    if (isLiveRun && !followLive) return;
     setReplayIndex(replayEvents.length - 1);
     setPlaying(false);
-  }, [replayEvents.length]);
+  }, [replayEvents.length, isLiveRun, followLive]);
 
   useEffect(() => {
     if (!playing) return;
@@ -922,6 +1063,20 @@ export function VisualExecutionCanvas({ runGraph, traceEvents }: VisualExecution
     setSelectedId((prev) => (prev === node.id ? null : node.id));
   }
 
+  // Initial view focuses on the start of the workflow at a readable zoom,
+  // rather than fitting the entire graph (which can shrink large graphs to
+  // an unreadable size). The Controls "fit view" button remains available
+  // for the full-graph view.
+  function handleFlowInit(instance: ReactFlowInstance) {
+    setFlowInstance(instance);
+    const firstPrimary = flowNodes.filter((n) => n.type === "primary").slice(0, 3).map((n) => ({ id: n.id }));
+    if (firstPrimary.length > 0) {
+      void instance.fitView({ nodes: firstPrimary, padding: 0.4, maxZoom: 1, duration: 0 });
+    } else {
+      void instance.fitView({ padding: 0.15 });
+    }
+  }
+
   return (
     <div className="grid gap-5" data-testid="visual-execution-canvas">
       <div className="flex flex-wrap items-center gap-2">
@@ -948,29 +1103,55 @@ export function VisualExecutionCanvas({ runGraph, traceEvents }: VisualExecution
         )}
       </div>
 
+      {isLiveRun && (
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800"
+          data-testid="live-mode-indicator"
+        >
+          <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-500" aria-hidden="true" />
+          <span className="font-medium">Live — run in progress</span>
+          <span className="text-emerald-600">
+            {followLive ? "Following latest activity" : "Follow paused — new events still arriving in the background"}
+          </span>
+          <button
+            type="button"
+            className="ml-auto rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+            onClick={() => setFollowLive((v) => !v)}
+            data-testid="live-follow-toggle"
+          >
+            {followLive ? "Pause follow" : "Resume follow"}
+          </button>
+        </div>
+      )}
+
       <ReplayControls
         events={replayEvents}
         currentIndex={effectiveReplayIndex}
         playing={playing}
         speed={speed}
         onPlay={() => {
+          if (isLiveRun) setFollowLive(false);
           if (effectiveReplayIndex >= replayEvents.length - 1) setReplayIndex(-1);
           setPlaying(true);
         }}
         onPause={() => setPlaying(false)}
         onReset={() => {
+          if (isLiveRun) setFollowLive(false);
           setPlaying(false);
           setReplayIndex(-1);
         }}
         onStepForward={() => {
+          if (isLiveRun) setFollowLive(false);
           setPlaying(false);
           setReplayIndex((index) => Math.min(index + 1, replayEvents.length - 1));
         }}
         onStepBackward={() => {
+          if (isLiveRun) setFollowLive(false);
           setPlaying(false);
           setReplayIndex((index) => Math.max(index - 1, -1));
         }}
         onScrub={(index) => {
+          if (isLiveRun) setFollowLive(false);
           setPlaying(false);
           setReplayIndex(index);
         }}
@@ -989,14 +1170,12 @@ export function VisualExecutionCanvas({ runGraph, traceEvents }: VisualExecution
           edges={flowEdges}
           nodeTypes={NODE_TYPES}
           onNodeClick={handleNodeClick}
-          onInit={setFlowInstance}
+          onInit={handleFlowInit}
           nodesDraggable={false}
           nodesConnectable={false}
           edgesFocusable={false}
           elementsSelectable
           panOnScroll
-          fitView
-          fitViewOptions={{ padding: 0.15 }}
           proOptions={{ hideAttribution: true }}
           minZoom={0.2}
           maxZoom={1.5}

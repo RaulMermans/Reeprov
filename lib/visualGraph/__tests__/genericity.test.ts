@@ -35,6 +35,10 @@ const SOURCE_FILES = [
   "components/proof-layer/CanvasFilters.tsx",
   "components/proof-layer/ReplayControls.tsx",
   "components/proof-layer/VisualExecutionCanvas.tsx",
+  // v3 additions — agent visibility, reasoning notes, live polling.
+  "lib/runs/runGraph.ts",
+  "lib/runs/agentNotes.ts",
+  "lib/runs/useLiveRunPolling.ts",
 ];
 
 // ── No hardcoding ─────────────────────────────────────────────────────────────

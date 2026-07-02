@@ -53,6 +53,7 @@ const ATTACHMENT_TYPE_MAP: Record<RunGraphAttachmentKind, { type: VisualNodeType
   eval: { type: "eval", edgeType: "evaluates" },
   artifact: { type: "artifact", edgeType: "produces" },
   issue: { type: "issue", edgeType: "fails" },
+  agent: { type: "agent", edgeType: "contains" },
 };
 
 function primaryStatus(status: RunGraphNodeStatus): VisualNode["status"] {
@@ -100,6 +101,7 @@ function toEvidenceCounts(node: RunGraphNode): VisualEvidenceCounts {
     cli: node.cliCount,
     artifacts: node.artifactCount,
     issues: node.issueCount,
+    agents: node.agentCount,
   };
 }
 
@@ -125,6 +127,7 @@ function toPrimaryVisualNode(
     evidenceCounts: toEvidenceCounts(node),
     upstreamIds: edges.filter((e) => e.to === node.id).map((e) => e.from),
     downstreamIds: edges.filter((e) => e.from === node.id).map((e) => e.to),
+    notes: node.notes,
     rawEvents: eventsByNodeId.get(node.id) ?? [],
   };
 }

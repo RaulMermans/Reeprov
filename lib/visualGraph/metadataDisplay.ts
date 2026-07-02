@@ -138,10 +138,20 @@ function commandSummary(command?: string): string | undefined {
 
 export function resolvePrimaryIdentity(node: RunGraphNode): VisualNodeIdentity {
   const typeLabel = node.type === "agent" ? "Agent" : "Stage";
+  // A stage whose events carry generic agent metadata surfaces that agent's
+  // identity directly on the stage card, in addition to the dedicated
+  // attached agent evidence node built from the same attachment.
+  const agentAttachment = node.attachments.find((a) => a.kind === "agent");
+  const agentName = stringValue(agentAttachment?.metadata, ["agent_name"]);
+  const agentRole = stringValue(agentAttachment?.metadata, ["role"]);
+  const agentOwner = stringValue(agentAttachment?.metadata, ["owner"]);
   return {
     title: node.label,
     typeLabel,
     badge: node.type === "agent" ? "Agent" : "Stage",
+    agentName,
+    agentRole,
+    agentOwner,
   };
 }
 
@@ -210,6 +220,20 @@ export function resolveEvidenceIdentity(attachment: RunGraphAttachment, visualTy
       badge: artifactType.label,
       artifactName,
       artifactType: artifactType.type,
+    };
+  }
+  if (visualType === "agent") {
+    const agentName = stringValue(metadata, ["agent_name"]) ?? attachment.label;
+    const role = stringValue(metadata, ["role"]);
+    const owner = stringValue(metadata, ["owner"]);
+    return {
+      title: agentName || "Agent",
+      typeLabel: "Agent",
+      badge: role ? `role: ${role}` : "agent",
+      agentName,
+      agentRole: role,
+      agentOwner: owner,
+      agentActionCount: numberValue(metadata, ["action_count"]),
     };
   }
   if (visualType === "recovery") {

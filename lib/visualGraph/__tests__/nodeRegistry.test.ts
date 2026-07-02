@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { Bot, Puzzle, Workflow } from "lucide-react";
 import {
   VISUAL_NODE_REGISTRY,
   VISUAL_STATUS_REGISTRY,
@@ -14,7 +15,8 @@ import {
   visualNodeStatusDefinition,
   visualNodeTypeDefinition,
 } from "@/lib/visualGraph/nodeRegistry";
-import type { VisualNodeStatus, VisualNodeType } from "@/lib/visualGraph/types";
+import { visualNodeIcon } from "@/lib/visualGraph/iconResolvers";
+import type { VisualNode, VisualNodeStatus, VisualNodeType } from "@/lib/visualGraph/types";
 
 const ALL_NODE_TYPES: VisualNodeType[] = [
   "stage",
@@ -71,6 +73,39 @@ describe("VISUAL_STATUS_REGISTRY coverage", () => {
 
   it("has exactly the 6 sprint-suggested statuses and no extras", () => {
     expect(Object.keys(VISUAL_STATUS_REGISTRY).sort()).toEqual([...ALL_STATUSES].sort());
+  });
+});
+
+function fakeNode(type: VisualNodeType): VisualNode {
+  return {
+    id: `${type}-1`,
+    type,
+    kind: type === "stage" || type === "agent" ? "primary" : "evidence",
+    label: type,
+    status: "completed",
+    order: 0,
+    groupId: "workflow",
+    identity: { title: type, typeLabel: type },
+    metrics: {},
+    rawEvents: [],
+  };
+}
+
+describe("visualNodeIcon — sprint canonical icon mapping", () => {
+  it("uses Workflow for stage (not Layers)", () => {
+    expect(visualNodeIcon(fakeNode("stage"))).toBe(Workflow);
+  });
+
+  it("uses Puzzle for skill (not Sparkles)", () => {
+    expect(visualNodeIcon(fakeNode("skill"))).toBe(Puzzle);
+  });
+
+  it("uses Bot for agent, for both primary and evidence rendering", () => {
+    expect(visualNodeIcon(fakeNode("agent"))).toBe(Bot);
+  });
+
+  it.each(ALL_NODE_TYPES)("resolves a defined icon for every node type '%s'", (type) => {
+    expect(visualNodeIcon(fakeNode(type))).toBeDefined();
   });
 });
 
