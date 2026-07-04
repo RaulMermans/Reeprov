@@ -20,13 +20,22 @@
  *   http://localhost:3000/dashboard/runs
  */
 
-import { fileRunStore } from "../lib/runs/runStore.js";
+import { getRunStore } from "../lib/db/getStores.js";
 import {
   runRecordSchema,
   traceEventSchema,
   evalResultSchema,
 } from "../lib/proof-layer/schemas.js";
 import type { TraceEvent, EvalResult } from "../lib/proof-layer/schemas.js";
+
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // No local env file, or process.loadEnvFile unavailable. Existing
+  // environment variables still select the correct run store.
+}
+
+const runStore = getRunStore();
 
 const RUN_ID = "seed-cs-full-001";
 const WORKFLOW_ID = "campaign-sandbox-v1";
@@ -75,7 +84,7 @@ async function seedRun(): Promise<void> {
     summary: "Generate campaign recommendation for EMEA SMB expansion with unclear budget.",
   });
 
-  const createResult = await fileRunStore.createRun(runRecord);
+  const createResult = await runStore.createRun(runRecord);
   if (!createResult.saved) {
     console.error("❌  Failed to create run:", createResult.warning);
     process.exit(1);
@@ -639,7 +648,7 @@ async function seedRun(): Promise<void> {
   ];
 
   for (const event of events) {
-    const result = await fileRunStore.appendTraceEvent(RUN_ID, event);
+    const result = await runStore.appendTraceEvent(RUN_ID, event);
     if (!result.appended && result.warning) {
       console.warn(`  ⚠  Event ${event.event_id}: ${result.warning}`);
     }
@@ -734,13 +743,13 @@ async function seedRun(): Promise<void> {
   ];
 
   for (const er of evalResults) {
-    await fileRunStore.appendEvalResult(RUN_ID, er);
+    await runStore.appendEvalResult(RUN_ID, er);
   }
   console.log(`  ✔  ${evalResults.length} eval results appended`);
 
   // ── 4. Complete run ──────────────────────────────────────────────────────
 
-  await fileRunStore.completeRun(RUN_ID, {
+  await runStore.completeRun(RUN_ID, {
     status: "degraded",
     completed_at: ts(109100),
     total_duration_ms: 109100,

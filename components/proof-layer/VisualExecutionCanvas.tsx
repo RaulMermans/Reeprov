@@ -12,7 +12,7 @@
  * in this file.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -48,6 +48,12 @@ import {
   visualNodeStatusDefinition,
   visualNodeTypeDefinition,
 } from "@/lib/visualGraph/nodeRegistry";
+import {
+  ACTIVE_NODE_FOCUS_DURATION_MS,
+  READABLE_CANVAS_ZOOM,
+  initialViewportPlan,
+  shouldFocusActiveNode,
+} from "@/lib/visualGraph/viewport";
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 
@@ -924,10 +930,22 @@ const EDGE_TYPE_LABELS: Record<VisualEdgeType, string> = {
 };
 
 function CanvasLegend() {
+  const [open, setOpen] = useState(false);
   const nodeTypes = Object.values(VISUAL_NODE_REGISTRY);
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3" data-testid="canvas-legend">
-      <div className="grid gap-4 sm:grid-cols-3">
+    <div className="rounded-lg border border-slate-200 bg-white" data-testid="canvas-legend">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        aria-expanded={open}
+        data-testid="canvas-legend-toggle"
+      >
+        <span className="text-xs font-semibold text-slate-700">Visual guide</span>
+        <span className="text-xs text-slate-400" aria-hidden="true">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+      <div className="grid gap-4 border-t border-slate-100 px-4 py-3 sm:grid-cols-3" data-testid="canvas-legend-content">
         <div>
           <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Node types</p>
           <div className="grid gap-1">
@@ -974,6 +992,7 @@ function CanvasLegend() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
@@ -994,7 +1013,8 @@ export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus }: Visu
   const [speed, setSpeed] = useState<1 | 2 | 4>(1);
   const [replayIndex, setReplayIndex] = useState(-1);
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance | null>(null);
-  const [followLive, setFollowLive] = useState(true);
+  const [followActiveNode, setFollowActiveNode] = useState(true);
+  const autoFocusingRef = useRef(false);
 
   const isLiveRun = runStatus === "running";
 
@@ -1013,15 +1033,18 @@ export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus }: Visu
   const flowNodes = useMemo(() => toFlowNodes(filteredGraph, layout, replayFrame), [filteredGraph, layout, replayFrame]);
   const flowEdges = useMemo(() => toFlowEdges(filteredGraph, replayFrame), [filteredGraph, replayFrame]);
 
-  // Auto-follow the latest event as new trace events stream in. A user who
-  // pauses follow (or takes manual replay control) during a live run keeps
-  // their scrub position even as polling keeps refreshing data underneath —
-  // resuming follow snaps back to the latest event.
+  // Auto-follow the latest event only while the run is live. Completed runs
+  // still initialize with final data visible, but replay controls own the
+  // scrub position after that.
   useEffect(() => {
-    if (isLiveRun && !followLive) return;
-    setReplayIndex(replayEvents.length - 1);
-    setPlaying(false);
-  }, [replayEvents.length, isLiveRun, followLive]);
+    if (isLiveRun) {
+      if (!followActiveNode) return;
+      setReplayIndex(replayEvents.length - 1);
+      setPlaying(false);
+      return;
+    }
+    setReplayIndex((index) => (index === -1 ? replayEvents.length - 1 : Math.min(index, replayEvents.length - 1)));
+  }, [replayEvents.length, isLiveRun, followActiveNode]);
 
   useEffect(() => {
     if (!playing) return;
@@ -1037,15 +1060,29 @@ export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus }: Visu
 
   useEffect(() => {
     if (!flowInstance || !replayFrame.activeNodeId) return;
+    if (!shouldFocusActiveNode({
+      activeNodeId: replayFrame.activeNodeId,
+      replayPlaying: playing,
+      liveRun: isLiveRun,
+      followEnabled: followActiveNode,
+    })) return;
     const node = flowNodes.find((candidate) => candidate.id === replayFrame.activeNodeId);
     if (!node) return;
     const width = node.type === "primary" ? STAGE_W : EVIDENCE_W;
     const height = node.type === "primary" ? STAGE_H : EVIDENCE_H;
+    autoFocusingRef.current = true;
     void flowInstance.setCenter(node.position.x + width / 2, node.position.y + height / 2, {
-      zoom: 1,
-      duration: 250,
+      zoom: READABLE_CANVAS_ZOOM,
+      duration: ACTIVE_NODE_FOCUS_DURATION_MS,
     });
-  }, [flowInstance, flowNodes, replayFrame.activeNodeId]);
+    const timeout = window.setTimeout(() => {
+      autoFocusingRef.current = false;
+    }, ACTIVE_NODE_FOCUS_DURATION_MS + 50);
+    return () => {
+      autoFocusingRef.current = false;
+      window.clearTimeout(timeout);
+    };
+  }, [flowInstance, flowNodes, replayFrame.activeNodeId, playing, isLiveRun, followActiveNode]);
 
   if (visualGraph.primaryNodes.length === 0 && visualGraph.internalNodes.length === 0) {
     return (
@@ -1069,13 +1106,34 @@ export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus }: Visu
   // for the full-graph view.
   function handleFlowInit(instance: ReactFlowInstance) {
     setFlowInstance(instance);
-    const firstPrimary = flowNodes.filter((n) => n.type === "primary").slice(0, 3).map((n) => ({ id: n.id }));
-    if (firstPrimary.length > 0) {
-      void instance.fitView({ nodes: firstPrimary, padding: 0.4, maxZoom: 1, duration: 0 });
+    const plan = initialViewportPlan(filteredGraph);
+    autoFocusingRef.current = true;
+    if (plan.mode === "readable_segment") {
+      void instance.fitView({
+        nodes: plan.nodeIds.map((id) => ({ id })),
+        padding: plan.padding,
+        minZoom: plan.minZoom,
+        maxZoom: plan.maxZoom,
+        duration: plan.duration,
+      });
     } else {
-      void instance.fitView({ padding: 0.15 });
+      void instance.fitView({
+        padding: plan.padding,
+        maxZoom: plan.maxZoom,
+        duration: plan.duration,
+      });
     }
+    window.setTimeout(() => {
+      autoFocusingRef.current = false;
+    }, 50);
   }
+
+  function handleManualViewportMove() {
+    if (autoFocusingRef.current) return;
+    if (followActiveNode) setFollowActiveNode(false);
+  }
+
+  const followLabel = followActiveNode ? "Following active node" : "Follow paused";
 
   return (
     <div className="grid gap-5" data-testid="visual-execution-canvas">
@@ -1111,16 +1169,36 @@ export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus }: Visu
           <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-500" aria-hidden="true" />
           <span className="font-medium">Live — run in progress</span>
           <span className="text-emerald-600">
-            {followLive ? "Following latest activity" : "Follow paused — new events still arriving in the background"}
+            {followActiveNode ? "Following latest activity" : "Follow paused — new events still arriving in the background"}
           </span>
           <button
             type="button"
             className="ml-auto rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
-            onClick={() => setFollowLive((v) => !v)}
+            onClick={() => setFollowActiveNode((v) => !v)}
             data-testid="live-follow-toggle"
           >
-            {followLive ? "Pause follow" : "Resume follow"}
+            {followActiveNode ? "Pause follow" : "Resume follow"}
           </button>
+        </div>
+      )}
+
+      {!isLiveRun && (
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500"
+          data-testid="canvas-follow-status"
+        >
+          <span className="font-medium text-slate-700">{playing ? "Replay" : "Completed run"}</span>
+          <span>{playing ? followLabel : "Final data loaded"}</span>
+          {playing && (
+            <button
+              type="button"
+              className="ml-auto rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+              onClick={() => setFollowActiveNode((value) => !value)}
+              data-testid="replay-follow-toggle"
+            >
+              {followActiveNode ? "Pause follow" : "Resume follow"}
+            </button>
+          )}
         </div>
       )}
 
@@ -1130,28 +1208,28 @@ export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus }: Visu
         playing={playing}
         speed={speed}
         onPlay={() => {
-          if (isLiveRun) setFollowLive(false);
-          if (effectiveReplayIndex >= replayEvents.length - 1) setReplayIndex(-1);
+          setFollowActiveNode(true);
+          if (effectiveReplayIndex >= replayEvents.length - 1 || effectiveReplayIndex < 0) setReplayIndex(0);
           setPlaying(true);
         }}
         onPause={() => setPlaying(false)}
         onReset={() => {
-          if (isLiveRun) setFollowLive(false);
+          setFollowActiveNode(false);
           setPlaying(false);
           setReplayIndex(-1);
         }}
         onStepForward={() => {
-          if (isLiveRun) setFollowLive(false);
+          setFollowActiveNode(true);
           setPlaying(false);
           setReplayIndex((index) => Math.min(index + 1, replayEvents.length - 1));
         }}
         onStepBackward={() => {
-          if (isLiveRun) setFollowLive(false);
+          setFollowActiveNode(true);
           setPlaying(false);
           setReplayIndex((index) => Math.max(index - 1, -1));
         }}
         onScrub={(index) => {
-          if (isLiveRun) setFollowLive(false);
+          setFollowActiveNode(true);
           setPlaying(false);
           setReplayIndex(index);
         }}
@@ -1171,6 +1249,7 @@ export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus }: Visu
           nodeTypes={NODE_TYPES}
           onNodeClick={handleNodeClick}
           onInit={handleFlowInit}
+          onMoveStart={handleManualViewportMove}
           nodesDraggable={false}
           nodesConnectable={false}
           edgesFocusable={false}
@@ -1182,7 +1261,7 @@ export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus }: Visu
         >
           <Background gap={18} color="#e2e8f0" />
           <Controls showInteractive={false} />
-          <MiniMap pannable zoomable className="!bg-white" />
+          <MiniMap pannable zoomable className="!bg-white !shadow-md !ring-1 !ring-slate-200" maskColor="rgba(15, 23, 42, 0.08)" />
         </ReactFlow>
       </div>
 

@@ -41,6 +41,10 @@
     ".cursor",
     "**/__tests__/**",
     "**/__fixtures__/**",
+    "**/* 2.ts",
+    "**/* 2.tsx",
+    "**/* 3.ts",
+    "**/* 3.tsx",
     "vitest.config.ts"
   ]
 }
