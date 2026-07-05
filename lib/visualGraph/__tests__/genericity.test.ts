@@ -32,6 +32,7 @@ const SOURCE_FILES = [
   "lib/visualGraph/buildVisualRunGraph.ts",
   "lib/visualGraph/replay.ts",
   "lib/visualGraph/filters.ts",
+  "lib/visualGraph/viewport.ts",
   "components/proof-layer/CanvasFilters.tsx",
   "components/proof-layer/ReplayControls.tsx",
   "components/proof-layer/VisualExecutionCanvas.tsx",

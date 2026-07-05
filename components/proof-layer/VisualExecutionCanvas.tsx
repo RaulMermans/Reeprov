@@ -49,10 +49,11 @@ import {
   visualNodeTypeDefinition,
 } from "@/lib/visualGraph/nodeRegistry";
 import {
-  ACTIVE_NODE_FOCUS_DURATION_MS,
   READABLE_CANVAS_ZOOM,
+  activeNodeFocusDuration,
   initialViewportPlan,
   shouldFocusActiveNode,
+  usePrefersReducedMotion,
 } from "@/lib/visualGraph/viewport";
 
 // ── Layout constants ──────────────────────────────────────────────────────────
@@ -456,12 +457,33 @@ function RawEventRow({ event }: { event: TraceEvent }) {
   );
 }
 
+/** Icon + label chip in a node type's own color, used wherever a type identity needs to read at a glance. */
+function TypeBadge({ type }: { type: VisualNodeType }) {
+  const def = visualNodeTypeDefinition(type);
+  const Icon = def.icon;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium ${def.bgClass} ${def.accentClass} ${def.borderClass}`}
+      data-testid={`type-badge-${type}`}
+    >
+      <Icon className="h-3 w-3" aria-hidden="true" />
+      {def.label}
+    </span>
+  );
+}
+
 function EvidenceGroup({ type, items }: { type: VisualNodeType; items: VisualNode[] }) {
   if (!items.length) return null;
   const def = visualNodeTypeDefinition(type);
+  const Icon = def.icon;
   return (
     <div className="mt-4">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{def.pluralLabel}</p>
+      <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded ${def.bgClass}`}>
+          <Icon className={`h-2.5 w-2.5 ${def.accentClass}`} aria-hidden="true" />
+        </span>
+        {def.pluralLabel}
+      </p>
       <div className="grid gap-1.5">
         {items.map((item) => {
           const statusDef = visualNodeStatusDefinition(item.status);
@@ -576,7 +598,6 @@ function CanvasInspector({
   graph: VisualRunGraph;
   onClose: () => void;
 }) {
-  const typeDef = visualNodeTypeDefinition(node.type);
   const statusDef = visualNodeStatusDefinition(node.status);
 
   if (node.kind === "evidence") {
@@ -586,7 +607,7 @@ function CanvasInspector({
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-lg" data-testid="canvas-inspector">
         <InspectorHeader label={node.identity.title} id={node.id} statusDef={statusDef} onClose={onClose} />
         <div className="mt-3 flex flex-wrap gap-2">
-          <Badge tone="neutral">{typeDef.label}</Badge>
+          <TypeBadge type={node.type} />
           {node.identity.badge && <Badge tone="neutral">{node.identity.badge}</Badge>}
           <Badge tone={statusDef.badgeTone}>{statusValue}</Badge>
           {typeof node.durationMs === "number" && <Badge tone="neutral">{formatDuration(node.durationMs)}</Badge>}
@@ -717,7 +738,7 @@ function CanvasInspector({
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-lg" data-testid="canvas-inspector">
       <InspectorHeader label={node.identity.title} id={node.id} statusDef={statusDef} onClose={onClose} />
       <div className="mt-3 flex flex-wrap gap-2">
-        <Badge tone="neutral">{typeDef.label}</Badge>
+        <TypeBadge type={node.type} />
         {node.identity.badge && <Badge tone="neutral">{node.identity.badge}</Badge>}
         <Badge tone={statusDef.badgeTone}>{statusDef.label}</Badge>
         {node.kind === "internal" && <Badge tone="neutral">Not in spec</Badge>}
@@ -1015,6 +1036,8 @@ export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus }: Visu
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [followActiveNode, setFollowActiveNode] = useState(true);
   const autoFocusingRef = useRef(false);
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const focusDuration = activeNodeFocusDuration(prefersReducedMotion);
 
   const isLiveRun = runStatus === "running";
 
@@ -1073,16 +1096,16 @@ export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus }: Visu
     autoFocusingRef.current = true;
     void flowInstance.setCenter(node.position.x + width / 2, node.position.y + height / 2, {
       zoom: READABLE_CANVAS_ZOOM,
-      duration: ACTIVE_NODE_FOCUS_DURATION_MS,
+      duration: focusDuration,
     });
     const timeout = window.setTimeout(() => {
       autoFocusingRef.current = false;
-    }, ACTIVE_NODE_FOCUS_DURATION_MS + 50);
+    }, focusDuration + 50);
     return () => {
       autoFocusingRef.current = false;
       window.clearTimeout(timeout);
     };
-  }, [flowInstance, flowNodes, replayFrame.activeNodeId, playing, isLiveRun, followActiveNode]);
+  }, [flowInstance, flowNodes, replayFrame.activeNodeId, playing, isLiveRun, followActiveNode, focusDuration]);
 
   if (visualGraph.primaryNodes.length === 0 && visualGraph.internalNodes.length === 0) {
     return (

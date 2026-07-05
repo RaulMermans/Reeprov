@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { VisualRunGraph } from "@/lib/visualGraph/types";
 
 export const INITIAL_VIEWPORT_STAGE_COUNT = 3;
@@ -58,4 +59,29 @@ export function shouldFocusActiveNode({
   if (!activeNodeId) return false;
   if (!followEnabled) return false;
   return replayPlaying || liveRun;
+}
+
+/**
+ * Camera-pan duration for the active-node focus effect. Users who prefer
+ * reduced motion still get the focus (the view still moves to the active
+ * node), but instantly rather than via an animated pan.
+ */
+export function activeNodeFocusDuration(prefersReducedMotion: boolean): number {
+  return prefersReducedMotion ? 0 : ACTIVE_NODE_FOCUS_DURATION_MS;
+}
+
+/** Tracks the `prefers-reduced-motion` media query so canvas camera moves can skip animation. */
+export function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduced(query.matches);
+    const listener = (event: MediaQueryListEvent) => setReduced(event.matches);
+    query.addEventListener("change", listener);
+    return () => query.removeEventListener("change", listener);
+  }, []);
+
+  return reduced;
 }

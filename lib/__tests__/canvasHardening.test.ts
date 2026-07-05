@@ -50,6 +50,20 @@ describe("canvas usability hardening source contract", () => {
     expect(canvas).toContain("<MiniMap pannable zoomable");
     expect(canvas).toContain("maskColor=\"rgba(15, 23, 42, 0.08)\"");
   });
+
+  it("respects prefers-reduced-motion for the active-node camera pan", () => {
+    expect(canvas).toContain("usePrefersReducedMotion()");
+    expect(canvas).toContain("activeNodeFocusDuration(prefersReducedMotion)");
+    expect(canvas).toContain("duration: focusDuration");
+  });
+
+  it("gives inspector type badges and evidence-group headers the same icon language as the canvas", () => {
+    expect(canvas).toContain("function TypeBadge({ type }: { type: VisualNodeType })");
+    expect(canvas).toContain("<TypeBadge type={node.type} />");
+    // EvidenceGroup renders a type-colored icon chip above each grouping (Agents, Models, Tools, ...).
+    expect(canvas).toContain("function EvidenceGroup({ type, items }: { type: VisualNodeType; items: VisualNode[] }) {");
+    expect(canvas.match(/<Icon className={`h-2\.5 w-2\.5 \$\{def\.accentClass\}`} aria-hidden="true" \/>/)).toBeTruthy();
+  });
 });
 
 describe("repository hygiene", () => {

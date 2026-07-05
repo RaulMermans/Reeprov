@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  ACTIVE_NODE_FOCUS_DURATION_MS,
   INITIAL_VIEWPORT_STAGE_COUNT,
   MIN_READABLE_CANVAS_ZOOM,
   READABLE_CANVAS_ZOOM,
+  activeNodeFocusDuration,
   initialViewportPlan,
   shouldFocusActiveNode,
 } from "@/lib/visualGraph/viewport";
@@ -77,5 +79,10 @@ describe("visual graph viewport policy", () => {
       liveRun: false,
       followEnabled: true,
     })).toBe(false);
+  });
+
+  it("skips the animated camera pan when the user prefers reduced motion", () => {
+    expect(activeNodeFocusDuration(true)).toBe(0);
+    expect(activeNodeFocusDuration(false)).toBe(ACTIVE_NODE_FOCUS_DURATION_MS);
   });
 });
