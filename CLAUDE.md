@@ -6,7 +6,7 @@ AgentPulse is a private personal dashboard for auditing AI-agent and AI-workflow
 
 ## Current Phase
 
-AI System Graph + Model/Provider Mapping Foundation (Commit 10). The scanner now reconstructs a typed AI system graph (agents, workflows, prompts, tools, models, providers, evals, artifacts, approval gates) from manifests, detects model/provider metadata from manifests/code/env/imports, and parses optional repo-provided eval/run metrics. Real LLM auditor calls remain feature-flagged and disabled by default.
+Stabilization + Production QA, following Task 12 (Visual Execution Canvas). The proof layer now includes production ingestion, Postgres persistence, real run traces, WorkflowSpec support, and a read-only Visual Execution Canvas (`components/proof-layer/VisualExecutionCanvas.tsx`, `lib/visualGraph/`) with semantic node identity, node type icons, evidence nodes (models/tools/skills/CLI/evals/artifacts/issues/recoveries), inspector v2, replay controls, canvas filters, and a live-polling foundation. The static scanner (agents/workflows/prompts/tools/models/providers/evals/artifacts/approval gates, model/provider detection, optional eval/run metrics) remains active and unchanged. Real LLM auditor calls remain feature-flagged and disabled by default. Local test suite: 1310 passing (see `docs/ROADMAP.md` for task-by-task history). Remaining work: live run updates, artifact proof, multi-integration validation, portfolio packaging.
 
 ## Architecture
 

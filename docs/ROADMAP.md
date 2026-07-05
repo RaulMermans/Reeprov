@@ -309,13 +309,28 @@ Task 11 makes live-pulse integration repeatable. The goal: connect Blog Agent, W
 
 ---
 
+## Task 12 — Visual Execution Canvas ✓
+
+Task 12 replaces the card-row workflow view with a real, read-only, n8n-style run graph.
+
+- **`lib/visualGraph/`** — generic `VisualRunGraph` model derived from the existing `RunGraph`: `buildVisualRunGraph.ts` (nodes/edges), `nodeRegistry.tsx` (icons/labels per node type), `iconResolvers.ts`, `filters.ts` (canvas filters), `replay.ts` (deterministic replay state machine over trace events), `metadataDisplay.ts` (safe metadata formatting for the inspector), `viewport.ts`.
+- **`components/proof-layer/VisualExecutionCanvas.tsx`** — the canvas itself, built on `@xyflow/react`: real pan/zoom/fit-view, minimap, legend, branching workflow connectors, evidence nodes (models/tools/skills/CLI/evals/artifacts/issues/recoveries) attached with typed edges, click-to-inspect on stage and evidence nodes. CLI nodes are labeled "CLI", never "$".
+- **`components/proof-layer/ReplayControls.tsx`** and **`CanvasFilters.tsx`** — replay (play/pause/reset/step/scrub) and evidence-type filters, both read-only.
+- **Agent visibility + reasoning notes** — agent identity surfaced from generic trace metadata; `lib/runs/agentNotes.ts` renders `agent_note_recorded` events only when `visibility: "user_safe"` (never raw chain-of-thought).
+- **Live polling** — `lib/runs/useLiveRunPolling.ts` refreshes active runs in the canvas without manual reload; paused follow does not stop data refresh.
+- **Legacy fallback preserved** — the previous `RunWorkflowGraph` card-row view remains available behind a debug toggle; Raw Trace tab remains accessible independent of canvas state.
+- **Genericity guarded** — `lib/visualGraph/__tests__/genericity.test.ts` and related suites fail if graph/canvas logic branches on `project_id`, `workflow_id`, or BlogAgent-specific stage/node names. BlogAgent is used only as a fixture.
+- **Docs** — `docs/production-qa-checklist.md` added for manual production QA of the canvas against the primary fixture run.
+- Read-only boundary preserved: no edit, run, execute, or drag-to-connect controls.
+
 ## What Comes Next — Real External Project Connections
 
-Now that the integration path is first-class in AgentPulse, the next step is to connect real projects:
+Now that the integration path and Visual Execution Canvas are in place, the next steps are:
 
 - Instrument Blog Agent with `agentpulse_client.py`
 - Instrument Website Auditor with `agentpulseClient.ts`
 - Instrument Campaign Sandbox
-- Verify live runs appear under their Integration entries
+- Verify live runs appear under their Integration entries, and render correctly in the Visual Execution Canvas
 - Consider project-specific ingest keys for multi-project isolation
 - Multi-project pulse on the Overview
+- Artifact preview proof and portfolio packaging (tracked as future work, not started)
