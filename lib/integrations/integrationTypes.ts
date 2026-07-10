@@ -103,6 +103,12 @@ export interface IntegrationStore {
     projectId: string,
     opts: { runId?: string; runStatus?: string }
   ): Promise<ProjectIntegration | null>;
+  /** Generates (or rotates) a scoped ingest key. Stores only its hash + preview. */
+  generateIngestKey(integrationId: string): Promise<{ integration: ProjectIntegration; rawKey: string } | null>;
+  /** Revokes a scoped ingest key, if one exists. Falls back to the shared deployment key. */
+  revokeIngestKey(integrationId: string): Promise<ProjectIntegration | null>;
+  /** Looks up the integration owning a scoped ingest key by its SHA-256 hash. */
+  findByIngestKeyHash(hash: string): Promise<ProjectIntegration | null>;
 }
 
 // ── Stale threshold ───────────────────────────────────────────────────────────

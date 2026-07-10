@@ -13,6 +13,7 @@
 import { access, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { generateIntegrationId } from "./integrationId";
+import { generateRawIngestKey, hashIngestKey, previewIngestKey } from "./ingestKey";
 import {
   type CreateIntegrationInput,
   type IntegrationLanguage,
@@ -249,6 +250,46 @@ export const fileIntegrationStore: IntegrationStore = {
     } catch {
       return null;
     }
+  },
+
+  async generateIngestKey(integrationId: string): Promise<{ integration: ProjectIntegration; rawKey: string } | null> {
+    const saved = await readSavedIntegration(integrationId);
+    if (!saved) return null;
+
+    const rawKey = generateRawIngestKey();
+    const updated: ProjectIntegration = {
+      ...saved,
+      ingestKeyHash: hashIngestKey(rawKey),
+      ingestKeyPreview: previewIngestKey(rawKey),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await writeSavedIntegration(updated);
+    await upsertIndex(updated);
+    return { integration: updated, rawKey };
+  },
+
+  async revokeIngestKey(integrationId: string): Promise<ProjectIntegration | null> {
+    const saved = await readSavedIntegration(integrationId);
+    if (!saved) return null;
+
+    const updated: ProjectIntegration = {
+      ...saved,
+      ingestKeyHash: undefined,
+      ingestKeyPreview: undefined,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await writeSavedIntegration(updated);
+    await upsertIndex(updated);
+    return updated;
+  },
+
+  async findByIngestKeyHash(hash: string): Promise<ProjectIntegration | null> {
+    const index = await readIndex();
+    const match = index.find((e) => e.ingestKeyHash === hash);
+    if (!match) return null;
+    return readSavedIntegration(match.integrationId);
   },
 };
 

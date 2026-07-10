@@ -17,7 +17,7 @@ interface IntegrationReadiness {
   workflowCount: number;
   workflowMode: "registered_spec" | "inferred";
   registeredWorkflow: SavedWorkflowSummary | null;
-  recentIngestErrors: Array<{ at: string; message: string }>;
+  recentIngestErrors: Array<{ at: string; message: string; category?: string }>;
   diagnosticsAvailable: boolean;
 }
 
@@ -213,6 +213,9 @@ export default function IntegrationDetailPage() {
   const [sendingTest, setSendingTest] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [keyBusy, setKeyBusy] = useState(false);
+  const [keyError, setKeyError] = useState<string | null>(null);
+  const [revealedRawKey, setRevealedRawKey] = useState<string | null>(null);
 
   useEffect(() => {
     void loadIntegration();
@@ -277,6 +280,67 @@ export default function IntegrationDetailPage() {
       setTestError("Could not create test event. Is the dev server running?");
     } finally {
       setSendingTest(false);
+    }
+  }
+
+  async function generateIngestKey() {
+    if (
+      integration?.ingestKeyPreview &&
+      !confirm("Generate a new scoped key? The current scoped key will stop working immediately.")
+    ) {
+      return;
+    }
+    setKeyBusy(true);
+    setKeyError(null);
+    try {
+      const res = await fetch(`/api/integrations/${integrationId}/ingest-key`, {
+        method: "POST",
+        headers: mergeAuthHeaders(),
+      });
+      if (res.status === 401) {
+        onUnauthorized("Access key expired or invalid. Please unlock again.");
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json() as { message?: string };
+        setKeyError(data.message ?? "Failed to generate ingest key.");
+        return;
+      }
+      const data = await res.json() as { integration: ProjectIntegration; rawKey: string };
+      setIntegration(data.integration);
+      setRevealedRawKey(data.rawKey);
+    } catch {
+      setKeyError("Could not connect to AgentPulse.");
+    } finally {
+      setKeyBusy(false);
+    }
+  }
+
+  async function revokeIngestKey() {
+    if (!confirm("Revoke the scoped ingest key for this integration? The shared deployment key will still work if configured.")) return;
+    setKeyBusy(true);
+    setKeyError(null);
+    try {
+      const res = await fetch(`/api/integrations/${integrationId}/ingest-key`, {
+        method: "DELETE",
+        headers: mergeAuthHeaders(),
+      });
+      if (res.status === 401) {
+        onUnauthorized("Access key expired or invalid. Please unlock again.");
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json() as { message?: string };
+        setKeyError(data.message ?? "Failed to revoke ingest key.");
+        return;
+      }
+      const data = await res.json() as { integration: ProjectIntegration };
+      setIntegration(data.integration);
+      setRevealedRawKey(null);
+    } catch {
+      setKeyError("Could not connect to AgentPulse.");
+    } finally {
+      setKeyBusy(false);
     }
   }
 
@@ -432,22 +496,92 @@ export default function IntegrationDetailPage() {
       </Card>
 
       <Card className="p-5">
-        <h2 className="mb-2 text-sm font-semibold text-slate-800">Ingest diagnostics</h2>
+        <h2 className="mb-1 text-sm font-semibold text-slate-800">Ingest diagnostics</h2>
+        <p className="mb-3 text-xs text-slate-500">Diagnostics are redacted and retained temporarily.</p>
         {readiness?.recentIngestErrors.length ? (
           <ul className="space-y-2 text-xs text-amber-800">
             {readiness.recentIngestErrors.map((item) => (
               <li key={`${item.at}-${item.message}`} className="rounded-md bg-amber-50 px-3 py-2">
-                {formatDateTime(item.at)} — {item.message}
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">{formatDateTime(item.at)}</span>
+                  {item.category && (
+                    <span className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[10px] text-amber-700">
+                      {item.category.replace(/_/g, " ")}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1">{item.message}</div>
               </li>
             ))}
           </ul>
         ) : (
           <p className="text-xs text-slate-500">
             {readiness?.diagnosticsAvailable
-              ? "No recent ingest errors."
-              : "Ingest errors are returned to the sending client but are not retained in this version. Check the HTTP response and sender logs."}
+              ? "No recent ingest errors recorded."
+              : "Ingest errors are returned to the sending client but diagnostics could not be loaded. Check the HTTP response and sender logs."}
           </p>
         )}
+      </Card>
+
+      {/* Scoped ingest key */}
+      <Card className="p-5">
+        <h2 className="mb-1 text-sm font-semibold text-slate-800">Scoped Ingest Key</h2>
+        <p className="mb-4 text-xs text-slate-500">
+          A scoped key authenticates ingestion for this project only, instead of the shared deployment-wide
+          <code className="mx-1 font-mono">AGENTPULSE_INGEST_KEY</code>. The shared key keeps working either way —
+          scoped keys are opt-in per integration.
+        </p>
+
+        {revealedRawKey && (
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="mb-2 text-xs font-medium text-amber-800">
+              Copy this key now — it will not be shown again.
+            </p>
+            <CodeBlock code={revealedRawKey} lang="AGENTPULSE_INGEST_KEY" />
+            <button
+              type="button"
+              onClick={() => setRevealedRawKey(null)}
+              className="mt-2 text-xs font-medium text-amber-800 hover:underline"
+            >
+              I&#39;ve saved it — hide this key
+            </button>
+          </div>
+        )}
+
+        {keyError && (
+          <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            {keyError}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-100 px-4 py-3">
+          <div>
+            <p className="text-xs font-medium text-slate-400">Current scoped key</p>
+            <p className="mt-0.5 font-mono text-sm text-slate-800">
+              {integration.ingestKeyPreview ?? "No scoped key — using the shared deployment key"}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => void generateIngestKey()}
+              disabled={keyBusy}
+              className="rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {keyBusy ? "Working…" : integration.ingestKeyPreview ? "Rotate key" : "Generate scoped key"}
+            </button>
+            {integration.ingestKeyPreview && (
+              <button
+                type="button"
+                onClick={() => void revokeIngestKey()}
+                disabled={keyBusy}
+                className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:border-red-300 hover:bg-red-50 disabled:opacity-50"
+              >
+                Revoke
+              </button>
+            )}
+          </div>
+        </div>
       </Card>
 
       {/* Setup instructions */}
@@ -459,9 +593,8 @@ export default function IntegrationDetailPage() {
         </p>
         <CodeBlock code={envBlock(integration)} lang="env" />
         <p className="mt-3 text-xs text-slate-500">
-          <strong>AGENTPULSE_INGEST_KEY</strong> is the shared ingest key configured in your AgentPulse deployment
-          (<code className="font-mono">AGENTPULSE_INGEST_KEY</code> env var). It is separate from the dashboard access key.
-          V0 uses a shared ingest key for all projects.
+          <strong>AGENTPULSE_INGEST_KEY</strong> can be either the shared deployment-wide key or a scoped key generated
+          above for this integration. It is separate from the dashboard access key.
         </p>
       </Card>
 

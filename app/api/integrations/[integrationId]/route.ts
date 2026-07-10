@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
-import { getIntegrationStore, getRunStore, getWorkflowStore } from "@/lib/db/getStores";
+import { getDiagnosticStore, getIntegrationStore, getRunStore, getWorkflowStore } from "@/lib/db/getStores";
 import type { IntegrationLanguage, IntegrationMode, IntegrationStatus } from "@/lib/integrations/integrationTypes";
 import type { RunSummary } from "@/lib/runs/runTypes";
 
@@ -54,6 +54,23 @@ export async function GET(request: Request, context: RouteContext) {
       ? workflows.find((workflow) => workflow.workflowId === integration.defaultWorkflowId)
       : workflows[0];
 
+    // Recent redacted ingest diagnostics for this integration/project.
+    let recentIngestErrors: Array<{ at: string; message: string; category: string }> = [];
+    let diagnosticsAvailable = true;
+    try {
+      const diagnostics = await getDiagnosticStore().listDiagnostics({
+        projectId: integration.projectId,
+        limit: 20,
+      });
+      recentIngestErrors = diagnostics.map((d) => ({
+        at: d.createdAt,
+        message: d.message,
+        category: d.category,
+      }));
+    } catch {
+      diagnosticsAvailable = false;
+    }
+
     return NextResponse.json({
       integration,
       recentRuns,
@@ -62,8 +79,8 @@ export async function GET(request: Request, context: RouteContext) {
         workflowCount: workflows.length,
         workflowMode: registeredWorkflow ? "registered_spec" : "inferred",
         registeredWorkflow: registeredWorkflow ?? null,
-        recentIngestErrors: [],
-        diagnosticsAvailable: false,
+        recentIngestErrors,
+        diagnosticsAvailable,
       },
     });
   } catch (error) {

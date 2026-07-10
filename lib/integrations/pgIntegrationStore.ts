@@ -8,6 +8,7 @@
 import { getDb } from "@/lib/db/client";
 import { ensureSchema } from "@/lib/db/migrate";
 import { generateIntegrationId } from "./integrationId";
+import { generateRawIngestKey, hashIngestKey, previewIngestKey } from "./ingestKey";
 import type {
   CreateIntegrationInput,
   IntegrationLanguage,
@@ -221,6 +222,53 @@ export const pgIntegrationStore: IntegrationStore = {
         updated_at      = ${now}
       WHERE integration_id = ${existing.integrationId}
       RETURNING *
+    `;
+    if (rows.length === 0) return null;
+    return rowToIntegration(rows[0] as Record<string, unknown>);
+  },
+
+  async generateIngestKey(integrationId: string): Promise<{ integration: ProjectIntegration; rawKey: string } | null> {
+    await ensureSchema();
+    const sql = getDb();
+    const rawKey = generateRawIngestKey();
+    const hash = hashIngestKey(rawKey);
+    const preview = previewIngestKey(rawKey);
+    const now = new Date();
+
+    const rows = await sql`
+      UPDATE ap_integrations SET
+        ingest_key_hash    = ${hash},
+        ingest_key_preview = ${preview},
+        updated_at         = ${now}
+      WHERE integration_id = ${integrationId}
+      RETURNING *
+    `;
+    if (rows.length === 0) return null;
+    return { integration: rowToIntegration(rows[0] as Record<string, unknown>), rawKey };
+  },
+
+  async revokeIngestKey(integrationId: string): Promise<ProjectIntegration | null> {
+    await ensureSchema();
+    const sql = getDb();
+    const now = new Date();
+
+    const rows = await sql`
+      UPDATE ap_integrations SET
+        ingest_key_hash    = NULL,
+        ingest_key_preview = NULL,
+        updated_at         = ${now}
+      WHERE integration_id = ${integrationId}
+      RETURNING *
+    `;
+    if (rows.length === 0) return null;
+    return rowToIntegration(rows[0] as Record<string, unknown>);
+  },
+
+  async findByIngestKeyHash(hash: string): Promise<ProjectIntegration | null> {
+    await ensureSchema();
+    const sql = getDb();
+    const rows = await sql`
+      SELECT * FROM ap_integrations WHERE ingest_key_hash = ${hash} LIMIT 1
     `;
     if (rows.length === 0) return null;
     return rowToIntegration(rows[0] as Record<string, unknown>);

@@ -21,11 +21,11 @@
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
-import { requireIngestKey } from "@/lib/auth/requireIngestKey";
-import { getRunStore, touchIntegrationForProject } from "@/lib/db/getStores";
+import { getRunStore, recordIngestDiagnostic, requireIngestAuth, touchIntegrationForProject } from "@/lib/db/getStores";
 import { traceEventSchema } from "@/lib/proof-layer/schemas";
 import type { TraceEvent } from "@/lib/proof-layer/schemas";
 import { tryBuildEvalResultFromTraceEvent } from "@/lib/proof-layer/evalFromTrace";
+import { classifyZodIssues } from "@/lib/diagnostics/classifyIngestError";
 
 interface EventError {
   event_id: string;
@@ -34,7 +34,7 @@ interface EventError {
 
 export async function POST(request: Request) {
   try {
-    requireIngestKey(request);
+    const auth = await requireIngestAuth(request, "POST /api/traces/events");
 
     const body = (await request.json()) as Record<string, unknown>;
     const rawEvents = body["events"];
@@ -60,9 +60,25 @@ export async function POST(request: Request) {
             ? String((raw as Record<string, unknown>)["event_id"])
             : "unknown";
         rejected++;
-        errors.push({
-          event_id: eventId,
-          message: parseResult.error.issues.map((i) => i.message).join("; "),
+        const message = parseResult.error.issues.map((i) => i.message).join("; ");
+        errors.push({ event_id: eventId, message });
+
+        const { category, schemaPath } = classifyZodIssues(parseResult.error.issues);
+        const rawRunId =
+          typeof raw === "object" && raw !== null && typeof (raw as Record<string, unknown>)["run_id"] === "string"
+            ? String((raw as Record<string, unknown>)["run_id"])
+            : undefined;
+        const rawEventType =
+          typeof raw === "object" && raw !== null && typeof (raw as Record<string, unknown>)["event_type"] === "string"
+            ? String((raw as Record<string, unknown>)["event_type"])
+            : undefined;
+        await recordIngestDiagnostic({
+          runId: rawRunId,
+          eventType: rawEventType,
+          category,
+          errorCode: "400",
+          message: `Trace event validation failed: ${message}`,
+          schemaPath,
         });
         continue;
       }
@@ -70,11 +86,23 @@ export async function POST(request: Request) {
       const event: TraceEvent = parseResult.data;
 
       const run = await getRunStore().getRun(event.run_id);
-      if (!run) {
+      // A scoped ingest key may only append events to runs it owns. Treat a
+      // scope mismatch identically to "not found" so a scoped key cannot be
+      // used to probe for the existence of other projects' runs.
+      const ownedByScope = !auth.integration || run?.runRecord.project_id === auth.integration.projectId;
+      if (!run || !ownedByScope) {
         rejected++;
         errors.push({
           event_id: event.event_id,
           message: `Run "${event.run_id}" not found. Start the run first with POST /api/runs/start.`,
+        });
+        await recordIngestDiagnostic({
+          integrationId: auth.integration?.integrationId,
+          runId: event.run_id,
+          eventType: event.event_type,
+          category: "run_not_found",
+          errorCode: "404",
+          message: `Run "${event.run_id}" not found for incoming trace event.`,
         });
         continue;
       }
@@ -86,6 +114,15 @@ export async function POST(request: Request) {
       const evalResult = tryBuildEvalResultFromTraceEvent(event);
       if (evalResult) {
         await getRunStore().appendEvalResult(event.run_id, evalResult);
+      } else if (event.event_type === "eval_completed") {
+        await recordIngestDiagnostic({
+          projectId: run.runRecord.project_id,
+          runId: event.run_id,
+          eventType: event.event_type,
+          category: "malformed_metadata",
+          errorCode: "422",
+          message: "eval_completed event was missing required metadata (eval_id, eval_name) and was not converted to an EvalResult.",
+        });
       }
 
       // Mark integration active — once per project per batch (non-fatal).

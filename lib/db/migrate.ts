@@ -69,6 +69,7 @@ async function runMigrations(): Promise<void> {
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_integrations_project_id_idx ON ap_integrations(project_id)`);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_integrations_status_idx ON ap_integrations(status)`);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_integrations_updated_at_idx ON ap_integrations(updated_at DESC)`);
+  await sql.unsafe(`CREATE UNIQUE INDEX IF NOT EXISTS ap_integrations_ingest_key_hash_idx ON ap_integrations(ingest_key_hash) WHERE ingest_key_hash IS NOT NULL`);
 
   // ── Runs ────────────────────────────────────────────────────────────────────
   await sql.unsafe(`
@@ -212,4 +213,23 @@ async function runMigrations(): Promise<void> {
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_workflow_specs_project_id_idx ON ap_workflow_specs(project_id)`);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_workflow_specs_status_idx ON ap_workflow_specs(status)`);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_workflow_specs_updated_at_idx ON ap_workflow_specs(updated_at DESC)`);
+
+  // ── Ingest diagnostics ───────────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_ingest_diagnostics (
+      diagnostic_id   TEXT PRIMARY KEY,
+      integration_id  TEXT,
+      project_id      TEXT,
+      run_id          TEXT,
+      event_type      TEXT,
+      category        TEXT NOT NULL,
+      error_code      TEXT NOT NULL,
+      message         TEXT NOT NULL,
+      schema_path     TEXT,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_ingest_diagnostics_project_id_idx ON ap_ingest_diagnostics(project_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_ingest_diagnostics_integration_id_idx ON ap_ingest_diagnostics(integration_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_ingest_diagnostics_created_at_idx ON ap_ingest_diagnostics(created_at DESC)`);
 }

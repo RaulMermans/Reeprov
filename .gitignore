@@ -18,3 +18,7 @@ pnpm-debug.log*
 
 *.tsbuildinfo
 .vercel
+
+.agentpulse
+/runs
+/workflows

@@ -17,16 +17,15 @@
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
-import { requireIngestKey } from "@/lib/auth/requireIngestKey";
 
 import { traceEventSchema } from "@/lib/proof-layer/schemas";
 import { assertTraceContract, summarizeRun } from "@/lib/proof-layer/index";
 import type { TraceEvent } from "@/lib/proof-layer/schemas";
-import { getRunStore, touchIntegrationForProject } from "@/lib/db/getStores";
+import { getRunStore, recordIngestDiagnostic, requireIngestAuth, touchIntegrationForProject } from "@/lib/db/getStores";
 
 export async function POST(request: Request) {
   try {
-    requireIngestKey(request);
+    const auth = await requireIngestAuth(request, "POST /api/runs/complete");
 
     const body = await request.json() as Record<string, unknown>;
 
@@ -36,7 +35,18 @@ export async function POST(request: Request) {
     }
 
     const saved = await getRunStore().getRun(run_id);
-    if (!saved) {
+    // A scoped ingest key may only complete runs it owns. Treat a scope
+    // mismatch identically to "not found" to avoid leaking other projects'
+    // run existence to a scoped key.
+    const ownedByScope = !auth.integration || saved?.runRecord.project_id === auth.integration.projectId;
+    if (!saved || !ownedByScope) {
+      await recordIngestDiagnostic({
+        integrationId: auth.integration?.integrationId,
+        runId: run_id,
+        category: "run_not_found",
+        errorCode: "404",
+        message: `Run "${run_id}" not found on POST /api/runs/complete.`,
+      });
       return NextResponse.json(
         { message: `Run "${run_id}" not found.` },
         { status: 404 },

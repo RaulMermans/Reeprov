@@ -50,6 +50,8 @@ export default function RunsPage() {
   const [error, setError] = useState<string | null>(null);
   const [creatingDemo, setCreatingDemo] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
+  const [importingFixture, setImportingFixture] = useState(false);
+  const [fixtureError, setFixtureError] = useState<string | null>(null);
 
   useEffect(() => {
     void loadRuns();
@@ -107,6 +109,32 @@ export default function RunsPage() {
     }
   }
 
+  async function importFixture() {
+    setImportingFixture(true);
+    setFixtureError(null);
+    try {
+      const res = await fetch("/api/fixtures/customer-support-triage/import", {
+        method: "POST",
+        headers: mergeAuthHeaders(),
+      });
+      if (res.status === 401) {
+        onUnauthorized("Access key expired or invalid. Please unlock again.");
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json() as { message?: string };
+        setFixtureError(data.message ?? "Failed to import fixture.");
+        return;
+      }
+      const data = await res.json() as { ok: boolean; runId: string; redirectTo: string };
+      router.push(data.redirectTo);
+    } catch {
+      setFixtureError("Could not import fixture. Is the dev server running?");
+    } finally {
+      setImportingFixture(false);
+    }
+  }
+
   return (
     <main className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:px-8">
       <section className="flex flex-wrap items-start justify-between gap-4">
@@ -140,14 +168,24 @@ export default function RunsPage() {
           <p className="mt-2 text-xs text-slate-500">
             Start the dev server and emit traces using the AgentPulse client, or create a demo run below.
           </p>
-          <button
-            className="mt-4 rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-            disabled={creatingDemo}
-            onClick={() => void createDemoRun()}
-            type="button"
-          >
-            {creatingDemo ? "Creating…" : "Create demo run"}
-          </button>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+              disabled={creatingDemo}
+              onClick={() => void createDemoRun()}
+              type="button"
+            >
+              {creatingDemo ? "Creating…" : "Create demo run"}
+            </button>
+            <button
+              className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={importingFixture}
+              onClick={() => void importFixture()}
+              type="button"
+            >
+              {importingFixture ? "Importing…" : "Import fixture (demo data)"}
+            </button>
+          </div>
         </Card>
       ) : runs.length === 0 ? (
         <Card className="p-8">
@@ -158,6 +196,9 @@ export default function RunsPage() {
           </p>
           {demoError ? (
             <p className="mt-2 text-xs text-red-600">{demoError}</p>
+          ) : null}
+          {fixtureError ? (
+            <p className="mt-2 text-xs text-red-600">{fixtureError}</p>
           ) : null}
           <div className="mt-4 flex flex-wrap gap-3">
             <Link
@@ -174,6 +215,14 @@ export default function RunsPage() {
             >
               {creatingDemo ? "Creating demo run…" : "Create demo run"}
             </button>
+            <button
+              className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={importingFixture}
+              onClick={() => void importFixture()}
+              type="button"
+            >
+              {importingFixture ? "Importing…" : "Import fixture: Customer Support Triage"}
+            </button>
             <Link
               href="/dashboard/scanner"
               className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
@@ -181,6 +230,9 @@ export default function RunsPage() {
               Open Repository Scanner
             </Link>
           </div>
+          <p className="mt-3 text-xs text-slate-400">
+            The fixture import is demo/test data for a non-BlogAgent inferred-mode workflow — it does not affect production behavior.
+          </p>
           <details className="mt-6 text-xs text-slate-500">
             <summary className="cursor-pointer font-medium text-slate-600 hover:text-slate-900">
               Emit traces from your AI project (advanced)
@@ -218,6 +270,8 @@ export default function RunsPage() {
                       <Badge tone="neutral">{run.workflow_id}</Badge>
                       {run.run_id.startsWith("demo-") ? (
                         <span className="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700">Demo</span>
+                      ) : run.run_id.startsWith("fixture-") ? (
+                        <span className="rounded border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-xs font-medium text-purple-700">Fixture</span>
                       ) : run.run_id.startsWith("seed-") ? (
                         <span className="rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-xs font-medium text-violet-700">Seeded</span>
                       ) : (
@@ -267,7 +321,7 @@ export default function RunsPage() {
             ))}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               className="rounded-md border border-teal-200 bg-teal-50 px-3 py-1.5 text-sm font-medium text-teal-700 transition hover:border-teal-300 hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={creatingDemo}
@@ -276,7 +330,16 @@ export default function RunsPage() {
             >
               {creatingDemo ? "Creating…" : "+ Create demo run"}
             </button>
+            <button
+              className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={importingFixture}
+              onClick={() => void importFixture()}
+              type="button"
+            >
+              {importingFixture ? "Importing…" : "+ Import fixture (demo data)"}
+            </button>
             {demoError ? <span className="text-xs text-red-600">{demoError}</span> : null}
+            {fixtureError ? <span className="text-xs text-red-600">{fixtureError}</span> : null}
           </div>
         </>
       )}

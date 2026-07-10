@@ -14,16 +14,15 @@
  */
 
 import { NextResponse } from "next/server";
-import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
-import { requireIngestKey } from "@/lib/auth/requireIngestKey";
-import { getRunStore, touchIntegrationForProject } from "@/lib/db/getStores";
+import { ApiError, apiErrorResponse, invalidRequest } from "@/lib/api/errors";
+import { getRunStore, recordIngestDiagnostic, requireIngestAuth, touchIntegrationForProject } from "@/lib/db/getStores";
 import { generateRunId } from "@/lib/runs/runId";
 import { runRecordSchema, traceEventSchema } from "@/lib/proof-layer/schemas";
 import type { RunRecord, TraceEvent } from "@/lib/proof-layer/schemas";
 
 export async function POST(request: Request) {
   try {
-    requireIngestKey(request);
+    const auth = await requireIngestAuth(request, "POST /api/runs/start");
 
     const body = await request.json() as Record<string, unknown>;
 
@@ -33,7 +32,25 @@ export async function POST(request: Request) {
     const summary = body["summary"];
 
     if (!project_id || typeof project_id !== "string") {
+      await recordIngestDiagnostic({
+        category: "missing_project_id",
+        errorCode: "400",
+        message: "project_id is required on POST /api/runs/start.",
+        schemaPath: "project_id",
+      });
       throw invalidRequest("project_id is required.");
+    }
+
+    // A scoped ingest key may only start runs for its own project.
+    if (auth.integration && auth.integration.projectId !== project_id) {
+      await recordIngestDiagnostic({
+        integrationId: auth.integration.integrationId,
+        projectId: project_id,
+        category: "invalid_ingest_key",
+        errorCode: "403",
+        message: `Scoped ingest key for project "${auth.integration.projectId}" cannot start a run for project "${project_id}".`,
+      });
+      throw new ApiError(403, "forbidden_scope", "This ingest key is not authorized for the given project_id.", true);
     }
     if (!project_name || typeof project_name !== "string") {
       throw invalidRequest("project_name is required.");
@@ -71,6 +88,12 @@ export async function POST(request: Request) {
 
     if (!result.saved) {
       console.error(`[runs/start] Run persistence failed: ${result.warning}`);
+      await recordIngestDiagnostic({
+        projectId: project_id,
+        category: "persistence_unavailable",
+        errorCode: "503",
+        message: "Run could not be persisted on POST /api/runs/start.",
+      });
       return NextResponse.json(
         {
           code: "persistence_unavailable",

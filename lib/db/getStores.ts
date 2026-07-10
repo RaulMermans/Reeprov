@@ -20,10 +20,15 @@ import { fileReportStore } from "@/lib/reports/reportStore";
 import { pgReportStore } from "@/lib/reports/pgReportStore";
 import { fileWorkflowStore } from "@/lib/workflows/workflowStore";
 import { pgWorkflowStore } from "@/lib/workflows/pgWorkflowStore";
-import type { IntegrationStore } from "@/lib/integrations/integrationTypes";
+import { fileDiagnosticStore } from "@/lib/diagnostics/fileDiagnosticStore";
+import { pgDiagnosticStore } from "@/lib/diagnostics/pgDiagnosticStore";
+import { requireIngestKey, IngestKeyError } from "@/lib/auth/requireIngestKey";
+import { hashIngestKey } from "@/lib/integrations/ingestKey";
+import type { IntegrationStore, ProjectIntegration } from "@/lib/integrations/integrationTypes";
 import type { RunStore } from "@/lib/runs/runTypes";
 import type { ReportStore } from "@/lib/reports/reportTypes";
 import type { WorkflowStore } from "@/lib/workflows/workflowTypes";
+import type { DiagnosticStore, RecordDiagnosticInput } from "@/lib/diagnostics/diagnosticTypes";
 
 let loggedPostgresStore = false;
 const postgresStoreWrappers = new WeakMap<object, object>();
@@ -88,6 +93,64 @@ export function getWorkflowStore(): WorkflowStore {
   if (hasDatabaseUrl()) return usePostgresStore(pgWorkflowStore);
   if (isProduction()) assertDatabaseConfigured();
   return fileWorkflowStore;
+}
+
+export function getDiagnosticStore(): DiagnosticStore {
+  if (hasDatabaseUrl()) return usePostgresStore(pgDiagnosticStore);
+  if (isProduction()) assertDatabaseConfigured();
+  return fileDiagnosticStore;
+}
+
+/**
+ * Records a redacted ingest diagnostic for later display in the integration
+ * setup page. Non-fatal: errors are logged but never propagate to callers,
+ * so a diagnostics-store failure can never break ingestion itself.
+ */
+export async function recordIngestDiagnostic(input: RecordDiagnosticInput): Promise<void> {
+  try {
+    await getDiagnosticStore().recordDiagnostic(input);
+  } catch (err) {
+    console.error("[diagnostics] recordIngestDiagnostic error:", err);
+  }
+}
+
+export interface IngestAuthResult {
+  /** Set only when authentication succeeded via a per-integration scoped key. */
+  integration?: ProjectIntegration;
+}
+
+/**
+ * Authenticates an ingestion request. Tries the shared deployment-wide
+ * AGENTPULSE_INGEST_KEY first (fast, no DB lookup, preserves backward
+ * compatibility with existing integrations). If that fails, falls back to
+ * looking up a per-integration scoped ingest key by its hash.
+ *
+ * Fails closed: throws IngestKeyError (401) if neither check succeeds.
+ * Records a redacted diagnostic on failure — never the provided key value.
+ */
+export async function requireIngestAuth(request: Request, routeLabel: string): Promise<IngestAuthResult> {
+  try {
+    requireIngestKey(request);
+    return {};
+  } catch {
+    // Fall through to scoped-key lookup below.
+  }
+
+  const provided = request.headers.get("x-agentpulse-key");
+  if (provided) {
+    const hash = hashIngestKey(provided);
+    const integration = await getIntegrationStore().findByIngestKeyHash(hash);
+    if (integration) {
+      return { integration };
+    }
+  }
+
+  await recordIngestDiagnostic({
+    category: provided ? "invalid_ingest_key" : "missing_auth_header",
+    errorCode: "401",
+    message: `Ingest authentication failed on ${routeLabel}.`,
+  });
+  throw new IngestKeyError();
 }
 
 /**

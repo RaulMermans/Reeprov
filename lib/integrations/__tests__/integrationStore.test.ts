@@ -266,4 +266,66 @@ describe("fileIntegrationStore", () => {
       expect(list).toHaveLength(1);
     });
   });
+
+  describe("scoped ingest keys", () => {
+    it("generates a raw key once and persists only its hash + preview", async () => {
+      const created = await fileIntegrationStore.createIntegration(makeInput());
+      const result = await fileIntegrationStore.generateIngestKey(created.integrationId);
+
+      expect(result).not.toBeNull();
+      expect(result!.rawKey).toMatch(/^ap_live_/);
+      expect(result!.integration.ingestKeyHash).toBeTruthy();
+      expect(result!.integration.ingestKeyPreview).toContain("ap_live_...");
+      // The raw key itself must never appear in the persisted record.
+      expect(JSON.stringify(result!.integration)).not.toContain(result!.rawKey);
+    });
+
+    it("finds the owning integration by the raw key's hash", async () => {
+      const created = await fileIntegrationStore.createIntegration(makeInput());
+      const { rawKey } = (await fileIntegrationStore.generateIngestKey(created.integrationId))!;
+
+      const { hashIngestKey } = await import("@/lib/integrations/ingestKey");
+      const found = await fileIntegrationStore.findByIngestKeyHash(hashIngestKey(rawKey));
+      expect(found?.integrationId).toBe(created.integrationId);
+    });
+
+    it("returns null for an unrecognized key hash", async () => {
+      const { hashIngestKey } = await import("@/lib/integrations/ingestKey");
+      const found = await fileIntegrationStore.findByIngestKeyHash(hashIngestKey("not-a-real-key"));
+      expect(found).toBeNull();
+    });
+
+    it("rotating a key invalidates the previous one", async () => {
+      const created = await fileIntegrationStore.createIntegration(makeInput());
+      const first = (await fileIntegrationStore.generateIngestKey(created.integrationId))!;
+      const second = (await fileIntegrationStore.generateIngestKey(created.integrationId))!;
+
+      expect(first.rawKey).not.toBe(second.rawKey);
+
+      const { hashIngestKey } = await import("@/lib/integrations/ingestKey");
+      const foundByOld = await fileIntegrationStore.findByIngestKeyHash(hashIngestKey(first.rawKey));
+      const foundByNew = await fileIntegrationStore.findByIngestKeyHash(hashIngestKey(second.rawKey));
+
+      expect(foundByOld).toBeNull();
+      expect(foundByNew?.integrationId).toBe(created.integrationId);
+    });
+
+    it("revoking a key clears the hash and preview", async () => {
+      const created = await fileIntegrationStore.createIntegration(makeInput());
+      const { rawKey } = (await fileIntegrationStore.generateIngestKey(created.integrationId))!;
+
+      const revoked = await fileIntegrationStore.revokeIngestKey(created.integrationId);
+      expect(revoked?.ingestKeyHash).toBeUndefined();
+      expect(revoked?.ingestKeyPreview).toBeUndefined();
+
+      const { hashIngestKey } = await import("@/lib/integrations/ingestKey");
+      const found = await fileIntegrationStore.findByIngestKeyHash(hashIngestKey(rawKey));
+      expect(found).toBeNull();
+    });
+
+    it("returns null when generating a key for a nonexistent integration", async () => {
+      const result = await fileIntegrationStore.generateIngestKey("integ_does_not_exist");
+      expect(result).toBeNull();
+    });
+  });
 });
