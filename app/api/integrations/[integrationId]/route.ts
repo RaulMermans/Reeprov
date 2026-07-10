@@ -10,8 +10,9 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
-import { getIntegrationStore, getRunStore } from "@/lib/db/getStores";
+import { getIntegrationStore, getRunStore, getWorkflowStore } from "@/lib/db/getStores";
 import type { IntegrationLanguage, IntegrationMode, IntegrationStatus } from "@/lib/integrations/integrationTypes";
+import type { RunSummary } from "@/lib/runs/runTypes";
 
 type RouteContext = { params: Promise<{ integrationId: string }> };
 
@@ -29,7 +30,7 @@ export async function GET(request: Request, context: RouteContext) {
     }
 
     // Include recent runs for this project.
-    let recentRuns: unknown[] = [];
+    let recentRuns: RunSummary[] = [];
     try {
       recentRuns = await getRunStore().listRuns({
         projectId: integration.projectId,
@@ -39,7 +40,32 @@ export async function GET(request: Request, context: RouteContext) {
       // Non-fatal.
     }
 
-    return NextResponse.json({ integration, recentRuns });
+    let workflows: Awaited<ReturnType<ReturnType<typeof getWorkflowStore>["listWorkflows"]>> = [];
+    try {
+      workflows = await getWorkflowStore().listWorkflows({
+        projectId: integration.projectId,
+        limit: 100,
+      });
+    } catch {
+      // Readiness remains useful when the workflow registry is unavailable.
+    }
+
+    const registeredWorkflow = integration.defaultWorkflowId
+      ? workflows.find((workflow) => workflow.workflowId === integration.defaultWorkflowId)
+      : workflows[0];
+
+    return NextResponse.json({
+      integration,
+      recentRuns,
+      readiness: {
+        lastRunAt: recentRuns[0]?.started_at ?? null,
+        workflowCount: workflows.length,
+        workflowMode: registeredWorkflow ? "registered_spec" : "inferred",
+        registeredWorkflow: registeredWorkflow ?? null,
+        recentIngestErrors: [],
+        diagnosticsAvailable: false,
+      },
+    });
   } catch (error) {
     return apiErrorResponse(error);
   }

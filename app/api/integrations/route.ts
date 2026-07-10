@@ -19,7 +19,7 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
 import { requireAccessKey } from "@/lib/auth/requireAccessKey";
-import { getIntegrationStore } from "@/lib/db/getStores";
+import { getIntegrationStore, getRunStore, getWorkflowStore } from "@/lib/db/getStores";
 import type {
   IntegrationLanguage,
   IntegrationMode,
@@ -46,7 +46,36 @@ export async function GET(request: Request) {
       limit,
     });
 
-    return NextResponse.json({ integrations, count: integrations.length });
+    const enrichedIntegrations = await Promise.all(integrations.map(async (integration) => {
+      try {
+        const [workflows, runs] = await Promise.all([
+          getWorkflowStore().listWorkflows({ projectId: integration.projectId, limit: 100 }),
+          getRunStore().listRuns({ projectId: integration.projectId, limit: 1 }),
+        ]);
+        const hasMatchingSpec = integration.defaultWorkflowId
+          ? workflows.some((workflow) => workflow.workflowId === integration.defaultWorkflowId)
+          : workflows.length > 0;
+        return {
+          ...integration,
+          readiness: {
+            lastRunAt: runs[0]?.started_at ?? null,
+            workflowCount: workflows.length,
+            workflowMode: hasMatchingSpec ? "registered_spec" : "inferred",
+          },
+        };
+      } catch {
+        return {
+          ...integration,
+          readiness: {
+            lastRunAt: null,
+            workflowCount: 0,
+            workflowMode: "inferred",
+          },
+        };
+      }
+    }));
+
+    return NextResponse.json({ integrations: enrichedIntegrations, count: integrations.length });
   } catch (error) {
     return apiErrorResponse(error);
   }

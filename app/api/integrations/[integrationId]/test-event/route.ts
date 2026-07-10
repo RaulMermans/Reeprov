@@ -20,8 +20,8 @@ import { requireAccessKey } from "@/lib/auth/requireAccessKey";
 import { apiErrorResponse } from "@/lib/api/errors";
 import { getIntegrationStore, getRunStore } from "@/lib/db/getStores";
 import { generateRunId } from "@/lib/runs/runId";
-import { traceEventSchema, runRecordSchema, evalResultSchema } from "@/lib/proof-layer/schemas";
-import type { TraceEvent, EvalResult, RunRecord } from "@/lib/proof-layer/schemas";
+import { traceEventSchema, runRecordSchema, evalResultSchema, toolCallRecordSchema } from "@/lib/proof-layer/schemas";
+import type { TraceEvent, EvalResult, RunRecord, ToolCallRecord } from "@/lib/proof-layer/schemas";
 
 type RouteContext = { params: Promise<{ integrationId: string }> };
 
@@ -58,6 +58,48 @@ export async function POST(request: Request, context: RouteContext) {
         event_type: "run_started",
         status: "running",
         input_summary: `Test event for integration: ${projectName}`,
+      }),
+      traceEventSchema.parse({
+        event_id: `${runId}::tool::completed`,
+        run_id: runId,
+        workflow_id: workflowId,
+        node_id: "test-node",
+        timestamp: ts(startTime, 820),
+        event_type: "tool_call_completed",
+        status: "completed",
+        duration_ms: 20,
+        input_summary: "Read a synthetic health-check record",
+        output_summary: "Synthetic record returned; no external side effect occurred.",
+        metadata: {
+          tool_call_id: `${runId}::tc1`,
+          tool_name: "health_check_reader",
+          permission_class: "read_only",
+        },
+      }),
+      traceEventSchema.parse({
+        event_id: `${runId}::warning`,
+        run_id: runId,
+        workflow_id: workflowId,
+        node_id: "test-node",
+        timestamp: ts(startTime, 875),
+        event_type: "error",
+        status: "degraded",
+        output_summary: "Synthetic warning: optional metadata was omitted.",
+        metadata: { severity: "warning", recovered: true },
+      }),
+      traceEventSchema.parse({
+        event_id: `${runId}::artifact`,
+        run_id: runId,
+        workflow_id: workflowId,
+        node_id: "test-node",
+        timestamp: ts(startTime, 880),
+        event_type: "artifact_created",
+        status: "completed",
+        output_summary: "Safe connection report created.",
+        metadata: {
+          artifact_ref: `${runId}-connection-report.json`,
+          artifact_type: "application/json",
+        },
       }),
       traceEventSchema.parse({
         event_id: `${runId}::node::started`,
@@ -156,6 +198,22 @@ export async function POST(request: Request, context: RouteContext) {
       }),
     ];
 
+    const toolCalls: ToolCallRecord[] = [
+      toolCallRecordSchema.parse({
+        tool_call_id: `${runId}::tc1`,
+        run_id: runId,
+        node_id: "test-node",
+        tool_name: "health_check_reader",
+        permission_class: "read_only",
+        input_summary: "Read a synthetic health-check record",
+        output_summary: "Synthetic record returned; no external side effect occurred.",
+        status: "completed",
+        started_at: ts(startTime, 800),
+        completed_at: ts(startTime, 820),
+        duration_ms: 20,
+      }),
+    ];
+
     const runRecord = runRecordSchema.parse({
       run_id: runId,
       workflow_id: workflowId,
@@ -167,10 +225,10 @@ export async function POST(request: Request, context: RouteContext) {
       total_duration_ms: 950,
       total_cost_usd: 0.0001,
       model_calls_count: 1,
-      tool_calls_count: 0,
+      tool_calls_count: 1,
       evals_passed: 1,
       evals_failed: 0,
-      artifact_refs: [],
+      artifact_refs: [`${runId}-connection-report.json`],
       summary: `AgentPulse connection test for ${projectName} — all checks passed`,
     } satisfies RunRecord);
 
@@ -192,13 +250,16 @@ export async function POST(request: Request, context: RouteContext) {
     for (const evalResult of evalResults) {
       await getRunStore().appendEvalResult(runId, evalResult);
     }
+    for (const toolCall of toolCalls) {
+      await getRunStore().appendToolCallRecord(runId, toolCall);
+    }
     await getRunStore().completeRun(runId, {
       status: "completed",
       completed_at: ts(startTime, 950),
       total_duration_ms: 950,
       total_cost_usd: 0.0001,
       model_calls_count: 1,
-      tool_calls_count: 0,
+      tool_calls_count: 1,
       evals_passed: 1,
       evals_failed: 0,
     });

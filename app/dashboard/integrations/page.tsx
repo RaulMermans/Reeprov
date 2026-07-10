@@ -10,11 +10,26 @@ import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
 import { computeDisplayStatus } from "@/lib/integrations/integrationTypes";
 import type { ProjectIntegration, IntegrationLanguage, IntegrationMode } from "@/lib/integrations/integrationTypes";
 
+type IntegrationListItem = ProjectIntegration & {
+  readiness?: {
+    lastRunAt: string | null;
+    workflowCount: number;
+    workflowMode: "registered_spec" | "inferred";
+  };
+};
+
 function statusTone(status: string): "success" | "warning" | "danger" | "neutral" {
   if (status === "receiving_events") return "success";
   if (status === "stale") return "warning";
   if (status === "error") return "danger";
   return "neutral";
+}
+
+function statusLabel(status: string): string {
+  if (status === "receiving_events") return "live";
+  if (status === "stale") return "disconnected";
+  if (status === "error") return "degraded";
+  return status.replace(/_/g, " ");
 }
 
 function modeTone(mode: string): "success" | "warning" | "danger" | "neutral" {
@@ -138,7 +153,7 @@ function AddIntegrationForm({
               <span className="text-xs font-medium text-slate-600">Project Name <span className="text-red-500">*</span></span>
               <input
                 type="text"
-                placeholder="Blog Agent"
+                placeholder="Customer Support Triage"
                 value={form.projectName}
                 onChange={(e) => setField("projectName", e.target.value)}
                 className="rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-teal-400 focus:outline-none"
@@ -149,7 +164,7 @@ function AddIntegrationForm({
               <span className="text-xs font-medium text-slate-600">Project ID <span className="text-red-500">*</span></span>
               <input
                 type="text"
-                placeholder="blog-agent"
+                placeholder="support-triage"
                 value={form.projectId}
                 onChange={(e) => setField("projectId", e.target.value)}
                 className="rounded-md border border-slate-200 px-3 py-2 text-sm font-mono focus:border-teal-400 focus:outline-none"
@@ -172,7 +187,7 @@ function AddIntegrationForm({
               <span className="text-xs font-medium text-slate-600">Default Workflow ID</span>
               <input
                 type="text"
-                placeholder="blog-agent-v1"
+                placeholder="support-triage-v1"
                 value={form.defaultWorkflowId}
                 onChange={(e) => setField("defaultWorkflowId", e.target.value)}
                 className="rounded-md border border-slate-200 px-3 py-2 text-sm font-mono focus:border-teal-400 focus:outline-none"
@@ -196,7 +211,7 @@ function AddIntegrationForm({
             <span className="text-xs font-medium text-slate-600">Repository URL (optional)</span>
             <input
               type="url"
-              placeholder="https://github.com/yourorg/blog-agent"
+              placeholder="https://github.com/yourorg/support-triage"
               value={form.repositoryUrl}
               onChange={(e) => setField("repositoryUrl", e.target.value)}
               className="rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-teal-400 focus:outline-none"
@@ -230,7 +245,7 @@ function AddIntegrationForm({
 export default function IntegrationsPage() {
   const { onUnauthorized } = useDashboardAuth();
   const router = useRouter();
-  const [integrations, setIntegrations] = useState<ProjectIntegration[]>([]);
+  const [integrations, setIntegrations] = useState<IntegrationListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -257,7 +272,7 @@ export default function IntegrationsPage() {
         setError(data.message ?? "Failed to load integrations.");
         return;
       }
-      const data = await res.json() as { integrations: ProjectIntegration[] };
+      const data = await res.json() as { integrations: IntegrationListItem[] };
       setIntegrations(data.integrations ?? []);
     } catch {
       setError("Could not connect to AgentPulse. Is the dev server running?");
@@ -369,12 +384,12 @@ export default function IntegrationsPage() {
                     )}
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
-                    <Badge tone={statusTone(displayStatus)}>{displayStatus.replace(/_/g, " ")}</Badge>
+                    <Badge tone={statusTone(displayStatus)}>{statusLabel(displayStatus)}</Badge>
                     <Badge tone={modeTone(integration.mode)}>{integration.mode.replace(/_/g, " ")}</Badge>
                   </div>
                 </div>
 
-                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 sm:grid-cols-4 lg:grid-cols-5">
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 sm:grid-cols-4 lg:grid-cols-7">
                   <div>
                     <dt className="font-medium text-slate-400">Language</dt>
                     <dd>{languageLabel(integration.language)}</dd>
@@ -388,12 +403,20 @@ export default function IntegrationsPage() {
                     <dd>{formatDateTime(integration.lastEventAt)}</dd>
                   </div>
                   <div>
-                    <dt className="font-medium text-slate-400">Last run status</dt>
-                    <dd>{integration.lastRunStatus ?? "—"}</dd>
+                    <dt className="font-medium text-slate-400">Last run</dt>
+                    <dd>{formatDateTime(integration.readiness?.lastRunAt ?? undefined)}</dd>
                   </div>
                   <div>
-                    <dt className="font-medium text-slate-400">Created</dt>
-                    <dd>{formatDateTime(integration.createdAt)}</dd>
+                    <dt className="font-medium text-slate-400">Workflow structure</dt>
+                    <dd>{integration.readiness?.workflowMode === "registered_spec" ? "Registered spec" : "Inferred"}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-slate-400">Workflows</dt>
+                    <dd>{integration.readiness?.workflowCount ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-slate-400">Last run status</dt>
+                    <dd>{integration.lastRunStatus ?? "—"}</dd>
                   </div>
                 </dl>
               </Link>

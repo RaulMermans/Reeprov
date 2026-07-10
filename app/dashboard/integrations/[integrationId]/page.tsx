@@ -10,6 +10,16 @@ import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
 import { computeDisplayStatus } from "@/lib/integrations/integrationTypes";
 import type { ProjectIntegration } from "@/lib/integrations/integrationTypes";
 import type { RunSummary } from "@/lib/runs/runTypes";
+import type { SavedWorkflowSummary } from "@/lib/workflows/workflowTypes";
+
+interface IntegrationReadiness {
+  lastRunAt: string | null;
+  workflowCount: number;
+  workflowMode: "registered_spec" | "inferred";
+  registeredWorkflow: SavedWorkflowSummary | null;
+  recentIngestErrors: Array<{ at: string; message: string }>;
+  diagnosticsAvailable: boolean;
+}
 
 // ── Snippet generators ────────────────────────────────────────────────────────
 
@@ -129,6 +139,14 @@ function statusTone(status: string): "success" | "warning" | "danger" | "neutral
   return "neutral";
 }
 
+function readinessLabel(status: string): string {
+  if (status === "receiving_events") return "live";
+  if (status === "stale") return "disconnected";
+  if (status === "error") return "degraded";
+  if (status === "configured") return "waiting for first event";
+  return status.replace(/_/g, " ");
+}
+
 function formatDateTime(iso?: string): string {
   if (!iso) return "Never";
   try {
@@ -188,6 +206,7 @@ export default function IntegrationDetailPage() {
 
   const [integration, setIntegration] = useState<ProjectIntegration | null>(null);
   const [recentRuns, setRecentRuns] = useState<RunSummary[]>([]);
+  const [readiness, setReadiness] = useState<IntegrationReadiness | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [snippetTab, setSnippetTab] = useState<SnippetTab>("typescript");
@@ -220,9 +239,14 @@ export default function IntegrationDetailPage() {
         setError(data.message ?? "Failed to load integration.");
         return;
       }
-      const data = await res.json() as { integration: ProjectIntegration; recentRuns: RunSummary[] };
+      const data = await res.json() as {
+        integration: ProjectIntegration;
+        recentRuns: RunSummary[];
+        readiness: IntegrationReadiness;
+      };
       setIntegration(data.integration);
       setRecentRuns(data.recentRuns ?? []);
+      setReadiness(data.readiness);
     } catch {
       setError("Could not connect to AgentPulse. Is the dev server running?");
     } finally {
@@ -313,7 +337,7 @@ export default function IntegrationDetailPage() {
               Integrations /
             </Link>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-950">{integration.projectName}</h1>
-            <Badge tone={statusTone(displayStatus)}>{displayStatus.replace(/_/g, " ")}</Badge>
+            <Badge tone={statusTone(displayStatus)}>{readinessLabel(displayStatus)}</Badge>
           </div>
           {integration.description && (
             <p className="mt-1 text-sm text-slate-500">{integration.description}</p>
@@ -354,7 +378,7 @@ export default function IntegrationDetailPage() {
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3 lg:grid-cols-5">
           <div>
             <dt className="text-xs font-medium text-slate-400">Status</dt>
-            <dd className="mt-0.5 font-medium text-slate-900">{displayStatus.replace(/_/g, " ")}</dd>
+            <dd className="mt-0.5 font-medium text-slate-900">{readinessLabel(displayStatus)}</dd>
           </div>
           <div>
             <dt className="text-xs font-medium text-slate-400">Mode</dt>
@@ -371,6 +395,20 @@ export default function IntegrationDetailPage() {
           <div>
             <dt className="text-xs font-medium text-slate-400">Last event</dt>
             <dd className="mt-0.5 text-slate-600">{formatDateTime(integration.lastEventAt)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-slate-400">Last run received</dt>
+            <dd className="mt-0.5 text-slate-600">{formatDateTime(readiness?.lastRunAt ?? undefined)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-slate-400">Workflows</dt>
+            <dd className="mt-0.5 text-slate-600">{readiness?.workflowCount ?? 0}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-slate-400">Graph structure</dt>
+            <dd className="mt-0.5 text-slate-600">
+              {readiness?.workflowMode === "registered_spec" ? "Registered WorkflowSpec" : "Inferred from observed stages"}
+            </dd>
           </div>
           <div>
             <dt className="text-xs font-medium text-slate-400">Last run status</dt>
@@ -393,6 +431,25 @@ export default function IntegrationDetailPage() {
         </dl>
       </Card>
 
+      <Card className="p-5">
+        <h2 className="mb-2 text-sm font-semibold text-slate-800">Ingest diagnostics</h2>
+        {readiness?.recentIngestErrors.length ? (
+          <ul className="space-y-2 text-xs text-amber-800">
+            {readiness.recentIngestErrors.map((item) => (
+              <li key={`${item.at}-${item.message}`} className="rounded-md bg-amber-50 px-3 py-2">
+                {formatDateTime(item.at)} — {item.message}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-slate-500">
+            {readiness?.diagnosticsAvailable
+              ? "No recent ingest errors."
+              : "Ingest errors are returned to the sending client but are not retained in this version. Check the HTTP response and sender logs."}
+          </p>
+        )}
+      </Card>
+
       {/* Setup instructions */}
       <Card className="p-5">
         <h2 className="mb-1 text-sm font-semibold text-slate-800">Environment Variables</h2>
@@ -405,6 +462,15 @@ export default function IntegrationDetailPage() {
           <strong>AGENTPULSE_INGEST_KEY</strong> is the shared ingest key configured in your AgentPulse deployment
           (<code className="font-mono">AGENTPULSE_INGEST_KEY</code> env var). It is separate from the dashboard access key.
           V0 uses a shared ingest key for all projects.
+        </p>
+      </Card>
+
+      <Card className="p-5">
+        <h2 className="mb-2 text-sm font-semibold text-slate-800">How workflow structure is chosen</h2>
+        <p className="text-xs leading-5 text-slate-600">
+          A registered WorkflowSpec is the declared contract for node types, order, and edges. When no matching spec exists,
+          AgentPulse infers the canvas from observed <code className="font-mono">node_id</code> values and event order. Both modes
+          use the same generic graph engine; registering a spec adds expected-but-not-observed stages and declared connections.
         </p>
       </Card>
 

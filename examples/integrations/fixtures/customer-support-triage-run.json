@@ -1,0 +1,40 @@
+{
+  "runRecord": {
+    "run_id": "support-triage-run-001",
+    "workflow_id": "support-triage-v2",
+    "project_id": "customer-support-triage",
+    "project_name": "Customer Support Triage",
+    "status": "degraded",
+    "started_at": "2026-07-10T09:00:00.000Z",
+    "completed_at": "2026-07-10T09:00:08.000Z",
+    "total_duration_ms": 8000,
+    "total_cost_usd": 0.0032,
+    "model_calls_count": 1,
+    "tool_calls_count": 1,
+    "evals_passed": 1,
+    "evals_failed": 0,
+    "artifact_refs": ["triage-summary-001.json"],
+    "summary": "Ticket classified and routed; CRM enrichment timed out and the run recovered with cached context."
+  },
+  "traceEvents": [
+    { "event_id": "st-01", "run_id": "support-triage-run-001", "workflow_id": "support-triage-v2", "timestamp": "2026-07-10T09:00:00.000Z", "event_type": "run_started", "status": "running", "input_summary": "Sanitized support ticket received." },
+    { "event_id": "st-02", "run_id": "support-triage-run-001", "workflow_id": "support-triage-v2", "node_id": "normalize-request", "timestamp": "2026-07-10T09:00:00.100Z", "event_type": "node_completed", "status": "completed", "output_summary": "Ticket fields normalized; customer identifiers omitted.", "metadata": { "lane": "Intake" } },
+    { "event_id": "st-03", "run_id": "support-triage-run-001", "workflow_id": "support-triage-v2", "node_id": "classify-intent", "timestamp": "2026-07-10T09:00:01.000Z", "event_type": "node_started", "status": "running", "metadata": { "lane": "Triage" } },
+    { "event_id": "st-04", "run_id": "support-triage-run-001", "workflow_id": "support-triage-v2", "node_id": "classify-intent", "timestamp": "2026-07-10T09:00:02.200Z", "event_type": "model_call_completed", "status": "completed", "duration_ms": 1200, "cost_usd": 0.0032, "input_summary": "Summarized ticket symptoms.", "output_summary": "Classified as billing inquiry with high confidence.", "metadata": { "lane": "Triage", "model_provider": "example-provider", "model_name": "example-classifier", "input_tokens": 240, "output_tokens": 45 } },
+    { "event_id": "st-05", "run_id": "support-triage-run-001", "workflow_id": "support-triage-v2", "node_id": "classify-intent", "timestamp": "2026-07-10T09:00:02.300Z", "event_type": "node_completed", "status": "completed", "metadata": { "lane": "Triage" } },
+    { "event_id": "st-06", "run_id": "support-triage-run-001", "workflow_id": "support-triage-v2", "node_id": "enrich-account", "timestamp": "2026-07-10T09:00:03.000Z", "event_type": "tool_call_failed", "status": "failed", "duration_ms": 500, "input_summary": "Lookup using a one-way account reference.", "output_summary": "CRM lookup timed out.", "metadata": { "lane": "Context", "tool_call_id": "support-tool-001", "tool_name": "crm_reader", "permission_class": "read_only" } },
+    { "event_id": "st-07", "run_id": "support-triage-run-001", "workflow_id": "support-triage-v2", "node_id": "enrich-account", "timestamp": "2026-07-10T09:00:03.100Z", "event_type": "retry_started", "status": "running", "output_summary": "Recovering with cached account tier only.", "metadata": { "lane": "Context", "recovery_strategy": "cached_context" } },
+    { "event_id": "st-08", "run_id": "support-triage-run-001", "workflow_id": "support-triage-v2", "node_id": "enrich-account", "timestamp": "2026-07-10T09:00:03.200Z", "event_type": "node_completed", "status": "degraded", "output_summary": "Continued with limited cached context.", "metadata": { "lane": "Context", "recovered": true } },
+    { "event_id": "st-09", "run_id": "support-triage-run-001", "workflow_id": "support-triage-v2", "node_id": "quality-check", "timestamp": "2026-07-10T09:00:04.000Z", "event_type": "eval_completed", "status": "completed", "output_summary": "Routing confidence meets threshold.", "metadata": { "lane": "Quality", "eval_id": "support-eval-001", "eval_name": "Routing confidence", "eval_type": "output_quality", "passed": true, "score": 0.91, "severity": "warning", "findings": ["Account context was limited after a recovered timeout."] } },
+    { "event_id": "st-10", "run_id": "support-triage-run-001", "workflow_id": "support-triage-v2", "node_id": "route-queue", "timestamp": "2026-07-10T09:00:05.000Z", "event_type": "node_completed", "status": "completed", "output_summary": "Recommended Billing queue; no external write performed.", "metadata": { "lane": "Routing" } },
+    { "event_id": "st-11", "run_id": "support-triage-run-001", "workflow_id": "support-triage-v2", "node_id": "summarize-handoff", "timestamp": "2026-07-10T09:00:06.000Z", "event_type": "artifact_created", "status": "completed", "output_summary": "Sanitized handoff summary created.", "metadata": { "lane": "Handoff", "artifact_ref": "triage-summary-001.json", "artifact_type": "application/json" } },
+    { "event_id": "st-12", "run_id": "support-triage-run-001", "workflow_id": "support-triage-v2", "node_id": "summarize-handoff", "timestamp": "2026-07-10T09:00:07.000Z", "event_type": "node_completed", "status": "completed", "metadata": { "lane": "Handoff" } },
+    { "event_id": "st-13", "run_id": "support-triage-run-001", "workflow_id": "support-triage-v2", "timestamp": "2026-07-10T09:00:08.000Z", "event_type": "run_completed", "status": "degraded", "duration_ms": 8000, "output_summary": "Triage completed with recovered CRM warning." }
+  ],
+  "toolCalls": [
+    { "tool_call_id": "support-tool-001", "run_id": "support-triage-run-001", "node_id": "enrich-account", "tool_name": "crm_reader", "permission_class": "read_only", "input_summary": "Lookup using a one-way account reference.", "status": "failed", "error": "Upstream timeout", "started_at": "2026-07-10T09:00:02.500Z", "completed_at": "2026-07-10T09:00:03.000Z", "duration_ms": 500 }
+  ],
+  "evalResults": [
+    { "eval_id": "support-eval-001", "run_id": "support-triage-run-001", "node_id": "quality-check", "name": "Routing confidence", "type": "output_quality", "score": 0.91, "passed": true, "severity": "warning", "findings": ["Account context was limited after a recovered timeout."], "recommendation": "Retry enrichment asynchronously before an operator acts." }
+  ]
+}

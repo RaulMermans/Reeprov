@@ -354,7 +354,7 @@ describe("POST /api/integrations/[integrationId]/test-event", () => {
     expect(updated!.lastEventAt).toBeDefined();
   });
 
-  it("test run has 1 model call and 1 eval passed", async () => {
+  it("test run has model, tool, eval, artifact, and warning evidence", async () => {
     const integration = await fileIntegrationStore.createIntegration({
       projectId: "model-test",
       projectName: "Model Test",
@@ -368,9 +368,13 @@ describe("POST /api/integrations/[integrationId]/test-event", () => {
 
     const run = await fileRunStore.getRun(data.runId);
     expect(run!.runRecord.model_calls_count).toBe(1);
+    expect(run!.runRecord.tool_calls_count).toBe(1);
     expect(run!.runRecord.evals_passed).toBe(1);
     expect(run!.runRecord.evals_failed).toBe(0);
     expect(run!.runRecord.total_cost_usd).toBeGreaterThan(0);
+    expect(run!.runRecord.artifact_refs).toHaveLength(1);
+    expect(run!.traceEvents.some((event) => event.event_type === "error")).toBe(true);
+    expect(run!.toolCalls[0]?.permission_class).toBe("read_only");
   });
 });
 
