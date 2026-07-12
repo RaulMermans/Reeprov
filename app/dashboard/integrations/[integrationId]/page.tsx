@@ -11,6 +11,9 @@ import { computeDisplayStatus } from "@/lib/integrations/integrationTypes";
 import type { ProjectIntegration } from "@/lib/integrations/integrationTypes";
 import type { RunSummary } from "@/lib/runs/runTypes";
 import type { SavedWorkflowSummary } from "@/lib/workflows/workflowTypes";
+import type { IntegrationWorkflowBlueprint as IntegrationWorkflowBlueprintData } from "@/lib/integrations/integrationBlueprintTypes";
+import { IntegrationWorkflowBlueprint } from "@/components/proof-layer/IntegrationWorkflowBlueprint";
+import { IntegrationHealthSummary } from "@/components/proof-layer/IntegrationHealthSummary";
 
 interface IntegrationReadiness {
   lastRunAt: string | null;
@@ -207,6 +210,8 @@ export default function IntegrationDetailPage() {
   const [integration, setIntegration] = useState<ProjectIntegration | null>(null);
   const [recentRuns, setRecentRuns] = useState<RunSummary[]>([]);
   const [readiness, setReadiness] = useState<IntegrationReadiness | null>(null);
+  const [blueprint, setBlueprint] = useState<IntegrationWorkflowBlueprintData | null>(null);
+  const [blueprintError, setBlueprintError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [snippetTab, setSnippetTab] = useState<SnippetTab>("typescript");
@@ -250,10 +255,32 @@ export default function IntegrationDetailPage() {
       setIntegration(data.integration);
       setRecentRuns(data.recentRuns ?? []);
       setReadiness(data.readiness);
+      void loadBlueprint();
     } catch {
       setError("Could not connect to AgentPulse. Is the dev server running?");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadBlueprint() {
+    setBlueprintError(null);
+    try {
+      const res = await fetch(`/api/integrations/${integrationId}/blueprint`, {
+        headers: mergeAuthHeaders(),
+      });
+      if (res.status === 401) {
+        onUnauthorized("Access key expired or invalid. Please unlock again.");
+        return;
+      }
+      if (!res.ok) {
+        setBlueprintError("Failed to load the workflow blueprint.");
+        return;
+      }
+      const data = await res.json() as { blueprint: IntegrationWorkflowBlueprintData };
+      setBlueprint(data.blueprint);
+    } catch {
+      setBlueprintError("Could not load the workflow blueprint.");
     }
   }
 
@@ -494,6 +521,20 @@ export default function IntegrationDetailPage() {
           )}
         </dl>
       </Card>
+
+      {/* Workflow Blueprint — aggregate, read-only map across recent runs. */}
+      {blueprintError ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          {blueprintError}
+        </div>
+      ) : blueprint ? (
+        <>
+          <IntegrationHealthSummary health={blueprint.healthSummary} />
+          <IntegrationWorkflowBlueprint blueprint={blueprint} />
+        </>
+      ) : (
+        <Card className="p-8 text-center text-sm text-slate-500">Loading workflow blueprint…</Card>
+      )}
 
       <Card className="p-5">
         <h2 className="mb-1 text-sm font-semibold text-slate-800">Ingest diagnostics</h2>
