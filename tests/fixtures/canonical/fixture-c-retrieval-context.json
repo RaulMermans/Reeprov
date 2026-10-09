@@ -1,0 +1,243 @@
+{
+  "schema_version": "1.0.0-alpha",
+  "identity": {
+    "run_id": "run_fixture_c_retrieval_context_003",
+    "project_id": "proj_docs_assistant",
+    "project_name": "Documentation Q&A Agent",
+    "workflow_id": "wf_rag_retrieval",
+    "created_at": "2026-10-09T11:00:00.000Z"
+  },
+  "execution": {
+    "status": "completed",
+    "started_at": "2026-10-09T11:00:00.000Z",
+    "completed_at": "2026-10-09T11:00:03.100Z",
+    "duration_ms": 3100,
+    "summary": "Retrieved documentation chunks on rate limits and answered user query."
+  },
+  "environment": {
+    "runtime": "node",
+    "sdk_version": "0.4.0"
+  },
+  "trajectory": [
+    {
+      "step_id": "step_retrieval",
+      "step_index": 0,
+      "step_type": "retrieval",
+      "name": "Retrieve Policy Chunks",
+      "node_id": "vector_search_node",
+      "started_at": "2026-10-09T11:00:00.000Z",
+      "completed_at": "2026-10-09T11:00:00.350Z",
+      "duration_ms": 350,
+      "status": "completed",
+      "retrieval_operation_ids": ["ret_op_001"],
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Query: API rate limits tier 2",
+      "output_summary": "Found 2 chunks from api-limits.md"
+    },
+    {
+      "step_id": "step_answer_synth",
+      "step_index": 1,
+      "step_type": "model_call",
+      "name": "Synthesize Grounded Answer",
+      "node_id": "llm_answer_node",
+      "started_at": "2026-10-09T11:00:00.350Z",
+      "completed_at": "2026-10-09T11:00:03.100Z",
+      "duration_ms": 2750,
+      "status": "completed",
+      "context_snapshot_id": "ctx_snap_rag_001",
+      "model_invocation_ids": ["mod_inv_rag_001"],
+      "boundary_ids": ["bnd_model_rag_001"],
+      "tool_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": []
+    }
+  ],
+  "boundaries": [
+    {
+      "boundary_id": "bnd_model_rag_001",
+      "step_id": "step_answer_synth",
+      "boundary_type": "model_call",
+      "name": "anthropic/claude-3-5-sonnet",
+      "input": { "captured": true, "summary": "Prompt with 2 retrieved doc chunks", "redaction_status": "none" },
+      "output": { "captured": true, "summary": "Detailed explanation of tier 2 rate limits", "redaction_status": "none" },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": { "is_idempotent": true },
+      "captured_content_availability": "full",
+      "redaction_status": "none",
+      "timestamp": "2026-10-09T11:00:00.350Z",
+      "duration_ms": 2750
+    }
+  ],
+  "external_calls": [],
+  "state": [],
+  "context": [
+    {
+      "snapshot_id": "ctx_snap_rag_001",
+      "step_id": "step_answer_synth",
+      "model_invocation_id": "mod_inv_rag_001",
+      "timestamp": "2026-10-09T11:00:00.350Z",
+      "total_token_estimate": 1400,
+      "items": [
+        {
+          "item_id": "ctx_rag_sys",
+          "source_type": "system_policy",
+          "position": 0,
+          "token_estimate": 200,
+          "content_captured": true,
+          "content": "You are a docs assistant. Answer strictly based on the provided documents.",
+          "redaction_status": "none"
+        },
+        {
+          "item_id": "ctx_rag_chunk_1",
+          "source_type": "retrieved_document",
+          "source_reference": "doc_api_limits_sec_2",
+          "position": 1,
+          "token_estimate": 600,
+          "inclusion_reason": "Vector similarity match on rate limits",
+          "retrieval_score": 0.942,
+          "provenance": {
+            "source_system": "qdrant",
+            "document_id": "doc_api_limits",
+            "chunk_id": "chunk_sec_2",
+            "uri": "file:///docs/api-limits.md#L45-L89",
+            "version": "v2.1",
+            "retrieval_query": "API rate limits tier 2",
+            "retrieval_score": 0.942
+          },
+          "content_captured": true,
+          "content": "Tier 2 organizations have a rate limit of 1,000 requests per minute with a burst allowance of 1,500.",
+          "redaction_status": "none"
+        },
+        {
+          "item_id": "ctx_rag_chunk_2",
+          "source_type": "retrieved_document",
+          "source_reference": "doc_api_limits_sec_3",
+          "position": 2,
+          "token_estimate": 400,
+          "inclusion_reason": "Vector similarity match on rate limit headers",
+          "retrieval_score": 0.887,
+          "provenance": {
+            "source_system": "qdrant",
+            "document_id": "doc_api_limits",
+            "chunk_id": "chunk_sec_3",
+            "uri": "file:///docs/api-limits.md#L90-L120",
+            "version": "v2.1",
+            "retrieval_query": "API rate limits tier 2",
+            "retrieval_score": 0.887
+          },
+          "content_captured": true,
+          "content": "Rate limit status is returned in HTTP headers: X-RateLimit-Limit, X-RateLimit-Remaining, and Retry-After.",
+          "redaction_status": "none"
+        },
+        {
+          "item_id": "ctx_rag_user",
+          "source_type": "user_input",
+          "position": 3,
+          "token_estimate": 200,
+          "content_captured": true,
+          "content": "What is the rate limit for Tier 2 and how do I know when I am throttled?",
+          "redaction_status": "none"
+        }
+      ]
+    }
+  ],
+  "memory": {
+    "operations": [],
+    "references": []
+  },
+  "tools": [],
+  "retrieval": [
+    {
+      "operation_id": "ret_op_001",
+      "step_id": "step_retrieval",
+      "service_name": "qdrant",
+      "query": "API rate limits tier 2",
+      "top_k": 5,
+      "results_count": 2,
+      "duration_ms": 340,
+      "timestamp": "2026-10-09T11:00:00.010Z",
+      "context_item_ids": ["ctx_rag_chunk_1", "ctx_rag_chunk_2"],
+      "results": [
+        {
+          "document_id": "doc_api_limits",
+          "chunk_id": "chunk_sec_2",
+          "title": "API Limits - Tier 2",
+          "uri": "file:///docs/api-limits.md#L45-L89",
+          "score": 0.942,
+          "rank": 1,
+          "content_preview": "Tier 2 organizations have a rate limit of 1,000 requests per minute..."
+        },
+        {
+          "document_id": "doc_api_limits",
+          "chunk_id": "chunk_sec_3",
+          "title": "API Limits - Headers",
+          "uri": "file:///docs/api-limits.md#L90-L120",
+          "score": 0.887,
+          "rank": 2,
+          "content_preview": "Rate limit status is returned in HTTP headers..."
+        }
+      ]
+    }
+  ],
+  "models": [
+    {
+      "invocation_id": "mod_inv_rag_001",
+      "step_id": "step_answer_synth",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "provider": "anthropic",
+      "prompt_tokens": 1400,
+      "completion_tokens": 180,
+      "total_tokens": 1580,
+      "cost_usd": 0.0069,
+      "duration_ms": 2750,
+      "context_snapshot_id": "ctx_snap_rag_001",
+      "raw_captured": true,
+      "started_at": "2026-10-09T11:00:00.350Z",
+      "completed_at": "2026-10-09T11:00:03.100Z"
+    }
+  ],
+  "artifacts": [],
+  "evals": [],
+  "lineage": {
+    "mutations": []
+  },
+  "provenance": {
+    "capture_method": "sdk_trace",
+    "redaction_verified": true
+  },
+  "safety": {
+    "approval_status": "not_required",
+    "approval_records": [],
+    "redaction_summary": { "total_redactions": 0, "secrets_detected": 0, "fields_redacted": [] }
+  },
+  "observability": {
+    "total_duration_ms": 3100,
+    "total_cost_usd": 0.0069,
+    "model_calls_count": 1,
+    "tool_calls_count": 0,
+    "evals_passed": 0,
+    "evals_failed": 0,
+    "trace_event_count": 2,
+    "context_snapshot_count": 1,
+    "memory_operations_count": 0,
+    "retrieval_operations_count": 1,
+    "total_tokens": 1580
+  },
+  "replay": {
+    "overall_replayability": "REPLAYABLE_RECORDED",
+    "unsupported_boundaries_count": 0,
+    "side_effect_gated_count": 0,
+    "deterministic": false,
+    "sandboxed_available": true,
+    "missing_recordings": [],
+    "notes": ["Recorded retrieval results and model completion available."]
+  }
+}

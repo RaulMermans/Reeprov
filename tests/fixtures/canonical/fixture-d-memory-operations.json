@@ -1,0 +1,266 @@
+{
+  "schema_version": "1.0.0-alpha",
+  "identity": {
+    "run_id": "run_fixture_d_memory_ops_004",
+    "project_id": "proj_personal_assistant",
+    "project_name": "Personal AI Assistant",
+    "workflow_id": "wf_memory_assisted_chat",
+    "created_at": "2026-10-09T12:00:00.000Z"
+  },
+  "execution": {
+    "status": "completed",
+    "started_at": "2026-10-09T12:00:00.000Z",
+    "completed_at": "2026-10-09T12:00:04.500Z",
+    "duration_ms": 4500,
+    "summary": "Recalled user timezone preference from episodic memory and stored preferred meeting platform."
+  },
+  "environment": {
+    "runtime": "python",
+    "framework": "custom_agent",
+    "sdk_version": "0.4.0"
+  },
+  "trajectory": [
+    {
+      "step_id": "step_mem_recall",
+      "step_index": 0,
+      "step_type": "memory_op",
+      "name": "Recall User Preferences",
+      "node_id": "memory_recall_node",
+      "started_at": "2026-10-09T12:00:00.000Z",
+      "completed_at": "2026-10-09T12:00:00.400Z",
+      "duration_ms": 400,
+      "status": "completed",
+      "memory_operation_ids": ["mem_op_read_01"],
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": []
+    },
+    {
+      "step_id": "step_chat_turn",
+      "step_index": 1,
+      "step_type": "model_call",
+      "name": "Generate Scheduling Proposal",
+      "node_id": "llm_agent_node",
+      "started_at": "2026-10-09T12:00:00.400Z",
+      "completed_at": "2026-10-09T12:00:03.800Z",
+      "duration_ms": 3400,
+      "status": "completed",
+      "context_snapshot_id": "ctx_snap_mem_001",
+      "model_invocation_ids": ["mod_inv_mem_001"],
+      "boundary_ids": ["bnd_model_mem_001"],
+      "tool_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": []
+    },
+    {
+      "step_id": "step_mem_persist",
+      "step_index": 2,
+      "step_type": "memory_op",
+      "name": "Commit New Meeting Preference Memory",
+      "node_id": "memory_writer_node",
+      "started_at": "2026-10-09T12:00:03.800Z",
+      "completed_at": "2026-10-09T12:00:04.500Z",
+      "duration_ms": 700,
+      "status": "completed",
+      "memory_operation_ids": ["mem_op_write_01"],
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": []
+    }
+  ],
+  "boundaries": [
+    {
+      "boundary_id": "bnd_model_mem_001",
+      "step_id": "step_chat_turn",
+      "boundary_type": "model_call",
+      "name": "anthropic/claude-3-5-sonnet",
+      "input": { "captured": true, "summary": "Prompt with injected user memory", "redaction_status": "none" },
+      "output": { "captured": true, "summary": "Scheduling reply acknowledging user timezone", "redaction_status": "none" },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": { "is_idempotent": true },
+      "captured_content_availability": "full",
+      "redaction_status": "none",
+      "timestamp": "2026-10-09T12:00:00.400Z",
+      "duration_ms": 3400
+    }
+  ],
+  "external_calls": [],
+  "state": [
+    {
+      "snapshot_id": "state_snap_001",
+      "step_id": "step_chat_turn",
+      "timestamp": "2026-10-09T12:00:00.400Z",
+      "state_scope": "workflow",
+      "state_data": { "active_slot": "2026-10-10T14:00:00Z", "turns_count": 3 },
+      "captured": true
+    }
+  ],
+  "context": [
+    {
+      "snapshot_id": "ctx_snap_mem_001",
+      "step_id": "step_chat_turn",
+      "model_invocation_id": "mod_inv_mem_001",
+      "timestamp": "2026-10-09T12:00:00.400Z",
+      "total_token_estimate": 950,
+      "items": [
+        {
+          "item_id": "ctx_mem_sys",
+          "source_type": "system_policy",
+          "position": 0,
+          "token_estimate": 150,
+          "content_captured": true,
+          "content": "You are a personal scheduling assistant.",
+          "redaction_status": "none"
+        },
+        {
+          "item_id": "ctx_mem_item_1",
+          "source_type": "retrieved_memory",
+          "source_reference": "mem_user_pref_tz",
+          "position": 1,
+          "token_estimate": 100,
+          "inclusion_reason": "Injected episodic user preference for timezone",
+          "provenance": {
+            "source_system": "mem0",
+            "document_id": "mem_user_pref_tz",
+            "version": "1.0"
+          },
+          "content_captured": true,
+          "content": "User lives in Madrid and operates on Europe/Madrid timezone (CET/CEST).",
+          "redaction_status": "none"
+        },
+        {
+          "item_id": "ctx_mem_user_turn",
+          "source_type": "user_input",
+          "position": 2,
+          "token_estimate": 700,
+          "content_captured": true,
+          "content": "Can we schedule our sync for tomorrow at 3pm? Also I always prefer Google Meet.",
+          "redaction_status": "none"
+        }
+      ]
+    }
+  ],
+  "memory": {
+    "references": [
+      {
+        "memory_id": "mem_user_pref_tz",
+        "category": "episodic",
+        "key": "user_timezone",
+        "summary": "User timezone is Europe/Madrid"
+      },
+      {
+        "memory_id": "mem_user_pref_meet",
+        "category": "semantic",
+        "key": "meeting_platform_preference",
+        "summary": "User prefers Google Meet for video calls"
+      }
+    ],
+    "operations": [
+      {
+        "operation_id": "mem_op_read_01",
+        "step_id": "step_mem_recall",
+        "operation_type": "retrieval",
+        "memory_id": "mem_user_pref_tz",
+        "memory_type": "episodic",
+        "provider": "mem0",
+        "query": "user scheduling preferences and timezone",
+        "score": 0.96,
+        "rank": 1,
+        "source_provenance": "run_fixture_prior_session_001",
+        "timestamps": {
+          "created_at": "2026-10-01T09:00:00Z",
+          "operation_at": "2026-10-09T12:00:00.100Z"
+        },
+        "outcome": "success",
+        "context_injection_linkage": {
+          "context_item_id": "ctx_mem_item_1",
+          "context_snapshot_id": "ctx_snap_mem_001"
+        }
+      },
+      {
+        "operation_id": "mem_op_write_01",
+        "step_id": "step_mem_persist",
+        "operation_type": "committed_write",
+        "memory_id": "mem_user_pref_meet",
+        "memory_type": "semantic",
+        "provider": "mem0",
+        "source_provenance": "User turn: 'Also I always prefer Google Meet.'",
+        "timestamps": {
+          "created_at": "2026-10-09T12:00:04.000Z",
+          "operation_at": "2026-10-09T12:00:04.000Z"
+        },
+        "outcome": "success",
+        "originating_run_id": "run_fixture_d_memory_ops_004",
+        "originating_step_id": "step_mem_persist",
+        "details": {
+          "extracted_key": "meeting_platform_preference",
+          "extracted_value": "Google Meet"
+        }
+      }
+    ]
+  },
+  "tools": [],
+  "retrieval": [],
+  "models": [
+    {
+      "invocation_id": "mod_inv_mem_001",
+      "step_id": "step_chat_turn",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "provider": "anthropic",
+      "prompt_tokens": 950,
+      "completion_tokens": 120,
+      "total_tokens": 1070,
+      "cost_usd": 0.00465,
+      "duration_ms": 3400,
+      "context_snapshot_id": "ctx_snap_mem_001",
+      "raw_captured": true,
+      "started_at": "2026-10-09T12:00:00.400Z",
+      "completed_at": "2026-10-09T12:00:03.800Z"
+    }
+  ],
+  "artifacts": [],
+  "evals": [],
+  "lineage": {
+    "mutations": []
+  },
+  "provenance": {
+    "capture_method": "sdk_trace",
+    "redaction_verified": true
+  },
+  "safety": {
+    "approval_status": "not_required",
+    "approval_records": [],
+    "redaction_summary": { "total_redactions": 0, "secrets_detected": 0, "fields_redacted": [] }
+  },
+  "observability": {
+    "total_duration_ms": 4500,
+    "total_cost_usd": 0.00465,
+    "model_calls_count": 1,
+    "tool_calls_count": 0,
+    "evals_passed": 0,
+    "evals_failed": 0,
+    "trace_event_count": 3,
+    "context_snapshot_count": 1,
+    "memory_operations_count": 2,
+    "retrieval_operations_count": 0,
+    "total_tokens": 1070
+  },
+  "replay": {
+    "overall_replayability": "REPLAYABLE_RECORDED",
+    "unsupported_boundaries_count": 0,
+    "side_effect_gated_count": 0,
+    "deterministic": false,
+    "sandboxed_available": true,
+    "missing_recordings": [],
+    "notes": ["Recorded memory operations and model invocation can be replayed safely."]
+  }
+}

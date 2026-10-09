@@ -1,0 +1,98 @@
+{
+  "runRecord": {
+    "run_id": "run_legacy_partial_007",
+    "workflow_id": "wf_legacy_pipeline",
+    "project_id": "proj_legacy_system",
+    "project_name": "Legacy Uninstrumented System",
+    "status": "completed",
+    "started_at": "2026-05-01T08:00:00.000Z",
+    "completed_at": "2026-05-01T08:00:06.000Z",
+    "total_duration_ms": 6000,
+    "total_cost_usd": 0.012,
+    "model_calls_count": 2,
+    "tool_calls_count": 1,
+    "evals_passed": 1,
+    "evals_failed": 0,
+    "approval_status": "not_required",
+    "artifact_refs": ["/tmp/exports/report-2026.pdf"],
+    "summary": "Legacy run with partial trace instrumentation."
+  },
+  "traceEvents": [
+    {
+      "event_id": "evt_legacy_001",
+      "run_id": "run_legacy_partial_007",
+      "workflow_id": "wf_legacy_pipeline",
+      "timestamp": "2026-05-01T08:00:00.000Z",
+      "event_type": "run_started",
+      "status": "started"
+    },
+    {
+      "event_id": "evt_legacy_002",
+      "run_id": "run_legacy_partial_007",
+      "workflow_id": "wf_legacy_pipeline",
+      "node_id": "node_fetch",
+      "timestamp": "2026-05-01T08:00:01.000Z",
+      "event_type": "tool_call_completed",
+      "status": "completed",
+      "duration_ms": 1200,
+      "input_summary": "fetching legacy database records",
+      "output_summary": "retrieved 15 rows"
+    },
+    {
+      "event_id": "evt_legacy_003",
+      "run_id": "run_legacy_partial_007",
+      "workflow_id": "wf_legacy_pipeline",
+      "node_id": "node_summarize",
+      "timestamp": "2026-05-01T08:00:03.000Z",
+      "event_type": "model_call_completed",
+      "status": "completed",
+      "duration_ms": 2800,
+      "cost_usd": 0.012,
+      "input_summary": "prompt with 15 rows",
+      "output_summary": "generated markdown summary table",
+      "metadata": {
+        "model": "gpt-4",
+        "provider": "openai"
+      }
+    },
+    {
+      "event_id": "evt_legacy_004",
+      "run_id": "run_legacy_partial_007",
+      "workflow_id": "wf_legacy_pipeline",
+      "timestamp": "2026-05-01T08:00:06.000Z",
+      "event_type": "run_completed",
+      "status": "completed"
+    }
+  ],
+  "toolCalls": [
+    {
+      "tool_call_id": "tc_legacy_001",
+      "run_id": "run_legacy_partial_007",
+      "node_id": "node_fetch",
+      "tool_name": "query_legacy_db",
+      "permission_class": "read_only",
+      "input_summary": "query: SELECT * FROM items",
+      "output_summary": "15 rows returned",
+      "status": "completed",
+      "started_at": "2026-05-01T08:00:01.000Z",
+      "completed_at": "2026-05-01T08:00:02.200Z",
+      "duration_ms": 1200
+    }
+  ],
+  "evalResults": [
+    {
+      "eval_id": "eval_legacy_001",
+      "run_id": "run_legacy_partial_007",
+      "node_id": "node_summarize",
+      "name": "Summary Schema Check",
+      "type": "schema_validity",
+      "score": 1.0,
+      "passed": true,
+      "severity": "info",
+      "findings": []
+    }
+  ],
+  "artifactRefs": ["/tmp/exports/report-2026.pdf"],
+  "createdAt": "2026-05-01T08:00:00.000Z",
+  "updatedAt": "2026-05-01T08:00:06.000Z"
+}

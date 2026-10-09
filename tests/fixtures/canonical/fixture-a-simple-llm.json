@@ -1,0 +1,192 @@
+{
+  "schema_version": "1.0.0-alpha",
+  "identity": {
+    "run_id": "run_fixture_a_simple_llm_001",
+    "project_id": "proj_customer_support",
+    "project_name": "Customer Support Triage",
+    "workflow_id": "wf_triage_simple",
+    "workflow_version": "1.0",
+    "agent_id": "triage_agent",
+    "session_id": "sess_12345",
+    "created_at": "2026-10-09T10:00:00.000Z"
+  },
+  "execution": {
+    "status": "completed",
+    "started_at": "2026-10-09T10:00:00.000Z",
+    "completed_at": "2026-10-09T10:00:02.500Z",
+    "duration_ms": 2500,
+    "summary": "Direct classification of customer ticket into category 'billing'."
+  },
+  "environment": {
+    "runtime": "node",
+    "runtime_version": "v22.0.0",
+    "framework": "custom",
+    "framework_version": "1.0.0",
+    "sdk_version": "0.4.0",
+    "env_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "trajectory": [
+    {
+      "step_id": "step_0",
+      "step_index": 0,
+      "step_type": "trigger",
+      "name": "Ticket Ingest Trigger",
+      "node_id": "trigger_node",
+      "started_at": "2026-10-09T10:00:00.000Z",
+      "completed_at": "2026-10-09T10:00:00.100Z",
+      "duration_ms": 100,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Customer ticket payload received"
+    },
+    {
+      "step_id": "step_1",
+      "step_index": 1,
+      "step_type": "model_call",
+      "name": "Classify Ticket Category",
+      "node_id": "classify_node",
+      "started_at": "2026-10-09T10:00:00.100Z",
+      "completed_at": "2026-10-09T10:00:02.500Z",
+      "duration_ms": 2400,
+      "status": "completed",
+      "context_snapshot_id": "ctx_snap_001",
+      "boundary_ids": ["bnd_model_001"],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": ["mod_inv_001"],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "output_summary": "Category: billing; Urgency: normal"
+    }
+  ],
+  "boundaries": [
+    {
+      "boundary_id": "bnd_model_001",
+      "step_id": "step_1",
+      "boundary_type": "model_call",
+      "name": "anthropic/claude-3-5-sonnet",
+      "input": {
+        "captured": true,
+        "summary": "Prompt with classification instructions and customer ticket text",
+        "redaction_status": "none"
+      },
+      "output": {
+        "captured": true,
+        "summary": "JSON response with category: billing",
+        "redaction_status": "none"
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": { "is_idempotent": true },
+      "captured_content_availability": "full",
+      "redaction_status": "none",
+      "timestamp": "2026-10-09T10:00:00.100Z",
+      "duration_ms": 2400
+    }
+  ],
+  "external_calls": [],
+  "state": [],
+  "context": [
+    {
+      "snapshot_id": "ctx_snap_001",
+      "step_id": "step_1",
+      "model_invocation_id": "mod_inv_001",
+      "timestamp": "2026-10-09T10:00:00.100Z",
+      "total_token_estimate": 450,
+      "items": [
+        {
+          "item_id": "ctx_item_sys",
+          "source_type": "system_policy",
+          "position": 0,
+          "token_estimate": 150,
+          "content_captured": true,
+          "content": "You are an automated support triage classifier.",
+          "redaction_status": "none"
+        },
+        {
+          "item_id": "ctx_item_user",
+          "source_type": "user_input",
+          "position": 1,
+          "token_estimate": 300,
+          "content_captured": true,
+          "content": "I was charged twice for my subscription this morning.",
+          "redaction_status": "none"
+        }
+      ]
+    }
+  ],
+  "memory": {
+    "operations": [],
+    "references": []
+  },
+  "tools": [],
+  "retrieval": [],
+  "models": [
+    {
+      "invocation_id": "mod_inv_001",
+      "step_id": "step_1",
+      "node_id": "classify_node",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "provider": "anthropic",
+      "parameters": { "temperature": 0.0, "max_tokens": 1000 },
+      "prompt_tokens": 450,
+      "completion_tokens": 42,
+      "total_tokens": 492,
+      "cost_usd": 0.00198,
+      "duration_ms": 2400,
+      "context_snapshot_id": "ctx_snap_001",
+      "response_summary": "{\"category\":\"billing\",\"confidence\":0.98}",
+      "raw_captured": true,
+      "started_at": "2026-10-09T10:00:00.100Z",
+      "completed_at": "2026-10-09T10:00:02.500Z"
+    }
+  ],
+  "artifacts": [],
+  "evals": [],
+  "lineage": {
+    "mutations": []
+  },
+  "provenance": {
+    "capture_method": "sdk_trace",
+    "sdk_version": "0.4.0",
+    "redaction_verified": true
+  },
+  "safety": {
+    "approval_status": "not_required",
+    "approval_records": [],
+    "redaction_summary": {
+      "total_redactions": 0,
+      "secrets_detected": 0,
+      "fields_redacted": []
+    }
+  },
+  "observability": {
+    "total_duration_ms": 2500,
+    "total_cost_usd": 0.00198,
+    "model_calls_count": 1,
+    "tool_calls_count": 0,
+    "evals_passed": 0,
+    "evals_failed": 0,
+    "trace_event_count": 2,
+    "context_snapshot_count": 1,
+    "memory_operations_count": 0,
+    "retrieval_operations_count": 0,
+    "total_tokens": 492
+  },
+  "replay": {
+    "overall_replayability": "REPLAYABLE_RECORDED",
+    "unsupported_boundaries_count": 0,
+    "side_effect_gated_count": 0,
+    "deterministic": false,
+    "sandboxed_available": true,
+    "missing_recordings": [],
+    "notes": ["Single LLM invocation with recorded prompt and response."]
+  }
+}

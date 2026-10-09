@@ -1,0 +1,206 @@
+{
+  "schema_version": "1.0.0-alpha",
+  "identity": {
+    "run_id": "run_fixture_f_fork_lineage_006",
+    "project_id": "proj_customer_support",
+    "project_name": "Customer Support Triage",
+    "workflow_id": "wf_support_investigator",
+    "workflow_version": "1.2-mutant",
+    "agent_id": "investigation_agent",
+    "parent_run_id": "run_fixture_b_llm_tool_002",
+    "root_run_id": "run_fixture_b_llm_tool_002",
+    "created_at": "2026-10-09T14:00:00.000Z"
+  },
+  "execution": {
+    "status": "completed",
+    "started_at": "2026-10-09T14:00:00.000Z",
+    "completed_at": "2026-10-09T14:00:03.200Z",
+    "duration_ms": 3200,
+    "summary": "Forked run testing concise customer reply prompt mutation."
+  },
+  "environment": {
+    "runtime": "python",
+    "framework": "langgraph",
+    "sdk_version": "0.4.0"
+  },
+  "trajectory": [
+    {
+      "step_id": "step_0",
+      "step_index": 0,
+      "step_type": "checkpoint",
+      "name": "Restored Checkpoint from Baseline",
+      "node_id": "decision_node",
+      "started_at": "2026-10-09T14:00:00.000Z",
+      "completed_at": "2026-10-09T14:00:00.050Z",
+      "duration_ms": 50,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": []
+    },
+    {
+      "step_id": "step_fork_synth",
+      "step_index": 1,
+      "step_type": "model_call",
+      "name": "Mutated Concise Customer Reply",
+      "node_id": "response_synth_node",
+      "started_at": "2026-10-09T14:00:00.050Z",
+      "completed_at": "2026-10-09T14:00:03.200Z",
+      "duration_ms": 3150,
+      "status": "completed",
+      "context_snapshot_id": "ctx_snap_mutant_01",
+      "model_invocation_ids": ["mod_inv_mutant_01"],
+      "boundary_ids": ["bnd_model_mutant_01"],
+      "tool_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": ["eval_mutant_success"],
+      "artifact_ids": []
+    }
+  ],
+  "boundaries": [
+    {
+      "boundary_id": "bnd_model_mutant_01",
+      "step_id": "step_fork_synth",
+      "boundary_type": "model_call",
+      "name": "openai/gpt-4o",
+      "input": { "captured": true, "summary": "Mutated concise prompt", "redaction_status": "none" },
+      "output": { "captured": true, "summary": "Concise 2-sentence reply", "redaction_status": "none" },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": { "is_idempotent": true },
+      "captured_content_availability": "full",
+      "redaction_status": "none",
+      "timestamp": "2026-10-09T14:00:00.050Z",
+      "duration_ms": 3150
+    }
+  ],
+  "external_calls": [],
+  "state": [],
+  "context": [
+    {
+      "snapshot_id": "ctx_snap_mutant_01",
+      "step_id": "step_fork_synth",
+      "timestamp": "2026-10-09T14:00:00.050Z",
+      "total_token_estimate": 450,
+      "items": [
+        {
+          "item_id": "ctx_mutant_sys",
+          "source_type": "system_policy",
+          "position": 0,
+          "token_estimate": 100,
+          "content_captured": true,
+          "content": "You are a concise customer assistant. Limit reply to 2 sentences.",
+          "redaction_status": "none"
+        }
+      ]
+    }
+  ],
+  "memory": { "operations": [], "references": [] },
+  "tools": [],
+  "retrieval": [],
+  "models": [
+    {
+      "invocation_id": "mod_inv_mutant_01",
+      "step_id": "step_fork_synth",
+      "model_name": "gpt-4o",
+      "provider": "openai",
+      "prompt_tokens": 450,
+      "completion_tokens": 35,
+      "total_tokens": 485,
+      "cost_usd": 0.0018,
+      "duration_ms": 3150,
+      "raw_captured": true,
+      "started_at": "2026-10-09T14:00:00.050Z",
+      "completed_at": "2026-10-09T14:00:03.200Z"
+    }
+  ],
+  "artifacts": [],
+  "evals": [
+    {
+      "eval_id": "eval_mutant_success",
+      "eval_type": "output_validity",
+      "evaluator_id": "brevity_grader",
+      "target_run_id": "run_fixture_f_fork_lineage_006",
+      "target_step_id": "step_fork_synth",
+      "name": "Brevity Constraint Check",
+      "score": 1.0,
+      "passed": true,
+      "findings": ["Reply length within 2-sentence constraint."],
+      "grader_type": "deterministic",
+      "timestamp": "2026-10-09T14:00:03.200Z"
+    }
+  ],
+  "lineage": {
+    "parent_run_id": "run_fixture_b_llm_tool_002",
+    "root_run_id": "run_fixture_b_llm_tool_002",
+    "fork_step_id": "step_0",
+    "experiment_id": "exp_concise_reply_ab",
+    "baseline_run_id": "run_fixture_b_llm_tool_002",
+    "checkpoint_reference": {
+      "checkpoint_id": "chk_step_0",
+      "step_id": "step_0",
+      "created_at": "2026-10-09T10:15:01.800Z",
+      "state_hash": "sha256:d826a45e9f8"
+    },
+    "mutations": [
+      {
+        "mutation_id": "mut_prompt_concise",
+        "mutation_type": "prompt",
+        "target_identifier": "response_synth_node",
+        "description": "Shorten customer email prompt to 2 sentences max.",
+        "original_value": "You are a customer account lookup specialist. Write a friendly, comprehensive email.",
+        "mutated_value": "You are a concise customer assistant. Limit reply to 2 sentences."
+      }
+    ]
+  },
+  "provenance": {
+    "capture_method": "sdk_trace",
+    "redaction_verified": true
+  },
+  "safety": {
+    "approval_status": "not_required",
+    "approval_records": [],
+    "redaction_summary": { "total_redactions": 0, "secrets_detected": 0, "fields_redacted": [] }
+  },
+  "observability": {
+    "total_duration_ms": 3200,
+    "total_cost_usd": 0.0018,
+    "model_calls_count": 1,
+    "tool_calls_count": 0,
+    "evals_passed": 1,
+    "evals_failed": 0,
+    "trace_event_count": 2,
+    "context_snapshot_count": 1,
+    "memory_operations_count": 0,
+    "retrieval_operations_count": 0,
+    "total_tokens": 485
+  },
+  "replay": {
+    "overall_replayability": "REPLAYABLE_RECORDED",
+    "unsupported_boundaries_count": 0,
+    "side_effect_gated_count": 0,
+    "deterministic": false,
+    "sandboxed_available": true,
+    "missing_recordings": [],
+    "notes": ["Forked execution evaluated against brevity constraint."]
+  },
+  "comparison": {
+    "baseline_run_id": "run_fixture_b_llm_tool_002",
+    "candidate_run_id": "run_fixture_f_fork_lineage_006",
+    "divergence_step_id": "step_fork_synth",
+    "divergence_reason": "Mutated prompt produced concise 2-sentence reply instead of multi-paragraph email",
+    "metrics_deltas": {
+      "total_cost_usd": -0.0038,
+      "total_duration_ms": -1000,
+      "total_tokens": -1575
+    },
+    "eval_pass_rate_delta": 1.0,
+    "outcome_verdict": "improved",
+    "notes": ["Token consumption decreased by 76% while satisfying customer question."]
+  }
+}
