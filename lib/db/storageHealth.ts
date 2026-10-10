@@ -11,6 +11,10 @@ export const AGENTPULSE_TABLES = [
   "ap_reports",
   "ap_workflow_specs",
   "ap_ingest_diagnostics",
+  "ap_content_blobs",
+  "ap_execution_boundaries",
+  "ap_context_snapshots",
+  "ap_canonical_runs",
 ] as const;
 
 export type DeploymentEnvironment = "production" | "preview" | "development";

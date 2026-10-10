@@ -232,4 +232,64 @@ async function runMigrations(): Promise<void> {
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_ingest_diagnostics_project_id_idx ON ap_ingest_diagnostics(project_id)`);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_ingest_diagnostics_integration_id_idx ON ap_ingest_diagnostics(integration_id)`);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_ingest_diagnostics_created_at_idx ON ap_ingest_diagnostics(created_at DESC)`);
+
+  // ── Content Blobs (deduplicated payload storage) ───────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_content_blobs (
+      hash            TEXT PRIMARY KEY,
+      content         TEXT NOT NULL,
+      size_bytes      INTEGER NOT NULL,
+      mime_type       TEXT NOT NULL DEFAULT 'application/json',
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  // ── Execution Boundaries ──────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_execution_boundaries (
+      boundary_id     TEXT NOT NULL,
+      run_id          TEXT NOT NULL REFERENCES ap_runs(run_id) ON DELETE CASCADE,
+      step_id         TEXT,
+      sequence_index  INTEGER NOT NULL DEFAULT 0,
+      boundary_type   TEXT NOT NULL,
+      name            TEXT NOT NULL,
+      replayability   TEXT NOT NULL DEFAULT 'UNKNOWN',
+      side_effect_class TEXT NOT NULL DEFAULT 'read_only',
+      input_hash      TEXT,
+      output_hash     TEXT,
+      boundary_data   JSONB NOT NULL,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (boundary_id, run_id)
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_execution_boundaries_run_id_idx ON ap_execution_boundaries(run_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_execution_boundaries_seq_idx ON ap_execution_boundaries(run_id, sequence_index)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_execution_boundaries_type_idx ON ap_execution_boundaries(boundary_type)`);
+
+  // ── Context Snapshots ─────────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_context_snapshots (
+      snapshot_id     TEXT NOT NULL,
+      run_id          TEXT NOT NULL REFERENCES ap_runs(run_id) ON DELETE CASCADE,
+      step_id         TEXT,
+      model_invocation_id TEXT,
+      total_token_estimate INTEGER,
+      snapshot_data   JSONB NOT NULL,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (snapshot_id, run_id)
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_context_snapshots_run_id_idx ON ap_context_snapshots(run_id)`);
+
+  // ── Canonical Run Artifacts ───────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_canonical_runs (
+      run_id          TEXT PRIMARY KEY REFERENCES ap_runs(run_id) ON DELETE CASCADE,
+      schema_version  TEXT NOT NULL,
+      artifact_data   JSONB NOT NULL,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_canonical_runs_updated_at_idx ON ap_canonical_runs(updated_at DESC)`);
 }

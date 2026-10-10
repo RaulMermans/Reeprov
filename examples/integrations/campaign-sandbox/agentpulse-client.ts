@@ -161,6 +161,130 @@ export class CampaignSandboxPulseClient {
     await this.postSafe("/api/runs/fail", input);
   }
 
+  // ── Replay-Grade Boundary Capture ──────────────────────────────────────────
+
+  /** Emit a raw execution boundary to AgentPulse. */
+  async captureBoundary(runId: string, boundary: Record<string, unknown>): Promise<void> {
+    if (!this.enabled) return;
+    const payload = {
+      boundaries: [
+        {
+          runId,
+          startedAt: new Date().toISOString(),
+          ...boundary,
+        },
+      ],
+    };
+    await this.postSafe("/api/traces/boundaries", payload);
+  }
+
+  /** Emit a captured model invocation boundary. */
+  async captureModelCall(
+    runId: string,
+    params: {
+      model: string;
+      provider: string;
+      prompt?: unknown;
+      messages?: unknown[];
+      response: unknown;
+      stepId?: string;
+      nodeId?: string;
+      durationMs?: number;
+    }
+  ): Promise<void> {
+    await this.captureBoundary(runId, {
+      boundaryType: "model_call",
+      name: `${params.provider}/${params.model}`,
+      stepId: params.stepId,
+      nodeId: params.nodeId,
+      durationMs: params.durationMs,
+      input: {
+        model: params.model,
+        provider: params.provider,
+        prompt: params.prompt,
+        messages: params.messages,
+      },
+      output: params.response,
+      declaredSideEffectClass: "read_only",
+    });
+  }
+
+  /** Emit a captured tool invocation boundary. */
+  async captureToolCall(
+    runId: string,
+    params: {
+      toolName: string;
+      arguments: unknown;
+      output?: unknown;
+      error?: { message: string };
+      stepId?: string;
+      nodeId?: string;
+      durationMs?: number;
+      permissionClass?: string;
+    }
+  ): Promise<void> {
+    await this.captureBoundary(runId, {
+      boundaryType: "tool_call",
+      name: params.toolName,
+      stepId: params.stepId,
+      nodeId: params.nodeId,
+      durationMs: params.durationMs,
+      input: params.arguments,
+      output: params.output,
+      error: params.error,
+      declaredSideEffectClass: params.permissionClass,
+    });
+  }
+
+  /** Emit a captured retrieval operation boundary. */
+  async captureRetrieval(
+    runId: string,
+    params: {
+      serviceName: string;
+      query: string;
+      results: unknown[];
+      stepId?: string;
+      nodeId?: string;
+      durationMs?: number;
+    }
+  ): Promise<void> {
+    await this.captureBoundary(runId, {
+      boundaryType: "retrieval_service",
+      name: `${params.serviceName}:search`,
+      stepId: params.stepId,
+      nodeId: params.nodeId,
+      durationMs: params.durationMs,
+      input: { query: params.query },
+      output: { results: params.results },
+      declaredSideEffectClass: "read_only",
+    });
+  }
+
+  /** Emit a captured memory operation boundary. */
+  async captureMemoryOperation(
+    runId: string,
+    params: {
+      provider: string;
+      operationType: string;
+      category?: string;
+      key?: string;
+      value?: unknown;
+      stepId?: string;
+      nodeId?: string;
+    }
+  ): Promise<void> {
+    const isRead = params.operationType === "read" || params.operationType === "retrieval";
+    await this.captureBoundary(runId, {
+      boundaryType: isRead ? "memory_read" : "memory_write",
+      name: `${params.provider}:${params.operationType}`,
+      stepId: params.stepId,
+      nodeId: params.nodeId,
+      input: { key: params.key, value: params.value, operationType: params.operationType },
+      output: { status: "recorded" },
+      declaredSideEffectClass: isRead ? "read_only" : "external_side_effect",
+    });
+  }
+
   // ── HTTP ───────────────────────────────────────────────────────────────────
 
   private async post<T>(path: string, body: unknown): Promise<T> {

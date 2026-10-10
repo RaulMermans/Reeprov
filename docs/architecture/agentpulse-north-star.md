@@ -144,6 +144,8 @@ A trace is **not** automatically replayable. Replaying an agent requires determi
 
 Replay engines can safely mock recorded inputs, route write drafts to sandboxes, and gate destructive calls behind explicit approvals.
 
+> **Implemented in Sprint 2:** Replay-grade boundary capture is fully implemented in [`lib/core/capture/`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/), featuring content-addressed deduplication, server-side secret sanitization, context snapshot materialization, and the deterministic [`BoundaryReplayHarness`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/replayHarness.ts). For details, see [`replay-grade-capture.md`](file:///Users/raulm/Desktop/GitHub/AgentPulse/docs/architecture/replay-grade-capture.md) and [`boundary-model.md`](file:///Users/raulm/Desktop/GitHub/AgentPulse/docs/architecture/boundary-model.md).
+
 ### Pillar V: Run-Linked Evaluation as Proof
 Evaluations are not floating metrics in a separate spreadsheet. An `EvalResult` is cryptographically and causally linked to a `target_run_id` and optional `target_step_id`. Whether evaluated by a deterministic rule, a benchmark dataset, or a model-graded evaluator, evals form the verifiable proof of agent performance.
 

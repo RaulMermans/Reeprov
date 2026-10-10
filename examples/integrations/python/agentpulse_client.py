@@ -255,6 +255,130 @@ class AgentPulseClient:
             return
         self._post("/api/runs/fail", {"run_id": run_id, "error_summary": error_summary})
 
+    # ── Replay-Grade Boundary Capture ──────────────────────────────────────────
+
+    def capture_boundary(self, run_id: str, boundary: dict[str, Any]) -> None:
+        """Emit a replay-grade execution boundary to AgentPulse."""
+        if not self._enabled:
+            return
+        payload = {
+            "boundaries": [
+                {
+                    "runId": run_id,
+                    "startedAt": _now(),
+                    **boundary,
+                }
+            ]
+        }
+        try:
+            self._post("/api/traces/boundaries", payload)
+        except Exception as e:
+            # Non-fatal capture isolation
+            print(f"[AgentPulse] Non-fatal boundary capture error: {e}")
+
+    def capture_model_call(
+        self,
+        run_id: str,
+        *,
+        model: str,
+        provider: str,
+        response: Any,
+        prompt: Optional[str] = None,
+        messages: Optional[list[dict[str, Any]]] = None,
+        step_id: Optional[str] = None,
+        node_id: Optional[str] = None,
+        duration_ms: Optional[int] = None,
+    ) -> None:
+        """Capture a model invocation boundary."""
+        self.capture_boundary(run_id, {
+            "boundaryType": "model_call",
+            "name": f"{provider}/{model}",
+            "stepId": step_id,
+            "nodeId": node_id,
+            "durationMs": duration_ms,
+            "input": {
+                "model": model,
+                "provider": provider,
+                "prompt": prompt,
+                "messages": messages,
+            },
+            "output": response,
+            "declaredSideEffectClass": "read_only",
+        })
+
+    def capture_tool_call(
+        self,
+        run_id: str,
+        *,
+        tool_name: str,
+        arguments: Any,
+        output: Optional[Any] = None,
+        error: Optional[str] = None,
+        permission_class: str = "read_only",
+        step_id: Optional[str] = None,
+        node_id: Optional[str] = None,
+        duration_ms: Optional[int] = None,
+    ) -> None:
+        """Capture a tool invocation boundary."""
+        self.capture_boundary(run_id, {
+            "boundaryType": "tool_call",
+            "name": tool_name,
+            "stepId": step_id,
+            "nodeId": node_id,
+            "durationMs": duration_ms,
+            "input": arguments,
+            "output": output,
+            "error": {"message": error} if error else None,
+            "declaredSideEffectClass": permission_class,
+        })
+
+    def capture_retrieval(
+        self,
+        run_id: str,
+        *,
+        service_name: str,
+        query: str,
+        results: list[dict[str, Any]],
+        step_id: Optional[str] = None,
+        node_id: Optional[str] = None,
+        duration_ms: Optional[int] = None,
+    ) -> None:
+        """Capture a retrieval operation boundary."""
+        self.capture_boundary(run_id, {
+            "boundaryType": "retrieval_service",
+            "name": f"{service_name}:search",
+            "stepId": step_id,
+            "nodeId": node_id,
+            "durationMs": duration_ms,
+            "input": {"query": query},
+            "output": {"results": results},
+            "declaredSideEffectClass": "read_only",
+        })
+
+    def capture_memory_operation(
+        self,
+        run_id: str,
+        *,
+        provider: str,
+        operation_type: str,
+        category: str = "episodic",
+        key: Optional[str] = None,
+        value: Optional[Any] = None,
+        step_id: Optional[str] = None,
+        node_id: Optional[str] = None,
+    ) -> None:
+        """Capture a memory operation boundary."""
+        is_read = operation_type in ("read", "retrieval")
+        self.capture_boundary(run_id, {
+            "boundaryType": "memory_read" if is_read else "memory_write",
+            "name": f"{provider}:{operation_type}",
+            "stepId": step_id,
+            "nodeId": node_id,
+            "input": {"key": key, "value": value, "operationType": operation_type},
+            "output": {"status": "recorded"},
+            "declaredSideEffectClass": "read_only" if is_read else "external_side_effect",
+        })
+
     # ── Internal ──────────────────────────────────────────────────────────────
 
     def _post(self, path: str, body: dict[str, Any]) -> None:

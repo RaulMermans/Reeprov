@@ -15,6 +15,7 @@ export const retrievalResultItemSchema = z.object({
   score: z.number().optional(),
   rank: z.number().int().positive().optional(),
   content_preview: z.string().optional(),
+  content: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 

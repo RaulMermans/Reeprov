@@ -90,3 +90,15 @@ This document classifies every subsystem to guide foundational contract evolutio
 2. **Canonical Adapter Layer:** A bidirectional mapping layer (`adaptLegacyRunToRunArtifact`) guarantees that any existing run stored in file or Postgres formats can be viewed as a canonical `RunArtifact`.
 3. **Explicit Non-Fabrication Policy:** Where legacy runs lack information (e.g. detailed context snapshots, memory operations, boundary replayability ratings), the adapter uses explicit sentinel values (`"not_captured"`, `"unknown"`, `"unavailable"`) rather than hallucinating runtime truth.
 4. **Preserved UI Routes:** All existing dashboard routes (`/dashboard`, `/dashboard/runs`, `/dashboard/workflows`, `/dashboard/scanner`, `/dashboard/integrations`, `/dashboard/reports`) remain fully functional.
+
+---
+
+## 6. Milestone: Replay-Grade Boundary Capture Delivery
+
+In Sprint 2, the transition from passive trace evidence to replay-grade execution boundaries was achieved:
+- **Boundary Taxonomy:** First-class models for `model_call`, `tool_call`, `retrieval_call`, `memory_read`, `memory_write`, `external_http`, `code_execution`, `filesystem_read`, and `filesystem_write`.
+- **Content-Addressed Deduplication:** Payloads >4KB are hashed with SHA-256 and deduplicated into `.agentpulse/blobs/` or `ap_content_blobs`, eliminating redundant storage in multi-turn runs.
+- **Server-Side Secret Sanitization:** Mandatory scrubbing of 8 secret pattern classes, environment variables, and sensitive headers/keys across all capture modes (`STRUCTURE_ONLY`, `SAFE_CONTENT`, `FULL_CONTENT`).
+- **Context Snapshot Materialization:** Precise token-attributed `ContextSnapshot` records for model calls linking prompts to source provenance without LLM-based compression.
+- **Deterministic Offline Replay Proof:** Implemented [`BoundaryReplayHarness`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/replayHarness.ts) and proved 100% offline deterministic substitution of a multi-turn support agent workflow ([`fixture-h-vertical-slice.json`](file:///Users/raulm/Desktop/GitHub/AgentPulse/tests/fixtures/canonical/fixture-h-vertical-slice.json)).
+

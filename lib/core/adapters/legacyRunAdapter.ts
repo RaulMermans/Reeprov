@@ -156,6 +156,7 @@ export function adaptLegacyRunToRunArtifact(input: LegacyRunInput | SavedRun): R
     node_id: tc.node_id,
     boundary_type: "tool_call",
     name: tc.tool_name,
+    status: tc.status === "failed" ? "failed" : "completed",
     input: {
       captured: !!tc.input_summary,
       summary: tc.input_summary,
@@ -204,6 +205,7 @@ export function adaptLegacyRunToRunArtifact(input: LegacyRunInput | SavedRun): R
         node_id: evt.node_id,
         boundary_type: "model_call",
         name: `${provider}/${modelName}`,
+        status: evt.status === "failed" ? "failed" : "completed",
         input: {
           captured: !!evt.input_summary,
           summary: evt.input_summary,

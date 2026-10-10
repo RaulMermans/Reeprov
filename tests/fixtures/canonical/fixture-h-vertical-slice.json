@@ -1,0 +1,577 @@
+{
+  "schema_version": "1.0.0-alpha",
+  "identity": {
+    "run_id": "run_vertical_slice_ref_001",
+    "project_id": "customer-support-agent",
+    "project_name": "Customer Support Agent",
+    "workflow_id": "triage-v1",
+    "created_at": "2026-10-10T07:44:10.995Z"
+  },
+  "execution": {
+    "status": "completed",
+    "started_at": "2026-10-10T07:44:10.995Z",
+    "completed_at": "2026-10-10T07:44:10.999Z",
+    "duration_ms": 4,
+    "summary": "Successfully triaged refund and balance request"
+  },
+  "environment": {
+    "runtime": "node",
+    "runtime_version": "v20.20.0",
+    "sdk_version": "1.0.0"
+  },
+  "trajectory": [],
+  "boundaries": [
+    {
+      "boundary_id": "bnd_model_call_run_vertical_slice_ref_001_0",
+      "run_id": "run_vertical_slice_ref_001",
+      "sequence_index": 0,
+      "boundary_type": "model_call",
+      "name": "anthropic/claude-3-5-sonnet",
+      "status": "completed",
+      "started_at": "2026-10-10T07:44:10.995Z",
+      "completed_at": "2026-10-10T07:44:10.995Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "model": "claude-3-5-sonnet",
+          "provider": "anthropic",
+          "prompt": "User query: \"What is customer cus_1001's current balance and our refund policy?\". Decide next steps.",
+          "tools": [
+            {
+              "name": "search_policy"
+            },
+            {
+              "name": "get_customer_account"
+            }
+          ]
+        },
+        "hash": "sha256:d5ae269508d13896bbc9514559de3376bf2de58c55c61a530d0cd4dfcbd185c6",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 233
+      },
+      "output": {
+        "captured": true,
+        "content": "Step 1 plan: Search refund policy then fetch balance.",
+        "summary": "Step 1 plan: Search refund policy then fetch balance.",
+        "hash": "sha256:798cf6a455efbc36aaf5c4237ead9e32a9b6fb64d32a33fb60bb13ad051398d4",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 55
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "external_dependency": "anthropic:claude-3-5-sonnet",
+      "dependency_identity": "anthropic:claude-3-5-sonnet",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:d5ae269508d13896bbc9514559de3376bf2de58c55c61a530d0cd4dfcbd185c6",
+        "output_hash": "sha256:798cf6a455efbc36aaf5c4237ead9e32a9b6fb64d32a33fb60bb13ad051398d4"
+      },
+      "linked_model_invocation_id": "model_run_vertical_slice_ref_001_1791618250995",
+      "timestamp": "2026-10-10T07:44:10.995Z",
+      "duration_ms": 0,
+      "metadata": {
+        "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250995",
+        "cost_usd": 0.002,
+        "total_tokens": 210
+      }
+    },
+    {
+      "boundary_id": "bnd_retrieval_service_run_vertical_slice_ref_001_0",
+      "run_id": "run_vertical_slice_ref_001",
+      "sequence_index": 0,
+      "boundary_type": "retrieval_service",
+      "name": "pinecone_kb:search",
+      "status": "completed",
+      "started_at": "2026-10-10T07:44:10.997Z",
+      "completed_at": "2026-10-10T07:44:10.997Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "query": "refund policy and eligibility criteria"
+        },
+        "hash": "sha256:826ea2af479bb27624dea7de6120450b0aec80a7aeb9c2c9c128df0cf4eebf48",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 50
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "results_count": 1,
+          "results": [
+            {
+              "document_id": "doc_refund_policy_01",
+              "chunk_id": "chk_01",
+              "title": "Standard Refund Policy",
+              "score": 0.96,
+              "rank": 1,
+              "content_preview": "Full refunds are eligible within 30 days of purchase upon verification.",
+              "content": "Full refunds are eligible within 30 days of purchase upon verification.",
+              "metadata": {
+                "content_hash": "sha256:74f3baab77cf43a4011bf30c655e234100d5678e6def341ab1d9d7391bc58346",
+                "entered_model_context": true
+              }
+            }
+          ]
+        },
+        "hash": "sha256:30b5788961583e2a68ca017b8b1a064a0022aa780f45588f5a68ba8895fe1c30",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 452
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "external_dependency": "retrieval:pinecone_kb",
+      "dependency_identity": "retrieval:pinecone_kb",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:826ea2af479bb27624dea7de6120450b0aec80a7aeb9c2c9c128df0cf4eebf48",
+        "output_hash": "sha256:30b5788961583e2a68ca017b8b1a064a0022aa780f45588f5a68ba8895fe1c30"
+      },
+      "linked_retrieval_operation_id": "retrieval_run_vertical_slice_ref_001_1791618250997",
+      "timestamp": "2026-10-10T07:44:10.997Z",
+      "duration_ms": 0,
+      "metadata": {
+        "results_count": 1,
+        "context_items_entered_count": 1
+      }
+    },
+    {
+      "boundary_id": "bnd_model_call_run_vertical_slice_ref_001_0",
+      "run_id": "run_vertical_slice_ref_001",
+      "sequence_index": 0,
+      "boundary_type": "model_call",
+      "name": "anthropic/claude-3-5-sonnet",
+      "status": "completed",
+      "started_at": "2026-10-10T07:44:10.998Z",
+      "completed_at": "2026-10-10T07:44:10.998Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "model": "claude-3-5-sonnet",
+          "provider": "anthropic",
+          "prompt": "Policy retrieved: \"Full refunds are eligible within 30 days of purchase upon verification.\". Now lookup customer details for user in query \"What is customer cus_1001's current balance and our refund policy?\"."
+        },
+        "hash": "sha256:68f3cd995b54a9e10eebb2b9dbe43d7513491748768c89a5150abb87bb6d20e2",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 276
+      },
+      "output": {
+        "captured": true,
+        "content": "Calling get_customer_account for cus_1001.",
+        "summary": "Calling get_customer_account for cus_1001.",
+        "hash": "sha256:e684dcf041ad9651d592ff4df0435035e46b432d012e50052218aaef152e50cc",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 44
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "external_dependency": "anthropic:claude-3-5-sonnet",
+      "dependency_identity": "anthropic:claude-3-5-sonnet",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:68f3cd995b54a9e10eebb2b9dbe43d7513491748768c89a5150abb87bb6d20e2",
+        "output_hash": "sha256:e684dcf041ad9651d592ff4df0435035e46b432d012e50052218aaef152e50cc"
+      },
+      "linked_model_invocation_id": "model_run_vertical_slice_ref_001_1791618250998",
+      "timestamp": "2026-10-10T07:44:10.998Z",
+      "duration_ms": 0,
+      "metadata": {
+        "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250998",
+        "cost_usd": 0.002,
+        "total_tokens": 210
+      }
+    },
+    {
+      "boundary_id": "bnd_tool_call_run_vertical_slice_ref_001_0",
+      "run_id": "run_vertical_slice_ref_001",
+      "sequence_index": 0,
+      "boundary_type": "tool_call",
+      "name": "get_customer_account",
+      "status": "completed",
+      "started_at": "2026-10-10T07:44:10.998Z",
+      "completed_at": "2026-10-10T07:44:10.998Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "customerId": "cus_1001"
+        },
+        "hash": "sha256:317adefabdfa8f8e94e0fbb926a6da1a3ff6c27ddba93512de65c43338083092",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 25
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "customerId": "cus_1001",
+          "balance": 150,
+          "currency": "USD",
+          "status": "active"
+        },
+        "hash": "sha256:d2daf323ddf0163652113d7057bb8b1878ea8ab29eeb073e43c513017cf98672",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 74
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "external_dependency": "tool:get_customer_account",
+      "dependency_identity": "tool:get_customer_account",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:317adefabdfa8f8e94e0fbb926a6da1a3ff6c27ddba93512de65c43338083092",
+        "output_hash": "sha256:d2daf323ddf0163652113d7057bb8b1878ea8ab29eeb073e43c513017cf98672"
+      },
+      "linked_tool_invocation_id": "tool_run_vertical_slice_ref_001_1791618250998",
+      "timestamp": "2026-10-10T07:44:10.998Z",
+      "duration_ms": 0,
+      "metadata": {}
+    },
+    {
+      "boundary_id": "bnd_model_call_run_vertical_slice_ref_001_0",
+      "run_id": "run_vertical_slice_ref_001",
+      "sequence_index": 0,
+      "boundary_type": "model_call",
+      "name": "anthropic/claude-3-5-sonnet",
+      "status": "completed",
+      "started_at": "2026-10-10T07:44:10.999Z",
+      "completed_at": "2026-10-10T07:44:10.999Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "model": "claude-3-5-sonnet",
+          "provider": "anthropic",
+          "prompt": "Synthesize answer using policy \"Full refunds are eligible within 30 days of purchase upon verification.\" and balance \"150 USD\"."
+        },
+        "hash": "sha256:9a929a5e415c855ba9bdd64a8d2675239887898d6bbdaefcf433de68544ecd2e",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 195
+      },
+      "output": {
+        "captured": true,
+        "content": "Your account cus_1001 balance is 150 USD. Per company policy, full refunds are eligible within 30 days.",
+        "summary": "Your account cus_1001 balance is 150 USD. Per company policy, full refunds are eligible within 30 days.",
+        "hash": "sha256:def6f8aaca2f2baacc48fcc7f303d77d9d6a9fe6b0048f00380ba2c759c03f9b",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 105
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "external_dependency": "anthropic:claude-3-5-sonnet",
+      "dependency_identity": "anthropic:claude-3-5-sonnet",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:9a929a5e415c855ba9bdd64a8d2675239887898d6bbdaefcf433de68544ecd2e",
+        "output_hash": "sha256:def6f8aaca2f2baacc48fcc7f303d77d9d6a9fe6b0048f00380ba2c759c03f9b"
+      },
+      "linked_model_invocation_id": "model_run_vertical_slice_ref_001_1791618250999",
+      "timestamp": "2026-10-10T07:44:10.999Z",
+      "duration_ms": 0,
+      "metadata": {
+        "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250999",
+        "cost_usd": 0.002,
+        "total_tokens": 210
+      }
+    }
+  ],
+  "external_calls": [],
+  "state": [],
+  "context": [
+    {
+      "snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250995",
+      "model_invocation_id": "model_run_vertical_slice_ref_001_1791618250995",
+      "timestamp": "2026-10-10T07:44:10.995Z",
+      "total_token_estimate": 40,
+      "items": [
+        {
+          "item_id": "ctx_model_run_vertical_slice_ref_001_1791618250995_item_0",
+          "source_type": "user_input",
+          "token_estimate": 25,
+          "position": 0,
+          "inclusion_reason": "direct_prompt",
+          "timestamp": "2026-10-10T07:44:10.995Z",
+          "sensitivity": "internal",
+          "redaction_status": "none",
+          "content_captured": true,
+          "content": "User query: \"What is customer cus_1001's current balance and our refund policy?\". Decide next steps.",
+          "content_hash": "sha256:74b332f4da7ba11f29a95668efcfd9247375515178c9c2ddf5a9e0d4a3f4a0b7",
+          "availability": "CAPTURED"
+        },
+        {
+          "item_id": "ctx_model_run_vertical_slice_ref_001_1791618250995_item_1",
+          "source_type": "tool_definition",
+          "token_estimate": 15,
+          "position": 1,
+          "inclusion_reason": "active_tools_schema",
+          "timestamp": "2026-10-10T07:44:10.995Z",
+          "sensitivity": "internal",
+          "redaction_status": "none",
+          "content_captured": true,
+          "content": "[{\"name\":\"search_policy\"},{\"name\":\"get_customer_account\"}]",
+          "content_hash": "sha256:4068defc856dcb9f9b488bc6614b108912ffb9744f025d9ef7fabe5c44fdb098",
+          "availability": "CAPTURED"
+        }
+      ]
+    },
+    {
+      "snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250998",
+      "model_invocation_id": "model_run_vertical_slice_ref_001_1791618250998",
+      "timestamp": "2026-10-10T07:44:10.998Z",
+      "total_token_estimate": 52,
+      "items": [
+        {
+          "item_id": "ctx_model_run_vertical_slice_ref_001_1791618250998_item_0",
+          "source_type": "user_input",
+          "token_estimate": 52,
+          "position": 0,
+          "inclusion_reason": "direct_prompt",
+          "timestamp": "2026-10-10T07:44:10.998Z",
+          "sensitivity": "internal",
+          "redaction_status": "none",
+          "content_captured": true,
+          "content": "Policy retrieved: \"Full refunds are eligible within 30 days of purchase upon verification.\". Now lookup customer details for user in query \"What is customer cus_1001's current balance and our refund policy?\".",
+          "content_hash": "sha256:c1379fae092a29753217e31ef9380fe26223918d20df7784c386094dc2ff74fc",
+          "availability": "CAPTURED"
+        }
+      ]
+    },
+    {
+      "snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250999",
+      "model_invocation_id": "model_run_vertical_slice_ref_001_1791618250999",
+      "timestamp": "2026-10-10T07:44:10.999Z",
+      "total_token_estimate": 32,
+      "items": [
+        {
+          "item_id": "ctx_model_run_vertical_slice_ref_001_1791618250999_item_0",
+          "source_type": "user_input",
+          "token_estimate": 32,
+          "position": 0,
+          "inclusion_reason": "direct_prompt",
+          "timestamp": "2026-10-10T07:44:10.999Z",
+          "sensitivity": "internal",
+          "redaction_status": "none",
+          "content_captured": true,
+          "content": "Synthesize answer using policy \"Full refunds are eligible within 30 days of purchase upon verification.\" and balance \"150 USD\".",
+          "content_hash": "sha256:13d0baecc7117c265b5d912a1ca76074060adb74bc58588063ded448fb0ea404",
+          "availability": "CAPTURED"
+        }
+      ]
+    }
+  ],
+  "memory": {
+    "operations": [],
+    "references": []
+  },
+  "tools": [
+    {
+      "tool_call_id": "tool_run_vertical_slice_ref_001_1791618250998",
+      "tool_name": "get_customer_account",
+      "permission_class": "read_only",
+      "replayability": "REPLAYABLE_RECORDED",
+      "input": {
+        "customerId": "cus_1001"
+      },
+      "input_summary": "{\"customerId\":\"cus_1001\"}",
+      "output": {
+        "customerId": "cus_1001",
+        "balance": 150,
+        "currency": "USD",
+        "status": "active"
+      },
+      "output_summary": "{\"customerId\":\"cus_1001\",\"balance\":150,\"currency\":\"USD\",\"status\":\"active\"}",
+      "status": "completed",
+      "started_at": "2026-10-10T07:44:10.998Z",
+      "completed_at": "2026-10-10T07:44:10.998Z",
+      "duration_ms": 0,
+      "boundary_id": "bnd_tool_call_run_vertical_slice_ref_001_0",
+      "metadata": {}
+    }
+  ],
+  "retrieval": [
+    {
+      "operation_id": "retrieval_run_vertical_slice_ref_001_1791618250997",
+      "service_name": "pinecone_kb",
+      "query": "refund policy and eligibility criteria",
+      "top_k": 1,
+      "results_count": 1,
+      "results": [
+        {
+          "document_id": "doc_refund_policy_01",
+          "chunk_id": "chk_01",
+          "title": "Standard Refund Policy",
+          "score": 0.96,
+          "rank": 1,
+          "content_preview": "Full refunds are eligible within 30 days of purchase upon verification.",
+          "content": "Full refunds are eligible within 30 days of purchase upon verification.",
+          "metadata": {
+            "content_hash": "sha256:74f3baab77cf43a4011bf30c655e234100d5678e6def341ab1d9d7391bc58346",
+            "entered_model_context": true
+          }
+        }
+      ],
+      "duration_ms": 0,
+      "timestamp": "2026-10-10T07:44:10.997Z",
+      "context_item_ids": [
+        "retrieval_run_vertical_slice_ref_001_1791618250997_item_0"
+      ]
+    }
+  ],
+  "models": [
+    {
+      "invocation_id": "model_run_vertical_slice_ref_001_1791618250995",
+      "model_name": "claude-3-5-sonnet",
+      "provider": "anthropic",
+      "prompt_tokens": 150,
+      "completion_tokens": 60,
+      "total_tokens": 210,
+      "cost_usd": 0.002,
+      "duration_ms": 0,
+      "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250995",
+      "response_summary": "Step 1 plan: Search refund policy then fetch balance.",
+      "raw_captured": true,
+      "response_hash": "sha256:798cf6a455efbc36aaf5c4237ead9e32a9b6fb64d32a33fb60bb13ad051398d4",
+      "started_at": "2026-10-10T07:44:10.995Z",
+      "completed_at": "2026-10-10T07:44:10.995Z",
+      "metadata": {
+        "tools_count": 2
+      }
+    },
+    {
+      "invocation_id": "model_run_vertical_slice_ref_001_1791618250998",
+      "model_name": "claude-3-5-sonnet",
+      "provider": "anthropic",
+      "prompt_tokens": 150,
+      "completion_tokens": 60,
+      "total_tokens": 210,
+      "cost_usd": 0.002,
+      "duration_ms": 0,
+      "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250998",
+      "response_summary": "Calling get_customer_account for cus_1001.",
+      "raw_captured": true,
+      "response_hash": "sha256:e684dcf041ad9651d592ff4df0435035e46b432d012e50052218aaef152e50cc",
+      "started_at": "2026-10-10T07:44:10.998Z",
+      "completed_at": "2026-10-10T07:44:10.998Z",
+      "metadata": {
+        "tools_count": 0
+      }
+    },
+    {
+      "invocation_id": "model_run_vertical_slice_ref_001_1791618250999",
+      "model_name": "claude-3-5-sonnet",
+      "provider": "anthropic",
+      "prompt_tokens": 150,
+      "completion_tokens": 60,
+      "total_tokens": 210,
+      "cost_usd": 0.002,
+      "duration_ms": 0,
+      "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250999",
+      "response_summary": "Your account cus_1001 balance is 150 USD. Per company policy, full refunds are eligible within 30 days.",
+      "raw_captured": true,
+      "response_hash": "sha256:def6f8aaca2f2baacc48fcc7f303d77d9d6a9fe6b0048f00380ba2c759c03f9b",
+      "started_at": "2026-10-10T07:44:10.999Z",
+      "completed_at": "2026-10-10T07:44:10.999Z",
+      "metadata": {
+        "tools_count": 0
+      }
+    }
+  ],
+  "artifacts": [],
+  "evals": [],
+  "lineage": {
+    "mutations": []
+  },
+  "provenance": {
+    "capture_method": "sdk_trace",
+    "adapter_version": "1.0.0-canonical",
+    "captured_by": "AgentPulseCaptureSDK",
+    "redaction_verified": true
+  },
+  "safety": {
+    "approval_status": "not_required",
+    "approval_records": [],
+    "redaction_summary": {
+      "total_redactions": 0,
+      "secrets_detected": 0,
+      "fields_redacted": []
+    }
+  },
+  "observability": {
+    "total_duration_ms": 4,
+    "total_cost_usd": 0.006,
+    "model_calls_count": 3,
+    "tool_calls_count": 1,
+    "evals_passed": 0,
+    "evals_failed": 0,
+    "trace_event_count": 0,
+    "context_snapshot_count": 3,
+    "memory_operations_count": 0,
+    "retrieval_operations_count": 1,
+    "total_tokens": 630
+  },
+  "replay": {
+    "overall_replayability": "REPLAYABLE_RECORDED",
+    "unsupported_boundaries_count": 0,
+    "side_effect_gated_count": 0,
+    "deterministic": false,
+    "sandboxed_available": false,
+    "missing_recordings": [],
+    "notes": []
+  }
+}

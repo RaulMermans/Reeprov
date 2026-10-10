@@ -49,6 +49,12 @@ export const capturedContentAvailabilitySchema = z.enum([
   "summary_only",
   "hash_only",
   "not_captured",
+  "CAPTURED",
+  "REDACTED",
+  "HASH_ONLY",
+  "TRUNCATED",
+  "NOT_CAPTURED",
+  "UNAVAILABLE",
 ]);
 
 export type CapturedContentAvailability = z.infer<typeof capturedContentAvailabilitySchema>;
@@ -61,6 +67,10 @@ export const boundaryPayloadSchema = z.object({
   summary: z.string().optional(),
   hash: z.string().optional(),
   redaction_status: redactionStatusSchema.default("none"),
+  content_ref: z.string().optional(),
+  availability: capturedContentAvailabilitySchema.optional(),
+  truncated: z.boolean().optional(),
+  raw_size_bytes: z.number().int().nonnegative().optional(),
 });
 
 export type BoundaryPayload = z.infer<typeof boundaryPayloadSchema>;
@@ -75,7 +85,13 @@ export const boundaryTypeSchema = z.enum([
   "randomness",
   "user_input",
   "retrieval_service",
+  "retrieval_call",
   "memory_service",
+  "memory_read",
+  "memory_write",
+  "code_execution",
+  "filesystem_read",
+  "filesystem_write",
   "subagent_call",
   "custom",
 ]);
@@ -84,12 +100,22 @@ export type BoundaryType = z.infer<typeof boundaryTypeSchema>;
 
 export const executionBoundarySchema = z.object({
   boundary_id: z.string(),
+  run_id: z.string().optional(),
   step_id: z.string().optional(),
   node_id: z.string().optional(),
+  sequence_index: z.number().int().nonnegative().optional(),
   boundary_type: boundaryTypeSchema,
   name: z.string(),
+  status: z.enum(["completed", "failed", "pending", "interrupted", "skipped"]).optional().default("completed"),
+  started_at: z.string().optional(),
+  completed_at: z.string().optional(),
   input: boundaryPayloadSchema,
   output: boundaryPayloadSchema.optional(),
+  error: z.object({
+    message: z.string(),
+    code: z.string().optional(),
+    details: z.unknown().optional(),
+  }).optional(),
   replayability: replayabilityClassSchema.default("UNKNOWN"),
   side_effect_class: sideEffectClassSchema.default("read_only"),
   idempotency: z.object({
@@ -97,10 +123,25 @@ export const executionBoundarySchema = z.object({
     idempotency_key: z.string().optional(),
   }).default({ is_idempotent: false }),
   external_dependency: z.string().optional(),
+  dependency_identity: z.string().optional(),
   captured_content_availability: capturedContentAvailabilitySchema.default("not_captured"),
   redaction_status: redactionStatusSchema.default("unverified"),
+  redaction_metadata: z.object({
+    fields_redacted: z.array(z.string()).default([]),
+    strategy: z.string().optional(),
+  }).optional(),
+  content_hashes: z.object({
+    input_hash: z.string().optional(),
+    output_hash: z.string().optional(),
+  }).optional(),
+  trace_correlation_id: z.string().optional(),
+  linked_model_invocation_id: z.string().optional(),
+  linked_tool_invocation_id: z.string().optional(),
+  linked_retrieval_operation_id: z.string().optional(),
+  linked_memory_operation_id: z.string().optional(),
   timestamp: z.string(),
   duration_ms: z.number().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type ExecutionBoundary = z.infer<typeof executionBoundarySchema>;
