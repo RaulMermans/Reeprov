@@ -44,11 +44,7 @@ export const redactionStatusSchema = z.enum([
 
 export type RedactionStatus = z.infer<typeof redactionStatusSchema>;
 
-export const capturedContentAvailabilitySchema = z.enum([
-  "full",
-  "summary_only",
-  "hash_only",
-  "not_captured",
+export const canonicalContentAvailabilitySchema = z.enum([
   "CAPTURED",
   "REDACTED",
   "HASH_ONLY",
@@ -57,7 +53,40 @@ export const capturedContentAvailabilitySchema = z.enum([
   "UNAVAILABLE",
 ]);
 
-export type CapturedContentAvailability = z.infer<typeof capturedContentAvailabilitySchema>;
+export type CanonicalContentAvailability = z.infer<typeof canonicalContentAvailabilitySchema>;
+
+/**
+ * Normalizes legacy transitional availability values (e.g. "full", "summary_only")
+ * into the canonical uppercase vocabulary.
+ */
+export function normalizeContentAvailability(val: unknown): CanonicalContentAvailability {
+  if (typeof val !== "string") return "NOT_CAPTURED";
+  const upper = val.toUpperCase().trim();
+  if (upper === "FULL" || upper === "CAPTURED") return "CAPTURED";
+  if (upper === "SUMMARY_ONLY" || upper === "TRUNCATED") return "TRUNCATED";
+  if (upper === "HASH_ONLY") return "HASH_ONLY";
+  if (upper === "REDACTED") return "REDACTED";
+  if (upper === "UNAVAILABLE") return "UNAVAILABLE";
+  if (upper === "NOT_CAPTURED") return "NOT_CAPTURED";
+  return "NOT_CAPTURED";
+}
+
+export const capturedContentAvailabilitySchema = z.preprocess(
+  normalizeContentAvailability,
+  canonicalContentAvailabilitySchema
+);
+
+export type CapturedContentAvailability = CanonicalContentAvailability;
+
+// ── Replay Side-Effect Safety Policy ────────────────────────────────────────
+
+export const sideEffectReplayPolicySchema = z.enum([
+  "SUBSTITUTE_RECORDED",       // Substitute recorded output offline without executing external action
+  "DENY_ALL",                  // Fail immediately if any external side-effecting boundary is reached
+  "AUTHORIZE_LIVE_EXECUTION",  // Explicit permission for live rerun (strictly forbidden in STRICT_OFFLINE)
+]);
+
+export type SideEffectReplayPolicy = z.infer<typeof sideEffectReplayPolicySchema>;
 
 // ── Execution Boundary ──────────────────────────────────────────────────────
 
@@ -124,7 +153,7 @@ export const executionBoundarySchema = z.object({
   }).default({ is_idempotent: false }),
   external_dependency: z.string().optional(),
   dependency_identity: z.string().optional(),
-  captured_content_availability: capturedContentAvailabilitySchema.default("not_captured"),
+  captured_content_availability: capturedContentAvailabilitySchema.default("NOT_CAPTURED"),
   redaction_status: redactionStatusSchema.default("unverified"),
   redaction_metadata: z.object({
     fields_redacted: z.array(z.string()).default([]),

@@ -5,13 +5,13 @@
     "project_id": "customer-support-agent",
     "project_name": "Customer Support Agent",
     "workflow_id": "triage-v1",
-    "created_at": "2026-10-10T07:44:10.995Z"
+    "created_at": "2026-10-10T11:23:20.883Z"
   },
   "execution": {
     "status": "completed",
-    "started_at": "2026-10-10T07:44:10.995Z",
-    "completed_at": "2026-10-10T07:44:10.999Z",
-    "duration_ms": 4,
+    "started_at": "2026-10-10T11:23:20.883Z",
+    "completed_at": "2026-10-10T11:23:20.889Z",
+    "duration_ms": 6,
     "summary": "Successfully triaged refund and balance request"
   },
   "environment": {
@@ -19,17 +19,113 @@
     "runtime_version": "v20.20.0",
     "sdk_version": "1.0.0"
   },
-  "trajectory": [],
+  "trajectory": [
+    {
+      "step_id": "step_run_vertical_slice_ref_001_0",
+      "step_index": 0,
+      "step_type": "model_call",
+      "name": "planning",
+      "started_at": "2026-10-10T11:23:20.883Z",
+      "completed_at": "2026-10-10T11:23:20.886Z",
+      "duration_ms": 3,
+      "status": "completed",
+      "state_snapshot_id": "state_run_vertical_slice_ref_001_0",
+      "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_0",
+      "boundary_ids": [
+        "bnd_model_call_run_vertical_slice_ref_001_0"
+      ],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [
+        "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_0"
+      ],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": []
+    },
+    {
+      "step_id": "step_run_vertical_slice_ref_001_1",
+      "step_index": 1,
+      "step_type": "retrieval",
+      "name": "policy_retrieval",
+      "started_at": "2026-10-10T11:23:20.886Z",
+      "completed_at": "2026-10-10T11:23:20.887Z",
+      "duration_ms": 1,
+      "status": "completed",
+      "state_snapshot_id": "state_run_vertical_slice_ref_001_1",
+      "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1",
+      "boundary_ids": [
+        "bnd_retrieval_call_run_vertical_slice_ref_001_1",
+        "bnd_model_call_run_vertical_slice_ref_001_2"
+      ],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [
+        "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1"
+      ],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [
+        "retrieval_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1"
+      ],
+      "eval_result_ids": [],
+      "artifact_ids": []
+    },
+    {
+      "step_id": "step_run_vertical_slice_ref_001_2",
+      "step_index": 2,
+      "step_type": "tool_call",
+      "name": "account_lookup",
+      "started_at": "2026-10-10T11:23:20.887Z",
+      "completed_at": "2026-10-10T11:23:20.888Z",
+      "duration_ms": 1,
+      "status": "completed",
+      "state_snapshot_id": "state_run_vertical_slice_ref_001_2",
+      "boundary_ids": [
+        "bnd_tool_call_run_vertical_slice_ref_001_3"
+      ],
+      "tool_invocation_ids": [
+        "tool_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_2"
+      ],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": []
+    },
+    {
+      "step_id": "step_run_vertical_slice_ref_001_3",
+      "step_index": 3,
+      "step_type": "model_call",
+      "name": "synthesis",
+      "started_at": "2026-10-10T11:23:20.888Z",
+      "completed_at": "2026-10-10T11:23:20.889Z",
+      "duration_ms": 1,
+      "status": "completed",
+      "state_snapshot_id": "state_run_vertical_slice_ref_001_3",
+      "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_3",
+      "boundary_ids": [
+        "bnd_model_call_run_vertical_slice_ref_001_4"
+      ],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [
+        "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_3"
+      ],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": []
+    }
+  ],
   "boundaries": [
     {
       "boundary_id": "bnd_model_call_run_vertical_slice_ref_001_0",
       "run_id": "run_vertical_slice_ref_001",
+      "step_id": "step_run_vertical_slice_ref_001_0",
       "sequence_index": 0,
       "boundary_type": "model_call",
       "name": "anthropic/claude-3-5-sonnet",
       "status": "completed",
-      "started_at": "2026-10-10T07:44:10.995Z",
-      "completed_at": "2026-10-10T07:44:10.995Z",
+      "started_at": "2026-10-10T11:23:20.883Z",
+      "completed_at": "2026-10-10T11:23:20.883Z",
       "input": {
         "captured": true,
         "content": {
@@ -78,24 +174,25 @@
         "input_hash": "sha256:d5ae269508d13896bbc9514559de3376bf2de58c55c61a530d0cd4dfcbd185c6",
         "output_hash": "sha256:798cf6a455efbc36aaf5c4237ead9e32a9b6fb64d32a33fb60bb13ad051398d4"
       },
-      "linked_model_invocation_id": "model_run_vertical_slice_ref_001_1791618250995",
-      "timestamp": "2026-10-10T07:44:10.995Z",
+      "linked_model_invocation_id": "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_0",
+      "timestamp": "2026-10-10T11:23:20.883Z",
       "duration_ms": 0,
       "metadata": {
-        "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250995",
+        "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_0",
         "cost_usd": 0.002,
         "total_tokens": 210
       }
     },
     {
-      "boundary_id": "bnd_retrieval_service_run_vertical_slice_ref_001_0",
+      "boundary_id": "bnd_retrieval_call_run_vertical_slice_ref_001_1",
       "run_id": "run_vertical_slice_ref_001",
-      "sequence_index": 0,
-      "boundary_type": "retrieval_service",
+      "step_id": "step_run_vertical_slice_ref_001_1",
+      "sequence_index": 1,
+      "boundary_type": "retrieval_call",
       "name": "pinecone_kb:search",
       "status": "completed",
-      "started_at": "2026-10-10T07:44:10.997Z",
-      "completed_at": "2026-10-10T07:44:10.997Z",
+      "started_at": "2026-10-10T11:23:20.886Z",
+      "completed_at": "2026-10-10T11:23:20.886Z",
       "input": {
         "captured": true,
         "content": {
@@ -150,8 +247,8 @@
         "input_hash": "sha256:826ea2af479bb27624dea7de6120450b0aec80a7aeb9c2c9c128df0cf4eebf48",
         "output_hash": "sha256:30b5788961583e2a68ca017b8b1a064a0022aa780f45588f5a68ba8895fe1c30"
       },
-      "linked_retrieval_operation_id": "retrieval_run_vertical_slice_ref_001_1791618250997",
-      "timestamp": "2026-10-10T07:44:10.997Z",
+      "linked_retrieval_operation_id": "retrieval_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1",
+      "timestamp": "2026-10-10T11:23:20.886Z",
       "duration_ms": 0,
       "metadata": {
         "results_count": 1,
@@ -159,14 +256,15 @@
       }
     },
     {
-      "boundary_id": "bnd_model_call_run_vertical_slice_ref_001_0",
+      "boundary_id": "bnd_model_call_run_vertical_slice_ref_001_2",
       "run_id": "run_vertical_slice_ref_001",
-      "sequence_index": 0,
+      "step_id": "step_run_vertical_slice_ref_001_1",
+      "sequence_index": 2,
       "boundary_type": "model_call",
       "name": "anthropic/claude-3-5-sonnet",
       "status": "completed",
-      "started_at": "2026-10-10T07:44:10.998Z",
-      "completed_at": "2026-10-10T07:44:10.998Z",
+      "started_at": "2026-10-10T11:23:20.886Z",
+      "completed_at": "2026-10-10T11:23:20.887Z",
       "input": {
         "captured": true,
         "content": {
@@ -207,24 +305,25 @@
         "input_hash": "sha256:68f3cd995b54a9e10eebb2b9dbe43d7513491748768c89a5150abb87bb6d20e2",
         "output_hash": "sha256:e684dcf041ad9651d592ff4df0435035e46b432d012e50052218aaef152e50cc"
       },
-      "linked_model_invocation_id": "model_run_vertical_slice_ref_001_1791618250998",
-      "timestamp": "2026-10-10T07:44:10.998Z",
-      "duration_ms": 0,
+      "linked_model_invocation_id": "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1",
+      "timestamp": "2026-10-10T11:23:20.886Z",
+      "duration_ms": 1,
       "metadata": {
-        "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250998",
+        "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1",
         "cost_usd": 0.002,
         "total_tokens": 210
       }
     },
     {
-      "boundary_id": "bnd_tool_call_run_vertical_slice_ref_001_0",
+      "boundary_id": "bnd_tool_call_run_vertical_slice_ref_001_3",
       "run_id": "run_vertical_slice_ref_001",
-      "sequence_index": 0,
+      "step_id": "step_run_vertical_slice_ref_001_2",
+      "sequence_index": 3,
       "boundary_type": "tool_call",
       "name": "get_customer_account",
       "status": "completed",
-      "started_at": "2026-10-10T07:44:10.998Z",
-      "completed_at": "2026-10-10T07:44:10.998Z",
+      "started_at": "2026-10-10T11:23:20.887Z",
+      "completed_at": "2026-10-10T11:23:20.887Z",
       "input": {
         "captured": true,
         "content": {
@@ -267,20 +366,21 @@
         "input_hash": "sha256:317adefabdfa8f8e94e0fbb926a6da1a3ff6c27ddba93512de65c43338083092",
         "output_hash": "sha256:d2daf323ddf0163652113d7057bb8b1878ea8ab29eeb073e43c513017cf98672"
       },
-      "linked_tool_invocation_id": "tool_run_vertical_slice_ref_001_1791618250998",
-      "timestamp": "2026-10-10T07:44:10.998Z",
+      "linked_tool_invocation_id": "tool_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_2",
+      "timestamp": "2026-10-10T11:23:20.887Z",
       "duration_ms": 0,
       "metadata": {}
     },
     {
-      "boundary_id": "bnd_model_call_run_vertical_slice_ref_001_0",
+      "boundary_id": "bnd_model_call_run_vertical_slice_ref_001_4",
       "run_id": "run_vertical_slice_ref_001",
-      "sequence_index": 0,
+      "step_id": "step_run_vertical_slice_ref_001_3",
+      "sequence_index": 4,
       "boundary_type": "model_call",
       "name": "anthropic/claude-3-5-sonnet",
       "status": "completed",
-      "started_at": "2026-10-10T07:44:10.999Z",
-      "completed_at": "2026-10-10T07:44:10.999Z",
+      "started_at": "2026-10-10T11:23:20.888Z",
+      "completed_at": "2026-10-10T11:23:20.888Z",
       "input": {
         "captured": true,
         "content": {
@@ -321,32 +421,91 @@
         "input_hash": "sha256:9a929a5e415c855ba9bdd64a8d2675239887898d6bbdaefcf433de68544ecd2e",
         "output_hash": "sha256:def6f8aaca2f2baacc48fcc7f303d77d9d6a9fe6b0048f00380ba2c759c03f9b"
       },
-      "linked_model_invocation_id": "model_run_vertical_slice_ref_001_1791618250999",
-      "timestamp": "2026-10-10T07:44:10.999Z",
+      "linked_model_invocation_id": "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_3",
+      "timestamp": "2026-10-10T11:23:20.888Z",
       "duration_ms": 0,
       "metadata": {
-        "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250999",
+        "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_3",
         "cost_usd": 0.002,
         "total_tokens": 210
       }
     }
   ],
   "external_calls": [],
-  "state": [],
+  "state": [
+    {
+      "snapshot_id": "state_run_vertical_slice_ref_001_0",
+      "step_id": "step_run_vertical_slice_ref_001_0",
+      "snapshot_type": "INITIAL_STATE",
+      "timestamp": "2026-10-10T11:23:20.883Z",
+      "state_scope": "workflow",
+      "state_data": {
+        "phase": "planning",
+        "userInput": "What is customer cus_1001's current balance and our refund policy?"
+      },
+      "captured": true,
+      "hash": "sha256:4db9b69b6036dea4dd53cd1093880b6f871080aff0323cb1753eac3e5d215d35"
+    },
+    {
+      "snapshot_id": "state_run_vertical_slice_ref_001_1",
+      "step_id": "step_run_vertical_slice_ref_001_1",
+      "snapshot_type": "STEP_STATE",
+      "timestamp": "2026-10-10T11:23:20.887Z",
+      "state_scope": "workflow",
+      "state_data": {
+        "phase": "retrieval",
+        "resultsCount": 1
+      },
+      "captured": true,
+      "hash": "sha256:97cc84c01826576bf4a8d0c9072f351c741b20bc7f8935f62d194989c923e224"
+    },
+    {
+      "snapshot_id": "state_run_vertical_slice_ref_001_2",
+      "step_id": "step_run_vertical_slice_ref_001_2",
+      "snapshot_type": "STEP_STATE",
+      "timestamp": "2026-10-10T11:23:20.888Z",
+      "state_scope": "workflow",
+      "state_data": {
+        "phase": "account_lookup",
+        "accountDetails": {
+          "customerId": "cus_1001",
+          "balance": 150,
+          "currency": "USD",
+          "status": "active"
+        }
+      },
+      "captured": true,
+      "hash": "sha256:d1872496fc61bff5ceceb1694ed7a9474befa1c6f13d22ce20bc1c2ddfe9e7f1"
+    },
+    {
+      "snapshot_id": "state_run_vertical_slice_ref_001_3",
+      "step_id": "step_run_vertical_slice_ref_001_3",
+      "snapshot_type": "FINAL_STATE",
+      "timestamp": "2026-10-10T11:23:20.889Z",
+      "state_scope": "workflow",
+      "state_data": {
+        "phase": "synthesis",
+        "finalAnswer": "Your account cus_1001 balance is 150 USD. Per company policy, full refunds are eligible within 30 days."
+      },
+      "captured": true,
+      "hash": "sha256:2b7d12ec53c8d385cb394c0a1bbb2b66c26fa3f3e2de1360c822103dd933699e"
+    }
+  ],
   "context": [
     {
-      "snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250995",
-      "model_invocation_id": "model_run_vertical_slice_ref_001_1791618250995",
-      "timestamp": "2026-10-10T07:44:10.995Z",
+      "snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_0",
+      "step_id": "step_run_vertical_slice_ref_001_0",
+      "model_invocation_id": "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_0",
+      "timestamp": "2026-10-10T11:23:20.883Z",
       "total_token_estimate": 40,
       "items": [
         {
-          "item_id": "ctx_model_run_vertical_slice_ref_001_1791618250995_item_0",
+          "item_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_0_item_0",
           "source_type": "user_input",
           "token_estimate": 25,
           "position": 0,
           "inclusion_reason": "direct_prompt",
-          "timestamp": "2026-10-10T07:44:10.995Z",
+          "timestamp": "2026-10-10T11:23:20.883Z",
           "sensitivity": "internal",
           "redaction_status": "none",
           "content_captured": true,
@@ -355,12 +514,12 @@
           "availability": "CAPTURED"
         },
         {
-          "item_id": "ctx_model_run_vertical_slice_ref_001_1791618250995_item_1",
+          "item_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_0_item_1",
           "source_type": "tool_definition",
           "token_estimate": 15,
           "position": 1,
           "inclusion_reason": "active_tools_schema",
-          "timestamp": "2026-10-10T07:44:10.995Z",
+          "timestamp": "2026-10-10T11:23:20.883Z",
           "sensitivity": "internal",
           "redaction_status": "none",
           "content_captured": true,
@@ -371,18 +530,19 @@
       ]
     },
     {
-      "snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250998",
-      "model_invocation_id": "model_run_vertical_slice_ref_001_1791618250998",
-      "timestamp": "2026-10-10T07:44:10.998Z",
+      "snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1",
+      "step_id": "step_run_vertical_slice_ref_001_1",
+      "model_invocation_id": "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1",
+      "timestamp": "2026-10-10T11:23:20.886Z",
       "total_token_estimate": 52,
       "items": [
         {
-          "item_id": "ctx_model_run_vertical_slice_ref_001_1791618250998_item_0",
+          "item_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1_item_0",
           "source_type": "user_input",
           "token_estimate": 52,
           "position": 0,
           "inclusion_reason": "direct_prompt",
-          "timestamp": "2026-10-10T07:44:10.998Z",
+          "timestamp": "2026-10-10T11:23:20.886Z",
           "sensitivity": "internal",
           "redaction_status": "none",
           "content_captured": true,
@@ -393,18 +553,19 @@
       ]
     },
     {
-      "snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250999",
-      "model_invocation_id": "model_run_vertical_slice_ref_001_1791618250999",
-      "timestamp": "2026-10-10T07:44:10.999Z",
+      "snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_3",
+      "step_id": "step_run_vertical_slice_ref_001_3",
+      "model_invocation_id": "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_3",
+      "timestamp": "2026-10-10T11:23:20.888Z",
       "total_token_estimate": 32,
       "items": [
         {
-          "item_id": "ctx_model_run_vertical_slice_ref_001_1791618250999_item_0",
+          "item_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_3_item_0",
           "source_type": "user_input",
           "token_estimate": 32,
           "position": 0,
           "inclusion_reason": "direct_prompt",
-          "timestamp": "2026-10-10T07:44:10.999Z",
+          "timestamp": "2026-10-10T11:23:20.888Z",
           "sensitivity": "internal",
           "redaction_status": "none",
           "content_captured": true,
@@ -421,7 +582,8 @@
   },
   "tools": [
     {
-      "tool_call_id": "tool_run_vertical_slice_ref_001_1791618250998",
+      "tool_call_id": "tool_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_2",
+      "step_id": "step_run_vertical_slice_ref_001_2",
       "tool_name": "get_customer_account",
       "permission_class": "read_only",
       "replayability": "REPLAYABLE_RECORDED",
@@ -437,16 +599,17 @@
       },
       "output_summary": "{\"customerId\":\"cus_1001\",\"balance\":150,\"currency\":\"USD\",\"status\":\"active\"}",
       "status": "completed",
-      "started_at": "2026-10-10T07:44:10.998Z",
-      "completed_at": "2026-10-10T07:44:10.998Z",
+      "started_at": "2026-10-10T11:23:20.887Z",
+      "completed_at": "2026-10-10T11:23:20.887Z",
       "duration_ms": 0,
-      "boundary_id": "bnd_tool_call_run_vertical_slice_ref_001_0",
+      "boundary_id": "bnd_tool_call_run_vertical_slice_ref_001_3",
       "metadata": {}
     }
   ],
   "retrieval": [
     {
-      "operation_id": "retrieval_run_vertical_slice_ref_001_1791618250997",
+      "operation_id": "retrieval_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1",
+      "step_id": "step_run_vertical_slice_ref_001_1",
       "service_name": "pinecone_kb",
       "query": "refund policy and eligibility criteria",
       "top_k": 1,
@@ -467,15 +630,16 @@
         }
       ],
       "duration_ms": 0,
-      "timestamp": "2026-10-10T07:44:10.997Z",
+      "timestamp": "2026-10-10T11:23:20.886Z",
       "context_item_ids": [
-        "retrieval_run_vertical_slice_ref_001_1791618250997_item_0"
+        "retrieval_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1_item_0"
       ]
     }
   ],
   "models": [
     {
-      "invocation_id": "model_run_vertical_slice_ref_001_1791618250995",
+      "invocation_id": "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_0",
+      "step_id": "step_run_vertical_slice_ref_001_0",
       "model_name": "claude-3-5-sonnet",
       "provider": "anthropic",
       "prompt_tokens": 150,
@@ -483,37 +647,39 @@
       "total_tokens": 210,
       "cost_usd": 0.002,
       "duration_ms": 0,
-      "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250995",
+      "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_0",
       "response_summary": "Step 1 plan: Search refund policy then fetch balance.",
       "raw_captured": true,
       "response_hash": "sha256:798cf6a455efbc36aaf5c4237ead9e32a9b6fb64d32a33fb60bb13ad051398d4",
-      "started_at": "2026-10-10T07:44:10.995Z",
-      "completed_at": "2026-10-10T07:44:10.995Z",
+      "started_at": "2026-10-10T11:23:20.883Z",
+      "completed_at": "2026-10-10T11:23:20.883Z",
       "metadata": {
         "tools_count": 2
       }
     },
     {
-      "invocation_id": "model_run_vertical_slice_ref_001_1791618250998",
+      "invocation_id": "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1",
+      "step_id": "step_run_vertical_slice_ref_001_1",
       "model_name": "claude-3-5-sonnet",
       "provider": "anthropic",
       "prompt_tokens": 150,
       "completion_tokens": 60,
       "total_tokens": 210,
       "cost_usd": 0.002,
-      "duration_ms": 0,
-      "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250998",
+      "duration_ms": 1,
+      "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1",
       "response_summary": "Calling get_customer_account for cus_1001.",
       "raw_captured": true,
       "response_hash": "sha256:e684dcf041ad9651d592ff4df0435035e46b432d012e50052218aaef152e50cc",
-      "started_at": "2026-10-10T07:44:10.998Z",
-      "completed_at": "2026-10-10T07:44:10.998Z",
+      "started_at": "2026-10-10T11:23:20.886Z",
+      "completed_at": "2026-10-10T11:23:20.887Z",
       "metadata": {
         "tools_count": 0
       }
     },
     {
-      "invocation_id": "model_run_vertical_slice_ref_001_1791618250999",
+      "invocation_id": "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_3",
+      "step_id": "step_run_vertical_slice_ref_001_3",
       "model_name": "claude-3-5-sonnet",
       "provider": "anthropic",
       "prompt_tokens": 150,
@@ -521,12 +687,12 @@
       "total_tokens": 210,
       "cost_usd": 0.002,
       "duration_ms": 0,
-      "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_1791618250999",
+      "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_3",
       "response_summary": "Your account cus_1001 balance is 150 USD. Per company policy, full refunds are eligible within 30 days.",
       "raw_captured": true,
       "response_hash": "sha256:def6f8aaca2f2baacc48fcc7f303d77d9d6a9fe6b0048f00380ba2c759c03f9b",
-      "started_at": "2026-10-10T07:44:10.999Z",
-      "completed_at": "2026-10-10T07:44:10.999Z",
+      "started_at": "2026-10-10T11:23:20.888Z",
+      "completed_at": "2026-10-10T11:23:20.888Z",
       "metadata": {
         "tools_count": 0
       }
@@ -535,6 +701,18 @@
   "artifacts": [],
   "evals": [],
   "lineage": {
+    "checkpoint_reference": {
+      "checkpoint_id": "chk_run_vertical_slice_ref_001_0",
+      "run_id": "run_vertical_slice_ref_001",
+      "step_id": "step_run_vertical_slice_ref_001_0",
+      "state_snapshot_id": "state_run_vertical_slice_ref_001_0",
+      "boundary_cursor": 0,
+      "created_at": "2026-10-10T11:23:20.883Z",
+      "schema_version": "1.0.0-alpha",
+      "state_hash": "sha256:4db9b69b6036dea4dd53cd1093880b6f871080aff0323cb1753eac3e5d215d35",
+      "hash": "sha256:4db9b69b6036dea4dd53cd1093880b6f871080aff0323cb1753eac3e5d215d35",
+      "restorable": true
+    },
     "mutations": []
   },
   "provenance": {
@@ -553,13 +731,13 @@
     }
   },
   "observability": {
-    "total_duration_ms": 4,
+    "total_duration_ms": 6,
     "total_cost_usd": 0.006,
     "model_calls_count": 3,
     "tool_calls_count": 1,
     "evals_passed": 0,
     "evals_failed": 0,
-    "trace_event_count": 0,
+    "trace_event_count": 4,
     "context_snapshot_count": 3,
     "memory_operations_count": 0,
     "retrieval_operations_count": 1,

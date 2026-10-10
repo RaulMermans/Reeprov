@@ -65,6 +65,7 @@ export async function captureMemoryOperation(
       runId: input.runId,
       stepId: input.stepId,
       nodeId: input.nodeId,
+      sequenceIndex: input.sequenceIndex,
       boundaryType,
       name: `${input.provider}:${input.operationType}`,
       startedAt: input.timestamps.operationAt,

@@ -126,6 +126,7 @@ export interface ModelCaptureInput {
   runId: string;
   stepId?: string;
   nodeId?: string;
+  sequenceIndex?: number;
   model: string;
   provider: string;
   revision?: string;
@@ -168,6 +169,7 @@ export interface ToolCaptureInput {
   runId: string;
   stepId?: string;
   nodeId?: string;
+  sequenceIndex?: number;
   toolName: string;
   toolVersion?: string;
   arguments: unknown;
@@ -213,6 +215,7 @@ export interface RetrievalCaptureInput {
   runId: string;
   stepId?: string;
   nodeId?: string;
+  sequenceIndex?: number;
   serviceName: string;
   query: string;
   filters?: Record<string, unknown>;
@@ -236,6 +239,7 @@ export interface MemoryCaptureInput {
   runId: string;
   stepId?: string;
   nodeId?: string;
+  sequenceIndex?: number;
   provider: string;
   operationType: MemoryOperationType;
   category: MemoryCategory;
@@ -274,6 +278,7 @@ export interface HttpCaptureInput {
   runId: string;
   stepId?: string;
   nodeId?: string;
+  sequenceIndex?: number;
   method: string;
   url: string;
   headers?: Record<string, string>;

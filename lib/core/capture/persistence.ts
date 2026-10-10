@@ -13,11 +13,11 @@ import { join } from "node:path";
 import { runArtifactSchema, type RunArtifact } from "../contracts/runArtifact";
 import { executionBoundarySchema, type ExecutionBoundary } from "../contracts/replay";
 import { adaptLegacyRunToRunArtifact } from "../adapters/legacyRunAdapter";
-import { getDb, hasDatabaseUrl } from "@/lib/db/client";
-import { ensureSchema } from "@/lib/db/migrate";
-import { getRunStore } from "@/lib/db/getStores";
-import type { SavedRun, RunSummary } from "@/lib/runs/runTypes";
-import { buildRunSummary } from "@/lib/runs/runSummary";
+import { getDb, hasDatabaseUrl } from "../../db/client";
+import { ensureSchema } from "../../db/migrate";
+import { getRunStore } from "../../db/getStores";
+import type { SavedRun, RunSummary } from "../../runs/runTypes";
+import { buildRunSummary } from "../../runs/runSummary";
 import { globalCaptureMetrics } from "./metrics";
 
 // ── File Path Helpers ───────────────────────────────────────────────────────

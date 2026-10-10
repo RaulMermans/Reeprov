@@ -18,9 +18,19 @@ export const stateScopeSchema = z.enum([
 
 export type StateScope = z.infer<typeof stateScopeSchema>;
 
+export const stateSnapshotTypeSchema = z.enum([
+  "INITIAL_STATE",
+  "STEP_STATE",
+  "FINAL_STATE",
+  "CUSTOM",
+]);
+
+export type StateSnapshotType = z.infer<typeof stateSnapshotTypeSchema>;
+
 export const stateSnapshotSchema = z.object({
   snapshot_id: z.string(),
   step_id: z.string(),
+  snapshot_type: stateSnapshotTypeSchema.default("STEP_STATE"),
   timestamp: z.string(),
   state_scope: stateScopeSchema.default("workflow"),
   state_data: z.record(z.string(), z.unknown()).default({}),

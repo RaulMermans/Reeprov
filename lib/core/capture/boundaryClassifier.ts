@@ -29,7 +29,7 @@ export function normalizeBoundaryType(rawType: string): BoundaryType {
     case "retrieval_call":
     case "rag":
     case "vector_search":
-      return "retrieval_service";
+      return "retrieval_call";
 
     case "memory_read":
       return "memory_read";

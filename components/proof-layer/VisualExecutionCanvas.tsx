@@ -32,6 +32,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { CanvasFilters } from "@/components/proof-layer/CanvasFilters";
 import { ReplayControls } from "@/components/proof-layer/ReplayControls";
+import { ReplayRuntimeBanner } from "@/components/proof-layer/ReplayRuntimeBanner";
+import type { ReplayResult } from "@/lib/core/replay/contracts";
 import { formatDuration, formatCurrency, formatDateTime, formatPercent } from "@/components/proof-layer/format";
 import type { RunGraph } from "@/lib/runs/runGraph";
 import type { RunRecord, TraceEvent } from "@/lib/proof-layer/schemas";
@@ -1025,9 +1027,11 @@ export interface VisualExecutionCanvasProps {
   traceEvents: TraceEvent[];
   /** When the run is still "running", the canvas shows a Live indicator and auto-follows new events. */
   runStatus?: RunRecord["status"];
+  /** Deterministic replay execution result when run under offline replay runtime */
+  replayResult?: ReplayResult;
 }
 
-export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus }: VisualExecutionCanvasProps) {
+export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus, replayResult }: VisualExecutionCanvasProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filters, setFilters] = useState(DEFAULT_CANVAS_FILTERS);
   const [playing, setPlaying] = useState(false);
@@ -1183,6 +1187,8 @@ export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus }: Visu
           </button>
         )}
       </div>
+
+      {replayResult && <ReplayRuntimeBanner result={replayResult} />}
 
       {isLiveRun && (
         <div

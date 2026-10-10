@@ -6,6 +6,8 @@ import { BoundaryReplayHarness } from "../replayHarness";
 import { saveCanonicalRun, getCanonicalRun } from "../persistence";
 import { runArtifactSchema, type RunArtifact } from "../../contracts/runArtifact";
 import { InMemoryContentStore, setContentStore } from "../contentStore";
+import { ReplayRuntime } from "../../replay/runtime";
+import { validateExecutionIntegrity } from "../integrity";
 
 describe("Reference Vertical Slice & Deterministic Offline Replay Proof", () => {
   beforeEach(() => {
@@ -20,45 +22,75 @@ describe("Reference Vertical Slice & Deterministic Offline Replay Proof", () => 
     callTool: (input: { name: string; args: any }) => Promise<any>;
   }
 
+  interface StepLifecycle {
+    step: <T>(name: string, stepType: any, fn: (stepId: string) => Promise<T>) => Promise<T>;
+    captureState?: (stateData: Record<string, unknown>, options?: any) => any;
+    createCheckpoint?: (options?: any) => any;
+  }
+
   /**
-   * Reference Agent:
-   * USER -> MODEL 1 -> RETRIEVAL -> MODEL 2 -> READ-ONLY TOOL -> MODEL 3 -> FINAL
+   * Canonical Reference Agent:
+   * USER -> Step 0 (Model Plan) -> Step 1 (Retrieval & Reasoning) -> Step 2 (Tool Lookup) -> Step 3 (Model Synthesis) -> FINAL
    */
-  async function runSupportTriageAgent(deps: AgentDependencies, userInput: string) {
-    // 1. Model 1: Initial planning & tool selection
-    const plan = await deps.callModel({
-      model: "claude-3-5-sonnet",
-      prompt: `User query: "${userInput}". Decide next steps.`,
-      tools: [{ name: "search_policy" }, { name: "get_customer_account" }],
+  async function runSupportTriageAgent(
+    deps: AgentDependencies,
+    userInput: string,
+    lifecycle?: StepLifecycle
+  ) {
+    const stepFn = lifecycle?.step ?? (async (_, __, fn) => fn("step_direct"));
+
+    // Step 0: Initial planning & tool selection
+    const plan = await stepFn("planning", "model_call", async (stepId) => {
+      lifecycle?.captureState?.({ phase: "planning", userInput }, { stepId, type: "INITIAL_STATE" });
+      lifecycle?.createCheckpoint?.({ stepId });
+
+      return deps.callModel({
+        model: "claude-3-5-sonnet",
+        prompt: `User query: "${userInput}". Decide next steps.`,
+        tools: [{ name: "search_policy" }, { name: "get_customer_account" }],
+      });
     });
 
-    // 2. Retrieval: Search refund policy
-    const retrievalResults = await deps.callRetrieval({
-      service: "pinecone_kb",
-      query: "refund policy and eligibility criteria",
+    // Step 1: Retrieval: Search refund policy + model reasoning
+    const { retrievalResults, toolCallPlan } = await stepFn("policy_retrieval", "retrieval", async (stepId) => {
+      const results = await deps.callRetrieval({
+        service: "pinecone_kb",
+        query: "refund policy and eligibility criteria",
+      });
+
+      const nextPlan = await deps.callModel({
+        model: "claude-3-5-sonnet",
+        prompt: `Policy retrieved: "${results[0].content}". Now lookup customer details for user in query "${userInput}".`,
+      });
+
+      lifecycle?.captureState?.({ phase: "retrieval", resultsCount: results.length }, { stepId });
+      return { retrievalResults: results, toolCallPlan: nextPlan };
     });
 
-    // 3. Model 2: Process policy and formulate tool query for customer account
-    const toolCallPlan = await deps.callModel({
-      model: "claude-3-5-sonnet",
-      prompt: `Policy retrieved: "${retrievalResults[0].content}". Now lookup customer details for user in query "${userInput}".`,
+    // Step 2: Read-Only Tool: Lookup customer account
+    const accountDetails = await stepFn("account_lookup", "tool_call", async (stepId) => {
+      const details = await deps.callTool({
+        name: "get_customer_account",
+        args: { customerId: "cus_1001" },
+      });
+      lifecycle?.captureState?.({ phase: "account_lookup", accountDetails: details }, { stepId });
+      return details;
     });
 
-    // 4. Read-Only Tool: Lookup customer account
-    const accountDetails = await deps.callTool({
-      name: "get_customer_account",
-      args: { customerId: "cus_1001" },
-    });
-
-    // 5. Model 3: Final synthesis
-    const finalAnswer = await deps.callModel({
-      model: "claude-3-5-sonnet",
-      prompt: `Synthesize answer using policy "${retrievalResults[0].content}" and balance "${accountDetails.balance} ${accountDetails.currency}".`,
+    // Step 3: Model Synthesis: Final answer
+    const finalAnswer = await stepFn("synthesis", "model_call", async (stepId) => {
+      const answer = await deps.callModel({
+        model: "claude-3-5-sonnet",
+        prompt: `Synthesize answer using policy "${retrievalResults[0].content}" and balance "${accountDetails.balance} ${accountDetails.currency}".`,
+      });
+      lifecycle?.captureState?.({ phase: "synthesis", finalAnswer: answer }, { stepId, type: "FINAL_STATE" });
+      return answer;
     });
 
     return {
       plan,
       retrievalResults,
+      toolCallPlan,
       accountDetails,
       finalAnswer,
     };
@@ -72,6 +104,7 @@ describe("Reference Vertical Slice & Deterministic Offline Replay Proof", () => 
       workflowId: "triage-v1",
       summary: "Customer support query for balance and refund policy",
       runId: "run_vertical_slice_ref_001",
+      strict: true,
     });
 
     // Instrumented dependencies
@@ -135,10 +168,15 @@ describe("Reference Vertical Slice & Deterministic Offline Replay Proof", () => 
       },
     };
 
-    // Execute reference agent
+    // Execute reference agent with full step lifecycle instrumentation
     const result = await runSupportTriageAgent(
       liveDeps,
-      "What is customer cus_1001's current balance and our refund policy?"
+      "What is customer cus_1001's current balance and our refund policy?",
+      {
+        step: (name, stepType, fn) => session.step(name, stepType, fn),
+        captureState: (data, opts) => session.captureState(data, opts),
+        createCheckpoint: (opts) => session.createCheckpoint(opts),
+      }
     );
 
     expect(result.finalAnswer).toContain("balance is 150 USD");
@@ -154,12 +192,31 @@ describe("Reference Vertical Slice & Deterministic Offline Replay Proof", () => 
 
     // Verify all canonical links and structures
     expect(validated.identity.run_id).toBe("run_vertical_slice_ref_001");
+    expect(validated.trajectory).toHaveLength(4); // 4 real execution steps!
     expect(validated.boundaries).toHaveLength(5); // Model1, Retrieval, Model2, Tool, Model3
     expect(validated.models).toHaveLength(3);
     expect(validated.retrieval).toHaveLength(1);
     expect(validated.tools).toHaveLength(1);
-    expect(validated.context).toHaveLength(3); // 3 context snapshots from 3 model calls
-    expect(validated.boundaries.every((b) => b.replayability === "REPLAYABLE_RECORDED")).toBe(true);
+    expect(validated.state.length).toBeGreaterThanOrEqual(4); // State snapshots captured
+    expect(validated.lineage.checkpoint_reference).toBeDefined();
+
+    // Verify monotonic sequence indices: 0, 1, 2, 3, 4
+    for (let i = 0; i < validated.boundaries.length; i++) {
+      expect(validated.boundaries[i].sequence_index).toBe(i);
+    }
+
+    // Verify unique boundary IDs (no duplicates)
+    const boundaryIds = validated.boundaries.map((b) => b.boundary_id);
+    expect(new Set(boundaryIds).size).toBe(5);
+
+    // Verify canonical boundary type
+    expect(validated.boundaries[1].boundary_type).toBe("retrieval_call");
+
+    // Verify step <-> boundary linkages
+    const integrity = validateExecutionIntegrity(validated);
+    expect(integrity.valid).toBe(true);
+    expect(integrity.errors).toHaveLength(0);
+    expect(integrity.linkedBoundaryCount).toBe(5);
 
     // Persist to file store
     await saveCanonicalRun(validated);
@@ -174,15 +231,12 @@ describe("Reference Vertical Slice & Deterministic Offline Replay Proof", () => 
     );
   });
 
-  it("PROVES DETERMINISTIC OFFLINE REPLAY: substitutes recorded boundaries with live providers disabled", async () => {
+  it("PROVES DETERMINISTIC OFFLINE REPLAY: reproduces execution trajectory offline with live providers disabled", async () => {
     // 1. Reload the captured RunArtifact from storage
     const recordedArtifact = await getCanonicalRun("run_vertical_slice_ref_001");
     expect(recordedArtifact).not.toBeNull();
 
-    // 2. Instantiate BoundaryReplayHarness
-    const harness = new BoundaryReplayHarness(recordedArtifact!);
-
-    // 3. Spy / mock live providers that throw an error if called
+    // 2. Spy / mock live providers that throw an error if called
     const liveModelStub = vi.fn().mockImplementation(() => {
       throw new Error("FAIL: Live model call attempted during offline replay!");
     });
@@ -193,59 +247,69 @@ describe("Reference Vertical Slice & Deterministic Offline Replay Proof", () => 
       throw new Error("FAIL: Live tool call attempted during offline replay!");
     });
 
-    // 4. Offline dependencies routed exclusively through the BoundaryReplayHarness
-    const offlineDeps: AgentDependencies = {
-      callModel: async (input) => {
-        // Confirm live provider is never called
-        expect(liveModelStub).not.toHaveBeenCalled();
+    // 3. Execute via new ReplayRuntime with STRICT_OFFLINE mode
+    const runtime = new ReplayRuntime();
+    const replayResult = await runtime.replay(
+      recordedArtifact!,
+      async (adapter) => {
+        const deps = adapter.getDependencies();
 
-        // Deterministic substitution from recorded boundary
-        const boundaryInput = {
-          model: input.model,
-          provider: "anthropic",
-          prompt: input.prompt,
-          tools: input.tools,
+        const replayDeps: AgentDependencies = {
+          callModel: async (input) => {
+            expect(liveModelStub).not.toHaveBeenCalled();
+            return deps.callModel(input);
+          },
+          callRetrieval: async (input) => {
+            expect(liveRetrievalStub).not.toHaveBeenCalled();
+            return deps.callRetrieval(input);
+          },
+          callTool: async (input) => {
+            expect(liveToolStub).not.toHaveBeenCalled();
+            return deps.callTool(input);
+          },
         };
-        const sub = await harness.substituteModel("anthropic/claude-3-5-sonnet", boundaryInput);
-        return sub.output;
-      },
-      callRetrieval: async (input) => {
-        expect(liveRetrievalStub).not.toHaveBeenCalled();
 
-        const sub = await harness.substituteRetrieval("pinecone_kb:search", {
-          query: input.query,
-        });
-        return (sub.output as any).results;
+        return runSupportTriageAgent(
+          replayDeps,
+          "What is customer cus_1001's current balance and our refund policy?"
+        );
       },
-      callTool: async (input) => {
-        expect(liveToolStub).not.toHaveBeenCalled();
-
-        const sub = await harness.substituteTool(input.name, input.args);
-        return sub.output;
-      },
-    };
-
-    // 5. Execute the exact same agent offline!
-    const replayedResult = await runSupportTriageAgent(
-      offlineDeps,
-      "What is customer cus_1001's current balance and our refund policy?"
+      { mode: "STRICT_OFFLINE" }
     );
 
-    // 6. Confirm ZERO live calls occurred
+    // 4. Assert full reproduction
+    expect(replayResult.status).toBe("MATCHED");
+    expect(replayResult.deterministic_match).toBe(true);
+    expect(replayResult.boundaries_substituted).toBe(5);
+    expect(replayResult.divergences).toHaveLength(0);
+    expect(replayResult.live_calls_attempted).toBe(0);
+    expect(replayResult.live_calls_blocked).toBe(0);
+
+    // Confirm live providers were never touched
     expect(liveModelStub).toHaveBeenCalledTimes(0);
     expect(liveRetrievalStub).toHaveBeenCalledTimes(0);
     expect(liveToolStub).toHaveBeenCalledTimes(0);
 
-    // 7. Confirm exact matching output was substituted
-    expect(replayedResult.finalAnswer).toBe(
+    // Confirm produced final output matched recorded value
+    const replayed = replayResult.final_output as any;
+    expect(replayed.finalAnswer).toBe(
       "Your account cus_1001 balance is 150 USD. Per company policy, full refunds are eligible within 30 days."
     );
-    expect(replayedResult.accountDetails.balance).toBe(150);
+    expect(replayed.accountDetails.balance).toBe(150);
 
-    // 8. Confirm all boundaries were substituted in sequence
-    const replayStatus = harness.verifyCompleteReplay();
-    expect(replayStatus.complete).toBe(true);
-    expect(replayStatus.substitutedCount).toBe(5);
-    expect(replayStatus.remainingBoundaries).toBe(0);
+    // 5. Also verify legacy BoundaryReplayHarness works seamlessly with the canonical artifact
+    const harness = new BoundaryReplayHarness(recordedArtifact!);
+    const sub0 = await harness.substituteModel("anthropic/claude-3-5-sonnet", {
+      model: "claude-3-5-sonnet",
+      provider: "anthropic",
+      prompt: 'User query: "What is customer cus_1001\'s current balance and our refund policy?". Decide next steps.',
+      tools: [{ name: "search_policy" }, { name: "get_customer_account" }],
+    });
+    expect(sub0.output).toContain("Search refund policy");
+
+    const sub1 = await harness.substituteRetrieval("pinecone_kb:search", {
+      query: "refund policy and eligibility criteria",
+    });
+    expect(sub1.output).toBeDefined();
   });
 });

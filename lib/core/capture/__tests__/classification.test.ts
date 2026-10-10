@@ -115,8 +115,9 @@ describe("Boundary Classification & Safety Evaluation", () => {
     it("maps synonym types to canonical enum values", () => {
       expect(normalizeBoundaryType("llm")).toBe("model_call");
       expect(normalizeBoundaryType("tool")).toBe("tool_call");
-      expect(normalizeBoundaryType("rag")).toBe("retrieval_service");
-      expect(normalizeBoundaryType("retrieval_call")).toBe("retrieval_service");
+      expect(normalizeBoundaryType("rag")).toBe("retrieval_call");
+      expect(normalizeBoundaryType("retrieval_service")).toBe("retrieval_call");
+      expect(normalizeBoundaryType("retrieval_call")).toBe("retrieval_call");
       expect(normalizeBoundaryType("memory_read")).toBe("memory_read");
       expect(normalizeBoundaryType("memory_write")).toBe("memory_write");
       expect(normalizeBoundaryType("fetch")).toBe("external_http");

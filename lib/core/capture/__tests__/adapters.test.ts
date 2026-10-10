@@ -141,7 +141,7 @@ describe("Boundary Capture Adapters", () => {
       expect(res.retrievalOperation.service_name).toBe("pinecone_kb");
       expect(res.retrievalOperation.results_count).toBe(2);
       expect(res.retrievalOperation.context_item_ids).toHaveLength(1); // only 1 entered context
-      expect(res.boundary.boundary_type).toBe("retrieval_service");
+      expect(res.boundary.boundary_type).toBe("retrieval_call");
       expect(res.boundary.replayability).toBe("REPLAYABLE_RECORDED");
     });
   });

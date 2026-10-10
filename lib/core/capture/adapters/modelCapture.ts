@@ -139,6 +139,7 @@ export async function captureModelInvocation(
       runId: input.runId,
       stepId: input.stepId,
       nodeId: input.nodeId,
+      sequenceIndex: input.sequenceIndex,
       boundaryType: "model_call",
       name: `${input.provider}/${input.model}`,
       startedAt,

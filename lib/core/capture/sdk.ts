@@ -7,23 +7,38 @@
  * - Capture failure never crashes the host agent (fails safe by default).
  * - Transparent wrappers preserve target return values and execution semantics.
  * - Explicit flush and run completion semantics.
+ * - Monotonic boundary sequence indices and causal step linkage.
  */
 
 import { CANONICAL_RUN_ARTIFACT_SCHEMA_VERSION, type RunArtifact } from "../contracts/runArtifact";
 import type { ExecutionBoundary, SideEffectClass } from "../contracts/replay";
-import type { ExecutionStep, ExecutionStepType } from "../contracts/execution";
+import type { ExecutionStep, ExecutionStepType, StateScope, StateSnapshot, StateSnapshotType } from "../contracts/execution";
 import type { ModelInvocation } from "../contracts/models";
 import type { ToolInvocation } from "../contracts/tools";
 import type { RetrievalOperation } from "../contracts/retrieval";
 import type { MemoryOperation } from "../contracts/memory";
 import type { ContextSnapshot } from "../contracts/context";
+import type { CheckpointReference } from "../contracts/lineage";
 import { captureModelInvocation } from "./adapters/modelCapture";
 import { captureToolInvocation } from "./adapters/toolCapture";
 import { captureRetrievalOperation } from "./adapters/retrievalCapture";
 import { captureMemoryOperation } from "./adapters/memoryCapture";
 import { captureHttpCall } from "./adapters/httpCapture";
-import { saveCanonicalRun } from "./persistence";
+import { saveCanonicalRun, getCanonicalRun } from "./persistence";
 import { resolvePolicy } from "./policy";
+import { hashPayload } from "./hashing";
+import { validateExecutionIntegrity, ExecutionIntegrityError } from "./integrity";
+import {
+  type ReplayMode,
+  type ReplayResult,
+  type ReplayEvent,
+  type ReplayStatus,
+  BoundaryResolver,
+  DivergenceDetector,
+  NetworkKillSwitch,
+  StateRestorer,
+  saveReplayResult,
+} from "../replay";
 import type {
   CapturePolicy,
   ModelCaptureInput,
@@ -70,6 +85,10 @@ export class CaptureSession {
   private readonly retrievals: RetrievalOperation[] = [];
   private readonly memories: MemoryOperation[] = [];
   private readonly contexts: ContextSnapshot[] = [];
+  private readonly stateSnapshots: StateSnapshot[] = [];
+  private readonly checkpoints: CheckpointReference[] = [];
+
+  private readonly activeStepStack: ExecutionStep[] = [];
   private stepCounter = 0;
   private boundaryCounter = 0;
   private isFinished = false;
@@ -94,54 +113,196 @@ export class CaptureSession {
     const stepIndex = this.stepCounter++;
     const stepId = `step_${this.runId}_${stepIndex}`;
     const startedAt = new Date().toISOString();
-    let status: ExecutionStep["status"] = "completed";
-    let error: string | undefined;
+
+    const stepRecord: ExecutionStep = {
+      step_id: stepId,
+      step_index: stepIndex,
+      step_type: stepType,
+      name,
+      started_at: startedAt,
+      status: "completed",
+      boundary_ids: [],
+      tool_invocation_ids: [],
+      model_invocation_ids: [],
+      memory_operation_ids: [],
+      retrieval_operation_ids: [],
+      eval_result_ids: [],
+      artifact_ids: [],
+    };
+
+    this.activeStepStack.push(stepRecord);
 
     try {
       const result = await fn(stepId);
       return result;
     } catch (err) {
-      status = "failed";
-      error = err instanceof Error ? err.message : String(err);
+      stepRecord.status = "failed";
+      stepRecord.error = err instanceof Error ? err.message : String(err);
       throw err;
     } finally {
       const completedAt = new Date().toISOString();
-      const durationMs = Math.max(0, new Date(completedAt).getTime() - new Date(startedAt).getTime());
-
-      this.steps.push({
-        step_id: stepId,
-        step_index: stepIndex,
-        step_type: stepType,
-        name,
-        started_at: startedAt,
-        completed_at: completedAt,
-        duration_ms: durationMs,
-        status,
-        error,
-        boundary_ids: [],
-        tool_invocation_ids: [],
-        model_invocation_ids: [],
-        memory_operation_ids: [],
-        retrieval_operation_ids: [],
-        eval_result_ids: [],
-        artifact_ids: [],
-      });
+      stepRecord.completed_at = completedAt;
+      stepRecord.duration_ms = Math.max(0, new Date(completedAt).getTime() - new Date(startedAt).getTime());
+      this.activeStepStack.pop();
+      this.steps.push(stepRecord);
     }
+  }
+
+  // ── Step Linkage Helper ───────────────────────────────────────────────────
+
+  private linkToActiveStep(details: {
+    boundaryId: string;
+    stepId?: string;
+    modelInvocationId?: string;
+    toolInvocationId?: string;
+    retrievalOperationId?: string;
+    memoryOperationId?: string;
+    contextSnapshotId?: string;
+    stateSnapshotId?: string;
+  }): void {
+    const targetStep = details.stepId
+      ? this.activeStepStack.find((s) => s.step_id === details.stepId) ??
+        this.steps.find((s) => s.step_id === details.stepId)
+      : this.activeStepStack[this.activeStepStack.length - 1];
+
+    if (!targetStep) return;
+
+    if (!targetStep.boundary_ids.includes(details.boundaryId)) {
+      targetStep.boundary_ids.push(details.boundaryId);
+    }
+    if (details.modelInvocationId && !targetStep.model_invocation_ids.includes(details.modelInvocationId)) {
+      targetStep.model_invocation_ids.push(details.modelInvocationId);
+    }
+    if (details.toolInvocationId && !targetStep.tool_invocation_ids.includes(details.toolInvocationId)) {
+      targetStep.tool_invocation_ids.push(details.toolInvocationId);
+    }
+    if (details.retrievalOperationId && !targetStep.retrieval_operation_ids.includes(details.retrievalOperationId)) {
+      targetStep.retrieval_operation_ids.push(details.retrievalOperationId);
+    }
+    if (details.memoryOperationId && !targetStep.memory_operation_ids.includes(details.memoryOperationId)) {
+      targetStep.memory_operation_ids.push(details.memoryOperationId);
+    }
+    if (details.contextSnapshotId && !targetStep.context_snapshot_id) {
+      targetStep.context_snapshot_id = details.contextSnapshotId;
+    }
+    if (details.stateSnapshotId && !targetStep.state_snapshot_id) {
+      targetStep.state_snapshot_id = details.stateSnapshotId;
+    }
+  }
+
+  // ── State Snapshot Capture ────────────────────────────────────────────────
+
+  captureState(
+    stateData: Record<string, unknown>,
+    options?: {
+      stepId?: string;
+      scope?: StateScope;
+      type?: StateSnapshotType;
+      metadata?: Record<string, unknown>;
+    }
+  ): StateSnapshot {
+    const effectiveStepId =
+      options?.stepId ??
+      this.activeStepStack[this.activeStepStack.length - 1]?.step_id ??
+      `step_${this.runId}_0`;
+
+    const snapshotId = `state_${this.runId}_${this.stateSnapshots.length}`;
+    const hash = hashPayload(stateData);
+    const snapshotType =
+      options?.type ??
+      (this.stateSnapshots.length === 0 ? "INITIAL_STATE" : "STEP_STATE");
+
+    const snapshot: StateSnapshot = {
+      snapshot_id: snapshotId,
+      step_id: effectiveStepId,
+      snapshot_type: snapshotType,
+      timestamp: new Date().toISOString(),
+      state_scope: options?.scope ?? "workflow",
+      state_data: stateData,
+      captured: true,
+      hash,
+      metadata: options?.metadata,
+    };
+
+    this.stateSnapshots.push(snapshot);
+
+    const activeStep = options?.stepId
+      ? this.activeStepStack.find((s) => s.step_id === options.stepId) ??
+        this.steps.find((s) => s.step_id === options.stepId)
+      : this.activeStepStack[this.activeStepStack.length - 1];
+
+    if (activeStep) {
+      activeStep.state_snapshot_id = snapshotId;
+    }
+
+    return snapshot;
+  }
+
+  // ── Checkpoint Creation ───────────────────────────────────────────────────
+
+  createCheckpoint(options?: {
+    stepId?: string;
+    stateSnapshotId?: string;
+    metadata?: Record<string, unknown>;
+  }): CheckpointReference {
+    const checkpointId = `chk_${this.runId}_${this.checkpoints.length}`;
+    const effectiveStepId =
+      options?.stepId ??
+      this.activeStepStack[this.activeStepStack.length - 1]?.step_id ??
+      `step_${this.runId}_0`;
+
+    const lastSnapshot = this.stateSnapshots[this.stateSnapshots.length - 1];
+    const effectiveSnapshotId = options?.stateSnapshotId ?? lastSnapshot?.snapshot_id;
+    const checkpointHash = lastSnapshot?.hash;
+
+    const checkpoint: CheckpointReference = {
+      checkpoint_id: checkpointId,
+      run_id: this.runId,
+      step_id: effectiveStepId,
+      state_snapshot_id: effectiveSnapshotId,
+      boundary_cursor: this.boundaries.length,
+      created_at: new Date().toISOString(),
+      schema_version: CANONICAL_RUN_ARTIFACT_SCHEMA_VERSION,
+      state_hash: checkpointHash,
+      hash: checkpointHash,
+      restorable: true,
+      metadata: options?.metadata,
+    };
+
+    this.checkpoints.push(checkpoint);
+    return checkpoint;
   }
 
   // ── Direct Boundary Capture ───────────────────────────────────────────────
 
   async captureModel(input: Omit<ModelCaptureInput, "runId">): Promise<ModelCaptureResult | null> {
     try {
+      const sequenceIndex = this.boundaryCounter++;
+      const effectiveStepId = input.stepId ?? this.activeStepStack[this.activeStepStack.length - 1]?.step_id;
+
       const res = await captureModelInvocation(
-        { ...input, runId: this.runId },
+        {
+          ...input,
+          runId: this.runId,
+          stepId: effectiveStepId,
+          sequenceIndex,
+        },
         this.policy
       );
+
       this.boundaries.push(res.boundary);
       this.models.push(res.modelInvocation);
       if (res.contextSnapshot) {
         this.contexts.push(res.contextSnapshot);
       }
+
+      this.linkToActiveStep({
+        boundaryId: res.boundary.boundary_id,
+        stepId: effectiveStepId,
+        modelInvocationId: res.modelInvocation.invocation_id,
+        contextSnapshotId: res.contextSnapshot?.snapshot_id,
+      });
+
       return res;
     } catch (err) {
       this.handleCaptureError("captureModel", err);
@@ -151,12 +312,28 @@ export class CaptureSession {
 
   async captureTool(input: Omit<ToolCaptureInput, "runId">): Promise<ToolCaptureResult | null> {
     try {
+      const sequenceIndex = this.boundaryCounter++;
+      const effectiveStepId = input.stepId ?? this.activeStepStack[this.activeStepStack.length - 1]?.step_id;
+
       const res = await captureToolInvocation(
-        { ...input, runId: this.runId },
+        {
+          ...input,
+          runId: this.runId,
+          stepId: effectiveStepId,
+          sequenceIndex,
+        },
         this.policy
       );
+
       this.boundaries.push(res.boundary);
       this.tools.push(res.toolInvocation);
+
+      this.linkToActiveStep({
+        boundaryId: res.boundary.boundary_id,
+        stepId: effectiveStepId,
+        toolInvocationId: res.toolInvocation.tool_call_id,
+      });
+
       return res;
     } catch (err) {
       this.handleCaptureError("captureTool", err);
@@ -166,12 +343,28 @@ export class CaptureSession {
 
   async captureRetrieval(input: Omit<RetrievalCaptureInput, "runId">): Promise<RetrievalCaptureResult | null> {
     try {
+      const sequenceIndex = this.boundaryCounter++;
+      const effectiveStepId = input.stepId ?? this.activeStepStack[this.activeStepStack.length - 1]?.step_id;
+
       const res = await captureRetrievalOperation(
-        { ...input, runId: this.runId },
+        {
+          ...input,
+          runId: this.runId,
+          stepId: effectiveStepId,
+          sequenceIndex,
+        },
         this.policy
       );
+
       this.boundaries.push(res.boundary);
       this.retrievals.push(res.retrievalOperation);
+
+      this.linkToActiveStep({
+        boundaryId: res.boundary.boundary_id,
+        stepId: effectiveStepId,
+        retrievalOperationId: res.retrievalOperation.operation_id,
+      });
+
       return res;
     } catch (err) {
       this.handleCaptureError("captureRetrieval", err);
@@ -181,12 +374,28 @@ export class CaptureSession {
 
   async captureMemory(input: Omit<MemoryCaptureInput, "runId">): Promise<MemoryCaptureResult | null> {
     try {
+      const sequenceIndex = this.boundaryCounter++;
+      const effectiveStepId = input.stepId ?? this.activeStepStack[this.activeStepStack.length - 1]?.step_id;
+
       const res = await captureMemoryOperation(
-        { ...input, runId: this.runId },
+        {
+          ...input,
+          runId: this.runId,
+          stepId: effectiveStepId,
+          sequenceIndex,
+        },
         this.policy
       );
+
       this.boundaries.push(res.boundary);
       this.memories.push(res.memoryOperation);
+
+      this.linkToActiveStep({
+        boundaryId: res.boundary.boundary_id,
+        stepId: effectiveStepId,
+        memoryOperationId: res.memoryOperation.operation_id,
+      });
+
       return res;
     } catch (err) {
       this.handleCaptureError("captureMemory", err);
@@ -196,11 +405,26 @@ export class CaptureSession {
 
   async captureHttp(input: Omit<HttpCaptureInput, "runId">): Promise<HttpCaptureResult | null> {
     try {
+      const sequenceIndex = this.boundaryCounter++;
+      const effectiveStepId = input.stepId ?? this.activeStepStack[this.activeStepStack.length - 1]?.step_id;
+
       const res = await captureHttpCall(
-        { ...input, runId: this.runId },
+        {
+          ...input,
+          runId: this.runId,
+          stepId: effectiveStepId,
+          sequenceIndex,
+        },
         this.policy
       );
+
       this.boundaries.push(res.boundary);
+
+      this.linkToActiveStep({
+        boundaryId: res.boundary.boundary_id,
+        stepId: effectiveStepId,
+      });
+
       return res;
     } catch (err) {
       this.handleCaptureError("captureHttp", err);
@@ -250,6 +474,97 @@ export class CaptureSession {
     };
   }
 
+  wrapModel<TInput, TOutput>(
+    modelFn: (input: TInput) => Promise<TOutput>,
+    options: {
+      provider: string;
+      model: string;
+      promptExtractor?: (input: TInput) => string;
+      stepId?: string;
+      nodeId?: string;
+    }
+  ): (input: TInput) => Promise<TOutput> {
+    return async (input: TInput): Promise<TOutput> => {
+      const startedAt = new Date().toISOString();
+      const startMs = Date.now();
+      let response: TOutput | undefined;
+      let error: { message: string } | undefined;
+
+      try {
+        response = await modelFn(input);
+        return response;
+      } catch (err) {
+        error = { message: err instanceof Error ? err.message : String(err) };
+        throw err;
+      } finally {
+        const completedAt = new Date().toISOString();
+        const durationMs = Date.now() - startMs;
+        const prompt = options.promptExtractor
+          ? options.promptExtractor(input)
+          : typeof input === "string"
+            ? input
+            : JSON.stringify(input);
+
+        await this.captureModel({
+          provider: options.provider,
+          model: options.model,
+          prompt,
+          response,
+          error,
+          startedAt,
+          completedAt,
+          durationMs,
+          stepId: options.stepId,
+          nodeId: options.nodeId,
+        });
+      }
+    };
+  }
+
+  wrapRetrieval<TInput, TOutput extends Array<{ documentId?: string; content?: string }>>(
+    retrievalFn: (input: TInput) => Promise<TOutput>,
+    options: {
+      serviceName: string;
+      queryExtractor: (input: TInput) => string;
+      stepId?: string;
+      nodeId?: string;
+    }
+  ): (input: TInput) => Promise<TOutput> {
+    return async (input: TInput): Promise<TOutput> => {
+      const startedAt = new Date().toISOString();
+      const startMs = Date.now();
+      let results: TOutput | undefined;
+      let error: { message: string } | undefined;
+
+      try {
+        results = await retrievalFn(input);
+        return results;
+      } catch (err) {
+        error = { message: err instanceof Error ? err.message : String(err) };
+        throw err;
+      } finally {
+        const completedAt = new Date().toISOString();
+        const durationMs = Date.now() - startMs;
+        const query = options.queryExtractor(input);
+
+        await this.captureRetrieval({
+          serviceName: options.serviceName,
+          query,
+          results: (results ?? []).map((r, i) => ({
+            documentId: r.documentId ?? `doc_${i}`,
+            content: r.content ?? "",
+          })),
+          error,
+          startedAt,
+          completedAt,
+          durationMs,
+          stepId: options.stepId,
+          nodeId: options.nodeId,
+        });
+      }
+    };
+  }
+
   // ── Finish & Flush ────────────────────────────────────────────────────────
 
   async finishRun(options: FinishRunOptions = {}): Promise<RunArtifact> {
@@ -294,7 +609,7 @@ export class CaptureSession {
       trajectory: this.steps,
       boundaries: this.boundaries,
       external_calls: [],
-      state: [],
+      state: this.stateSnapshots,
       context: this.contexts,
       memory: {
         operations: this.memories,
@@ -306,6 +621,7 @@ export class CaptureSession {
       artifacts: [],
       evals: [],
       lineage: {
+        checkpoint_reference: this.checkpoints[0],
         mutations: [],
       },
       provenance: {
@@ -359,6 +675,15 @@ export class CaptureSession {
       },
     };
 
+    // Integrity validation
+    const integrityReport = validateExecutionIntegrity(artifact);
+    if (!integrityReport.valid) {
+      if (this.strict) {
+        throw new ExecutionIntegrityError(integrityReport.errors);
+      }
+      console.warn("[AgentPulse Execution Integrity Warning]", integrityReport.errors);
+    }
+
     // Persist
     await saveCanonicalRun(artifact);
     return artifact;
@@ -393,6 +718,217 @@ export class AgentPulseCaptureService {
       });
       throw err;
     }
+  }
+
+  /**
+   * Loads a canonical run artifact by ID or returns the artifact directly.
+   */
+  async loadRun(runOrId: string | RunArtifact): Promise<RunArtifact | null> {
+    if (typeof runOrId === "string") {
+      return getCanonicalRun(runOrId);
+    }
+    return runOrId;
+  }
+
+  /**
+   * Replays a captured run artifact offline using deterministic boundary substitution.
+   */
+  async replay(
+    runOrId: string | RunArtifact,
+    options?: ReplayOptions
+  ): Promise<ReplaySession> {
+    const artifact = typeof runOrId === "string" ? await getCanonicalRun(runOrId) : runOrId;
+    if (!artifact) {
+      throw new Error(`RunArtifact not found: ${String(runOrId)}`);
+    }
+    return new ReplaySession(artifact, options);
+  }
+}
+
+export interface ReplayOptions {
+  mode?: ReplayMode;
+  replayId?: string;
+  verifyBlobs?: boolean;
+}
+
+export class ReplaySession {
+  public readonly mode: ReplayMode;
+  public readonly replayId: string;
+  public readonly sourceRun: RunArtifact;
+  private readonly resolver: BoundaryResolver;
+  private readonly divergenceDetector: DivergenceDetector;
+  private readonly networkGuard = new NetworkKillSwitch();
+  private readonly restorer: StateRestorer;
+  private state: Record<string, unknown> = {};
+  private activeStepIndex = 0;
+  private readonly startedAt: string;
+  private isFinished = false;
+  private readonly events: ReplayEvent[] = [];
+
+  constructor(sourceRun: RunArtifact, options: ReplayOptions = {}) {
+    this.sourceRun = sourceRun;
+    this.mode = options.mode ?? "STRICT_OFFLINE";
+    this.replayId = options.replayId ?? `replay_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    this.startedAt = new Date().toISOString();
+    this.resolver = new BoundaryResolver(sourceRun, { strict: this.mode === "STRICT_OFFLINE" });
+    this.divergenceDetector = new DivergenceDetector(this.replayId, sourceRun.identity.run_id);
+    this.restorer = new StateRestorer(sourceRun);
+    const restored = this.restorer.restoreInitialState();
+    this.state = restored.state;
+    if (this.mode === "STRICT_OFFLINE") {
+      this.networkGuard.activate();
+    }
+  }
+
+  getState<T extends Record<string, unknown>>(): T {
+    return { ...this.state } as T;
+  }
+
+  async step<T>(
+    name: string,
+    _stepType: ExecutionStepType,
+    fn: (stepId: string) => Promise<T>
+  ): Promise<T> {
+    const currentStepIndex = this.activeStepIndex++;
+    const stepId = `step_${this.replayId}_${currentStepIndex}`;
+    const expectedStep = this.sourceRun.trajectory?.[currentStepIndex];
+    if (expectedStep) {
+      this.divergenceDetector.checkStep(expectedStep.step_index, expectedStep.name, currentStepIndex, name);
+    }
+    const result = await fn(stepId);
+    return result;
+  }
+
+  wrapModel<TInput, TOutput>(
+    _modelFn: (input: TInput) => Promise<TOutput>,
+    options: {
+      provider: string;
+      model: string;
+      promptExtractor?: (input: TInput) => string;
+      stepId?: string;
+      nodeId?: string;
+    }
+  ): (input: TInput) => Promise<TOutput> {
+    return async (input: TInput): Promise<TOutput> => {
+      const prompt = options.promptExtractor
+        ? options.promptExtractor(input)
+        : typeof input === "string"
+          ? input
+          : JSON.stringify(input);
+
+      const boundaryInput = {
+        model: options.model,
+        provider: options.provider,
+        prompt,
+      };
+
+      const res = await this.resolver.resolve({
+        expectedType: "model_call",
+        name: `${options.provider}/${options.model}`,
+        dependencyIdentity: `${options.provider}:${options.model}`,
+        input: boundaryInput,
+      });
+
+      return res.output as TOutput;
+    };
+  }
+
+  wrapTool<TArgs, TResult>(
+    _toolFn: (args: TArgs) => Promise<TResult> | TResult,
+    options: {
+      name: string;
+      permissionClass?: SideEffectClass;
+      stepId?: string;
+      nodeId?: string;
+    }
+  ): (args: TArgs) => Promise<TResult> {
+    return async (args: TArgs): Promise<TResult> => {
+      const res = await this.resolver.resolve({
+        expectedType: "tool_call",
+        name: options.name,
+        dependencyIdentity: `tool:${options.name}`,
+        input: args,
+        sideEffectIntent: "substitute_recorded",
+      });
+
+      return res.output as TResult;
+    };
+  }
+
+  wrapRetrieval<TInput, TOutput>(
+    _retrievalFn: (input: TInput) => Promise<TOutput>,
+    options: {
+      serviceName: string;
+      queryExtractor: (input: TInput) => string;
+      stepId?: string;
+      nodeId?: string;
+    }
+  ): (input: TInput) => Promise<TOutput> {
+    return async (input: TInput): Promise<TOutput> => {
+      const query = options.queryExtractor(input);
+      const res = await this.resolver.resolve({
+        expectedType: "retrieval_call",
+        name: `${options.serviceName}:search`,
+        dependencyIdentity: `retrieval:${options.serviceName}`,
+        input: { query },
+      });
+
+      const outputAny = res.output as Record<string, unknown> | null;
+      if (outputAny && typeof outputAny === "object" && "results" in outputAny) {
+        return outputAny.results as TOutput;
+      }
+      return res.output as TOutput;
+    };
+  }
+
+  async finishReplay(finalOutput?: unknown): Promise<ReplayResult> {
+    if (this.isFinished) {
+      throw new Error("ReplaySession has already finished");
+    }
+    this.isFinished = true;
+    if (this.mode === "STRICT_OFFLINE") {
+      this.networkGuard.deactivate();
+    }
+
+    if (this.resolver.hasRemaining()) {
+      const next = this.resolver.peekNext();
+      this.divergenceDetector.recordDivergence({
+        type: "MISSING_BOUNDARY",
+        message: `Replay finished without executing recorded boundary '${next?.name}' at sequence index ${this.resolver.getCursor()}.`,
+        boundarySequence: this.resolver.getCursor(),
+        expected: { boundary: next?.name, type: next?.boundary_type },
+      });
+    }
+
+    const completedAt = new Date().toISOString();
+    const divergences = this.divergenceDetector.getDivergences();
+    const status: ReplayStatus = divergences.length === 0 ? "MATCHED" : "DIVERGED";
+    const finalOutputHash = finalOutput !== undefined ? hashPayload(finalOutput) : undefined;
+
+    const result: ReplayResult = {
+      replay_id: this.replayId,
+      source_run_id: this.sourceRun.identity.run_id,
+      replay_of: this.sourceRun.identity.run_id,
+      status,
+      mode: this.mode,
+      started_at: this.startedAt,
+      completed_at: completedAt,
+      steps_expected: this.sourceRun.trajectory?.length ?? 0,
+      steps_executed: this.activeStepIndex,
+      boundaries_expected: this.sourceRun.boundaries?.length ?? 0,
+      boundaries_substituted: this.resolver.getSubstitutedCount(),
+      live_calls_attempted: 0,
+      live_calls_blocked: 0,
+      divergences,
+      final_output: finalOutput,
+      final_output_hash: finalOutputHash,
+      deterministic_match: status === "MATCHED",
+      limitations: [],
+      replay_events: this.events,
+    };
+
+    await saveReplayResult(result);
+    return result;
   }
 }
 

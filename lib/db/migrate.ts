@@ -292,4 +292,64 @@ async function runMigrations(): Promise<void> {
     )
   `);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_canonical_runs_updated_at_idx ON ap_canonical_runs(updated_at DESC)`);
+
+  // ── Replay Runs ───────────────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_replay_runs (
+      replay_id           TEXT PRIMARY KEY,
+      source_run_id       TEXT NOT NULL,
+      status              TEXT NOT NULL,
+      mode                TEXT NOT NULL,
+      deterministic_match BOOLEAN NOT NULL DEFAULT FALSE,
+      steps_expected      INTEGER NOT NULL DEFAULT 0,
+      steps_executed      INTEGER NOT NULL DEFAULT 0,
+      boundaries_expected INTEGER NOT NULL DEFAULT 0,
+      boundaries_substituted INTEGER NOT NULL DEFAULT 0,
+      live_calls_attempted INTEGER NOT NULL DEFAULT 0,
+      live_calls_blocked  INTEGER NOT NULL DEFAULT 0,
+      started_at          TIMESTAMPTZ NOT NULL,
+      completed_at        TIMESTAMPTZ NOT NULL,
+      plan_data           JSONB,
+      result_data         JSONB NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_replay_runs_source_run_id_idx ON ap_replay_runs(source_run_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_replay_runs_status_idx ON ap_replay_runs(status)`);
+
+  // ── Replay Events ──────────────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_replay_events (
+      event_id            TEXT PRIMARY KEY,
+      replay_id           TEXT NOT NULL REFERENCES ap_replay_runs(replay_id) ON DELETE CASCADE,
+      source_run_id       TEXT NOT NULL,
+      event_type          TEXT NOT NULL,
+      step_id             TEXT,
+      boundary_id         TEXT,
+      timestamp           TIMESTAMPTZ NOT NULL,
+      data                JSONB,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_replay_events_replay_id_idx ON ap_replay_events(replay_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_replay_events_event_type_idx ON ap_replay_events(event_type)`);
+
+  // ── Replay Divergences ─────────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_replay_divergences (
+      divergence_id       TEXT PRIMARY KEY,
+      replay_id           TEXT NOT NULL REFERENCES ap_replay_runs(replay_id) ON DELETE CASCADE,
+      source_run_id       TEXT NOT NULL,
+      divergence_type     TEXT NOT NULL,
+      step_index          INTEGER,
+      boundary_sequence   INTEGER,
+      severity            TEXT NOT NULL DEFAULT 'critical',
+      message             TEXT NOT NULL,
+      expected            JSONB NOT NULL DEFAULT '{}',
+      actual              JSONB NOT NULL DEFAULT '{}',
+      timestamp           TIMESTAMPTZ NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_replay_divergences_replay_id_idx ON ap_replay_divergences(replay_id)`);
 }

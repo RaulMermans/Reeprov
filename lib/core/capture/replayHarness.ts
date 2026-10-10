@@ -40,6 +40,17 @@ export interface ReplayHarnessOptions {
   allowSideEffects?: boolean;
 }
 
+function isEquivalentBoundaryType(expected: BoundaryType, actual: BoundaryType): boolean {
+  if (expected === actual) return true;
+  if (
+    (expected === "retrieval_call" || expected === "retrieval_service") &&
+    (actual === "retrieval_call" || actual === "retrieval_service")
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export class BoundaryReplayHarness {
   private readonly boundaries: ExecutionBoundary[];
   private currentIndex = 0;
@@ -84,7 +95,7 @@ export class BoundaryReplayHarness {
       targetBoundary = this.boundaries[this.currentIndex];
 
       if (
-        targetBoundary.boundary_type !== params.expectedType ||
+        !isEquivalentBoundaryType(params.expectedType, targetBoundary.boundary_type) ||
         (!targetBoundary.name.includes(params.name) && !params.name.includes(targetBoundary.name))
       ) {
         throw new ReplayMismatchError(
@@ -101,7 +112,7 @@ export class BoundaryReplayHarness {
       // Lookup by name and type
       targetBoundary = this.boundaries.find(
         (b) =>
-          b.boundary_type === params.expectedType &&
+          isEquivalentBoundaryType(params.expectedType, b.boundary_type) &&
           (b.name.includes(params.name) || params.name.includes(b.name))
       );
 
@@ -126,9 +137,7 @@ export class BoundaryReplayHarness {
       );
     }
 
-    // 2. Payload availability check
     if (
-      targetBoundary.captured_content_availability === "not_captured" ||
       targetBoundary.captured_content_availability === "NOT_CAPTURED" ||
       targetBoundary.captured_content_availability === "UNAVAILABLE" ||
       !targetBoundary.output
@@ -223,7 +232,7 @@ export class BoundaryReplayHarness {
     input: unknown
   ): Promise<{ output: unknown; boundary: ExecutionBoundary }> {
     return this.substituteBoundary({
-      expectedType: "retrieval_service",
+      expectedType: "retrieval_call",
       name: serviceOrQuery,
       input,
     });

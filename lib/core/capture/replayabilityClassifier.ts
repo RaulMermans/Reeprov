@@ -32,7 +32,7 @@ export function classifyReplayability(context: ReplayabilityEvaluationContext): 
     // If declared as recorded but output was not captured, downgrade!
     if (
       context.declaredReplayability === "REPLAYABLE_RECORDED" &&
-      (!context.outputCaptured || context.contentAvailability === "not_captured" || context.contentAvailability === "NOT_CAPTURED")
+      (!context.outputCaptured || context.contentAvailability === "NOT_CAPTURED" || context.contentAvailability === "UNAVAILABLE")
     ) {
       return "NON_REPLAYABLE";
     }
@@ -40,7 +40,7 @@ export function classifyReplayability(context: ReplayabilityEvaluationContext): 
   }
 
   // 2. Uncaptured output or unavailable payload
-  if (!context.outputCaptured || context.contentAvailability === "not_captured" || context.contentAvailability === "NOT_CAPTURED") {
+  if (!context.outputCaptured || context.contentAvailability === "NOT_CAPTURED" || context.contentAvailability === "UNAVAILABLE") {
     if (context.requiresLiveConnectivity) {
       return "LIVE_REQUIRED";
     }
@@ -68,10 +68,9 @@ export function classifyReplayability(context: ReplayabilityEvaluationContext): 
     (context.sideEffectClass === "read_only" || context.sideEffectClass === "write_draft") &&
     context.inputCaptured &&
     context.outputCaptured &&
-    (context.contentAvailability === "full" ||
-      context.contentAvailability === "CAPTURED" ||
+    (context.contentAvailability === "CAPTURED" ||
       context.contentAvailability === "REDACTED" ||
-      context.contentAvailability === "summary_only")
+      context.contentAvailability === "TRUNCATED")
   ) {
     return "REPLAYABLE_RECORDED";
   }

@@ -45,10 +45,16 @@ export type ExperimentMutation = z.infer<typeof experimentMutationSchema>;
 
 export const checkpointReferenceSchema = z.object({
   checkpoint_id: z.string(),
+  run_id: z.string().optional(),
   step_id: z.string(),
+  state_snapshot_id: z.string().optional(),
+  boundary_cursor: z.number().int().nonnegative().optional().default(0),
   created_at: z.string(),
+  schema_version: z.string().optional().default("1.0.0-alpha"),
   state_hash: z.string().optional(),
+  hash: z.string().optional(),
   storage_uri: z.string().optional(),
+  restorable: z.boolean().default(true),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 

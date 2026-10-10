@@ -6,7 +6,7 @@
  */
 
 import { z } from "zod";
-import { redactionStatusSchema } from "./replay";
+import { redactionStatusSchema, capturedContentAvailabilitySchema } from "./replay";
 
 // ── Context Source Types ────────────────────────────────────────────────────
 
@@ -63,18 +63,7 @@ export const contextItemSchema = z.object({
   content: z.string().optional(),
   content_hash: z.string().optional(),
   content_ref: z.string().optional(),
-  availability: z.enum([
-    "full",
-    "summary_only",
-    "hash_only",
-    "not_captured",
-    "CAPTURED",
-    "REDACTED",
-    "HASH_ONLY",
-    "TRUNCATED",
-    "NOT_CAPTURED",
-    "UNAVAILABLE",
-  ]).optional(),
+  availability: capturedContentAvailabilitySchema.optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 

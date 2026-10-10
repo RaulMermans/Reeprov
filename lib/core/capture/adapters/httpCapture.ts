@@ -98,6 +98,7 @@ export async function captureHttpCall(
       runId: input.runId,
       stepId: input.stepId,
       nodeId: input.nodeId,
+      sequenceIndex: input.sequenceIndex,
       boundaryType: "external_http",
       name: `${method} ${sanitizedUrl}`,
       startedAt,

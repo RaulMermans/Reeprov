@@ -74,6 +74,7 @@ export async function captureToolInvocation(
       runId: input.runId,
       stepId: input.stepId,
       nodeId: input.nodeId,
+      sequenceIndex: input.sequenceIndex,
       boundaryType: "tool_call",
       name: input.toolName,
       startedAt,
