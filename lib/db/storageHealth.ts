@@ -24,6 +24,8 @@ export const AGENTPULSE_TABLES = [
   "ap_review_results",
   "ap_security_events",
   "ap_run_outcomes",
+  "ap_run_comparisons",
+  "ap_comparison_divergences",
 ] as const;
 
 export type DeploymentEnvironment = "production" | "preview" | "development";

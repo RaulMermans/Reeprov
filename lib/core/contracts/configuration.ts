@@ -146,23 +146,50 @@ export function normalizeConfigurationSets<T extends {
   tools?: ToolConfig[];
   permissions?: PermissionPolicyConfig;
 }>(config: T): T {
-  const cloned = { ...config };
+  const cloned = { ...config } as any;
 
-  if (cloned.prompts) {
+  if (cloned.prompts && typeof cloned.prompts === "object" && !Array.isArray(cloned.prompts)) {
+    cloned.prompts = Object.entries(cloned.prompts).map(([k, v]: [string, any]) => ({
+      id: k,
+      version: typeof v === "object" && v !== null && v.version ? String(v.version) : String(v ?? ""),
+      name: typeof v === "object" && v !== null && v.name ? String(v.name) : undefined,
+      content_hash: typeof v === "object" && v !== null && v.content_hash ? String(v.content_hash) : undefined,
+    }));
+  }
+
+  if (cloned.skills && typeof cloned.skills === "object" && !Array.isArray(cloned.skills)) {
+    cloned.skills = Object.entries(cloned.skills).map(([k, v]: [string, any]) => ({
+      id: k,
+      version: typeof v === "object" && v !== null && v.version ? String(v.version) : String(v ?? ""),
+      name: typeof v === "object" && v !== null && v.name ? String(v.name) : undefined,
+      content_hash: typeof v === "object" && v !== null && v.content_hash ? String(v.content_hash) : undefined,
+    }));
+  }
+
+  if (cloned.tools && typeof cloned.tools === "object" && !Array.isArray(cloned.tools)) {
+    cloned.tools = Object.entries(cloned.tools).map(([k, v]: [string, any]) => ({
+      id: k,
+      version: typeof v === "object" && v !== null && v.version ? String(v.version) : String(v ?? ""),
+      name: typeof v === "object" && v !== null && v.name ? String(v.name) : undefined,
+      permission_class: typeof v === "object" && v !== null && v.permission_class ? String(v.permission_class) : undefined,
+    }));
+  }
+
+  if (Array.isArray(cloned.prompts)) {
     cloned.prompts = [...cloned.prompts].sort((a, b) =>
-      a.id.localeCompare(b.id) || a.version.localeCompare(b.version)
+      (a?.id ?? "").localeCompare(b?.id ?? "") || (a?.version ?? "").localeCompare(b?.version ?? "")
     );
   }
 
-  if (cloned.skills) {
+  if (Array.isArray(cloned.skills)) {
     cloned.skills = [...cloned.skills].sort((a, b) =>
-      a.id.localeCompare(b.id) || a.version.localeCompare(b.version)
+      (a?.id ?? "").localeCompare(b?.id ?? "") || (a?.version ?? "").localeCompare(b?.version ?? "")
     );
   }
 
-  if (cloned.tools) {
+  if (Array.isArray(cloned.tools)) {
     cloned.tools = [...cloned.tools].sort((a, b) =>
-      a.id.localeCompare(b.id) || a.version.localeCompare(b.version)
+      (a?.id ?? "").localeCompare(b?.id ?? "") || (a?.version ?? "").localeCompare(b?.version ?? "")
     );
   }
 
@@ -454,15 +481,18 @@ export function diffConfiguration(
       const b = beforeMap.get(id);
       if (!b) {
         added.push(a);
+        (differences as Record<string, unknown>)[`prompts.${id}`] = { before: undefined, after: a };
         summary.push(`prompt added: ${id}@${a.version}`);
       } else if (canonicalJsonStringify(b) !== canonicalJsonStringify(a)) {
         modified.push({ id, before: b, after: a });
+        (differences as Record<string, unknown>)[`prompts.${id}`] = { before: b, after: a };
         summary.push(`prompt modified: ${id} (${b.version} → ${a.version})`);
       }
     }
     for (const [id, b] of beforeMap.entries()) {
       if (!afterMap.has(id)) {
         removed.push(b);
+        (differences as Record<string, unknown>)[`prompts.${id}`] = { before: b, after: undefined };
         summary.push(`prompt removed: ${id}@${b.version}`);
       }
     }

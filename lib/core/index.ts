@@ -3,3 +3,4 @@ export * from "./adapters";
 export * from "./capture";
 export * from "./replay";
 export * from "./fork";
+export * from "./comparison";

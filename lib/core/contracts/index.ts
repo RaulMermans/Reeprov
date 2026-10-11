@@ -19,3 +19,4 @@ export * from "./execution";
 export * from "./runArtifact";
 export * from "./configuration";
 export * from "./evidence";
+export * from "./comparison";

@@ -478,4 +478,40 @@ async function runMigrations(): Promise<void> {
     )
   `);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_run_outcomes_status_idx ON ap_run_outcomes(status)`);
+
+  // ── Sprint 6: Run Comparisons ─────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_run_comparisons (
+      comparison_id     TEXT PRIMARY KEY,
+      baseline_run_id   TEXT NOT NULL,
+      candidate_run_id  TEXT NOT NULL,
+      project_id        TEXT,
+      relationship      TEXT NOT NULL,
+      verdict           TEXT NOT NULL,
+      schema_version    TEXT NOT NULL,
+      comparison_data   JSONB NOT NULL,
+      created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_run_comparisons_baseline_run_id_idx ON ap_run_comparisons(baseline_run_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_run_comparisons_candidate_run_id_idx ON ap_run_comparisons(candidate_run_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_run_comparisons_project_id_idx ON ap_run_comparisons(project_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_run_comparisons_created_at_idx ON ap_run_comparisons(created_at DESC)`);
+
+  // ── Sprint 6: Comparison Divergences ──────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_comparison_divergences (
+      divergence_id     TEXT PRIMARY KEY,
+      comparison_id     TEXT NOT NULL REFERENCES ap_run_comparisons(comparison_id) ON DELETE CASCADE,
+      dimension         TEXT NOT NULL,
+      severity          TEXT NOT NULL,
+      deterministic     BOOLEAN NOT NULL DEFAULT TRUE,
+      causal_status     TEXT NOT NULL,
+      description       TEXT NOT NULL,
+      divergence_data   JSONB NOT NULL,
+      created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_comparison_divergences_comparison_id_idx ON ap_comparison_divergences(comparison_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_comparison_divergences_dimension_idx ON ap_comparison_divergences(dimension)`);
 }

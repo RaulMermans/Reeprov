@@ -152,6 +152,12 @@ export default function RunsPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link
+            href="/dashboard/runs/compare"
+            className="rounded-md border border-teal-200 bg-teal-50 px-3 py-1.5 text-sm font-medium text-teal-800 transition hover:bg-teal-100"
+          >
+            Compare Runs
+          </Link>
+          <Link
             href="/dashboard"
             className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
           >

@@ -18,6 +18,18 @@ import { ForkRuntime } from "../lib/core/fork/runtime";
 import type { ExperimentMutation } from "../lib/core/contracts/lineage";
 import { computeEvidenceCompleteness, type EvidencePolicy } from "../lib/core/contracts/evidence";
 import { diffConfiguration } from "../lib/core/contracts/configuration";
+import { compareRuns, saveRunComparison } from "../lib/core/comparison";
+import { comparisonPolicySchema, type ComparisonPolicy } from "../lib/core/contracts/comparison";
+
+export interface DiffCliOptions {
+  command: "diff";
+  runA: string;
+  runB: string;
+  semantic: boolean;
+  json: boolean;
+  policyPath?: string;
+  firstDivergenceOnly: boolean;
+}
 
 export interface ReplayCliOptions {
   command: "replay";
@@ -68,9 +80,35 @@ export type CliCommandOptions =
   | ForkCliOptions
   | EvidenceCliOptions
   | ConfigCliOptions
-  | ConfigDiffCliOptions;
+  | ConfigDiffCliOptions
+  | DiffCliOptions;
 
 export function parseArgs(args: string[]): CliCommandOptions | null {
+  if (args.includes("diff") && !args.includes("config-diff")) {
+    const idx = args.indexOf("diff");
+    const runA = args[idx + 1];
+    const runB = args[idx + 2];
+    if (!runA || !runB) return null;
+    const semantic = args.includes("--semantic");
+    const json = args.includes("--json");
+    const firstDivergenceOnly = args.includes("--first-divergence");
+    let policyPath: string | undefined;
+    for (let i = idx + 3; i < args.length; i++) {
+      if (args[i] === "--policy" && args[i + 1]) {
+        policyPath = args[i + 1];
+        i++;
+      }
+    }
+    return {
+      command: "diff",
+      runA,
+      runB,
+      semantic,
+      json,
+      policyPath,
+      firstDivergenceOnly,
+    };
+  }
   if (args.includes("checkpoints")) {
     const idx = args.indexOf("checkpoints");
     const runIdOrPath = args[idx + 1];
@@ -197,25 +235,131 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
   if (!options) {
     console.error(`AgentPulse CLI
 
-Commands:
-  pulse evidence <run-id|file-path> [--policy <file>] [--json]
-  pulse config <run-id|file-path> [--json]
-  pulse config-diff <run-a> <run-b> [--json]
-  pulse checkpoints <run-id|file-path> [--json]
-  pulse fork <run-id|file-path> --checkpoint <checkpoint-id> [--mutations <file>] [--json]
-  pulse replay <run-id|file-path> [options]
+    pulse diff <run-a> <run-b> [--semantic] [--json] [--policy <file>] [--first-divergence]
+    pulse evidence <run-id|file-path> [--policy <file>] [--json]
+    pulse config <run-id|file-path> [--json]
+    pulse config-diff <run-a> <run-b> [--json]
+    pulse checkpoints <run-id|file-path> [--json]
+    pulse fork <run-id|file-path> --checkpoint <checkpoint-id> [--mutations <file>] [--json]
+    pulse replay <run-id|file-path> [options]
 
-Replay Options:
-  --strict          Enforce strict offline execution with 0 network calls (default)
-  --best-effort     Allow best-effort offline execution
-  --validate-only   Build and validate ReplayPlan without executing the replay
-  --from-start      Execute replay from the initial step (default: true)
-  --json            Output machine-readable JSON to stdout
-`);
-    return 1;
-  }
+  Replay Options:
+    --strict          Enforce strict offline execution with 0 network calls (default)
+    --best-effort     Allow best-effort offline execution
+    --validate-only   Build and validate ReplayPlan without executing the replay
+    --from-start      Execute replay from the initial step (default: true)
+    --json            Output machine-readable JSON to stdout
+  `);
+      return 1;
+    }
 
-  try {
+    try {
+      if (options.command === "diff") {
+        const artifactA = await loadArtifact(options.runA);
+        const artifactB = await loadArtifact(options.runB);
+
+        let policy: ComparisonPolicy | undefined;
+        if (options.policyPath) {
+          const raw = await readFile(resolve(process.cwd(), options.policyPath), "utf8");
+          policy = comparisonPolicySchema.parse(JSON.parse(raw));
+        }
+
+        const comparison = await compareRuns(artifactA, artifactB, {
+          enableSemantic: options.semantic,
+          policy,
+        });
+
+        await saveRunComparison(comparison);
+
+        if (options.json) {
+          if (options.firstDivergenceOnly) {
+            console.log(
+              JSON.stringify(
+                comparison.first_meaningful_divergence ??
+                comparison.first_structural_divergence ??
+                null,
+                null,
+                2
+              )
+            );
+          } else {
+            console.log(JSON.stringify(comparison, null, 2));
+          }
+          return 0;
+        }
+
+        if (options.firstDivergenceOnly) {
+          const div = comparison.first_meaningful_divergence ?? comparison.first_structural_divergence;
+          console.log(`\nFIRST DIVERGENCE`);
+          console.log(`────────────────────────────────────`);
+          if (!div) {
+            console.log(`No divergence detected.`);
+          } else {
+            console.log(`Dimension:    ${div.dimension}`);
+            console.log(`Description:  ${div.description}`);
+            console.log(`Severity:     ${div.severity}`);
+            console.log(`Causal:       ${div.causal_status}`);
+            if (div.step_name || div.step_id) {
+              console.log(`Step:         ${div.step_name ?? div.step_id}`);
+            }
+          }
+          console.log(`────────────────────────────────────\n`);
+          return 0;
+        }
+
+        console.log(`\nRUN COMPARISON`);
+        console.log(`────────────────────────────────────\n`);
+        console.log(`Baseline     ${options.runA}`);
+        console.log(`Candidate    ${options.runB}`);
+        console.log(`Relation     ${comparison.relationship}\n`);
+
+        console.log(`Configuration`);
+        if (comparison.configuration_diff.summary.length === 0) {
+          console.log(`unchanged\n`);
+        } else {
+          for (const s of comparison.configuration_diff.summary) {
+            console.log(`${s}`);
+          }
+          console.log(``);
+        }
+
+        console.log(`First meaningful divergence`);
+        if (comparison.first_meaningful_divergence) {
+          const div = comparison.first_meaningful_divergence;
+          const stepDesc = div.step_name ?? div.step_id ?? "initial";
+          console.log(`${stepDesc} / ${div.dimension.toLowerCase()}`);
+        } else {
+          console.log(`none detected`);
+        }
+        console.log(``);
+
+        console.log(`Evidence`);
+        const testPassedBase = (artifactA.evidence?.test_results ?? []).filter((t) => t.status === "PASSED").length;
+        const testTotalBase = (artifactA.evidence?.test_results ?? []).length;
+        const testPassedCand = (artifactB.evidence?.test_results ?? []).filter((t) => t.status === "PASSED").length;
+        const testTotalCand = (artifactB.evidence?.test_results ?? []).length;
+        if (testTotalBase > 0 || testTotalCand > 0) {
+          console.log(`tests        ${testPassedBase}/${testTotalBase} → ${testPassedCand}/${testTotalCand}`);
+        }
+        const revStatusBase = artifactA.evidence?.review_results?.[0]?.status ?? "none";
+        const revStatusCand = artifactB.evidence?.review_results?.[0]?.status ?? "none";
+        if (revStatusBase !== "none" || revStatusCand !== "none") {
+          console.log(`review       ${revStatusBase} → ${revStatusCand}`);
+        }
+        console.log(`outcome      ${comparison.outcome_diff.baseline_status} → ${comparison.outcome_diff.candidate_status}\n`);
+
+        console.log(`Metrics`);
+        const costBase = artifactA.observability.total_cost_usd ?? 0;
+        const costCand = artifactB.observability.total_cost_usd ?? 0;
+        console.log(`cost         $${costBase.toFixed(2)} → $${costCand.toFixed(2)}`);
+        const durBase = (artifactA.observability.total_duration_ms ?? 0) / 1000;
+        const durCand = (artifactB.observability.total_duration_ms ?? 0) / 1000;
+        console.log(`latency      ${durBase.toFixed(1)}s → ${durCand.toFixed(1)}s\n`);
+
+        console.log(`VERDICT      ${comparison.verdict}\n`);
+
+        return 0;
+      }
     if (options.command === "config-diff") {
       const artifactA = await loadArtifact(options.runA);
       const artifactB = await loadArtifact(options.runB);

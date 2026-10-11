@@ -189,7 +189,25 @@ function layoutVisualGraph(graph: VisualRunGraph): CanvasLayout {
 
 // ── React Flow node data ───────────────────────────────────────────────────────
 
-type CanvasNodeData = { visualNode: VisualNode; replayStatus?: VisualNode["status"]; active?: boolean };
+export type ComparisonHighlightStatus =
+  | "SAME"
+  | "MODIFIED"
+  | "BASELINE_ONLY"
+  | "CANDIDATE_ONLY"
+  | "FIRST_DIVERGENCE";
+
+export interface ComparisonHighlight {
+  status: ComparisonHighlightStatus;
+  label?: string;
+  divergenceId?: string;
+}
+
+type CanvasNodeData = {
+  visualNode: VisualNode;
+  replayStatus?: VisualNode["status"];
+  active?: boolean;
+  comparisonHighlight?: ComparisonHighlight;
+};
 type PrimaryFlowNode = RFNode<CanvasNodeData, "primary">;
 type EvidenceFlowNode = RFNode<CanvasNodeData, "evidence">;
 
@@ -235,6 +253,25 @@ function PrimaryNodeCard({ data, selected }: NodeProps<PrimaryFlowNode>) {
   const Icon = visualNodeIcon(node);
   const counts = node.evidenceCounts;
   const hasEvidence = Boolean(counts && Object.values(counts).some((c) => c > 0));
+  const highlight = data.comparisonHighlight;
+
+  const comparisonTone: Record<ComparisonHighlightStatus, "neutral" | "warning" | "info" | "danger"> = {
+    SAME: "neutral",
+    MODIFIED: "warning",
+    BASELINE_ONLY: "info",
+    CANDIDATE_ONLY: "neutral",
+    FIRST_DIVERGENCE: "danger",
+  };
+
+  const comparisonRing = highlight?.status === "FIRST_DIVERGENCE"
+    ? "ring-2 ring-rose-500 border-rose-500"
+    : highlight?.status === "MODIFIED"
+    ? "ring-1 ring-amber-400"
+    : highlight?.status === "BASELINE_ONLY"
+    ? "border-dashed border-cyan-400"
+    : highlight?.status === "CANDIDATE_ONLY"
+    ? "border-dashed border-indigo-400"
+    : "";
 
   return (
     <div
@@ -242,9 +279,11 @@ function PrimaryNodeCard({ data, selected }: NodeProps<PrimaryFlowNode>) {
       data-status={node.status}
       data-node-kind={node.kind}
       data-active={data.active ? "true" : "false"}
+      data-comparison-status={highlight?.status}
       className={[
         "visual-run-node rounded-xl border border-l-4 bg-white px-3 py-2.5 text-left shadow-sm transition-all",
         statusDef.borderClass,
+        comparisonRing,
         data.active ? "visual-run-node-active ring-2 ring-cyan-300" : "",
         selected ? "ring-2 ring-teal-400 shadow-md" : "border-slate-200 hover:shadow-md",
       ].join(" ")}
@@ -275,6 +314,15 @@ function PrimaryNodeCard({ data, selected }: NodeProps<PrimaryFlowNode>) {
             <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-500 ring-1 ring-slate-200">
               {statusDef.label}
             </span>
+            {highlight && (
+              <Badge
+                data-testid={`comparison-badge-${highlight.status.toLowerCase()}`}
+                tone={comparisonTone[highlight.status]}
+                className="text-[10px] font-semibold"
+              >
+                {highlight.label ?? highlight.status.replace("_", " ")}
+              </Badge>
+            )}
           </div>
         </div>
         <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${statusDef.dotClass}`} aria-hidden="true" />
@@ -308,6 +356,21 @@ function EvidenceNodeChip({ data, selected }: NodeProps<EvidenceFlowNode>) {
   const statusDef = visualNodeStatusDefinition(node.status);
   const Icon = visualNodeIcon(node);
   const chips = metricChips(node).slice(0, 3);
+  const highlight = data.comparisonHighlight;
+
+  const comparisonTone: Record<ComparisonHighlightStatus, "neutral" | "warning" | "info" | "danger"> = {
+    SAME: "neutral",
+    MODIFIED: "warning",
+    BASELINE_ONLY: "info",
+    CANDIDATE_ONLY: "neutral",
+    FIRST_DIVERGENCE: "danger",
+  };
+
+  const comparisonRing = highlight?.status === "FIRST_DIVERGENCE"
+    ? "ring-2 ring-rose-500 border-rose-500"
+    : highlight?.status === "MODIFIED"
+    ? "ring-1 ring-amber-400"
+    : "";
 
   return (
     <div
@@ -315,10 +378,12 @@ function EvidenceNodeChip({ data, selected }: NodeProps<EvidenceFlowNode>) {
       data-status={node.status}
       data-node-type={node.type}
       data-active={data.active ? "true" : "false"}
+      data-comparison-status={highlight?.status}
       className={[
         "visual-run-node visual-run-evidence-node rounded-lg border px-2 py-1.5 text-left shadow-sm transition-all",
         typeDef.bgClass,
         typeDef.borderClass,
+        comparisonRing,
         data.active ? "visual-run-node-active ring-2 ring-cyan-300" : "",
         selected ? "ring-2 ring-teal-400" : "",
       ].join(" ")}
@@ -344,6 +409,15 @@ function EvidenceNodeChip({ data, selected }: NodeProps<EvidenceFlowNode>) {
             <span className="rounded bg-white/70 px-1.5 py-0.5 text-[9px] font-medium text-slate-600">
               {statusDef.label}
             </span>
+            {highlight && (
+              <Badge
+                data-testid={`comparison-badge-${highlight.status.toLowerCase()}`}
+                tone={comparisonTone[highlight.status]}
+                className="text-[9px] font-semibold"
+              >
+                {highlight.label ?? highlight.status.replace("_", " ")}
+              </Badge>
+            )}
           </div>
           {chips.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
@@ -364,7 +438,12 @@ const NODE_TYPES = { primary: PrimaryNodeCard, evidence: EvidenceNodeChip };
 
 // ── React Flow node/edge builders ──────────────────────────────────────────────
 
-function toFlowNodes(graph: VisualRunGraph, layout: CanvasLayout, replayFrame: VisualReplayFrame): RFNode[] {
+function toFlowNodes(
+  graph: VisualRunGraph,
+  layout: CanvasLayout,
+  replayFrame: VisualReplayFrame,
+  comparisonHighlights?: Record<string, ComparisonHighlight>,
+): RFNode[] {
   const primary: PrimaryFlowNode[] = graph.primaryNodes.map((n) => ({
     id: n.id,
     type: "primary",
@@ -373,6 +452,10 @@ function toFlowNodes(graph: VisualRunGraph, layout: CanvasLayout, replayFrame: V
       visualNode: n,
       replayStatus: replayFrame.nodeStatuses.get(n.id),
       active: replayFrame.activeNodeId === n.id,
+      comparisonHighlight:
+        comparisonHighlights?.[n.id] ??
+        comparisonHighlights?.[n.label] ??
+        comparisonHighlights?.[n.identity.title],
     },
     draggable: false,
     connectable: false,
@@ -389,6 +472,10 @@ function toFlowNodes(graph: VisualRunGraph, layout: CanvasLayout, replayFrame: V
         visualNode: n,
         replayStatus: replayFrame.nodeStatuses.get(n.id),
         active: replayFrame.activeNodeId === n.id,
+        comparisonHighlight:
+          comparisonHighlights?.[n.id] ??
+          comparisonHighlights?.[n.label] ??
+          comparisonHighlights?.[n.identity.title],
       },
       draggable: false,
       connectable: false,
@@ -1029,9 +1116,17 @@ export interface VisualExecutionCanvasProps {
   runStatus?: RunRecord["status"];
   /** Deterministic replay execution result when run under offline replay runtime */
   replayResult?: ReplayResult;
+  /** Highlights for comparing runs (step/node status: SAME, MODIFIED, BASELINE_ONLY, CANDIDATE_ONLY, FIRST_DIVERGENCE) */
+  comparisonHighlights?: Record<string, ComparisonHighlight>;
 }
 
-export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus, replayResult }: VisualExecutionCanvasProps) {
+export function VisualExecutionCanvas({
+  runGraph,
+  traceEvents,
+  runStatus,
+  replayResult,
+  comparisonHighlights,
+}: VisualExecutionCanvasProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filters, setFilters] = useState(DEFAULT_CANVAS_FILTERS);
   const [playing, setPlaying] = useState(false);
@@ -1057,7 +1152,10 @@ export function VisualExecutionCanvas({ runGraph, traceEvents, runStatus, replay
     [visualGraph, filters, selectedId],
   );
   const layout = useMemo(() => layoutVisualGraph(filteredGraph), [filteredGraph]);
-  const flowNodes = useMemo(() => toFlowNodes(filteredGraph, layout, replayFrame), [filteredGraph, layout, replayFrame]);
+  const flowNodes = useMemo(
+    () => toFlowNodes(filteredGraph, layout, replayFrame, comparisonHighlights),
+    [filteredGraph, layout, replayFrame, comparisonHighlights],
+  );
   const flowEdges = useMemo(() => toFlowEdges(filteredGraph, replayFrame), [filteredGraph, replayFrame]);
 
   // Auto-follow the latest event only while the run is live. Completed runs
