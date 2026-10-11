@@ -18,6 +18,12 @@ export const AGENTPULSE_TABLES = [
   "ap_replay_runs",
   "ap_replay_events",
   "ap_replay_divergences",
+  "ap_agent_config_snapshots",
+  "ap_verification_events",
+  "ap_test_results",
+  "ap_review_results",
+  "ap_security_events",
+  "ap_run_outcomes",
 ] as const;
 
 export type DeploymentEnvironment = "production" | "preview" | "development";

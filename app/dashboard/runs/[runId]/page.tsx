@@ -15,6 +15,7 @@ import { IssuesPanel } from "@/components/proof-layer/IssuesPanel";
 import { ArtifactPreviewPanel } from "@/components/proof-layer/ArtifactPreviewPanel";
 import { RunSummaryHeader } from "@/components/proof-layer/RunSummaryHeader";
 import { ForkDebuggerPanel } from "@/components/proof-layer/ForkDebuggerPanel";
+import { EvidencePanel } from "@/components/proof-layer/EvidencePanel";
 import { RunDetailTabs, type RunDetailTab } from "@/components/proof-layer/RunDetailTabs";
 import { formatCurrency, formatDuration, formatDateTime, formatPercent } from "@/components/proof-layer/format";
 import {
@@ -527,6 +528,7 @@ export default function RunDetailPage() {
 
   const tabs: RunDetailTab[] = [
     { key: "overview", label: "Overview", content: overviewTab },
+    { key: "evidence", label: "Evidence", content: <EvidencePanel runId={run.run_id} /> },
     { key: "workflow", label: "Workflow", badge: runGraph.summary.totalStages || undefined, content: workflowTab },
     { key: "forks", label: "Checkpoints & Forks", content: <ForkDebuggerPanel runId={run.run_id} /> },
     { key: "issues", label: "Issues", badge: issues.length || undefined, content: issuesTab },

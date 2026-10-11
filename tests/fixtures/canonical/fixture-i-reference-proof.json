@@ -1,0 +1,442 @@
+{
+  "schema_version": "1.0.0-alpha",
+  "identity": {
+    "run_id": "run_proof_reference_001",
+    "project_id": "customer-support-agent",
+    "project_name": "customer-support-agent",
+    "workflow_id": "refund-pipeline",
+    "created_at": "2026-10-11T12:18:12.227Z"
+  },
+  "execution": {
+    "status": "completed",
+    "started_at": "2026-10-11T12:18:12.227Z",
+    "completed_at": "2026-10-11T12:18:12.228Z",
+    "duration_ms": 1,
+    "summary": "Executed workflow refund-pipeline"
+  },
+  "environment": {
+    "runtime": "node",
+    "runtime_version": "v20.20.0",
+    "sdk_version": "1.0.0"
+  },
+  "trajectory": [
+    {
+      "step_id": "step_run_proof_reference_001_0",
+      "step_index": 0,
+      "step_type": "retrieval",
+      "name": "step_1",
+      "started_at": "2026-10-11T12:18:12.228Z",
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "completed_at": "2026-10-11T12:18:12.228Z",
+      "duration_ms": 0
+    },
+    {
+      "step_id": "step_run_proof_reference_001_1",
+      "step_index": 1,
+      "step_type": "eval",
+      "name": "step_2",
+      "started_at": "2026-10-11T12:18:12.228Z",
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "completed_at": "2026-10-11T12:18:12.228Z",
+      "duration_ms": 0
+    },
+    {
+      "step_id": "step_run_proof_reference_001_2",
+      "step_index": 2,
+      "step_type": "tool_call",
+      "name": "step_3",
+      "started_at": "2026-10-11T12:18:12.228Z",
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "completed_at": "2026-10-11T12:18:12.228Z",
+      "duration_ms": 0
+    }
+  ],
+  "boundaries": [],
+  "external_calls": [],
+  "state": [],
+  "checkpoints": [],
+  "context": [],
+  "memory": {
+    "operations": [],
+    "references": []
+  },
+  "tools": [],
+  "retrieval": [],
+  "models": [],
+  "artifacts": [],
+  "evals": [],
+  "lineage": {
+    "mutations": []
+  },
+  "provenance": {
+    "capture_method": "sdk_trace",
+    "adapter_version": "1.0.0-canonical",
+    "captured_by": "AgentPulseCaptureSDK",
+    "redaction_verified": true
+  },
+  "safety": {
+    "approval_status": "not_required",
+    "approval_records": [],
+    "redaction_summary": {
+      "total_redactions": 0,
+      "secrets_detected": 0,
+      "fields_redacted": []
+    }
+  },
+  "observability": {
+    "total_duration_ms": 1,
+    "total_cost_usd": 0,
+    "model_calls_count": 0,
+    "tool_calls_count": 0,
+    "evals_passed": 0,
+    "evals_failed": 0,
+    "trace_event_count": 3,
+    "context_snapshot_count": 0,
+    "memory_operations_count": 0,
+    "retrieval_operations_count": 0,
+    "total_tokens": 0
+  },
+  "replay": {
+    "overall_replayability": "REPLAYABLE_RECORDED",
+    "unsupported_boundaries_count": 0,
+    "side_effect_gated_count": 0,
+    "deterministic": false,
+    "sandboxed_available": false,
+    "missing_recordings": [],
+    "notes": []
+  },
+  "configuration_snapshot": {
+    "snapshot_id": "cfg_run_proof_reference_001_9a8aedbc525c",
+    "run_id": "run_proof_reference_001",
+    "captured_at": "2026-10-11T12:18:12.228Z",
+    "declaration_type": "EFFECTIVE",
+    "agent": {
+      "id": "support-agent",
+      "name": "Customer Support Agent",
+      "version": "3",
+      "implementation_ref": "agents/support.ts"
+    },
+    "model": {
+      "provider": "anthropic",
+      "model_id": "claude-X",
+      "resolved_revision": "claude-3-5-sonnet-20241022",
+      "parameters": {
+        "temperature": 0.2,
+        "max_tokens": "[REDACTED_SECRET]"
+      },
+      "parameters_hash": "sha256:7306c58e8cbbadf583a447bb1959ecc3b8be9d6f932ec5420794f7617ba792e3"
+    },
+    "prompts": [
+      {
+        "id": "support",
+        "version": "7",
+        "content_hash": "sha256:4f83b190c10b77fa8f6e0b769dc721e2e92c2e0e5a6ef6cb3d6fb3a2f7c0a5a1"
+      }
+    ],
+    "skills": [
+      {
+        "id": "refund-policy",
+        "version": "2",
+        "source": "skills/refund-policy.md",
+        "content_hash": "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+      }
+    ],
+    "tools": [
+      {
+        "id": "get_customer_account",
+        "version": "2",
+        "schema_version": "2.0",
+        "permission_class": "READ"
+      },
+      {
+        "id": "search_policy",
+        "version": "1",
+        "schema_version": "1.0",
+        "permission_class": "READ"
+      }
+    ],
+    "permissions": {
+      "policy_id": "pol_support_standard",
+      "policy_version": "1.2",
+      "granted_capabilities": [
+        "read:account",
+        "read:policy",
+        "request:refund"
+      ],
+      "denied_capabilities": [
+        "execute:unauthorized_payout"
+      ]
+    },
+    "workflow": {
+      "workflow_id": "refund-pipeline",
+      "workflow_version": "1.0"
+    },
+    "runtime": {
+      "framework": "agent-runtime",
+      "framework_version": "2.4.0",
+      "git_sha": "9f8a3c4b12e0",
+      "build_id": "build_84719",
+      "environment": "production@4"
+    },
+    "agent_hash": "sha256:2fdcd6de35a3c05bcfc75d5f9f68f66ac1545683c389e1e5fe95100ccc4ffc77",
+    "model_hash": "sha256:998c92da13106bc7f867960c25bef703e8dcc02444a3438064119194141af36d",
+    "prompt_set_hash": "sha256:58599e34eba1f228f91a046b1127d47353b22d93bade0613bb32d3d892707071",
+    "skill_set_hash": "sha256:6073f8061a65b2cb0354d35473791fb721a05dfe5fd4d6aae0bac5f54f330ae9",
+    "tool_set_hash": "sha256:add142c2b2fc6e42177edd6921235da523b42fe3d1704d86fa81ae48b2ffed44",
+    "permission_policy_hash": "sha256:db186d010963bee97c379093928e43375aed5c598fcfef1271b413b288297cdb",
+    "runtime_hash": "sha256:14e162090f90dbbafe44a42352549d344dc6fd18b489ae1f1a4215cdc959eeee",
+    "config_hash": "sha256:9a8aedbc525cc3ca5fea6e56f4e9c29e8ddf9a59e84e3de7c5fa3db10ab06d0d"
+  },
+  "evidence": {
+    "plan": {
+      "plan_id": "plan_proof_reference_001",
+      "run_id": "run_proof_reference_001",
+      "goal": "Handle refund request within policy",
+      "items": [
+        {
+          "id": "item_1",
+          "description": "retrieve customer account",
+          "status": "COMPLETED",
+          "dependencies": [],
+          "evidence_refs": [
+            "step_1"
+          ]
+        },
+        {
+          "id": "item_2",
+          "description": "verify refund policy constraints",
+          "status": "COMPLETED",
+          "dependencies": [
+            "item_1"
+          ],
+          "evidence_refs": [
+            "step_2"
+          ]
+        },
+        {
+          "id": "item_3",
+          "description": "execute authorized refund",
+          "status": "COMPLETED",
+          "dependencies": [
+            "item_2"
+          ],
+          "evidence_refs": [
+            "step_3"
+          ]
+        }
+      ],
+      "created_at": "2026-10-11T12:18:12.228Z",
+      "producer": "support-agent",
+      "status": "COMPLETED"
+    },
+    "verification_events": [
+      {
+        "event_id": "vevt_run_proof_reference_001_0",
+        "run_id": "run_proof_reference_001",
+        "step_id": "step_run_proof_reference_001_1",
+        "event_type": "test.started",
+        "target_type": "test",
+        "target_id": "test_run_proof_reference_001_0",
+        "status": "STARTED",
+        "actor": "test_runner",
+        "started_at": "2026-10-11T12:18:12.228Z",
+        "evidence_refs": [],
+        "artifact_refs": [],
+        "sequence_index": 0
+      },
+      {
+        "event_id": "vevt_run_proof_reference_001_1",
+        "run_id": "run_proof_reference_001",
+        "step_id": "step_run_proof_reference_001_1",
+        "event_type": "test.passed",
+        "target_type": "test",
+        "target_id": "test_run_proof_reference_001_0",
+        "status": "PASSED",
+        "actor": "test_runner",
+        "started_at": "2026-10-11T12:18:12.228Z",
+        "completed_at": "2026-10-11T12:18:12.228Z",
+        "duration_ms": 14,
+        "evidence_refs": [
+          "test_run_proof_reference_001_0"
+        ],
+        "artifact_refs": [],
+        "sequence_index": 1
+      },
+      {
+        "event_id": "vevt_run_proof_reference_001_2",
+        "run_id": "run_proof_reference_001",
+        "step_id": "step_run_proof_reference_001_1",
+        "event_type": "review.started",
+        "target_type": "review",
+        "target_id": "rev_run_proof_reference_001_0",
+        "status": "STARTED",
+        "actor": "compliance_guard",
+        "started_at": "2026-10-11T12:18:12.228Z",
+        "evidence_refs": [],
+        "artifact_refs": [],
+        "sequence_index": 2
+      },
+      {
+        "event_id": "vevt_run_proof_reference_001_3",
+        "run_id": "run_proof_reference_001",
+        "step_id": "step_run_proof_reference_001_1",
+        "event_type": "review.passed",
+        "target_type": "review",
+        "target_id": "rev_run_proof_reference_001_0",
+        "status": "PASSED",
+        "actor": "compliance_guard",
+        "evidence_refs": [
+          "rev_run_proof_reference_001_0"
+        ],
+        "artifact_refs": [],
+        "sequence_index": 3
+      }
+    ],
+    "test_results": [
+      {
+        "test_id": "test_run_proof_reference_001_0",
+        "run_id": "run_proof_reference_001",
+        "step_id": "step_run_proof_reference_001_1",
+        "suite": "policy_compliance",
+        "name": "assert_refund_within_limit",
+        "status": "PASSED",
+        "duration_ms": 14,
+        "attempt": 1,
+        "artifact_refs": [],
+        "started_at": "2026-10-11T12:18:12.228Z",
+        "completed_at": "2026-10-11T12:18:12.228Z"
+      }
+    ],
+    "review_results": [
+      {
+        "review_id": "rev_run_proof_reference_001_0",
+        "run_id": "run_proof_reference_001",
+        "step_id": "step_run_proof_reference_001_1",
+        "review_type": "POLICY",
+        "reviewer": "compliance_guard",
+        "status": "PASSED",
+        "findings": [],
+        "evidence_refs": [],
+        "artifact_refs": [],
+        "created_at": "2026-10-11T12:18:12.228Z"
+      }
+    ],
+    "approval_events": [
+      {
+        "approval_id": "appr_refund_001",
+        "action_id": "act_refund_001",
+        "requested_by": "support-agent",
+        "required_permission_class": "PRIVILEGED_FINANCIAL",
+        "requested_at": "2026-10-11T12:18:12.228Z",
+        "resolved_by": "supervisor_role",
+        "decision": "GRANTED",
+        "evidence_refs": []
+      }
+    ],
+    "security_events": [
+      {
+        "event_id": "sec_001",
+        "run_id": "run_proof_reference_001",
+        "step_id": "step_run_proof_reference_001_0",
+        "action_id": "act_lookup_001",
+        "agent_id": "support-agent",
+        "tool_id": "get_customer_account",
+        "permission_class": "READ",
+        "event_type": "action.requested",
+        "decision": "UNKNOWN",
+        "timestamp": "2026-10-11T12:18:12.228Z"
+      },
+      {
+        "event_id": "sec_002",
+        "run_id": "run_proof_reference_001",
+        "step_id": "step_run_proof_reference_001_0",
+        "action_id": "act_lookup_001",
+        "agent_id": "support-agent",
+        "tool_id": "get_customer_account",
+        "permission_class": "READ",
+        "event_type": "permission.checked",
+        "decision": "ALLOW",
+        "timestamp": "2026-10-11T12:18:12.228Z"
+      },
+      {
+        "event_id": "sec_003",
+        "run_id": "run_proof_reference_001",
+        "step_id": "step_run_proof_reference_001_0",
+        "action_id": "act_lookup_001",
+        "agent_id": "support-agent",
+        "tool_id": "get_customer_account",
+        "permission_class": "READ",
+        "event_type": "permission.granted",
+        "decision": "ALLOW",
+        "timestamp": "2026-10-11T12:18:12.228Z"
+      },
+      {
+        "event_id": "sec_004",
+        "run_id": "run_proof_reference_001",
+        "step_id": "step_run_proof_reference_001_2",
+        "action_id": "act_refund_001",
+        "agent_id": "support-agent",
+        "tool_id": "execute_refund",
+        "permission_class": "PRIVILEGED_FINANCIAL",
+        "event_type": "action.requested",
+        "decision": "REQUIRE_APPROVAL",
+        "timestamp": "2026-10-11T12:18:12.228Z"
+      },
+      {
+        "event_id": "sec_005",
+        "run_id": "run_proof_reference_001",
+        "step_id": "step_run_proof_reference_001_2",
+        "action_id": "act_refund_001",
+        "agent_id": "support-agent",
+        "tool_id": "execute_refund",
+        "permission_class": "PRIVILEGED_FINANCIAL",
+        "event_type": "permission.checked",
+        "decision": "REQUIRE_APPROVAL",
+        "timestamp": "2026-10-11T12:18:12.228Z"
+      },
+      {
+        "event_id": "sec_006",
+        "run_id": "run_proof_reference_001",
+        "step_id": "step_run_proof_reference_001_2",
+        "action_id": "act_refund_001",
+        "agent_id": "support-agent",
+        "tool_id": "execute_refund",
+        "permission_class": "PRIVILEGED_FINANCIAL",
+        "event_type": "permission.granted",
+        "decision": "ALLOW",
+        "approval_id": "appr_refund_001",
+        "timestamp": "2026-10-11T12:18:12.228Z"
+      }
+    ],
+    "final_outcome": {
+      "status": "SUCCESS",
+      "summary": "Refund processed successfully within authorized limits",
+      "verification_status": "PASS",
+      "tests_status": "PASS",
+      "review_status": "PASS",
+      "security_status": "PASS",
+      "completed_at": "2026-10-11T12:18:12.228Z"
+    }
+  }
+}

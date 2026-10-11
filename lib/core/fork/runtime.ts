@@ -19,6 +19,10 @@
 import type { RunArtifact } from "../contracts/runArtifact";
 import { CANONICAL_RUN_ARTIFACT_SCHEMA_VERSION } from "../contracts/runArtifact";
 import type { CheckpointReference, ExperimentMutation } from "../contracts/lineage";
+import {
+  type AgentConfigurationSnapshot,
+  buildAgentConfigurationSnapshot,
+} from "../contracts/configuration";
 import { hashPayload } from "../capture/hashing";
 import { StateRestorer } from "../replay/stateRestorer";
 import { BoundaryResolver } from "../replay/resolver";
@@ -440,7 +444,123 @@ export class ForkRuntime {
 
     const completedAt = new Date().toISOString();
 
-    // 7. Assemble Canonical Child RunArtifact
+    // 7. Inherit Configuration Snapshot & Apply Mutations
+    let childConfigSnapshot: AgentConfigurationSnapshot | undefined;
+    if (this.sourceRun.configuration_snapshot) {
+      const parentConfig = structuredClone(this.sourceRun.configuration_snapshot);
+      const childPrompts = [...(parentConfig.prompts ?? [])];
+      const childSkills = [...(parentConfig.skills ?? [])];
+      const childTools = [...(parentConfig.tools ?? [])];
+      let childModel = { ...parentConfig.model };
+      const childAgent = { ...parentConfig.agent };
+      const childPermissions = { ...parentConfig.permissions };
+
+      for (const mut of plan.mutations) {
+        if (mut.mutation_type === "prompt") {
+          const idx = childPrompts.findIndex(
+            (p) => p.id === mut.target_identifier || p.name === mut.target_identifier
+          );
+          const mutVal = mut.mutated_value as Record<string, unknown> | string | undefined;
+          const version =
+            typeof mutVal === "object" && mutVal && "version" in mutVal
+              ? String(mutVal.version)
+              : typeof mutVal === "string"
+                ? mutVal
+                : "mutated";
+          const contentHash =
+            typeof mutVal === "object" && mutVal && "content_hash" in mutVal
+              ? String(mutVal.content_hash)
+              : undefined;
+
+          if (idx >= 0) {
+            childPrompts[idx] = {
+              ...childPrompts[idx]!,
+              version,
+              content_hash: contentHash ?? childPrompts[idx]!.content_hash,
+            };
+          } else {
+            childPrompts.push({
+              id: mut.target_identifier,
+              version,
+              content_hash: contentHash,
+            });
+          }
+        } else if (mut.mutation_type === "model_parameters") {
+          if (typeof mut.mutated_value === "object" && mut.mutated_value !== null) {
+            childModel = {
+              ...childModel,
+              parameters: {
+                ...childModel.parameters,
+                ...(mut.mutated_value as Record<string, unknown>),
+              },
+            };
+          }
+        } else if (mut.mutation_type === "model") {
+          if (typeof mut.mutated_value === "string") {
+            childModel = {
+              ...childModel,
+              model_id: mut.mutated_value,
+            };
+          }
+        } else if (mut.mutation_type === "tool_exposure") {
+          const idx = childTools.findIndex((t) => t.id === mut.target_identifier);
+          const mutVal = mut.mutated_value as Record<string, unknown> | string | undefined;
+          const version =
+            typeof mutVal === "object" && mutVal && "version" in mutVal
+              ? String(mutVal.version)
+              : typeof mutVal === "string"
+                ? mutVal
+                : "mutated";
+          if (idx >= 0) {
+            childTools[idx] = {
+              ...childTools[idx]!,
+              version,
+            };
+          } else {
+            childTools.push({
+              id: mut.target_identifier,
+              version,
+            });
+          }
+        } else if (mut.mutation_type === "agent_configuration") {
+          const mutVal = mut.mutated_value as Record<string, unknown> | undefined;
+          if (typeof mutVal === "object" && mutVal !== null) {
+            if ("skill_id" in mutVal && "version" in mutVal) {
+              const skillId = String(mutVal.skill_id);
+              const sIdx = childSkills.findIndex((s) => s.id === skillId);
+              if (sIdx >= 0) {
+                childSkills[sIdx] = {
+                  ...childSkills[sIdx]!,
+                  version: String(mutVal.version),
+                };
+              } else {
+                childSkills.push({
+                  id: skillId,
+                  version: String(mutVal.version),
+                });
+              }
+            }
+          }
+        }
+      }
+
+      childConfigSnapshot = buildAgentConfigurationSnapshot({
+        snapshot_id: `cfg_${forkId}_inherited`,
+        run_id: forkId,
+        captured_at: startedAt,
+        declaration_type: "EFFECTIVE",
+        agent: childAgent,
+        model: childModel,
+        prompts: childPrompts,
+        skills: childSkills,
+        tools: childTools,
+        permissions: childPermissions,
+        workflow: parentConfig.workflow,
+        runtime: parentConfig.runtime,
+      });
+    }
+
+    // 8. Assemble Canonical Child RunArtifact
     const childArtifact: RunArtifact = {
       schema_version: CANONICAL_RUN_ARTIFACT_SCHEMA_VERSION,
       identity: {
@@ -505,6 +625,19 @@ export class ForkRuntime {
         sandboxed_available: true,
         missing_recordings: [],
         notes: [`Derived fork run with ${appliedMutationResult?.appliedRecords.length ?? 0} mutations applied.`],
+      },
+      configuration_snapshot: childConfigSnapshot,
+      evidence: {
+        verification_events: [],
+        test_results: [],
+        review_results: [],
+        approval_events: [],
+        security_events: [],
+        final_outcome: {
+          status: status === "COMPLETED" ? "SUCCESS" : "FAILURE",
+          verification_status: "NOT_RUN",
+          completed_at: completedAt,
+        },
       },
     };
 

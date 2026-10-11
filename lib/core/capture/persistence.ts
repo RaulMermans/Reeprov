@@ -281,6 +281,158 @@ export async function saveCanonicalRun(artifact: RunArtifact): Promise<{ success
             snapshot_data = EXCLUDED.snapshot_data
         `;
       }
+
+      // Upsert ap_agent_config_snapshots
+      if (artifact.configuration_snapshot) {
+        const cfg = artifact.configuration_snapshot;
+        await sql`
+          INSERT INTO ap_agent_config_snapshots (
+            snapshot_id, run_id, config_hash, declaration_type,
+            agent_id, agent_version, model_id, captured_at,
+            snapshot_data
+          ) VALUES (
+            ${cfg.snapshot_id},
+            ${runId},
+            ${cfg.config_hash},
+            ${cfg.declaration_type ?? "EFFECTIVE"},
+            ${cfg.agent.id},
+            ${cfg.agent.version},
+            ${cfg.model.model_id},
+            ${cfg.captured_at},
+            ${JSON.stringify(cfg)}
+          )
+          ON CONFLICT (snapshot_id) DO UPDATE SET
+            config_hash = EXCLUDED.config_hash,
+            declaration_type = EXCLUDED.declaration_type,
+            snapshot_data = EXCLUDED.snapshot_data
+        `;
+      }
+
+      // Upsert ap_verification_events, ap_test_results, ap_review_results, ap_security_events, ap_run_outcomes
+      if (artifact.evidence) {
+        for (const vevt of artifact.evidence.verification_events ?? []) {
+          await sql`
+            INSERT INTO ap_verification_events (
+              event_id, run_id, step_id, sequence_index, event_type,
+              target_type, target_id, status, actor, started_at,
+              completed_at, duration_ms, event_data
+            ) VALUES (
+              ${vevt.event_id},
+              ${runId},
+              ${vevt.step_id ?? null},
+              ${vevt.sequence_index},
+              ${vevt.event_type},
+              ${vevt.target_type},
+              ${vevt.target_id ?? null},
+              ${vevt.status},
+              ${vevt.actor},
+              ${vevt.started_at ?? null},
+              ${vevt.completed_at ?? null},
+              ${vevt.duration_ms ?? null},
+              ${JSON.stringify(vevt)}
+            )
+            ON CONFLICT (event_id, run_id) DO UPDATE SET
+              status = EXCLUDED.status,
+              completed_at = EXCLUDED.completed_at,
+              duration_ms = EXCLUDED.duration_ms,
+              event_data = EXCLUDED.event_data
+          `;
+        }
+
+        for (const tr of artifact.evidence.test_results ?? []) {
+          await sql`
+            INSERT INTO ap_test_results (
+              test_id, run_id, step_id, suite, name, status,
+              duration_ms, attempt, failure_message, result_data
+            ) VALUES (
+              ${tr.test_id},
+              ${runId},
+              ${tr.step_id ?? null},
+              ${tr.suite},
+              ${tr.name},
+              ${tr.status},
+              ${tr.duration_ms ?? null},
+              ${tr.attempt ?? 1},
+              ${tr.failure_message ?? null},
+              ${JSON.stringify(tr)}
+            )
+            ON CONFLICT (test_id, run_id) DO UPDATE SET
+              status = EXCLUDED.status,
+              duration_ms = EXCLUDED.duration_ms,
+              failure_message = EXCLUDED.failure_message,
+              result_data = EXCLUDED.result_data
+          `;
+        }
+
+        for (const rr of artifact.evidence.review_results ?? []) {
+          await sql`
+            INSERT INTO ap_review_results (
+              review_id, run_id, step_id, review_type, reviewer,
+              status, findings_count, result_data
+            ) VALUES (
+              ${rr.review_id},
+              ${runId},
+              ${rr.step_id ?? null},
+              ${rr.review_type},
+              ${rr.reviewer},
+              ${rr.status},
+              ${rr.findings?.length ?? 0},
+              ${JSON.stringify(rr)}
+            )
+            ON CONFLICT (review_id, run_id) DO UPDATE SET
+              status = EXCLUDED.status,
+              findings_count = EXCLUDED.findings_count,
+              result_data = EXCLUDED.result_data
+          `;
+        }
+
+        for (const se of artifact.evidence.security_events ?? []) {
+          await sql`
+            INSERT INTO ap_security_events (
+              event_id, run_id, step_id, action_id, tool_id,
+              event_type, decision, reason_code, approval_id,
+              timestamp, event_data
+            ) VALUES (
+              ${se.event_id},
+              ${runId},
+              ${se.step_id ?? null},
+              ${se.action_id ?? null},
+              ${se.tool_id ?? null},
+              ${se.event_type},
+              ${se.decision},
+              ${se.reason_code ?? null},
+              ${se.approval_id ?? null},
+              ${se.timestamp},
+              ${JSON.stringify(se)}
+            )
+            ON CONFLICT (event_id, run_id) DO UPDATE SET
+              decision = EXCLUDED.decision,
+              reason_code = EXCLUDED.reason_code,
+              event_data = EXCLUDED.event_data
+          `;
+        }
+
+        if (artifact.evidence.final_outcome) {
+          const fo = artifact.evidence.final_outcome;
+          await sql`
+            INSERT INTO ap_run_outcomes (
+              run_id, status, verification_status, outcome_data,
+              completed_at
+            ) VALUES (
+              ${runId},
+              ${fo.status},
+              ${fo.verification_status},
+              ${JSON.stringify(fo)},
+              ${fo.completed_at}
+            )
+            ON CONFLICT (run_id) DO UPDATE SET
+              status = EXCLUDED.status,
+              verification_status = EXCLUDED.verification_status,
+              outcome_data = EXCLUDED.outcome_data,
+              completed_at = EXCLUDED.completed_at
+          `;
+        }
+      }
     }
 
     // 2. Persist to file store

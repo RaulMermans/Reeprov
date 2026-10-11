@@ -16,6 +16,8 @@ import { ReplayRuntime } from "../lib/core/replay/runtime";
 import type { ReplayMode } from "../lib/core/replay/contracts";
 import { ForkRuntime } from "../lib/core/fork/runtime";
 import type { ExperimentMutation } from "../lib/core/contracts/lineage";
+import { computeEvidenceCompleteness, type EvidencePolicy } from "../lib/core/contracts/evidence";
+import { diffConfiguration } from "../lib/core/contracts/configuration";
 
 export interface ReplayCliOptions {
   command: "replay";
@@ -40,7 +42,33 @@ export interface ForkCliOptions {
   json: boolean;
 }
 
-export type CliCommandOptions = ReplayCliOptions | CheckpointsCliOptions | ForkCliOptions;
+export interface EvidenceCliOptions {
+  command: "evidence";
+  runIdOrPath: string;
+  policyPath?: string;
+  json: boolean;
+}
+
+export interface ConfigCliOptions {
+  command: "config";
+  runIdOrPath: string;
+  json: boolean;
+}
+
+export interface ConfigDiffCliOptions {
+  command: "config-diff";
+  runA: string;
+  runB: string;
+  json: boolean;
+}
+
+export type CliCommandOptions =
+  | ReplayCliOptions
+  | CheckpointsCliOptions
+  | ForkCliOptions
+  | EvidenceCliOptions
+  | ConfigCliOptions
+  | ConfigDiffCliOptions;
 
 export function parseArgs(args: string[]): CliCommandOptions | null {
   if (args.includes("checkpoints")) {
@@ -100,6 +128,38 @@ export function parseArgs(args: string[]): CliCommandOptions | null {
     return { command: "replay", runIdOrPath, mode, validateOnly, fromStart, json };
   }
 
+  if (args.includes("evidence")) {
+    const idx = args.indexOf("evidence");
+    const runIdOrPath = args[idx + 1];
+    if (!runIdOrPath) return null;
+    const json = args.includes("--json");
+    let policyPath: string | undefined;
+    for (let i = idx + 2; i < args.length; i++) {
+      if (args[i] === "--policy" && args[i + 1]) {
+        policyPath = args[i + 1];
+        i++;
+      }
+    }
+    return { command: "evidence", runIdOrPath, policyPath, json };
+  }
+
+  if (args.includes("config-diff")) {
+    const idx = args.indexOf("config-diff");
+    const runA = args[idx + 1];
+    const runB = args[idx + 2];
+    if (!runA || !runB) return null;
+    const json = args.includes("--json");
+    return { command: "config-diff", runA, runB, json };
+  }
+
+  if (args.includes("config")) {
+    const idx = args.indexOf("config");
+    const runIdOrPath = args[idx + 1];
+    if (!runIdOrPath) return null;
+    const json = args.includes("--json");
+    return { command: "config", runIdOrPath, json };
+  }
+
   return null;
 }
 
@@ -138,6 +198,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
     console.error(`AgentPulse CLI
 
 Commands:
+  pulse evidence <run-id|file-path> [--policy <file>] [--json]
+  pulse config <run-id|file-path> [--json]
+  pulse config-diff <run-a> <run-b> [--json]
   pulse checkpoints <run-id|file-path> [--json]
   pulse fork <run-id|file-path> --checkpoint <checkpoint-id> [--mutations <file>] [--json]
   pulse replay <run-id|file-path> [options]
@@ -153,6 +216,47 @@ Replay Options:
   }
 
   try {
+    if (options.command === "config-diff") {
+      const artifactA = await loadArtifact(options.runA);
+      const artifactB = await loadArtifact(options.runB);
+
+      if (!artifactA.configuration_snapshot) {
+        throw new Error(`Run A "${options.runA}" does not have an AgentConfigurationSnapshot.`);
+      }
+      if (!artifactB.configuration_snapshot) {
+        throw new Error(`Run B "${options.runB}" does not have an AgentConfigurationSnapshot.`);
+      }
+
+      const diff = diffConfiguration(artifactA.configuration_snapshot, artifactB.configuration_snapshot);
+
+      if (options.json) {
+        console.log(JSON.stringify(diff, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` Configuration Diff: ${options.runA} vs ${options.runB}`);
+        console.log(`========================================================================`);
+        console.log(`Identical:             ${diff.identical ? "YES" : "NO"}`);
+        console.log(`Changed Agent:         ${diff.changed_agent ? "YES" : "NO"}`);
+        console.log(`Changed Model:         ${diff.changed_model ? "YES" : "NO"}`);
+        console.log(`Changed Parameters:    ${diff.changed_parameters ? "YES" : "NO"}`);
+        console.log(`Changed Prompts:       ${diff.changed_prompts ? "YES" : "NO"}`);
+        console.log(`Changed Skills:        ${diff.changed_skills ? "YES" : "NO"}`);
+        console.log(`Changed Tools:         ${diff.changed_tools ? "YES" : "NO"}`);
+        console.log(`Changed Permissions:   ${diff.changed_permissions ? "YES" : "NO"}`);
+        console.log(`Changed Workflow:      ${diff.changed_workflow ? "YES" : "NO"}`);
+        console.log(`Changed Runtime:       ${diff.changed_runtime_config ? "YES" : "NO"}`);
+
+        if (diff.summary.length > 0) {
+          console.log(`\nDifferences Summary:`);
+          for (const s of diff.summary) {
+            console.log(`  - ${s}`);
+          }
+        }
+        console.log(`========================================================================\n`);
+      }
+      return diff.identical ? 0 : 1;
+    }
+
     const artifact = await loadArtifact(options.runIdOrPath);
 
     if (options.command === "checkpoints") {
@@ -299,6 +403,120 @@ Replay Options:
       }
 
       return result.status === "MATCHED" ? 0 : 1;
+    }
+
+    if (options.command === "evidence") {
+      let policy: Partial<EvidencePolicy> | undefined;
+      if (options.policyPath) {
+        const raw = await readFile(resolve(process.cwd(), options.policyPath), "utf8");
+        policy = JSON.parse(raw);
+      }
+
+      const completeness = computeEvidenceCompleteness(artifact, policy);
+      const outcome =
+        artifact.evidence?.final_outcome?.status ??
+        (artifact.execution.status === "completed" ? "SUCCESS" : "FAILURE");
+      const verificationStatus = artifact.evidence?.final_outcome?.verification_status ?? "NOT_RUN";
+      const configHash = artifact.configuration_snapshot?.config_hash ?? "NOT_CAPTURED";
+      const testsCount = artifact.evidence?.test_results?.length ?? 0;
+      const testsPassed = artifact.evidence?.test_results?.filter((t) => t.status === "PASSED").length ?? 0;
+      const reviewsCount = artifact.evidence?.review_results?.length ?? 0;
+      const approvalsGranted =
+        artifact.evidence?.approval_events?.filter((a) => a.decision === "GRANTED").length ?? 0;
+      const approvalsRejected =
+        artifact.evidence?.approval_events?.filter((a) => a.decision === "REJECTED").length ?? 0;
+      const blocksCount =
+        artifact.evidence?.security_events?.filter(
+          (s) => s.decision === "BLOCKED" || s.decision === "DENY"
+        ).length ?? 0;
+      const artifactsCount = artifact.artifacts?.length ?? 0;
+
+      const summaryData = {
+        runId: artifact.identity.run_id,
+        outcome,
+        verificationStatus,
+        configHash,
+        tests: `${testsPassed} / ${testsCount} passed`,
+        reviews: `${reviewsCount} reviews`,
+        approvals: `${approvalsGranted} granted, ${approvalsRejected} rejected`,
+        blocks: blocksCount,
+        artifacts: artifactsCount,
+        completenessScore: `${completeness.score}%`,
+        completenessCoverage: completeness.coverage,
+        missingRequired: completeness.missing_required,
+        passedPolicy: completeness.passed_policy,
+      };
+
+      if (options.json) {
+        console.log(JSON.stringify(summaryData, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` Run Evidence Summary: ${artifact.identity.run_id}`);
+        console.log(`========================================================================`);
+        console.log(`Outcome:                 ${outcome} ${outcome === "SUCCESS" ? "✓" : "✗"}`);
+        console.log(`Verification:            ${verificationStatus}`);
+        console.log(`Configuration Hash:      ${configHash}`);
+        console.log(`Tests:                   ${testsPassed} / ${testsCount} passed`);
+        console.log(`Reviews:                 ${reviewsCount} recorded`);
+        console.log(`Approvals:               ${approvalsGranted} granted, ${approvalsRejected} rejected`);
+        console.log(`Security Blocks:         ${blocksCount} blocked`);
+        console.log(`Artifacts:               ${artifactsCount} artifacts`);
+        console.log(`Evidence Completeness:   ${completeness.score}% [Policy: ${completeness.passed_policy ? "PASSED" : "FAILED"}]`);
+        console.log(`Coverage Breakdown:`);
+        for (const [key, val] of Object.entries(completeness.coverage)) {
+          const icon = val === "PRESENT" ? "✓" : val === "MISSING_REQUIRED" ? "✗" : "-";
+          console.log(`  - ${key.padEnd(16)}: ${val} [${icon}]`);
+        }
+        if (completeness.missing_required.length > 0) {
+          console.log(`Missing Required Evidence: ${completeness.missing_required.join(", ")}`);
+        }
+        console.log(`========================================================================\n`);
+      }
+      return completeness.passed_policy ? 0 : 1;
+    }
+
+    if (options.command === "config") {
+      const cfg = artifact.configuration_snapshot;
+      if (!cfg) {
+        if (options.json) {
+          console.log(JSON.stringify({ error: "No configuration snapshot recorded" }));
+        } else {
+          console.log(`\n[AgentPulse] No AgentConfigurationSnapshot captured for run "${artifact.identity.run_id}".\n`);
+        }
+        return 1;
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(cfg, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` Agent Configuration Snapshot: ${cfg.snapshot_id}`);
+        console.log(`========================================================================`);
+        console.log(`Run ID:            ${cfg.run_id}`);
+        console.log(`Config Hash:       ${cfg.config_hash}`);
+        console.log(`Captured At:       ${cfg.captured_at}`);
+        console.log(`Agent:             ${cfg.agent.id}@${cfg.agent.version}${cfg.agent.name ? ` (${cfg.agent.name})` : ""}`);
+        console.log(`Model:             ${cfg.model.provider}/${cfg.model.model_id}${cfg.model.resolved_revision ? ` [${cfg.model.resolved_revision}]` : ""}`);
+        console.log(`Parameters:        ${JSON.stringify(cfg.model.parameters)}`);
+        console.log(`Prompts (${cfg.prompts.length}):`);
+        for (const p of cfg.prompts) {
+          console.log(`  - ${p.id}@${p.version}${p.content_hash ? ` [${p.content_hash.slice(0, 16)}...]` : ""}`);
+        }
+        console.log(`Skills (${cfg.skills.length}):`);
+        for (const s of cfg.skills) {
+          console.log(`  - ${s.id}@${s.version}`);
+        }
+        console.log(`Tools (${cfg.tools.length}):`);
+        for (const t of cfg.tools) {
+          console.log(`  - ${t.id}@${t.version}${t.permission_class ? ` (perm: ${t.permission_class})` : ""}`);
+        }
+        console.log(`Permissions:       Policy ${cfg.permissions.policy_id ?? "default"}@${cfg.permissions.policy_version ?? "1"} [granted: ${cfg.permissions.granted_capabilities.join(", ")}]`);
+        if (cfg.runtime) {
+          console.log(`Runtime:           ${cfg.runtime.framework ?? "custom"} | ${cfg.runtime.language_runtime ?? "node"} | Git: ${cfg.runtime.git_sha ?? "n/a"}`);
+        }
+        console.log(`========================================================================\n`);
+      }
+      return 0;
     }
 
     return 1;

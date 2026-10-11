@@ -17,3 +17,5 @@ export * from "./evals";
 export * from "./lineage";
 export * from "./execution";
 export * from "./runArtifact";
+export * from "./configuration";
+export * from "./evidence";

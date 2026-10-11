@@ -12,24 +12,22 @@ AgentPulse exists to make AI agent execution intelligible, reproducible, and opt
 flowchart LR
     A["1. CAPTURE"] --> B["2. INSPECT"]
     B --> C["3. REPRODUCE"]
-    C --> D["4. DIAGNOSE"]
-    D --> E["5. FORK"]
-    E --> F["6. EXPERIMENT"]
+    C --> D["4. FORK"]
+    D --> E["5. PROVE"]
+    E --> F["6. COMPARE"]
     F --> G["7. EVALUATE"]
-    G --> H["8. COMPARE"]
-    H --> I["9. REGRESSION"]
-    I -.-> A
+    G --> H["8. REGRESSION"]
+    H -.-> A
 ```
 
 1. **CAPTURE:** Passively and deterministically intercept execution boundaries, context snapshots, tool invocations, model calls, state changes, and memory operations without mutating runtime behavior.
 2. **INSPECT:** Render a high-fidelity, causal execution graph answering not just *what* the agent did, but *what it knew*, *where that knowledge originated*, and *why* it chose each action.
 3. **REPRODUCE:** Re-instantiate execution at supported boundaries using recorded inputs, sandboxed mocks, or isolated execution environments.
-4. **DIAGNOSE:** Pinpoint root causes across a standardized failure taxonomy (e.g., context dilution, memory poisoning, tool schema violation, model reasoning breakdown).
-5. **FORK:** Branch an execution from an exact checkpoint step or state snapshot to test alternative hypotheses.
-6. **EXPERIMENT:** Apply controlled, declared mutations (e.g., prompt variant, context inclusion, model parameters, tool schema override, retrieval top-k).
+4. **FORK:** Branch an execution from an exact checkpoint step or state snapshot to test alternative hypotheses while preserving parent immutability.
+5. **PROVE:** Record the exact effective configuration snapshot (agent, model, prompts, skills, tools, permissions, runtime), explicit non-CoT plans, append-only verification and approval events, security telemetry, and typed test/review outcomes to prove run validity.
+6. **COMPARE:** Compute semantic and structural divergence between baseline and mutant runs to determine if the change was an improvement.
 7. **EVALUATE:** Execute run-linked quantitative and qualitative graders (eval families: task success, safety, grounding, schema validity, cost, latency).
-8. **COMPARE:** Compute semantic and structural divergence between baseline and mutant runs to determine if the change was an improvement.
-9. **REGRESSION:** Convert resolved bugs, failure cases, and benchmark runs into persistent regression suites to guard future releases.
+8. **REGRESSION:** Convert resolved bugs, failure cases, and benchmark runs into persistent regression suites to guard future releases.
 
 ---
 

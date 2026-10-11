@@ -362,4 +362,120 @@ async function runMigrations(): Promise<void> {
     )
   `);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_replay_divergences_replay_id_idx ON ap_replay_divergences(replay_id)`);
+
+  // ── Sprint 5: Agent Configuration Snapshots ───────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_agent_config_snapshots (
+      snapshot_id       TEXT PRIMARY KEY,
+      run_id            TEXT NOT NULL REFERENCES ap_runs(run_id) ON DELETE CASCADE,
+      config_hash       TEXT NOT NULL,
+      declaration_type  TEXT NOT NULL DEFAULT 'EFFECTIVE',
+      agent_id          TEXT NOT NULL,
+      agent_version     TEXT NOT NULL,
+      model_id          TEXT NOT NULL,
+      captured_at       TIMESTAMPTZ NOT NULL,
+      snapshot_data     JSONB NOT NULL,
+      created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_agent_config_snapshots_run_id_idx ON ap_agent_config_snapshots(run_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_agent_config_snapshots_config_hash_idx ON ap_agent_config_snapshots(config_hash)`);
+
+  // ── Sprint 5: Verification Events ──────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_verification_events (
+      event_id        TEXT NOT NULL,
+      run_id          TEXT NOT NULL REFERENCES ap_runs(run_id) ON DELETE CASCADE,
+      step_id         TEXT,
+      sequence_index  INTEGER NOT NULL DEFAULT 0,
+      event_type      TEXT NOT NULL,
+      target_type     TEXT NOT NULL,
+      target_id       TEXT,
+      status          TEXT NOT NULL,
+      actor           TEXT NOT NULL,
+      started_at      TIMESTAMPTZ,
+      completed_at    TIMESTAMPTZ,
+      duration_ms     INTEGER,
+      event_data      JSONB NOT NULL,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (event_id, run_id)
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_verification_events_run_id_idx ON ap_verification_events(run_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_verification_events_type_idx ON ap_verification_events(event_type)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_verification_events_status_idx ON ap_verification_events(status)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_verification_events_seq_idx ON ap_verification_events(run_id, sequence_index)`);
+
+  // ── Sprint 5: Test Results ─────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_test_results (
+      test_id         TEXT NOT NULL,
+      run_id          TEXT NOT NULL REFERENCES ap_runs(run_id) ON DELETE CASCADE,
+      step_id         TEXT,
+      suite           TEXT NOT NULL,
+      name            TEXT NOT NULL,
+      status          TEXT NOT NULL,
+      duration_ms     INTEGER,
+      attempt         INTEGER NOT NULL DEFAULT 1,
+      failure_message TEXT,
+      result_data     JSONB NOT NULL,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (test_id, run_id)
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_test_results_run_id_idx ON ap_test_results(run_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_test_results_status_idx ON ap_test_results(status)`);
+
+  // ── Sprint 5: Review Results ───────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_review_results (
+      review_id       TEXT NOT NULL,
+      run_id          TEXT NOT NULL REFERENCES ap_runs(run_id) ON DELETE CASCADE,
+      step_id         TEXT,
+      review_type     TEXT NOT NULL,
+      reviewer        TEXT NOT NULL,
+      status          TEXT NOT NULL,
+      findings_count  INTEGER NOT NULL DEFAULT 0,
+      result_data     JSONB NOT NULL,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (review_id, run_id)
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_review_results_run_id_idx ON ap_review_results(run_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_review_results_type_idx ON ap_review_results(review_type)`);
+
+  // ── Sprint 5: Security Events ──────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_security_events (
+      event_id        TEXT NOT NULL,
+      run_id          TEXT NOT NULL REFERENCES ap_runs(run_id) ON DELETE CASCADE,
+      step_id         TEXT,
+      action_id       TEXT,
+      tool_id         TEXT,
+      event_type      TEXT NOT NULL,
+      decision        TEXT NOT NULL,
+      reason_code     TEXT,
+      approval_id     TEXT,
+      timestamp       TIMESTAMPTZ NOT NULL,
+      event_data      JSONB NOT NULL,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (event_id, run_id)
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_security_events_run_id_idx ON ap_security_events(run_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_security_events_action_id_idx ON ap_security_events(action_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_security_events_type_idx ON ap_security_events(event_type)`);
+
+  // ── Sprint 5: Run Outcomes ─────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_run_outcomes (
+      run_id              TEXT PRIMARY KEY REFERENCES ap_runs(run_id) ON DELETE CASCADE,
+      status              TEXT NOT NULL,
+      verification_status TEXT NOT NULL,
+      outcome_data        JSONB NOT NULL,
+      completed_at        TIMESTAMPTZ NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_run_outcomes_status_idx ON ap_run_outcomes(status)`);
 }

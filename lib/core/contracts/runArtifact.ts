@@ -19,6 +19,8 @@ import { modelInvocationSchema } from "./models";
 import { artifactReferenceSchema } from "./artifacts";
 import { evalResultSchema } from "./evals";
 import { runLineageSchema, comparisonMetadataSchema, checkpointReferenceSchema } from "./lineage";
+import { agentConfigurationSnapshotSchema, type AgentConfigurationSnapshot } from "./configuration";
+import { runEvidenceSchema, type RunEvidence } from "./evidence";
 
 export const CANONICAL_RUN_ARTIFACT_SCHEMA_VERSION = "1.0.0-alpha";
 
@@ -165,6 +167,8 @@ export const runArtifactSchema = z.object({
     notes: [],
   }),
   comparison: comparisonMetadataSchema.optional(),
+  configuration_snapshot: agentConfigurationSnapshotSchema.optional(),
+  evidence: runEvidenceSchema.optional(),
 });
 
 export type RunArtifact = z.infer<typeof runArtifactSchema>;

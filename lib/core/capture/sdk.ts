@@ -19,6 +19,30 @@ import type { RetrievalOperation } from "../contracts/retrieval";
 import type { MemoryOperation } from "../contracts/memory";
 import type { ContextSnapshot } from "../contracts/context";
 import type { CheckpointReference, CheckpointPosition } from "../contracts/lineage";
+import {
+  type AgentConfigurationSnapshot,
+  type AgentConfigurationInput,
+  buildAgentConfigurationSnapshot,
+} from "../contracts/configuration";
+import {
+  type PlanEvidence,
+  type VerificationEvent,
+  type TestResult,
+  type ReviewResult,
+  type ReviewType,
+  type ReviewFinding,
+  type ApprovalEvidence,
+  type SecurityEvent,
+  type RunOutcome,
+  type RunEvidence,
+  planEvidenceSchema,
+  verificationEventSchema,
+  testResultSchema,
+  reviewResultSchema,
+  approvalEvidenceSchema,
+  securityEventSchema,
+  runOutcomeSchema,
+} from "../contracts/evidence";
 import { captureModelInvocation } from "./adapters/modelCapture";
 import { captureToolInvocation } from "./adapters/toolCapture";
 import { captureRetrievalOperation } from "./adapters/retrievalCapture";
@@ -92,6 +116,16 @@ export class CaptureSession {
   private stepCounter = 0;
   private boundaryCounter = 0;
   private isFinished = false;
+
+  private configurationSnapshot?: AgentConfigurationSnapshot;
+  private plan?: PlanEvidence;
+  private readonly verificationEvents: VerificationEvent[] = [];
+  private readonly testResults: TestResult[] = [];
+  private readonly reviewResults: ReviewResult[] = [];
+  private readonly approvalEvents: ApprovalEvidence[] = [];
+  private readonly securityEvents: SecurityEvent[] = [];
+  private finalOutcome?: RunOutcome;
+  private verificationCounter = 0;
 
   constructor(options: StartRunOptions) {
     this.projectId = options.projectId;
@@ -657,6 +691,321 @@ export class CaptureSession {
     };
   }
 
+  // ── Configuration & Evidence Plane ───────────────────────────────────────
+
+  setConfiguration(
+    input: Omit<AgentConfigurationInput, "run_id"> & { run_id?: string }
+  ): AgentConfigurationSnapshot {
+    const snapshot = buildAgentConfigurationSnapshot({
+      ...input,
+      run_id: this.runId,
+    });
+    this.configurationSnapshot = snapshot;
+    return snapshot;
+  }
+
+  recordPlan(
+    plan: Omit<PlanEvidence, "run_id" | "created_at"> & {
+      run_id?: string;
+      created_at?: string;
+    }
+  ): PlanEvidence {
+    const validated = planEvidenceSchema.parse({
+      created_at: new Date().toISOString(),
+      ...plan,
+      run_id: this.runId,
+    });
+    this.plan = validated;
+    return validated;
+  }
+
+  recordTestResult(
+    test: Omit<TestResult, "run_id"> & { run_id?: string }
+  ): TestResult {
+    const validated = testResultSchema.parse({
+      ...test,
+      run_id: this.runId,
+    });
+    this.testResults.push(validated);
+    return validated;
+  }
+
+  recordReview(
+    review: Omit<ReviewResult, "run_id" | "created_at"> & {
+      run_id?: string;
+      created_at?: string;
+    }
+  ): ReviewResult {
+    const validated = reviewResultSchema.parse({
+      created_at: new Date().toISOString(),
+      ...review,
+      run_id: this.runId,
+    });
+    this.reviewResults.push(validated);
+    return validated;
+  }
+
+  recordVerification(
+    event: Omit<VerificationEvent, "run_id" | "sequence_index"> & {
+      run_id?: string;
+      sequence_index?: number;
+    }
+  ): VerificationEvent {
+    const sequenceIndex = event.sequence_index ?? this.verificationCounter++;
+    const validated = verificationEventSchema.parse({
+      ...event,
+      run_id: this.runId,
+      sequence_index: sequenceIndex,
+    });
+    this.verificationEvents.push(validated);
+    return validated;
+  }
+
+  recordSecurityEvent(
+    event: Omit<SecurityEvent, "run_id" | "event_id" | "timestamp"> & {
+      run_id?: string;
+      event_id?: string;
+      timestamp?: string;
+    }
+  ): SecurityEvent {
+    const eventId = event.event_id ?? `sec_${this.runId}_${this.securityEvents.length}`;
+    const validated = securityEventSchema.parse({
+      timestamp: new Date().toISOString(),
+      ...event,
+      event_id: eventId,
+      run_id: this.runId,
+    });
+    this.securityEvents.push(validated);
+    return validated;
+  }
+
+  recordApproval(
+    approval: Omit<ApprovalEvidence, "requested_at"> & {
+      requested_at?: string;
+    }
+  ): ApprovalEvidence {
+    const validated = approvalEvidenceSchema.parse({
+      requested_at: new Date().toISOString(),
+      ...approval,
+    });
+    this.approvalEvents.push(validated);
+    return validated;
+  }
+
+  setOutcome(
+    outcome: Omit<RunOutcome, "completed_at"> & { completed_at?: string }
+  ): RunOutcome {
+    const validated = runOutcomeSchema.parse({
+      completed_at: new Date().toISOString(),
+      ...outcome,
+    });
+    this.finalOutcome = validated;
+    return validated;
+  }
+
+  // ── Verification Lifecycle Helpers ────────────────────────────────────────
+
+  public readonly verification = {
+    startTest: (
+      suite: string,
+      name: string,
+      options?: { stepId?: string; attempt?: number; environment?: string }
+    ) => {
+      const testId = `test_${this.runId}_${this.testResults.length}`;
+      const startedAt = new Date().toISOString();
+      const startMs = Date.now();
+      const stepId = options?.stepId ?? this.activeStepStack[this.activeStepStack.length - 1]?.step_id;
+
+      this.recordVerification({
+        event_id: `vevt_${this.runId}_${this.verificationCounter}`,
+        event_type: "test.started",
+        target_type: "test",
+        target_id: testId,
+        status: "STARTED",
+        actor: "test_runner",
+        started_at: startedAt,
+        step_id: stepId,
+        evidence_refs: [],
+        artifact_refs: [],
+      });
+
+      return {
+        testId,
+        pass: (passOptions?: { durationMs?: number; artifactRefs?: string[] }): TestResult => {
+          const completedAt = new Date().toISOString();
+          const durationMs = passOptions?.durationMs ?? Math.max(0, Date.now() - startMs);
+          const artifactRefs = passOptions?.artifactRefs ?? [];
+
+          const testResult = this.recordTestResult({
+            test_id: testId,
+            step_id: stepId,
+            suite,
+            name,
+            status: "PASSED",
+            duration_ms: durationMs,
+            attempt: options?.attempt ?? 1,
+            environment: options?.environment,
+            artifact_refs: artifactRefs,
+            started_at: startedAt,
+            completed_at: completedAt,
+          });
+
+          this.recordVerification({
+            event_id: `vevt_${this.runId}_${this.verificationCounter}`,
+            event_type: "test.passed",
+            target_type: "test",
+            target_id: testId,
+            status: "PASSED",
+            actor: "test_runner",
+            started_at: startedAt,
+            completed_at: completedAt,
+            duration_ms: durationMs,
+            evidence_refs: [testId],
+            artifact_refs: artifactRefs,
+            step_id: stepId,
+          });
+
+          return testResult;
+        },
+        fail: (failOptions?: {
+          failureMessage?: string;
+          durationMs?: number;
+          stdoutRef?: string;
+          stderrRef?: string;
+          artifactRefs?: string[];
+        }): TestResult => {
+          const completedAt = new Date().toISOString();
+          const durationMs = failOptions?.durationMs ?? Math.max(0, Date.now() - startMs);
+          const artifactRefs = failOptions?.artifactRefs ?? [];
+
+          const testResult = this.recordTestResult({
+            test_id: testId,
+            step_id: stepId,
+            suite,
+            name,
+            status: "FAILED",
+            duration_ms: durationMs,
+            attempt: options?.attempt ?? 1,
+            environment: options?.environment,
+            artifact_refs: artifactRefs,
+            stdout_ref: failOptions?.stdoutRef,
+            stderr_ref: failOptions?.stderrRef,
+            failure_message: failOptions?.failureMessage,
+            started_at: startedAt,
+            completed_at: completedAt,
+          });
+
+          this.recordVerification({
+            event_id: `vevt_${this.runId}_${this.verificationCounter}`,
+            event_type: "test.failed",
+            target_type: "test",
+            target_id: testId,
+            status: "FAILED",
+            actor: "test_runner",
+            started_at: startedAt,
+            completed_at: completedAt,
+            duration_ms: durationMs,
+            evidence_refs: [testId],
+            artifact_refs: artifactRefs,
+            step_id: stepId,
+            details: failOptions?.failureMessage ? { message: failOptions.failureMessage } : undefined,
+          });
+
+          return testResult;
+        },
+      };
+    },
+
+    startReview: (
+      reviewType: ReviewType,
+      reviewer: string,
+      options?: { stepId?: string }
+    ) => {
+      const reviewId = `rev_${this.runId}_${this.reviewResults.length}`;
+      const startedAt = new Date().toISOString();
+      const stepId = options?.stepId ?? this.activeStepStack[this.activeStepStack.length - 1]?.step_id;
+
+      this.recordVerification({
+        event_id: `vevt_${this.runId}_${this.verificationCounter}`,
+        event_type: "review.started",
+        target_type: "review",
+        target_id: reviewId,
+        status: "STARTED",
+        actor: reviewer,
+        started_at: startedAt,
+        step_id: stepId,
+        evidence_refs: [],
+        artifact_refs: [],
+      });
+
+      return {
+        reviewId,
+        pass: (passOptions?: {
+          findings?: ReviewFinding[];
+          artifactRefs?: string[];
+          evidenceRefs?: string[];
+        }): ReviewResult => {
+          const review = this.recordReview({
+            review_id: reviewId,
+            step_id: stepId,
+            review_type: reviewType,
+            reviewer,
+            status: "PASSED",
+            findings: passOptions?.findings ?? [],
+            artifact_refs: passOptions?.artifactRefs ?? [],
+            evidence_refs: passOptions?.evidenceRefs ?? [],
+            created_at: new Date().toISOString(),
+          });
+
+          this.recordVerification({
+            event_id: `vevt_${this.runId}_${this.verificationCounter}`,
+            event_type: "review.passed",
+            target_type: "review",
+            target_id: reviewId,
+            status: "PASSED",
+            actor: reviewer,
+            step_id: stepId,
+            evidence_refs: [reviewId],
+            artifact_refs: passOptions?.artifactRefs ?? [],
+          });
+
+          return review;
+        },
+        fail: (failOptions?: {
+          findings?: ReviewFinding[];
+          artifactRefs?: string[];
+          evidenceRefs?: string[];
+        }): ReviewResult => {
+          const review = this.recordReview({
+            review_id: reviewId,
+            step_id: stepId,
+            review_type: reviewType,
+            reviewer,
+            status: "FAILED",
+            findings: failOptions?.findings ?? [],
+            artifact_refs: failOptions?.artifactRefs ?? [],
+            evidence_refs: failOptions?.evidenceRefs ?? [],
+            created_at: new Date().toISOString(),
+          });
+
+          this.recordVerification({
+            event_id: `vevt_${this.runId}_${this.verificationCounter}`,
+            event_type: "review.failed",
+            target_type: "review",
+            target_id: reviewId,
+            status: "FAILED",
+            actor: reviewer,
+            step_id: stepId,
+            evidence_refs: [reviewId],
+            artifact_refs: failOptions?.artifactRefs ?? [],
+          });
+
+          return review;
+        },
+      };
+    },
+  };
+
   // ── Finish & Flush ────────────────────────────────────────────────────────
 
   async finishRun(options: FinishRunOptions = {}): Promise<RunArtifact> {
@@ -766,6 +1115,25 @@ export class CaptureSession {
         missing_recordings: [],
         notes: [],
       },
+      configuration_snapshot: this.configurationSnapshot,
+      evidence:
+        this.plan ||
+        this.verificationEvents.length > 0 ||
+        this.testResults.length > 0 ||
+        this.reviewResults.length > 0 ||
+        this.approvalEvents.length > 0 ||
+        this.securityEvents.length > 0 ||
+        this.finalOutcome
+          ? {
+              plan: this.plan,
+              verification_events: this.verificationEvents,
+              test_results: this.testResults,
+              review_results: this.reviewResults,
+              approval_events: this.approvalEvents,
+              security_events: this.securityEvents,
+              final_outcome: this.finalOutcome,
+            }
+          : undefined,
     };
 
     // Integrity validation
