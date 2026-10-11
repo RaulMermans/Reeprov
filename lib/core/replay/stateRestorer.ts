@@ -29,12 +29,12 @@ export class StateRestorer {
   private readonly snapshots: StateSnapshot[];
   private readonly checkpoints: CheckpointReference[];
 
-  constructor(source: RunArtifact | { state?: StateSnapshot[]; checkpoints?: CheckpointReference[] }) {
+  constructor(source: RunArtifact | { state?: StateSnapshot[]; checkpoints?: CheckpointReference[]; lineage?: { checkpoint_reference?: CheckpointReference } }) {
     this.snapshots = source.state ?? [];
-    if ("lineage" in source && source.lineage?.checkpoint_reference) {
-      this.checkpoints = [source.lineage.checkpoint_reference];
-    } else if ("checkpoints" in source && source.checkpoints) {
+    if ("checkpoints" in source && source.checkpoints && source.checkpoints.length > 0) {
       this.checkpoints = source.checkpoints;
+    } else if ("lineage" in source && source.lineage?.checkpoint_reference) {
+      this.checkpoints = [source.lineage.checkpoint_reference];
     } else {
       this.checkpoints = [];
     }
@@ -73,7 +73,7 @@ export class StateRestorer {
     }
 
     return {
-      state: { ...initialSnapshot.state_data },
+      state: structuredClone(initialSnapshot.state_data),
       snapshotId: initialSnapshot.snapshot_id,
       stepId: initialSnapshot.step_id,
       hash: computedHash,
@@ -82,18 +82,30 @@ export class StateRestorer {
   }
 
   /**
-   * Restores state from a specific checkpoint at replay start.
+   * Restores state from a specific checkpoint.
+   * Explicit checkpoint request MUST fail closed if not found.
    */
   restoreCheckpoint(checkpointId?: string): RestoredStateResult {
-    const checkpoint = checkpointId
-      ? this.checkpoints.find((c) => c.checkpoint_id === checkpointId)
-      : this.checkpoints[0];
-
-    if (!checkpoint) {
-      // Fallback to initial state
-      return this.restoreInitialState();
+    if (checkpointId !== undefined) {
+      const checkpoint = this.checkpoints.find((c) => c.checkpoint_id === checkpointId);
+      if (!checkpoint) {
+        throw new StateRestorationError(
+          `CHECKPOINT_NOT_FOUND: Checkpoint '${checkpointId}' was explicitly requested but not found in run artifact.`,
+          { checkpointId }
+        );
+      }
+      return this.restoreFromCheckpoint(checkpoint);
     }
 
+    if (this.checkpoints.length > 0) {
+      return this.restoreFromCheckpoint(this.checkpoints[0]);
+    }
+
+    // Fallback to initial state only when no checkpoint was explicitly requested
+    return this.restoreInitialState();
+  }
+
+  private restoreFromCheckpoint(checkpoint: CheckpointReference): RestoredStateResult {
     const targetSnapshot = checkpoint.state_snapshot_id
       ? this.snapshots.find((s) => s.snapshot_id === checkpoint.state_snapshot_id)
       : this.snapshots[0];
@@ -101,7 +113,7 @@ export class StateRestorer {
     if (!targetSnapshot) {
       throw new StateRestorationError(
         `Checkpoint '${checkpoint.checkpoint_id}' references snapshot '${checkpoint.state_snapshot_id}', but snapshot is missing.`,
-        { checkpointId: checkpoint.checkpoint_id }
+        { checkpointId: checkpoint.checkpoint_id, snapshotId: checkpoint.state_snapshot_id }
       );
     }
 
@@ -109,7 +121,7 @@ export class StateRestorer {
     const expectedHash = checkpoint.state_hash ?? targetSnapshot.hash;
     if (expectedHash && computedHash !== expectedHash) {
       throw new StateRestorationError(
-        `Checkpoint state hash mismatch! Expected '${expectedHash}', computed '${computedHash}'.`,
+        `CHECKPOINT_CORRUPT: Checkpoint state hash mismatch! Expected '${expectedHash}', computed '${computedHash}'.`,
         {
           checkpointId: checkpoint.checkpoint_id,
           expectedHash,
@@ -119,7 +131,7 @@ export class StateRestorer {
     }
 
     return {
-      state: { ...targetSnapshot.state_data },
+      state: structuredClone(targetSnapshot.state_data),
       snapshotId: targetSnapshot.snapshot_id,
       stepId: targetSnapshot.step_id,
       hash: computedHash,

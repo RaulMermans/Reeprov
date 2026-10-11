@@ -14,6 +14,7 @@ import { VisualExecutionCanvas } from "@/components/proof-layer/VisualExecutionC
 import { IssuesPanel } from "@/components/proof-layer/IssuesPanel";
 import { ArtifactPreviewPanel } from "@/components/proof-layer/ArtifactPreviewPanel";
 import { RunSummaryHeader } from "@/components/proof-layer/RunSummaryHeader";
+import { ForkDebuggerPanel } from "@/components/proof-layer/ForkDebuggerPanel";
 import { RunDetailTabs, type RunDetailTab } from "@/components/proof-layer/RunDetailTabs";
 import { formatCurrency, formatDuration, formatDateTime, formatPercent } from "@/components/proof-layer/format";
 import {
@@ -527,6 +528,7 @@ export default function RunDetailPage() {
   const tabs: RunDetailTab[] = [
     { key: "overview", label: "Overview", content: overviewTab },
     { key: "workflow", label: "Workflow", badge: runGraph.summary.totalStages || undefined, content: workflowTab },
+    { key: "forks", label: "Checkpoints & Forks", content: <ForkDebuggerPanel runId={run.run_id} /> },
     { key: "issues", label: "Issues", badge: issues.length || undefined, content: issuesTab },
     { key: "artifacts", label: "Artifacts", badge: artifactCount || undefined, content: artifactsTab },
     { key: "raw", label: "Raw Trace", badge: traceEvents.length || undefined, content: rawTraceTab },

@@ -42,13 +42,13 @@ describe("Reference Vertical Slice & Deterministic Offline Replay Proof", () => 
     // Step 0: Initial planning & tool selection
     const plan = await stepFn("planning", "model_call", async (stepId) => {
       lifecycle?.captureState?.({ phase: "planning", userInput }, { stepId, type: "INITIAL_STATE" });
-      lifecycle?.createCheckpoint?.({ stepId });
-
-      return deps.callModel({
+      const mRes = await deps.callModel({
         model: "claude-3-5-sonnet",
         prompt: `User query: "${userInput}". Decide next steps.`,
         tools: [{ name: "search_policy" }, { name: "get_customer_account" }],
       });
+      lifecycle?.createCheckpoint?.({ stepId });
+      return mRes;
     });
 
     // Step 1: Retrieval: Search refund policy + model reasoning
@@ -64,6 +64,7 @@ describe("Reference Vertical Slice & Deterministic Offline Replay Proof", () => 
       });
 
       lifecycle?.captureState?.({ phase: "retrieval", resultsCount: results.length }, { stepId });
+      lifecycle?.createCheckpoint?.({ stepId });
       return { retrievalResults: results, toolCallPlan: nextPlan };
     });
 
@@ -74,6 +75,7 @@ describe("Reference Vertical Slice & Deterministic Offline Replay Proof", () => 
         args: { customerId: "cus_1001" },
       });
       lifecycle?.captureState?.({ phase: "account_lookup", accountDetails: details }, { stepId });
+      lifecycle?.createCheckpoint?.({ stepId });
       return details;
     });
 

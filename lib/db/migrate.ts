@@ -91,14 +91,24 @@ async function runMigrations(): Promise<void> {
       approval_status     TEXT,
       artifact_refs       TEXT[] NOT NULL DEFAULT '{}',
       error_summary       TEXT,
+      parent_run_id       TEXT,
+      root_run_id         TEXT,
+      fork_checkpoint_id  TEXT,
+      experiment_id       TEXT,
       created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await sql.unsafe(`ALTER TABLE ap_runs ADD COLUMN IF NOT EXISTS parent_run_id TEXT`);
+  await sql.unsafe(`ALTER TABLE ap_runs ADD COLUMN IF NOT EXISTS root_run_id TEXT`);
+  await sql.unsafe(`ALTER TABLE ap_runs ADD COLUMN IF NOT EXISTS fork_checkpoint_id TEXT`);
+  await sql.unsafe(`ALTER TABLE ap_runs ADD COLUMN IF NOT EXISTS experiment_id TEXT`);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_runs_project_id_idx ON ap_runs(project_id)`);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_runs_workflow_id_idx ON ap_runs(workflow_id)`);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_runs_status_idx ON ap_runs(status)`);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_runs_started_at_idx ON ap_runs(started_at DESC)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_runs_parent_run_id_idx ON ap_runs(parent_run_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_runs_root_run_id_idx ON ap_runs(root_run_id)`);
 
   // ── Trace events ─────────────────────────────────────────────────────────────
   await sql.unsafe(`

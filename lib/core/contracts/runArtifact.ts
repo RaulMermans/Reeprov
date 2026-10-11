@@ -18,7 +18,7 @@ import { toolInvocationSchema } from "./tools";
 import { modelInvocationSchema } from "./models";
 import { artifactReferenceSchema } from "./artifacts";
 import { evalResultSchema } from "./evals";
-import { runLineageSchema, comparisonMetadataSchema } from "./lineage";
+import { runLineageSchema, comparisonMetadataSchema, checkpointReferenceSchema } from "./lineage";
 
 export const CANONICAL_RUN_ARTIFACT_SCHEMA_VERSION = "1.0.0-alpha";
 
@@ -134,6 +134,7 @@ export const runArtifactSchema = z.object({
   boundaries: z.array(executionBoundarySchema).default([]),
   external_calls: z.array(externalCallSchema).default([]),
   state: z.array(stateSnapshotSchema).default([]),
+  checkpoints: z.array(checkpointReferenceSchema).default([]),
   context: z.array(contextSnapshotSchema).default([]),
   memory: runMemoryBlockSchema.default({ operations: [], references: [] }),
   tools: z.array(toolInvocationSchema).default([]),

@@ -40,9 +40,20 @@ export function NodeDetailPanel({
           <h3 className="text-base font-semibold text-slate-950">{node.label}</h3>
           <p className="mt-1 text-sm text-slate-600">{node.description ?? "No description recorded."}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Badge tone="info">{node.type}</Badge>
           {node.permission_class ? <Badge tone="neutral">{node.permission_class}</Badge> : null}
+          <button
+            type="button"
+            className="rounded bg-teal-700 px-2.5 py-1 text-xs font-medium text-white hover:bg-teal-800 transition"
+            onClick={() => {
+              const tab = document.querySelector('[data-testid="run-tab-forks"]') as HTMLButtonElement | null;
+              if (tab) tab.click();
+            }}
+            data-testid={`node-fork-btn-${node.id}`}
+          >
+            Fork from here
+          </button>
         </div>
       </div>
 

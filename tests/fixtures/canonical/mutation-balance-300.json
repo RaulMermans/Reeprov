@@ -1,0 +1,20 @@
+[
+  {
+    "mutation_id": "mut_tool_balance_300",
+    "mutation_type": "tool_result_override",
+    "target_identifier": "get_customer_account",
+    "description": "Override customer account balance from 150 to 300",
+    "original_value": {
+      "customerId": "cus_1001",
+      "balance": 150,
+      "currency": "USD",
+      "status": "active"
+    },
+    "mutated_value": {
+      "customerId": "cus_1001",
+      "balance": 300,
+      "currency": "USD",
+      "status": "active"
+    }
+  }
+]

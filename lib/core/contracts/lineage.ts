@@ -7,9 +7,18 @@
 
 import { z } from "zod";
 
+export const checkpointPositionSchema = z.enum([
+  "BEFORE_STEP",
+  "AFTER_STEP",
+  "CUSTOM",
+]);
+
+export type CheckpointPosition = z.infer<typeof checkpointPositionSchema>;
+
 // ── Experiment Mutation Types ───────────────────────────────────────────────
 
 export const experimentMutationTypeSchema = z.enum([
+  "state_patch",               // Structured deterministic JSON state patch
   "model",                     // e.g. "gpt-4o" -> "claude-3-5-sonnet"
   "model_parameters",          // e.g. temperature, top_p, max_tokens
   "prompt",                    // e.g. prompt template version or system instruction change
@@ -47,8 +56,11 @@ export const checkpointReferenceSchema = z.object({
   checkpoint_id: z.string(),
   run_id: z.string().optional(),
   step_id: z.string(),
+  position: checkpointPositionSchema.default("AFTER_STEP"),
   state_snapshot_id: z.string().optional(),
   boundary_cursor: z.number().int().nonnegative().optional().default(0),
+  resume_step_index: z.number().int().nonnegative().optional(),
+  resume_step_id: z.string().optional(),
   created_at: z.string(),
   schema_version: z.string().optional().default("1.0.0-alpha"),
   state_hash: z.string().optional(),
@@ -65,6 +77,7 @@ export type CheckpointReference = z.infer<typeof checkpointReferenceSchema>;
 export const runLineageSchema = z.object({
   parent_run_id: z.string().optional(),
   root_run_id: z.string().optional(),
+  fork_checkpoint_id: z.string().optional(),
   fork_step_id: z.string().optional(),
   checkpoint_reference: checkpointReferenceSchema.optional(),
   experiment_id: z.string().optional(),

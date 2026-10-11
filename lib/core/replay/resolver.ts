@@ -53,16 +53,34 @@ function isEquivalentType(expected: BoundaryType, actual: BoundaryType): boolean
   return false;
 }
 
+export interface BoundaryResolverOptions {
+  strict?: boolean;
+  startCursor?: number;
+}
+
 export class BoundaryResolver {
   private readonly boundaries: ExecutionBoundary[];
   private cursor = 0;
+  private readonly startCursor: number;
   private substitutedCount = 0;
+  private forkSubstitutedCount = 0;
   private readonly strict: boolean;
 
-  constructor(source: RunArtifact | ExecutionBoundary[], options: { strict?: boolean } = {}) {
+  constructor(source: RunArtifact | ExecutionBoundary[], options: BoundaryResolverOptions = {}) {
     this.boundaries = Array.isArray(source) ? [...source] : [...source.boundaries];
     this.boundaries.sort((a, b) => (a.sequence_index ?? 0) - (b.sequence_index ?? 0));
     this.strict = options.strict !== false;
+
+    const start = options.startCursor ?? 0;
+    if (start < 0 || start > this.boundaries.length) {
+      throw new BoundaryResolutionError(
+        "ORDER_MISMATCH",
+        `INVALID_CURSOR: startCursor ${start} is out of range [0, ${this.boundaries.length}].`,
+        { startCursor: start, totalBoundaries: this.boundaries.length }
+      );
+    }
+    this.startCursor = start;
+    this.cursor = start;
   }
 
   /**
@@ -194,6 +212,7 @@ export class BoundaryResolver {
 
     this.cursor++;
     this.substitutedCount++;
+    this.forkSubstitutedCount++;
 
     return {
       output: outputContent,
@@ -227,7 +246,7 @@ export class BoundaryResolver {
     if (normReq.endsWith(`/${normRec}`) || normReq.endsWith(`:${normRec}`)) {
       return true;
     }
-    if (normRec.endsWith(`/${normReq}`) || normRec.endsWith(`:${normReq}`)) {
+    if (normRec.endsWith(`/${normReq}`) || normRec.endsWith(`:${normRec}`)) {
       return true;
     }
 
@@ -238,8 +257,20 @@ export class BoundaryResolver {
     return this.cursor;
   }
 
+  getStartCursor(): number {
+    return this.startCursor;
+  }
+
   getSubstitutedCount(): number {
     return this.substitutedCount;
+  }
+
+  getForkSubstitutedCount(): number {
+    return this.forkSubstitutedCount;
+  }
+
+  getHistoricalSubstitutedCount(): number {
+    return this.startCursor;
   }
 
   getTotalBoundaries(): number {

@@ -166,7 +166,9 @@ export async function saveCanonicalRun(artifact: RunArtifact): Promise<{ success
           run_id, project_id, workflow_id, project_name, status, summary,
           started_at, completed_at, total_cost_usd, total_duration_ms,
           model_calls_count, tool_calls_count, evals_passed, evals_failed,
-          approval_status, artifact_refs, error_summary, updated_at
+          approval_status, artifact_refs, error_summary,
+          parent_run_id, root_run_id, fork_checkpoint_id, experiment_id,
+          updated_at
         ) VALUES (
           ${runId},
           ${artifact.identity.project_id},
@@ -185,6 +187,10 @@ export async function saveCanonicalRun(artifact: RunArtifact): Promise<{ success
           ${artifact.safety.approval_status === "not_required" ? null : artifact.safety.approval_status},
           ${artifactRefs},
           ${artifact.execution.error?.message ?? null},
+          ${artifact.lineage?.parent_run_id ?? null},
+          ${artifact.lineage?.root_run_id ?? null},
+          ${artifact.lineage?.fork_checkpoint_id ?? null},
+          ${artifact.lineage?.experiment_id ?? null},
           ${now}
         )
         ON CONFLICT (run_id) DO UPDATE SET
@@ -200,6 +206,10 @@ export async function saveCanonicalRun(artifact: RunArtifact): Promise<{ success
           approval_status = EXCLUDED.approval_status,
           artifact_refs = EXCLUDED.artifact_refs,
           error_summary = EXCLUDED.error_summary,
+          parent_run_id = EXCLUDED.parent_run_id,
+          root_run_id = EXCLUDED.root_run_id,
+          fork_checkpoint_id = EXCLUDED.fork_checkpoint_id,
+          experiment_id = EXCLUDED.experiment_id,
           updated_at = EXCLUDED.updated_at
       `;
 

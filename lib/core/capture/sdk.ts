@@ -18,7 +18,7 @@ import type { ToolInvocation } from "../contracts/tools";
 import type { RetrievalOperation } from "../contracts/retrieval";
 import type { MemoryOperation } from "../contracts/memory";
 import type { ContextSnapshot } from "../contracts/context";
-import type { CheckpointReference } from "../contracts/lineage";
+import type { CheckpointReference, CheckpointPosition } from "../contracts/lineage";
 import { captureModelInvocation } from "./adapters/modelCapture";
 import { captureToolInvocation } from "./adapters/toolCapture";
 import { captureRetrievalOperation } from "./adapters/retrievalCapture";
@@ -207,7 +207,8 @@ export class CaptureSession {
       `step_${this.runId}_0`;
 
     const snapshotId = `state_${this.runId}_${this.stateSnapshots.length}`;
-    const hash = hashPayload(stateData);
+    const clonedState = structuredClone(stateData);
+    const hash = hashPayload(clonedState);
     const snapshotType =
       options?.type ??
       (this.stateSnapshots.length === 0 ? "INITIAL_STATE" : "STEP_STATE");
@@ -218,7 +219,7 @@ export class CaptureSession {
       snapshot_type: snapshotType,
       timestamp: new Date().toISOString(),
       state_scope: options?.scope ?? "workflow",
-      state_data: stateData,
+      state_data: clonedState,
       captured: true,
       hash,
       metadata: options?.metadata,
@@ -243,6 +244,10 @@ export class CaptureSession {
   createCheckpoint(options?: {
     stepId?: string;
     stateSnapshotId?: string;
+    position?: CheckpointPosition;
+    boundaryCursor?: number;
+    resumeStepIndex?: number;
+    resumeStepId?: string;
     metadata?: Record<string, unknown>;
   }): CheckpointReference {
     const checkpointId = `chk_${this.runId}_${this.checkpoints.length}`;
@@ -251,26 +256,113 @@ export class CaptureSession {
       this.activeStepStack[this.activeStepStack.length - 1]?.step_id ??
       `step_${this.runId}_0`;
 
-    const lastSnapshot = this.stateSnapshots[this.stateSnapshots.length - 1];
-    const effectiveSnapshotId = options?.stateSnapshotId ?? lastSnapshot?.snapshot_id;
-    const checkpointHash = lastSnapshot?.hash;
+    let targetSnapshot: StateSnapshot | undefined;
+    if (options?.stateSnapshotId) {
+      targetSnapshot = this.stateSnapshots.find((s) => s.snapshot_id === options.stateSnapshotId);
+      if (!targetSnapshot) {
+        throw new Error(
+          `Checkpoint snapshot '${options.stateSnapshotId}' not found. Cannot create checkpoint.`
+        );
+      }
+    } else {
+      targetSnapshot = this.stateSnapshots[this.stateSnapshots.length - 1];
+      if (!targetSnapshot) {
+        throw new Error("Cannot create checkpoint without at least one state snapshot.");
+      }
+    }
+
+    const computedHash = hashPayload(targetSnapshot.state_data);
+    const isRestorable =
+      !!targetSnapshot &&
+      !!targetSnapshot.state_data &&
+      (targetSnapshot.hash ? targetSnapshot.hash === computedHash : true);
+    const checkpointHash = targetSnapshot.hash ?? computedHash;
+
+    const position: CheckpointPosition = options?.position ?? "AFTER_STEP";
+    const boundaryCursor = options?.boundaryCursor ?? this.boundaries.length;
+
+    const stepRecord =
+      this.steps.find((s) => s.step_id === effectiveStepId) ??
+      this.activeStepStack.find((s) => s.step_id === effectiveStepId);
+    const currentStepIndex = stepRecord
+      ? stepRecord.step_index
+      : this.steps.length > 0
+        ? this.steps[this.steps.length - 1].step_index
+        : 0;
+
+    let resumeStepIndex: number;
+    let resumeStepId: string | undefined;
+
+    if (options?.resumeStepIndex !== undefined) {
+      resumeStepIndex = options.resumeStepIndex;
+      resumeStepId =
+        options.resumeStepId ?? this.steps.find((s) => s.step_index === resumeStepIndex)?.step_id;
+    } else if (position === "AFTER_STEP") {
+      resumeStepIndex = currentStepIndex + 1;
+      resumeStepId = this.steps.find((s) => s.step_index === resumeStepIndex)?.step_id;
+    } else if (position === "BEFORE_STEP") {
+      resumeStepIndex = currentStepIndex;
+      resumeStepId = effectiveStepId;
+    } else {
+      resumeStepIndex = currentStepIndex + 1;
+      resumeStepId = this.steps.find((s) => s.step_index === resumeStepIndex)?.step_id;
+    }
 
     const checkpoint: CheckpointReference = {
       checkpoint_id: checkpointId,
       run_id: this.runId,
       step_id: effectiveStepId,
-      state_snapshot_id: effectiveSnapshotId,
-      boundary_cursor: this.boundaries.length,
+      position,
+      state_snapshot_id: targetSnapshot.snapshot_id,
+      boundary_cursor: boundaryCursor,
+      resume_step_index: resumeStepIndex,
+      resume_step_id: resumeStepId,
       created_at: new Date().toISOString(),
       schema_version: CANONICAL_RUN_ARTIFACT_SCHEMA_VERSION,
       state_hash: checkpointHash,
       hash: checkpointHash,
-      restorable: true,
+      restorable: isRestorable,
       metadata: options?.metadata,
     };
 
     this.checkpoints.push(checkpoint);
     return checkpoint;
+  }
+
+  /**
+   * Atomic Checkpoint API:
+   * Clones and hashes state, captures a StateSnapshot, validates evidence,
+   * creates CheckpointReference bound to boundary cursor, and persists linkage.
+   */
+  checkpoint(
+    stateData: Record<string, unknown>,
+    options?: {
+      stepId?: string;
+      position?: CheckpointPosition;
+      label?: string;
+      scope?: StateScope;
+      type?: StateSnapshotType;
+      metadata?: Record<string, unknown>;
+    }
+  ): { snapshot: StateSnapshot; checkpoint: CheckpointReference } {
+    const snapshot = this.captureState(stateData, {
+      stepId: options?.stepId,
+      scope: options?.scope,
+      type: options?.type,
+      metadata: options?.metadata,
+    });
+
+    const checkpoint = this.createCheckpoint({
+      stepId: options?.stepId ?? snapshot.step_id,
+      stateSnapshotId: snapshot.snapshot_id,
+      position: options?.position ?? "AFTER_STEP",
+      metadata: {
+        ...(options?.metadata ?? {}),
+        ...(options?.label ? { label: options.label } : {}),
+      },
+    });
+
+    return { snapshot, checkpoint };
   }
 
   // ── Direct Boundary Capture ───────────────────────────────────────────────
@@ -610,6 +702,7 @@ export class CaptureSession {
       boundaries: this.boundaries,
       external_calls: [],
       state: this.stateSnapshots,
+      checkpoints: this.checkpoints,
       context: this.contexts,
       memory: {
         operations: this.memories,
