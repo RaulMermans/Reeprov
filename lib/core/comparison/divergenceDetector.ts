@@ -245,8 +245,13 @@ export function detectDivergences(input: DivergenceCollectionInput): {
       const divId = `div_ctx_${divCounter++}`;
       const matchedMutation = controlledMutations.find(
         (m) =>
-          (m.mutation_type === "context_inclusion" || m.mutation_type === "context_exclusion") &&
-          (m.target_identifier === cc.item_id || m.target_identifier === cc.source_type)
+          ((getMutType(m) === "context_inclusion" || getMutType(m) === "context_exclusion") &&
+            (m.target_identifier === cc.item_id || m.target_identifier === cc.source_type)) ||
+          ((getMutType(m) === "memory_inclusion" || getMutType(m) === "memory_exclusion") &&
+            (m.target_identifier === cc.item_id ||
+              cc.source_type === "retrieved_memory" ||
+              cc.item_id.includes(m.target_identifier) ||
+              m.target_identifier.includes(cc.item_id)))
       );
 
       let causalStatus: CausalStatus = "OBSERVED_DIFFERENCE";
@@ -303,6 +308,27 @@ export function detectDivergences(input: DivergenceCollectionInput): {
   if (memoryDiff) {
     for (const mc of memoryDiff.changes) {
       const divId = `div_mem_${divCounter++}`;
+      const matchedMutation = controlledMutations.find(
+        (m) =>
+          (m.mutation_type === "memory_exclusion" || m.mutation_type === "memory_inclusion") &&
+          (m.target_identifier === mc.memory_id || m.target_identifier.startsWith(`${mc.memory_id}:`))
+      );
+
+      let causalStatus: CausalStatus = "OBSERVED_DIFFERENCE";
+      let originMutationId: string | undefined;
+      let downstreamId: string | undefined;
+
+      if (matchedMutation) {
+        causalStatus = "CONTROLLED_MUTATION";
+        originMutationId = matchedMutation.mutation_id;
+        if (!initialMutationDivId) initialMutationDivId = divId;
+      } else if (initialMutationDivId) {
+        causalStatus = "CAUSALLY_SUPPORTED";
+        downstreamId = initialMutationDivId;
+      } else if (isFork) {
+        causalStatus = "PLAUSIBLE_CONTRIBUTOR";
+      }
+
       divergences.push({
         divergence_id: divId,
         dimension: "MEMORY",
@@ -311,8 +337,9 @@ export function detectDivergences(input: DivergenceCollectionInput): {
         confidence: 1.0,
         description: `Memory ${mc.change_type} on item '${mc.memory_id ?? "unknown"}'`,
         evidence_refs: ["memory"],
-        causal_status: initialMutationDivId ? "CAUSALLY_SUPPORTED" : isFork ? "PLAUSIBLE_CONTRIBUTOR" : "OBSERVED_DIFFERENCE",
-        downstream_of_divergence_id: initialMutationDivId,
+        causal_status: causalStatus,
+        origin_mutation_id: originMutationId,
+        downstream_of_divergence_id: downstreamId,
         is_meaningful: true,
       });
     }
@@ -459,6 +486,19 @@ export function detectDivergences(input: DivergenceCollectionInput): {
       downstream_of_divergence_id: initialMutationDivId,
       is_meaningful: true,
     });
+  }
+
+  // ── Causal Linking Pass for Controlled Forks ─────────────────────────────
+  const rootControlledDiv = divergences.find((d) => d.causal_status === "CONTROLLED_MUTATION");
+  if (rootControlledDiv && isFork) {
+    for (const d of divergences) {
+      if (d.divergence_id !== rootControlledDiv.divergence_id && d.causal_status !== "CONTROLLED_MUTATION") {
+        d.causal_status = "CAUSALLY_SUPPORTED";
+        if (!d.downstream_of_divergence_id) {
+          d.downstream_of_divergence_id = rootControlledDiv.divergence_id;
+        }
+      }
+    }
   }
 
   // ── First Structural vs First Meaningful Divergence ────────────────────────

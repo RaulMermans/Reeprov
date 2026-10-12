@@ -16,47 +16,71 @@ export function diffMemoryOperations(
 ): MemoryDiff {
   const changes: MemoryChange[] = [];
 
-  const maxLen = Math.max(baselineOps.length, candidateOps.length);
-  for (let i = 0; i < maxLen; i++) {
-    const b = baselineOps[i];
-    const c = candidateOps[i];
+  // Helper to extract a stable identity key for an operation
+  const getOpIdentityKey = (op: MemoryOperation, index: number): string => {
+    if (op.memory_id) return `mem:${op.memory_id}:${op.operation_type}`;
+    if (op.provider_record_id) return `prov:${op.provider_record_id}:${op.operation_type}`;
+    if (op.operation_id) return `op:${op.operation_id}`;
+    if (op.query) return `query:${op.query}:${op.operation_type}`;
+    if (op.source_provenance) return `src:${op.source_provenance}:${op.operation_type}`;
+    return `pos:${index}`;
+  };
 
-    if (!b && c) {
-      const isWrite = c.operation_type === "committed_write" || (c.operation_type as string) === "write";
+  const baseMap = new Map<string, MemoryOperation>();
+  const candMap = new Map<string, MemoryOperation>();
+
+  baselineOps.forEach((op, idx) => {
+    baseMap.set(getOpIdentityKey(op, idx), op);
+  });
+  candidateOps.forEach((op, idx) => {
+    candMap.set(getOpIdentityKey(op, idx), op);
+  });
+
+  // Check added & changed
+  for (const [key, c] of candMap.entries()) {
+    const b = baseMap.get(key);
+    const isWrite = c.operation_type === "committed_write" || (c.operation_type as string) === "write";
+
+    if (!b) {
       changes.push({
         memory_id: c.memory_id,
         operation: isWrite ? "write" : "read",
         change_type: isWrite ? "MEMORY_WRITE_CHANGED" : "MEMORY_RETRIEVAL_CHANGED",
-        details: { action: "added_in_candidate", type: c.operation_type },
+        details: { action: "added_in_candidate", type: c.operation_type, provider: c.provider, score: c.score },
       });
-      continue;
-    }
+    } else {
+      const typeMismatch = b.operation_type !== c.operation_type;
+      const versionMismatch = b.version !== c.version;
+      const scoreDiff = b.score !== undefined && c.score !== undefined && Math.abs(b.score - c.score) > 0.001;
 
-    if (b && !c) {
+      if (typeMismatch || versionMismatch || scoreDiff) {
+        changes.push({
+          memory_id: c.memory_id ?? b.memory_id,
+          operation: isWrite ? "write" : "read",
+          change_type: "MEMORY_RETRIEVAL_CHANGED",
+          details: {
+            baseline_op: b.operation_type,
+            candidate_op: c.operation_type,
+            baseline_version: b.version,
+            candidate_version: c.version,
+            baseline_score: b.score,
+            candidate_score: c.score,
+          },
+        });
+      }
+    }
+  }
+
+  // Check missing from candidate
+  for (const [key, b] of baseMap.entries()) {
+    if (!candMap.has(key)) {
       const isWrite = b.operation_type === "committed_write" || (b.operation_type as string) === "write";
       changes.push({
         memory_id: b.memory_id,
         operation: isWrite ? "write" : "read",
         change_type: isWrite ? "MEMORY_WRITE_CHANGED" : "MEMORY_RETRIEVAL_CHANGED",
-        details: { action: "missing_in_candidate", type: b.operation_type },
+        details: { action: "missing_in_candidate", type: b.operation_type, provider: b.provider, score: b.score },
       });
-      continue;
-    }
-
-    if (b && c) {
-      if (b.operation_type !== c.operation_type || b.memory_id !== c.memory_id) {
-        changes.push({
-          memory_id: c.memory_id ?? b.memory_id,
-          operation: c.operation_type === "committed_write" ? "write" : "read",
-          change_type: "MEMORY_RETRIEVAL_CHANGED",
-          details: {
-            baseline_op: b.operation_type,
-            candidate_op: c.operation_type,
-            baseline_id: b.memory_id,
-            candidate_id: c.memory_id,
-          },
-        });
-      }
     }
   }
 

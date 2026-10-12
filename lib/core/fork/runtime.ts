@@ -47,11 +47,21 @@ import {
 } from "./hostAdapter";
 import type { ExecutionStep, StateSnapshot } from "../contracts/execution";
 import type { ExecutionBoundary } from "../contracts/replay";
+import type { ContextSnapshot, ContextItem } from "../contracts/context";
+import type { MemoryOperation, MemoryReference } from "../contracts/memory";
 
 export interface ForkRuntimeOptions {
   forkId?: string;
   mutations?: ExperimentMutation[];
   hostAdapter?: ResumableHostAdapter;
+  candidateModelHandler?: (input: {
+    model: string;
+    provider?: string;
+    prompt: string;
+    tools?: unknown[];
+    contextSnapshot?: ContextSnapshot;
+    [key: string]: unknown;
+  }) => Promise<unknown>;
   executeLogic?: (
     adapter: ResumableHostAdapter,
     params: {
@@ -295,6 +305,93 @@ export class ForkRuntime {
     };
     childSnapshots.push(initialChildSnapshot);
 
+    // Build candidate context snapshots if context or memory ablation was applied
+    const hasContextAblation =
+      (appliedMutationResult.excludedContextItemIds?.size ?? 0) > 0 ||
+      (appliedMutationResult.excludedSourceTypes?.size ?? 0) > 0;
+    const hasMemoryAblation = (appliedMutationResult.excludedMemoryIds?.size ?? 0) > 0;
+    const hasAblation = hasContextAblation || hasMemoryAblation;
+
+    const childContextSnapshots: ContextSnapshot[] = [];
+    for (const snap of this.sourceRun.context ?? []) {
+      const candidateItems: ContextItem[] = [];
+      let removedAny = false;
+
+      for (const item of snap.items) {
+        let exclude = false;
+        if (appliedMutationResult.excludedContextItemIds?.has(item.item_id)) {
+          exclude = true;
+        }
+        if (appliedMutationResult.excludedSourceTypes?.has(item.source_type)) {
+          exclude = true;
+        }
+        if (hasMemoryAblation) {
+          const memId =
+            item.provenance?.document_id ||
+            item.source_reference ||
+            (item.metadata?.["memory_id"] as string);
+          if (memId && appliedMutationResult.excludedMemoryIds?.has(memId)) {
+            exclude = true;
+          }
+        }
+
+        if (exclude) {
+          removedAny = true;
+        } else {
+          candidateItems.push(item);
+        }
+      }
+
+      if (removedAny) {
+        let totalTokens = 0;
+        const reindexedItems = candidateItems.map((it, idx) => {
+          const tokens = it.token_estimate ?? 0;
+          totalTokens += tokens;
+          return {
+            ...it,
+            position: idx,
+          };
+        });
+
+        childContextSnapshots.push({
+          ...snap,
+          snapshot_id: `${snap.snapshot_id}_candidate`,
+          items: reindexedItems,
+          total_token_estimate: totalTokens,
+          total_token_measurement: {
+            value: totalTokens,
+            method: snap.total_token_measurement?.method ?? "ESTIMATED",
+          },
+        });
+      } else {
+        childContextSnapshots.push(structuredClone(snap));
+      }
+    }
+
+    // Build candidate memory operations & references
+    const childMemoryOps: MemoryOperation[] = [];
+    for (const op of this.sourceRun.memory?.operations ?? []) {
+      if (hasMemoryAblation && op.memory_id && appliedMutationResult.excludedMemoryIds?.has(op.memory_id)) {
+        continue;
+      }
+      childMemoryOps.push(structuredClone(op));
+    }
+    const childMemoryRefs: MemoryReference[] = (this.sourceRun.memory?.references ?? []).filter((r) => {
+      return !hasMemoryAblation || !appliedMutationResult.excludedMemoryIds?.has(r.memory_id);
+    });
+
+    const childRetrieval = (this.sourceRun.retrieval ?? []).map((ret) => {
+      if (!hasMemoryAblation) return structuredClone(ret);
+      const filteredResults = (ret.results ?? []).filter((res) => {
+        return !appliedMutationResult.excludedMemoryIds?.has(res.document_id);
+      });
+      return {
+        ...structuredClone(ret),
+        results: filteredResults,
+        results_count: filteredResults.length,
+      };
+    });
+
     const dependencies = {
       callModel: async <R = unknown>(input: {
         model: string;
@@ -311,6 +408,50 @@ export class ForkRuntime {
           prompt: input.prompt,
           tools: input.tools,
         };
+
+        // If an ablation was applied, model input has changed.
+        // Baseline recorded model output is no longer valid.
+        // Require SANDBOXED_CANDIDATE execution handler.
+        if (hasAblation || this.options.candidateModelHandler) {
+          if (this.options.candidateModelHandler) {
+            const latestContext = childContextSnapshots[childContextSnapshots.length - 1];
+            const candidateOutput = await this.options.candidateModelHandler({
+              ...input,
+              contextSnapshot: latestContext,
+            });
+
+            const candidateBoundary: ExecutionBoundary = {
+              boundary_id: `bnd_${forkId}_model_${childBoundaries.length}`,
+              boundary_type: "model_call",
+              name: `${provider}/${input.model}`,
+              dependency_identity: dependencyIdentity,
+              input: {
+                captured: true,
+                redaction_status: "none",
+                content: boundaryInput,
+              },
+              output: {
+                captured: true,
+                redaction_status: "none",
+                content: candidateOutput,
+              },
+              status: "completed",
+              timestamp: new Date().toISOString(),
+              replayability: "REPLAYABLE_SANDBOXED",
+              side_effect_class: "read_only",
+              idempotency: { is_idempotent: false },
+              captured_content_availability: "CAPTURED",
+              redaction_status: "none",
+            };
+            childBoundaries.push(candidateBoundary);
+            emitEvent("fork.boundary.recorded", { boundaryId: candidateBoundary.boundary_id, name: candidateBoundary.name });
+            return candidateOutput as R;
+          }
+
+          throw new Error(
+            `ABLATION_REQUIRES_CANDIDATE_MODEL: Model input changed due to context/memory ablation. Baseline recorded model output cannot be reused. SANDBOXED_CANDIDATE execution handler required.`
+          );
+        }
 
         const res = await resolver.resolve({
           expectedType: "model_call",
@@ -364,6 +505,14 @@ export class ForkRuntime {
         emitEvent("fork.boundary.recorded", { boundaryId: res.boundary.boundary_id, name: res.boundary.name });
         childBoundaries.push(res.boundary);
         const outputAny = res.output as { results?: R } | R;
+        if (hasMemoryAblation && outputAny && typeof outputAny === "object") {
+          if ("results" in outputAny && Array.isArray((outputAny as any).results)) {
+            const filtered = (outputAny as any).results.filter(
+              (item: any) => !appliedMutationResult.excludedMemoryIds?.has(item.memory_id || item.document_id || item.id)
+            );
+            return filtered as R;
+          }
+        }
         if (outputAny && typeof outputAny === "object" && "results" in outputAny) {
           return outputAny.results as R;
         }
@@ -582,11 +731,11 @@ export class ForkRuntime {
       boundaries: childBoundaries,
       external_calls: [],
       state: childSnapshots,
-      checkpoints: [],
-      context: [],
-      memory: { operations: [], references: [] },
+      context: childContextSnapshots,
+      memory: { operations: childMemoryOps, references: childMemoryRefs },
       tools: [],
-      retrieval: [],
+      checkpoints: this.sourceRun.checkpoints ?? [],
+      retrieval: childRetrieval,
       models: [],
       artifacts: [],
       evals: [],
@@ -613,9 +762,9 @@ export class ForkRuntime {
         evals_passed: 0,
         evals_failed: 0,
         trace_event_count: childSteps.length,
-        context_snapshot_count: 0,
-        memory_operations_count: 0,
-        retrieval_operations_count: 0,
+        context_snapshot_count: childContextSnapshots.length,
+        memory_operations_count: childMemoryOps.length,
+        retrieval_operations_count: childRetrieval.length,
       },
       replay: {
         overall_replayability: "REPLAYABLE_RECORDED",

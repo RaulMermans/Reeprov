@@ -35,6 +35,9 @@ export interface AppliedMutationsResult {
   toolOverrides: Map<string, unknown>;
   modelOverrides: Map<string, unknown>;
   promptOverrides: Map<string, string>;
+  excludedContextItemIds: Set<string>;
+  excludedMemoryIds: Set<string>;
+  excludedSourceTypes: Set<string>;
 }
 
 export class MutationApplier {
@@ -47,6 +50,9 @@ export class MutationApplier {
     const toolOverrides = new Map<string, unknown>();
     const modelOverrides = new Map<string, unknown>();
     const promptOverrides = new Map<string, string>();
+    const excludedContextItemIds = new Set<string>();
+    const excludedMemoryIds = new Set<string>();
+    const excludedSourceTypes = new Set<string>();
 
     for (const mutation of mutations) {
       const originalHash = mutation.original_value !== undefined ? hashPayload(mutation.original_value) : undefined;
@@ -164,8 +170,48 @@ export class MutationApplier {
           break;
         }
 
+        case "context_exclusion": {
+          const target = mutation.target_identifier;
+          if (target.startsWith("source_type:")) {
+            excludedSourceTypes.add(target.replace(/^source_type:/, ""));
+          } else {
+            excludedContextItemIds.add(target);
+          }
+
+          appliedRecords.push({
+            mutation_id: mutation.mutation_id,
+            mutation_type: "context_exclusion",
+            target_identifier: mutation.target_identifier,
+            description: mutation.description,
+            original_value: mutation.original_value,
+            original_hash: originalHash,
+            mutated_value: mutation.mutated_value ?? { excluded: true, target_identifier: target },
+            mutated_hash: mutatedHash,
+            status: "APPLIED",
+          });
+          break;
+        }
+
+        case "memory_exclusion": {
+          const target = mutation.target_identifier;
+          excludedMemoryIds.add(target);
+
+          appliedRecords.push({
+            mutation_id: mutation.mutation_id,
+            mutation_type: "memory_exclusion",
+            target_identifier: mutation.target_identifier,
+            description: mutation.description,
+            original_value: mutation.original_value,
+            original_hash: originalHash,
+            mutated_value: mutation.mutated_value ?? { excluded: true, memory_id: target },
+            mutated_hash: mutatedHash,
+            status: "APPLIED",
+          });
+          break;
+        }
+
         default: {
-          const errMsg = `Unsupported mutation type '${mutation.mutation_type}'. Only 'state_patch', 'tool_result_override', 'model_parameters', and 'prompt' are supported.`;
+          const errMsg = `Unsupported mutation type '${mutation.mutation_type}'. Supported types: 'state_patch', 'tool_result_override', 'model_parameters', 'prompt', 'context_exclusion', 'memory_exclusion'.`;
           appliedRecords.push({
             mutation_id: mutation.mutation_id,
             mutation_type: mutation.mutation_type,
@@ -192,6 +238,9 @@ export class MutationApplier {
       toolOverrides,
       modelOverrides,
       promptOverrides,
+      excludedContextItemIds,
+      excludedMemoryIds,
+      excludedSourceTypes,
     };
   }
 }

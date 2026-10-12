@@ -1,0 +1,287 @@
+{
+  "schema_version": "1.0.0-alpha",
+  "identity": {
+    "run_id": "run_mem_ablation_baseline",
+    "project_id": "proj_concise_assistant",
+    "project_name": "Concise Assistant",
+    "workflow_id": "wf_account_inquiry",
+    "created_at": "2026-10-11T13:00:00.000Z"
+  },
+  "execution": {
+    "status": "completed",
+    "started_at": "2026-10-11T13:00:00.000Z",
+    "completed_at": "2026-10-11T13:00:02.800Z",
+    "duration_ms": 2800,
+    "summary": "Recalled user conciseness preference and replied with concise account status."
+  },
+  "environment": {
+    "runtime": "node",
+    "sdk_version": "1.0.0"
+  },
+  "trajectory": [
+    {
+      "step_id": "step_mem_init",
+      "step_index": 0,
+      "step_type": "node",
+      "name": "Initialize Inquiry",
+      "started_at": "2026-10-11T13:00:00.000Z",
+      "completed_at": "2026-10-11T13:00:00.100Z",
+      "status": "completed",
+      "state_snapshot_id": "state_mem_init",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": ["mem_op_read_concise"],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": []
+    },
+    {
+      "step_id": "step_mem_decision",
+      "step_index": 1,
+      "step_type": "model_call",
+      "name": "Generate Account Status Response",
+      "started_at": "2026-10-11T13:00:00.100Z",
+      "completed_at": "2026-10-11T13:00:02.500Z",
+      "status": "completed",
+      "context_snapshot_id": "ctx_snap_mem_01",
+      "state_snapshot_id": "state_mem_final",
+      "boundary_ids": ["bnd_model_mem_call"],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": ["mod_call_mem_01"],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "output_summary": "Your account cus_77 is active with a balance of 120 USD."
+    }
+  ],
+  "boundaries": [
+    {
+      "boundary_id": "bnd_model_mem_call",
+      "step_id": "step_mem_decision",
+      "boundary_type": "model_call",
+      "name": "anthropic/claude-3-5-sonnet",
+      "dependency_identity": "anthropic:claude-3-5-sonnet",
+      "input": {
+        "captured": true,
+        "content": "{\"model\": \"claude-3-5-sonnet\", \"prompt\": \"Respond to user inquiry using injected preference and account details\", \"tools\": []}",
+        "redaction_status": "none"
+      },
+      "output": {
+        "captured": true,
+        "content": "{\"text\": \"Your account cus_77 is active with a balance of 120 USD.\"}",
+        "redaction_status": "none"
+      },
+      "status": "completed",
+      "timestamp": "2026-10-11T13:00:00.100Z",
+      "replayability": "REPLAYABLE_RECORDED",
+      "deterministic": true
+    }
+  ],
+  "external_calls": [],
+  "state": [
+    {
+      "snapshot_id": "state_mem_init",
+      "step_id": "step_mem_init",
+      "snapshot_type": "INITIAL_STATE",
+      "timestamp": "2026-10-11T13:00:00.000Z",
+      "state_scope": "workflow",
+      "state_data": { "customer_id": "cus_77", "inquiry": "What is my account status and balance?" },
+      "captured": true,
+      "hash": "sha256:b087d19973573aeb4a148e5db8ec5a7668dc0c1089328c2e0bc87e9f7a96221e"
+    },
+    {
+      "snapshot_id": "state_mem_final",
+      "step_id": "step_mem_decision",
+      "snapshot_type": "FINAL_STATE",
+      "timestamp": "2026-10-11T13:00:02.500Z",
+      "state_scope": "workflow",
+      "state_data": { "customer_id": "cus_77", "response": "Your account cus_77 is active with a balance of 120 USD." },
+      "captured": true,
+      "hash": "sha256:state_mem_final_hash"
+    }
+  ],
+  "checkpoints": [
+    {
+      "checkpoint_id": "chk_mem_decision_01",
+      "run_id": "run_mem_ablation_baseline",
+      "step_id": "step_mem_init",
+      "position": "AFTER_STEP",
+      "state_snapshot_id": "state_mem_init",
+      "boundary_cursor": 0,
+      "resume_step_index": 1,
+      "created_at": "2026-10-11T13:00:00.100Z",
+      "schema_version": "1.0.0-alpha",
+      "state_hash": "sha256:b087d19973573aeb4a148e5db8ec5a7668dc0c1089328c2e0bc87e9f7a96221e",
+      "restorable": true
+    }
+  ],
+  "context": [
+    {
+      "snapshot_id": "ctx_snap_mem_01",
+      "step_id": "step_mem_decision",
+      "model_invocation_id": "mod_call_mem_01",
+      "timestamp": "2026-10-11T13:00:00.100Z",
+      "total_token_estimate": 680,
+      "total_token_measurement": {
+        "value": 680,
+        "method": "TOKENIZER_COUNTED"
+      },
+      "items": [
+        {
+          "item_id": "ctx_item_sys_instructions",
+          "source_type": "system_policy",
+          "source_reference": "policy://default_assistant",
+          "position": 0,
+          "token_estimate": 200,
+          "token_measurement": { "value": 200, "method": "TOKENIZER_COUNTED" },
+          "content_captured": true,
+          "content": "You are an AI customer assistant. Provide accurate account information.",
+          "content_hash": "sha256:hash_sys_inst",
+          "availability": "CAPTURED",
+          "provenance": { "source_system": "system", "version": "1.0" }
+        },
+        {
+          "item_id": "ctx_item_user_prompt",
+          "source_type": "user_input",
+          "source_reference": "user://inbound_77",
+          "position": 1,
+          "token_estimate": 100,
+          "token_measurement": { "value": 100, "method": "TOKENIZER_COUNTED" },
+          "content_captured": true,
+          "content": "Customer: What is my account status and balance?",
+          "content_hash": "sha256:hash_inbound_prompt",
+          "availability": "CAPTURED",
+          "provenance": { "source_system": "chat", "uri": "session://77" }
+        },
+        {
+          "item_id": "ctx_item_memory_concise",
+          "source_type": "retrieved_memory",
+          "source_reference": "mem0://mem_concise_01",
+          "position": 2,
+          "token_estimate": 80,
+          "token_measurement": { "value": 80, "method": "TOKENIZER_COUNTED" },
+          "content_captured": true,
+          "content": "Customer preference: prefers concise and direct answers without preamble.",
+          "content_hash": "sha256:hash_mem_concise",
+          "availability": "CAPTURED",
+          "version": "v1.0",
+          "retrieval_score": 0.96,
+          "provenance": {
+            "source_system": "mem0",
+            "document_id": "mem_concise_01",
+            "version": "v1.0",
+            "retrieval_query": "user communication style preference",
+            "retrieval_score": 0.96
+          }
+        },
+        {
+          "item_id": "ctx_item_account_data",
+          "source_type": "run_state",
+          "source_reference": "db://account_table",
+          "position": 3,
+          "token_estimate": 300,
+          "token_measurement": { "value": 300, "method": "TOKENIZER_COUNTED" },
+          "content_captured": true,
+          "content": "Account cus_77: status=active, balance=120.00 USD, tier=gold, since=2024-01-15.",
+          "content_hash": "sha256:hash_account_data",
+          "availability": "CAPTURED",
+          "provenance": { "source_system": "postgres", "uri": "db://accounts/cus_77" }
+        }
+      ]
+    }
+  ],
+  "memory": {
+    "operations": [
+      {
+        "operation_id": "mem_op_read_concise",
+        "step_id": "step_mem_init",
+        "operation_type": "retrieval",
+        "memory_id": "mem_concise_01",
+        "memory_type": "procedural",
+        "provider": "mem0",
+        "query": "user communication preference",
+        "score": 0.96,
+        "rank": 1,
+        "version": "v1.0",
+        "timestamps": {
+          "created_at": "2026-10-01T10:00:00.000Z",
+          "operation_at": "2026-10-11T13:00:00.050Z"
+        },
+        "outcome": "success",
+        "context_injection_linkage": {
+          "context_item_id": "ctx_item_memory_concise",
+          "context_snapshot_id": "ctx_snap_mem_01"
+        }
+      }
+    ],
+    "references": [
+      {
+        "memory_id": "mem_concise_01",
+        "category": "procedural",
+        "version": "v1.0",
+        "summary": "Customer prefers concise and direct answers"
+      }
+    ]
+  },
+  "tools": [],
+  "retrieval": [],
+  "models": [],
+  "artifacts": [],
+  "evals": [],
+  "lineage": {
+    "mutations": []
+  },
+  "provenance": {
+    "capture_method": "sdk_trace",
+    "adapter_version": "1.0.0",
+    "captured_by": "AgentPulseTest",
+    "redaction_verified": true
+  },
+  "safety": {
+    "approval_status": "not_required",
+    "approval_records": [],
+    "redaction_summary": { "total_redactions": 0, "secrets_detected": 0, "fields_redacted": [] }
+  },
+  "observability": {
+    "total_duration_ms": 2800,
+    "model_calls_count": 1,
+    "tool_calls_count": 0,
+    "evals_passed": 1,
+    "evals_failed": 0,
+    "trace_event_count": 2,
+    "context_snapshot_count": 1,
+    "memory_operations_count": 1,
+    "retrieval_operations_count": 0
+  },
+  "replay": {
+    "overall_replayability": "REPLAYABLE_RECORDED",
+    "unsupported_boundaries_count": 0,
+    "side_effect_gated_count": 0,
+    "deterministic": true,
+    "sandboxed_available": true,
+    "missing_recordings": [],
+    "notes": []
+  },
+  "evidence": {
+    "verification_events": [],
+    "test_results": [
+      {
+        "test_id": "test_conciseness",
+        "run_id": "run_mem_ablation_baseline",
+        "suite": "evals",
+        "name": "Conciseness Eval",
+        "status": "PASSED"
+      }
+    ],
+    "review_results": [],
+    "approval_events": [],
+    "security_events": [],
+    "final_outcome": {
+      "status": "SUCCESS",
+      "verification_status": "PASS",
+      "completed_at": "2026-10-11T13:00:02.800Z"
+    }
+  }
+}

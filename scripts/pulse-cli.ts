@@ -20,6 +20,12 @@ import { computeEvidenceCompleteness, type EvidencePolicy } from "../lib/core/co
 import { diffConfiguration } from "../lib/core/contracts/configuration";
 import { compareRuns, saveRunComparison } from "../lib/core/comparison";
 import { comparisonPolicySchema, type ComparisonPolicy } from "../lib/core/contracts/comparison";
+import { analyzeRunContext } from "../lib/core/intelligence/contextAnalyzer";
+import { analyzeRunMemory } from "../lib/core/intelligence/memoryAnalyzer";
+import {
+  saveContextIntelligenceReport,
+  saveMemoryIntelligenceReport,
+} from "../lib/core/intelligence/persistence";
 
 export interface DiffCliOptions {
   command: "diff";
@@ -54,6 +60,33 @@ export interface ForkCliOptions {
   json: boolean;
 }
 
+export interface ContextCliOptions {
+  command: "context";
+  runIdOrPath: string;
+  stepId?: string;
+  snapshotId?: string;
+  signals: boolean;
+  json: boolean;
+}
+
+export interface MemoryCliOptions {
+  command: "memory";
+  runIdOrPath: string;
+  memoryId?: string;
+  timeline: boolean;
+  signals: boolean;
+  json: boolean;
+}
+
+export interface AblateCliOptions {
+  command: "ablate";
+  runIdOrPath: string;
+  checkpointId: string;
+  contextItemId?: string;
+  memoryId?: string;
+  json: boolean;
+}
+
 export interface EvidenceCliOptions {
   command: "evidence";
   runIdOrPath: string;
@@ -78,6 +111,9 @@ export type CliCommandOptions =
   | ReplayCliOptions
   | CheckpointsCliOptions
   | ForkCliOptions
+  | ContextCliOptions
+  | MemoryCliOptions
+  | AblateCliOptions
   | EvidenceCliOptions
   | ConfigCliOptions
   | ConfigDiffCliOptions
@@ -138,6 +174,73 @@ export function parseArgs(args: string[]): CliCommandOptions | null {
 
     if (!checkpointId) return null;
     return { command: "fork", runIdOrPath, checkpointId, mutationsPath, json };
+  }
+
+  if (args.includes("context")) {
+    const idx = args.indexOf("context");
+    const runIdOrPath = args[idx + 1];
+    if (!runIdOrPath) return null;
+    const json = args.includes("--json");
+    const signals = args.includes("--signals");
+    let stepId: string | undefined;
+    let snapshotId: string | undefined;
+
+    for (let i = idx + 2; i < args.length; i++) {
+      if (args[i] === "--step" && args[i + 1]) {
+        stepId = args[i + 1];
+        i++;
+      } else if (args[i] === "--snapshot" && args[i + 1]) {
+        snapshotId = args[i + 1];
+        i++;
+      }
+    }
+
+    return { command: "context", runIdOrPath, stepId, snapshotId, signals, json };
+  }
+
+  if (args.includes("memory")) {
+    const idx = args.indexOf("memory");
+    const runIdOrPath = args[idx + 1];
+    if (!runIdOrPath) return null;
+    const json = args.includes("--json");
+    const timeline = args.includes("--timeline");
+    const signals = args.includes("--signals");
+    let memoryId: string | undefined;
+
+    for (let i = idx + 2; i < args.length; i++) {
+      if (args[i] === "--memory" && args[i + 1]) {
+        memoryId = args[i + 1];
+        i++;
+      }
+    }
+
+    return { command: "memory", runIdOrPath, memoryId, timeline, signals, json };
+  }
+
+  if (args.includes("ablate")) {
+    const idx = args.indexOf("ablate");
+    const runIdOrPath = args[idx + 1];
+    if (!runIdOrPath) return null;
+    let checkpointId = "";
+    let contextItemId: string | undefined;
+    let memoryId: string | undefined;
+    const json = args.includes("--json");
+
+    for (let i = idx + 2; i < args.length; i++) {
+      if (args[i] === "--checkpoint" && args[i + 1]) {
+        checkpointId = args[i + 1]!;
+        i++;
+      } else if (args[i] === "--context-item" && args[i + 1]) {
+        contextItemId = args[i + 1];
+        i++;
+      } else if (args[i] === "--memory" && args[i + 1]) {
+        memoryId = args[i + 1];
+        i++;
+      }
+    }
+
+    if (!checkpointId || (!contextItemId && !memoryId)) return null;
+    return { command: "ablate", runIdOrPath, checkpointId, contextItemId, memoryId, json };
   }
 
   const replayIdx = args.indexOf("replay");
@@ -239,6 +342,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
     pulse evidence <run-id|file-path> [--policy <file>] [--json]
     pulse config <run-id|file-path> [--json]
     pulse config-diff <run-a> <run-b> [--json]
+    pulse context <run-id|file-path> [--step <id>] [--snapshot <id>] [--signals] [--json]
+    pulse memory <run-id|file-path> [--memory <id>] [--timeline] [--signals] [--json]
+    pulse ablate <run-id|file-path> --checkpoint <checkpoint-id> [--context-item <id>] [--memory <id>] [--json]
     pulse checkpoints <run-id|file-path> [--json]
     pulse fork <run-id|file-path> --checkpoint <checkpoint-id> [--mutations <file>] [--json]
     pulse replay <run-id|file-path> [options]
@@ -661,6 +767,214 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(`========================================================================\n`);
       }
       return 0;
+    }
+
+    if (options.command === "context") {
+      const report = analyzeRunContext(artifact);
+      await saveContextIntelligenceReport(report);
+
+      let snapshotsToDisplay = report.snapshots;
+      if (options.stepId) {
+        snapshotsToDisplay = snapshotsToDisplay.filter((s) => s.step_id === options.stepId);
+      }
+      if (options.snapshotId) {
+        snapshotsToDisplay = snapshotsToDisplay.filter((s) => s.snapshot_id === options.snapshotId);
+      }
+
+      if (options.json) {
+        console.log(
+          JSON.stringify(
+            {
+              report_id: report.report_id,
+              run_id: report.run_id,
+              run_summary: report.run_summary,
+              snapshots: snapshotsToDisplay,
+              signals: options.signals ? report.signals : report.signals.slice(0, 5),
+              ablation_candidates: report.ablation_candidates,
+            },
+            null,
+            2
+          )
+        );
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Context Intelligence: ${artifact.identity.run_id}`);
+        console.log(`========================================================================`);
+        console.log(`Decisions Analyzed:        ${report.run_summary.total_decisions}`);
+        console.log(`Total Context Tokens:      ${report.run_summary.total_context_tokens.toLocaleString()}`);
+        console.log(`Exact Repeated Tokens:     ${report.run_summary.exact_repeated_tokens.toLocaleString()}`);
+        console.log(`Tool Definition Tokens:    ${report.run_summary.tool_definition_tokens.toLocaleString()}`);
+        console.log(
+          `Retrieved Docs Admitted:   ${report.run_summary.retrieved_docs_admitted_count} / ${report.run_summary.retrieved_docs_total_count} (${(report.run_summary.retrieved_docs_admission_rate * 100).toFixed(1)}%)`
+        );
+        console.log(`Memory Items Injected:     ${report.run_summary.memory_items_injected_count}`);
+        console.log(`Provenance Coverage:       ${(report.run_summary.provenance_coverage_ratio * 100).toFixed(1)}%`);
+        console.log(`Exact Duplicates:          ${report.run_summary.exact_duplicates_count}`);
+        console.log(`Provenance Gaps:           ${report.run_summary.provenance_gaps_count}`);
+
+        for (const snap of snapshotsToDisplay) {
+          console.log(`\n--- Decision Snapshot: ${snap.snapshot_id} (Step: ${snap.step_id ?? "n/a"}) ---`);
+          console.log(
+            `Total Tokens: ${snap.composition.total_tokens.toLocaleString()} | Quality: ${snap.measurement_quality.exact_measured_percentage}% measured, ${snap.measurement_quality.estimated_percentage}% estimated`
+          );
+          console.log(`Composition by Source:`);
+          for (const s of snap.composition.by_source_type) {
+            console.log(`  - ${s.source_type.padEnd(30)}: ${s.tokens.toString().padStart(6)} tokens (${s.percentage}%)`);
+          }
+        }
+
+        if (options.signals || report.signals.length > 0) {
+          console.log(`\nDiagnostic Signals (${report.signals.length}):`);
+          for (const sig of report.signals) {
+            const badge = sig.severity === "CRITICAL" ? "🔴" : sig.severity === "WARNING" ? "⚠️" : "ℹ️";
+            console.log(`  ${badge} [${sig.code}] ${sig.bounded_finding}`);
+          }
+        }
+
+        if (report.ablation_candidates.length > 0) {
+          console.log(`\nAblation Candidates (${report.ablation_candidates.length}):`);
+          for (const cand of report.ablation_candidates) {
+            console.log(
+              `  - [Candidate] ${cand.item_id} (${cand.source_type}): ${cand.rationale} (Est. savings: ${cand.token_savings_estimate} tokens)`
+            );
+          }
+        }
+        console.log(`========================================================================\n`);
+      }
+      return 0;
+    }
+
+    if (options.command === "memory") {
+      const report = analyzeRunMemory(artifact);
+      await saveMemoryIntelligenceReport(report);
+
+      let injectionsToDisplay = report.injections;
+      let lifecyclesToDisplay = report.lifecycles;
+      if (options.memoryId) {
+        injectionsToDisplay = injectionsToDisplay.filter((i) => i.memory_id === options.memoryId);
+        lifecyclesToDisplay = lifecyclesToDisplay.filter((l) => l.memory_id === options.memoryId);
+      }
+
+      if (options.json) {
+        console.log(
+          JSON.stringify(
+            {
+              report_id: report.report_id,
+              run_id: report.run_id,
+              operations_summary: report.operations_summary,
+              retrieval_summary: report.retrieval_summary,
+              lifecycles: lifecyclesToDisplay,
+              injections: injectionsToDisplay,
+              diagnostics: report.diagnostics,
+              ablation_candidates: report.ablation_candidates,
+            },
+            null,
+            2
+          )
+        );
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Memory Intelligence: ${artifact.identity.run_id}`);
+        console.log(`========================================================================`);
+        console.log(`Total Memory Operations:   ${report.operations_summary.total_operations}`);
+        console.log(`Unique Memories Seen:      ${report.operations_summary.unique_memories_observed}`);
+        console.log(`Committed Writes:          ${report.operations_summary.writes_committed_count}`);
+        console.log(`Updates:                   ${report.operations_summary.updates_count}`);
+        console.log(`Supersedes:                ${report.operations_summary.supersedes_count}`);
+        console.log(`Retrievals:                ${report.retrieval_summary.total_retrieval_ops}`);
+        console.log(`Injections into Context:   ${report.injections.length}`);
+        console.log(`Admission Rate:            ${(report.retrieval_summary.admission_rate * 100).toFixed(1)}%`);
+        console.log(`Stale/Superseded Injected: ${report.retrieval_summary.superseded_retrieved_count}`);
+
+        if (options.timeline) {
+          console.log(`\nMemory Lifecycles:`);
+          for (const lc of lifecyclesToDisplay) {
+            console.log(
+              `  - Memory: ${lc.memory_id} (Provider: ${lc.provider ?? "custom"}, Category: ${lc.category}, Superseded: ${lc.is_superseded})`
+            );
+            for (const node of lc.nodes) {
+              console.log(
+                `      ↳ [${node.operation_type}] Op: ${node.operation_id} (version: ${node.version ?? "none"}) at ${node.timestamp}`
+              );
+            }
+          }
+        }
+
+        console.log(`\nMemory Injections:`);
+        for (const inj of injectionsToDisplay) {
+          console.log(
+            `  - Memory ${inj.memory_id} (version: ${inj.memory_version ?? "n/a"}) → Snapshot ${inj.context_snapshot_id} (Item: ${inj.context_item_id}, ${inj.injected_tokens ?? 0} tokens)${inj.is_stale_at_injection ? " [STALE]" : ""}`
+          );
+        }
+
+        if (options.signals || report.diagnostics.length > 0) {
+          console.log(`\nDiagnostic Signals (${report.diagnostics.length}):`);
+          for (const sig of report.diagnostics) {
+            const badge = sig.severity === "CRITICAL" ? "🔴" : sig.severity === "WARNING" ? "⚠️" : "ℹ️";
+            console.log(`  ${badge} [${sig.code}] ${sig.bounded_finding}`);
+          }
+        }
+
+        if (report.ablation_candidates.length > 0) {
+          console.log(`\nAblation Candidates (${report.ablation_candidates.length}):`);
+          for (const cand of report.ablation_candidates) {
+            console.log(`  - [Candidate] Memory ${cand.memory_id}: ${cand.rationale}`);
+          }
+        }
+        console.log(`========================================================================\n`);
+      }
+      return 0;
+    }
+
+    if (options.command === "ablate") {
+      const mutation: ExperimentMutation = options.contextItemId
+        ? {
+            mutation_id: `mut_ablate_ctx_${Date.now()}`,
+            mutation_type: "context_exclusion",
+            target_identifier: options.contextItemId,
+            description: `Ablate context item ${options.contextItemId}`,
+            mutated_value: { excluded: true, item_id: options.contextItemId },
+          }
+        : {
+            mutation_id: `mut_ablate_mem_${Date.now()}`,
+            mutation_type: "memory_exclusion",
+            target_identifier: options.memoryId!,
+            description: `Ablate memory ${options.memoryId}`,
+            mutated_value: { excluded: true, memory_id: options.memoryId },
+          };
+
+      const runtime = new ForkRuntime(artifact, options.checkpointId, {
+        mutations: [mutation],
+        candidateModelHandler: async (inp) => {
+          return {
+            status: "success",
+            text: "Candidate response generated under controlled ablation.",
+            ablated_input: inp.prompt,
+          };
+        },
+      });
+
+      const result = await runtime.fork();
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Controlled Ablation Fork: ${result.fork_id}`);
+        console.log(`========================================================================`);
+        console.log(`Parent Run ID:       ${result.parent_run_id}`);
+        console.log(`Checkpoint ID:       ${result.checkpoint_id}`);
+        console.log(`Status:              ${result.status}`);
+        console.log(
+          `Ablation Applied:    ${options.contextItemId ? `context_exclusion(${options.contextItemId})` : `memory_exclusion(${options.memoryId})`}`
+        );
+        console.log(
+          `Candidate Tokens:    ${result.child_artifact?.context[0]?.total_token_estimate ?? "n/a"}`
+        );
+        console.log(`Steps Executed:      ${result.steps_executed}`);
+        console.log(`Boundaries Recorded: ${result.boundaries_recorded}`);
+        console.log(`========================================================================\n`);
+      }
+      return result.status === "COMPLETED" ? 0 : 1;
     }
 
     return 1;

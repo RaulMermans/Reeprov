@@ -6,7 +6,15 @@
  * retrieved documents, retrieved memory, and tool definitions.
  */
 
-import { contextSnapshotSchema, type ContextSnapshot, type ContextItem, type ContextSourceType, type ContextProvenance } from "../contracts/context";
+import {
+  contextSnapshotSchema,
+  type ContextSnapshot,
+  type ContextItem,
+  type ContextSourceType,
+  type ContextProvenance,
+  type TokenMeasurement,
+  type TokenMeasurementMethod,
+} from "../contracts/context";
 import { sanitizePayload } from "./redaction";
 import { hashPayload } from "./hashing";
 import { getContentStore } from "./contentStore";
@@ -19,6 +27,8 @@ export interface ContextItemInput {
   sourceReference?: string;
   provenance?: ContextProvenance;
   tokenEstimate?: number;
+  tokenMeasurement?: TokenMeasurement;
+  measurementMethod?: TokenMeasurementMethod;
   sensitivity?: "public" | "internal" | "confidential" | "restricted";
   inclusionReason?: string;
   retrievalScore?: number;
@@ -58,13 +68,42 @@ export async function buildContextSnapshot(
     `ctx_${params.modelInvocationId || params.stepId || Date.now()}`;
 
   let totalTokens = 0;
+  let allProviderReported = true;
+  let allTokenizerCounted = true;
   const materializedItems: ContextItem[] = [];
 
   for (let idx = 0; idx < params.items.length; idx++) {
     const raw = params.items[idx];
     const itemId = `${snapshotId}_item_${idx}`;
-    const tokenEst = raw.tokenEstimate ?? estimateTokens(raw.content);
+    
+    // Resolve TokenMeasurement
+    let tokenMeasurement: TokenMeasurement;
+    if (raw.tokenMeasurement) {
+      tokenMeasurement = raw.tokenMeasurement;
+    } else if (raw.tokenEstimate !== undefined) {
+      const method: TokenMeasurementMethod = raw.measurementMethod ?? "TOKENIZER_COUNTED";
+      tokenMeasurement = {
+        value: raw.tokenEstimate,
+        method,
+      };
+    } else {
+      const estimatedVal = estimateTokens(raw.content);
+      tokenMeasurement = {
+        value: estimatedVal,
+        method: "ESTIMATED",
+        confidence: 0.75,
+      };
+    }
+
+    const tokenEst = tokenMeasurement.value;
     totalTokens += tokenEst;
+
+    if (tokenMeasurement.method !== "PROVIDER_REPORTED") {
+      allProviderReported = false;
+    }
+    if (tokenMeasurement.method !== "TOKENIZER_COUNTED") {
+      allTokenizerCounted = false;
+    }
 
     // Sanitize item content
     const redaction = sanitizePayload(raw.content, { policy });
@@ -86,12 +125,20 @@ export async function buildContextSnapshot(
       availability = "CAPTURED";
     }
 
+    // INVARIANT A: content_captured MUST BE TRUE ONLY WHEN CONTENT EXISTS
+    // HASH_ONLY / NOT_CAPTURED / UNAVAILABLE -> content_captured = false
+    // CAPTURED / REDACTED / TRUNCATED with accessible content -> content_captured = true
+    const hasAccessibleContent = Boolean(contentToStore !== undefined || contentRef !== undefined);
+    const uncapturedStates: Array<ContextItem["availability"]> = ["HASH_ONLY", "NOT_CAPTURED", "UNAVAILABLE"];
+    const contentCaptured = !uncapturedStates.includes(availability) && hasAccessibleContent;
+
     const item: ContextItem = {
       item_id: itemId,
       source_type: raw.sourceType,
       source_reference: raw.sourceReference,
       provenance: raw.provenance,
       token_estimate: tokenEst,
+      token_measurement: tokenMeasurement,
       position: idx,
       inclusion_reason: raw.inclusionReason,
       retrieval_score: raw.retrievalScore,
@@ -99,7 +146,7 @@ export async function buildContextSnapshot(
       version: raw.version,
       sensitivity: raw.sensitivity ?? "internal",
       redaction_status: redaction.content_status,
-      content_captured: true,
+      content_captured: contentCaptured,
       content: contentToStore,
       content_hash: contentHash,
       content_ref: contentRef,
@@ -110,12 +157,25 @@ export async function buildContextSnapshot(
     materializedItems.push(item);
   }
 
+  const totalMeasurementMethod: TokenMeasurementMethod =
+    materializedItems.length === 0
+      ? "PROVIDER_REPORTED"
+      : allProviderReported
+        ? "PROVIDER_REPORTED"
+        : allTokenizerCounted
+          ? "TOKENIZER_COUNTED"
+          : "ESTIMATED";
+
   const snapshot: ContextSnapshot = {
     snapshot_id: snapshotId,
     step_id: params.stepId,
     model_invocation_id: params.modelInvocationId,
     timestamp,
     total_token_estimate: totalTokens,
+    total_token_measurement: {
+      value: totalTokens,
+      method: totalMeasurementMethod,
+    },
     items: materializedItems,
     metadata: params.metadata,
   };

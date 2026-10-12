@@ -1,0 +1,324 @@
+{
+  "schema_version": "1.0.0-alpha",
+  "identity": {
+    "run_id": "run_ctx_ablation_baseline",
+    "project_id": "proj_customer_support",
+    "project_name": "Customer Support Automation",
+    "workflow_id": "wf_refund_triage",
+    "created_at": "2026-10-11T12:00:00.000Z"
+  },
+  "execution": {
+    "status": "completed",
+    "started_at": "2026-10-11T12:00:00.000Z",
+    "completed_at": "2026-10-11T12:00:03.000Z",
+    "duration_ms": 3000,
+    "summary": "Processed customer refund inquiry with retrieved policy."
+  },
+  "environment": {
+    "runtime": "node",
+    "sdk_version": "1.0.0"
+  },
+  "trajectory": [
+    {
+      "step_id": "step_init",
+      "step_index": 0,
+      "step_type": "node",
+      "name": "Initialize Request",
+      "started_at": "2026-10-11T12:00:00.000Z",
+      "completed_at": "2026-10-11T12:00:00.100Z",
+      "status": "completed",
+      "state_snapshot_id": "state_init",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": []
+    },
+    {
+      "step_id": "step_decision_01",
+      "step_index": 1,
+      "step_type": "model_call",
+      "name": "Evaluate Refund Eligibility",
+      "started_at": "2026-10-11T12:00:00.100Z",
+      "completed_at": "2026-10-11T12:00:02.500Z",
+      "status": "completed",
+      "context_snapshot_id": "ctx_decision_01",
+      "state_snapshot_id": "state_post_decision",
+      "boundary_ids": ["bnd_model_01", "bnd_tool_calc"],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": ["mod_call_01"],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": ["ret_op_policy_01"],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "output_summary": "Calculated refund: eligible for 50 USD"
+    }
+  ],
+  "boundaries": [
+    {
+      "boundary_id": "bnd_model_01",
+      "step_id": "step_decision_01",
+      "boundary_type": "model_call",
+      "name": "anthropic/claude-3-5-sonnet",
+      "dependency_identity": "anthropic:claude-3-5-sonnet",
+      "input": {
+        "captured": true,
+        "content": "{\"model\": \"claude-3-5-sonnet\", \"prompt\": \"Evaluate refund eligibility with provided policy and customer request\"}",
+        "redaction_status": "none"
+      },
+      "output": {
+        "captured": true,
+        "content": "{\"action\": \"call_tool\", \"tool\": \"refund.calculate\", \"parameters\": {\"order_id\": \"ord_101\", \"amount\": 50}}",
+        "redaction_status": "none"
+      },
+      "status": "completed",
+      "timestamp": "2026-10-11T12:00:00.100Z",
+      "replayability": "REPLAYABLE_RECORDED",
+      "deterministic": true
+    },
+    {
+      "boundary_id": "bnd_tool_calc",
+      "step_id": "step_decision_01",
+      "boundary_type": "tool_call",
+      "name": "refund.calculate",
+      "dependency_identity": "tool:refund.calculate",
+      "input": {
+        "captured": true,
+        "content": "{\"order_id\": \"ord_101\", \"amount\": 50}",
+        "redaction_status": "none"
+      },
+      "output": {
+        "captured": true,
+        "content": "{\"approved\": true, \"refund_amount\": 50, \"currency\": \"USD\"}",
+        "redaction_status": "none"
+      },
+      "status": "completed",
+      "timestamp": "2026-10-11T12:00:02.000Z",
+      "replayability": "REPLAYABLE_RECORDED",
+      "deterministic": true
+    }
+  ],
+  "external_calls": [],
+  "state": [
+    {
+      "snapshot_id": "state_init",
+      "step_id": "step_init",
+      "snapshot_type": "INITIAL_STATE",
+      "timestamp": "2026-10-11T12:00:00.000Z",
+      "state_scope": "workflow",
+      "state_data": { "customer_id": "cus_401", "order_id": "ord_101", "eligible": false },
+      "captured": true,
+      "hash": "sha256:2be7cda68af50cc3e998eff87402cda4f86469b898109441ddd95c3dc1b269f0"
+    },
+    {
+      "snapshot_id": "state_post_decision",
+      "step_id": "step_decision_01",
+      "snapshot_type": "STEP_STATE",
+      "timestamp": "2026-10-11T12:00:02.500Z",
+      "state_scope": "workflow",
+      "state_data": { "customer_id": "cus_401", "order_id": "ord_101", "eligible": true, "refund_amount": 50 },
+      "captured": true,
+      "hash": "sha256:state_post_hash"
+    }
+  ],
+  "checkpoints": [
+    {
+      "checkpoint_id": "chk_ctx_decision_01",
+      "run_id": "run_ctx_ablation_baseline",
+      "step_id": "step_init",
+      "position": "AFTER_STEP",
+      "state_snapshot_id": "state_init",
+      "boundary_cursor": 0,
+      "resume_step_index": 1,
+      "created_at": "2026-10-11T12:00:00.100Z",
+      "schema_version": "1.0.0-alpha",
+      "state_hash": "sha256:2be7cda68af50cc3e998eff87402cda4f86469b898109441ddd95c3dc1b269f0",
+      "restorable": true
+    }
+  ],
+  "context": [
+    {
+      "snapshot_id": "ctx_decision_01",
+      "step_id": "step_decision_01",
+      "model_invocation_id": "mod_call_01",
+      "timestamp": "2026-10-11T12:00:00.100Z",
+      "total_token_estimate": 1750,
+      "total_token_measurement": {
+        "value": 1750,
+        "method": "TOKENIZER_COUNTED"
+      },
+      "items": [
+        {
+          "item_id": "ctx_item_system_policy",
+          "source_type": "system_policy",
+          "source_reference": "policy://agent_safety_v2",
+          "position": 0,
+          "token_estimate": 250,
+          "token_measurement": { "value": 250, "method": "TOKENIZER_COUNTED" },
+          "content_captured": true,
+          "content": "You are a customer service assistant. Only process refunds under 30 days.",
+          "content_hash": "sha256:hash_sys_policy",
+          "availability": "CAPTURED",
+          "provenance": { "source_system": "policy_registry", "version": "v2.0" }
+        },
+        {
+          "item_id": "ctx_item_customer_request",
+          "source_type": "user_input",
+          "source_reference": "user://inbound_ticket_401",
+          "position": 1,
+          "token_estimate": 150,
+          "token_measurement": { "value": 150, "method": "TOKENIZER_COUNTED" },
+          "content_captured": true,
+          "content": "Customer: I would like a refund for order ord_101 placed 12 days ago.",
+          "content_hash": "sha256:hash_user_request",
+          "availability": "CAPTURED",
+          "provenance": { "source_system": "zendesk", "uri": "ticket://401" }
+        },
+        {
+          "item_id": "ctx_item_refund_policy",
+          "source_type": "retrieved_document",
+          "source_reference": "kb://refund_policy_chunk_42",
+          "position": 2,
+          "token_estimate": 450,
+          "token_measurement": { "value": 450, "method": "TOKENIZER_COUNTED" },
+          "content_captured": true,
+          "content": "Refund Policy: Orders placed within 30 days are fully refundable upon customer request.",
+          "content_hash": "sha256:hash_refund_policy",
+          "availability": "CAPTURED",
+          "retrieval_score": 0.94,
+          "provenance": {
+            "source_system": "pinecone",
+            "document_id": "doc_refund_policy",
+            "chunk_id": "chunk_42",
+            "retrieval_query": "refund policy 30 days eligibility",
+            "retrieval_score": 0.94
+          }
+        },
+        {
+          "item_id": "ctx_item_irrelevant_duplicate",
+          "source_type": "retrieved_document",
+          "source_reference": "kb://duplicate_shipping_note_99",
+          "position": 3,
+          "token_estimate": 500,
+          "token_measurement": { "value": 500, "method": "ESTIMATED" },
+          "content_captured": true,
+          "content": "Shipping Note: Standard ground freight shipping takes 3-5 business days across domestic zones.",
+          "content_hash": "sha256:hash_irrelevant_dup",
+          "availability": "CAPTURED",
+          "retrieval_score": 0.42,
+          "provenance": {
+            "source_system": "pinecone",
+            "document_id": "doc_shipping_note",
+            "chunk_id": "chunk_99",
+            "retrieval_query": "shipping delivery domestic",
+            "retrieval_score": 0.42
+          }
+        },
+        {
+          "item_id": "ctx_item_tool_definitions",
+          "source_type": "tool_definition",
+          "source_reference": "tool:refund.calculate",
+          "position": 4,
+          "token_estimate": 400,
+          "token_measurement": { "value": 400, "method": "TOKENIZER_COUNTED" },
+          "content_captured": true,
+          "content": "{\"name\": \"refund.calculate\", \"description\": \"Calculates refund amount and eligibility for order.\"}",
+          "content_hash": "sha256:hash_tool_def",
+          "availability": "CAPTURED",
+          "provenance": { "source_system": "tool_registry", "version": "1.0.0" }
+        }
+      ]
+    }
+  ],
+  "memory": {
+    "operations": [],
+    "references": []
+  },
+  "tools": [],
+  "retrieval": [
+    {
+      "operation_id": "ret_op_policy_01",
+      "step_id": "step_decision_01",
+      "service_name": "pinecone",
+      "query": "refund policy eligibility order ord_101",
+      "results_count": 2,
+      "timestamp": "2026-10-11T12:00:00.050Z",
+      "context_item_ids": ["ctx_item_refund_policy", "ctx_item_irrelevant_duplicate"],
+      "results": [
+        {
+          "document_id": "doc_refund_policy",
+          "chunk_id": "chunk_42",
+          "title": "Refund Policy 2026",
+          "score": 0.94,
+          "rank": 1
+        },
+        {
+          "document_id": "doc_shipping_note",
+          "chunk_id": "chunk_99",
+          "title": "Domestic Shipping Note",
+          "score": 0.42,
+          "rank": 2
+        }
+      ]
+    }
+  ],
+  "models": [],
+  "artifacts": [],
+  "evals": [],
+  "lineage": {
+    "mutations": []
+  },
+  "provenance": {
+    "capture_method": "sdk_trace",
+    "adapter_version": "1.0.0",
+    "captured_by": "AgentPulseTest",
+    "redaction_verified": true
+  },
+  "safety": {
+    "approval_status": "not_required",
+    "approval_records": [],
+    "redaction_summary": { "total_redactions": 0, "secrets_detected": 0, "fields_redacted": [] }
+  },
+  "observability": {
+    "total_duration_ms": 3000,
+    "model_calls_count": 1,
+    "tool_calls_count": 1,
+    "evals_passed": 1,
+    "evals_failed": 0,
+    "trace_event_count": 2,
+    "context_snapshot_count": 1,
+    "memory_operations_count": 0,
+    "retrieval_operations_count": 1
+  },
+  "replay": {
+    "overall_replayability": "REPLAYABLE_RECORDED",
+    "unsupported_boundaries_count": 0,
+    "side_effect_gated_count": 0,
+    "deterministic": true,
+    "sandboxed_available": true,
+    "missing_recordings": [],
+    "notes": []
+  },
+  "evidence": {
+    "verification_events": [],
+    "test_results": [
+      {
+        "test_id": "test_compliance_eval",
+        "run_id": "run_ctx_ablation_baseline",
+        "suite": "evals",
+        "name": "Refund Policy Adherence",
+        "status": "PASSED"
+      }
+    ],
+    "review_results": [],
+    "approval_events": [],
+    "security_events": [],
+    "final_outcome": {
+      "status": "SUCCESS",
+      "verification_status": "PASS",
+      "completed_at": "2026-10-11T12:00:03.000Z"
+    }
+  }
+}

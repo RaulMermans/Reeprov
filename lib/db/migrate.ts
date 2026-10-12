@@ -514,4 +514,28 @@ async function runMigrations(): Promise<void> {
   `);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_comparison_divergences_comparison_id_idx ON ap_comparison_divergences(comparison_id)`);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_comparison_divergences_dimension_idx ON ap_comparison_divergences(dimension)`);
+
+  // ── Sprint 7: Context Intelligence Reports ─────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_context_intelligence_reports (
+      report_id       TEXT PRIMARY KEY,
+      run_id          TEXT NOT NULL REFERENCES ap_runs(run_id) ON DELETE CASCADE,
+      schema_version  TEXT NOT NULL,
+      report_data     JSONB NOT NULL,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_context_intelligence_reports_run_id_idx ON ap_context_intelligence_reports(run_id)`);
+
+  // ── Sprint 7: Memory Intelligence Reports ──────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_memory_intelligence_reports (
+      report_id       TEXT PRIMARY KEY,
+      run_id          TEXT NOT NULL REFERENCES ap_runs(run_id) ON DELETE CASCADE,
+      schema_version  TEXT NOT NULL,
+      report_data     JSONB NOT NULL,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_memory_intelligence_reports_run_id_idx ON ap_memory_intelligence_reports(run_id)`);
 }

@@ -21,12 +21,34 @@ export const contextSourceTypeSchema = z.enum([
   "tool_definition",              // JSON Schema or function descriptions presented to the model
   "artifact_reference",           // Summaries or contents of previously produced files/artifacts
   "few_shot_example",             // In-context demonstrations or golden exemplars
-  "generated_intermediate_context", // Chain of thought, plan draft, or reasoning steps
+  "generated_intermediate_context", // Observable intermediate summaries, plans, drafts, structured scratch artifacts, or application-emitted intermediate content. MUST NOT mean private model chain-of-thought.
   "user_input",                   // Direct human prompt or trigger payload
   "custom",                       // Other explicitly typed custom sources
 ]);
 
 export type ContextSourceType = z.infer<typeof contextSourceTypeSchema>;
+
+// ── Token Measurement Provenance ────────────────────────────────────────────
+
+export const tokenMeasurementMethodSchema = z.enum([
+  "PROVIDER_REPORTED",   // Exact count reported by the LLM provider API (e.g. usage.prompt_tokens)
+  "TOKENIZER_COUNTED",   // Exact count calculated with an authoritative tokenizer (e.g. tiktoken)
+  "ESTIMATED",           // Approximation fallback (e.g. characters/4 or heuristic word multiplier)
+  "UNKNOWN",             // Token measurement source or method unavailable
+]);
+
+export type TokenMeasurementMethod = z.infer<typeof tokenMeasurementMethodSchema>;
+
+export const tokenMeasurementSchema = z.object({
+  value: z.number().int().nonnegative(),
+  method: tokenMeasurementMethodSchema,
+  tokenizer: z.string().optional(),
+  model: z.string().optional(),
+  confidence: z.number().min(0).max(1).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type TokenMeasurement = z.infer<typeof tokenMeasurementSchema>;
 
 // ── Context Provenance ──────────────────────────────────────────────────────
 
@@ -52,6 +74,7 @@ export const contextItemSchema = z.object({
   source_reference: z.string().optional(),
   provenance: contextProvenanceSchema.optional(),
   token_estimate: z.number().int().nonnegative().optional(),
+  token_measurement: tokenMeasurementSchema.optional(),
   position: z.number().int().nonnegative(),
   inclusion_reason: z.string().optional(),
   retrieval_score: z.number().optional(),
@@ -77,6 +100,7 @@ export const contextSnapshotSchema = z.object({
   model_invocation_id: z.string().optional(),
   timestamp: z.string(),
   total_token_estimate: z.number().int().nonnegative().optional(),
+  total_token_measurement: tokenMeasurementSchema.optional(),
   items: z.array(contextItemSchema),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });

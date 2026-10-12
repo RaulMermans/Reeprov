@@ -32,6 +32,8 @@ export const SUPPORTED_MUTATION_TYPES = [
   "tool_result_override",
   "model_parameters",
   "prompt",
+  "context_exclusion",
+  "memory_exclusion",
 ] as const;
 
 export type SupportedMutationType = (typeof SUPPORTED_MUTATION_TYPES)[number];

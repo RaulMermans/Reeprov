@@ -26,7 +26,9 @@ export function ForkDebuggerPanel({ runId }: { runId: string }) {
   const [selectedCheckpoint, setSelectedCheckpoint] = useState<CheckpointReference | null>(null);
 
   // Mutation form state
-  const [mutationType, setMutationType] = useState<"state_patch" | "tool_result_override" | "prompt" | "model_parameters">("tool_result_override");
+  const [mutationType, setMutationType] = useState<
+    "state_patch" | "tool_result_override" | "prompt" | "model_parameters" | "context_exclusion" | "memory_exclusion"
+  >("tool_result_override");
   const [targetIdentifier, setTargetIdentifier] = useState("get_customer_account");
   const [mutatedValueRaw, setMutatedValueRaw] = useState('{\n  "customerId": "cus_1001",\n  "balance": 300,\n  "currency": "USD",\n  "status": "active"\n}');
   const [description, setDescription] = useState("Controlled fork test mutation");
@@ -283,6 +285,12 @@ export function ForkDebuggerPanel({ runId }: { runId: string }) {
                     } else if (val === "model_parameters") {
                       setTargetIdentifier("temperature");
                       setMutatedValueRaw("0.0");
+                    } else if (val === "context_exclusion") {
+                      setTargetIdentifier("ctx_item_sample");
+                      setMutatedValueRaw('{"excluded": true}');
+                    } else if (val === "memory_exclusion") {
+                      setTargetIdentifier("mem_sample_id");
+                      setMutatedValueRaw('{"excluded": true}');
                     }
                   }}
                   className="mt-1 w-full rounded-md border border-slate-300 p-2 text-xs"
@@ -291,6 +299,8 @@ export function ForkDebuggerPanel({ runId }: { runId: string }) {
                   <option value="state_patch">STATE_PATCH (Deterministic state JSON patch)</option>
                   <option value="prompt">PROMPT_OVERRIDE (Candidate prompt template)</option>
                   <option value="model_parameters">MODEL_PARAMETER_OVERRIDE (Temperature, parameters)</option>
+                  <option value="context_exclusion">CONTEXT_EXCLUSION (Ablate context item or source type)</option>
+                  <option value="memory_exclusion">MEMORY_EXCLUSION (Ablate memory item)</option>
                 </select>
               </div>
 

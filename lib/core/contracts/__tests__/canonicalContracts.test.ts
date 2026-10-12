@@ -89,6 +89,22 @@ describe("Canonical Execution Contracts & RunArtifact", () => {
       expect(parsed.lineage.mutations).toHaveLength(1);
       expect(parsed.comparison?.outcome_verdict).toBe("improved");
     });
+
+    it("validates Fixture J (context ablation baseline)", () => {
+      const data = loadFixture("fixture-j-context-ablation-baseline.json");
+      const parsed = runArtifactSchema.parse(data);
+      expect(parsed.identity.run_id).toBe("run_ctx_ablation_baseline");
+      expect(parsed.context).toHaveLength(1);
+      expect(parsed.context[0].items).toHaveLength(5);
+    });
+
+    it("validates Fixture K (memory ablation baseline)", () => {
+      const data = loadFixture("fixture-k-memory-ablation-baseline.json");
+      const parsed = runArtifactSchema.parse(data);
+      expect(parsed.identity.run_id).toBe("run_mem_ablation_baseline");
+      expect(parsed.memory?.operations).toHaveLength(1);
+      expect(parsed.context[0].items).toHaveLength(4);
+    });
   });
 
   // ── 2. Existing run data maps without losing supported information ────────

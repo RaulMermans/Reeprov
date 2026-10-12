@@ -61,11 +61,20 @@ export const memoryOperationSchema = z.object({
   memory_id: z.string().optional(),
   memory_type: memoryCategorySchema,
   provider: z.string().optional(),                 // e.g. "mem0", "letta", "zep", "custom_postgres"
+  provider_record_id: z.string().optional(),
   query: z.string().optional(),                    // Search query for read/retrieval operations
   score: z.number().optional(),                    // Similarity or relevance score
   rank: z.number().int().positive().optional(),    // Result rank in multi-result retrieval
   source_provenance: z.string().optional(),        // Originating document, user message, or agent turn
   version: z.string().optional(),
+  memory_version_id: z.string().optional(),
+  parent_memory_ids: z.array(z.string()).default([]),
+  derived_from_operation_ids: z.array(z.string()).default([]),
+  supersedes_memory_id: z.string().optional(),
+  superseded_by_memory_id: z.string().optional(),
+  consolidated_from_memory_ids: z.array(z.string()).default([]),
+  extraction_source_refs: z.array(z.string()).default([]),
+  content_hash: z.string().optional(),
   timestamps: z.object({
     created_at: z.string().optional(),
     updated_at: z.string().optional(),
