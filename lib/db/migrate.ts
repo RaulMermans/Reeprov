@@ -538,4 +538,141 @@ async function runMigrations(): Promise<void> {
     )
   `);
   await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_memory_intelligence_reports_run_id_idx ON ap_memory_intelligence_reports(run_id)`);
+
+  // ── Sprint 8: Eval Definitions ─────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_eval_definitions (
+      eval_definition_id  TEXT NOT NULL,
+      version             INTEGER NOT NULL DEFAULT 1,
+      name                TEXT NOT NULL,
+      family              TEXT NOT NULL,
+      target_scope        TEXT NOT NULL,
+      grader_type         TEXT NOT NULL,
+      severity            TEXT NOT NULL DEFAULT 'fail',
+      required            BOOLEAN NOT NULL DEFAULT TRUE,
+      content_hash        TEXT NOT NULL,
+      definition_data     JSONB NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (eval_definition_id, version)
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_eval_definitions_family_idx ON ap_eval_definitions(family)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_eval_definitions_grader_type_idx ON ap_eval_definitions(grader_type)`);
+
+  // ── Sprint 8: Eval Suites ──────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_eval_suites (
+      suite_id            TEXT NOT NULL,
+      version             INTEGER NOT NULL DEFAULT 1,
+      name                TEXT NOT NULL,
+      content_hash        TEXT NOT NULL,
+      suite_data          JSONB NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (suite_id, version)
+    )
+  `);
+
+  // ── Sprint 8: Eval Datasets & Cases ────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_eval_datasets (
+      dataset_id          TEXT NOT NULL,
+      version             INTEGER NOT NULL DEFAULT 1,
+      name                TEXT NOT NULL,
+      content_hash        TEXT NOT NULL,
+      case_count          INTEGER NOT NULL DEFAULT 0,
+      dataset_data        JSONB NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (dataset_id, version)
+    )
+  `);
+
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_eval_cases (
+      case_id             TEXT NOT NULL,
+      dataset_id          TEXT NOT NULL,
+      dataset_version     INTEGER NOT NULL DEFAULT 1,
+      name                TEXT NOT NULL,
+      source_run_id       TEXT,
+      case_data           JSONB NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (case_id, dataset_id, dataset_version)
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_eval_cases_dataset_idx ON ap_eval_cases(dataset_id, dataset_version)`);
+
+  // ── Sprint 8: Evaluation Runs ──────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_evaluation_runs (
+      evaluation_run_id   TEXT PRIMARY KEY,
+      suite_id            TEXT NOT NULL,
+      suite_version       INTEGER NOT NULL DEFAULT 1,
+      dataset_id          TEXT,
+      dataset_version     INTEGER,
+      status              TEXT NOT NULL,
+      started_at          TIMESTAMPTZ NOT NULL,
+      completed_at        TIMESTAMPTZ,
+      verdict             TEXT NOT NULL,
+      pass_rate           NUMERIC(5,4) NOT NULL,
+      total_evals         INTEGER NOT NULL,
+      cost_usd            NUMERIC(12,6) NOT NULL DEFAULT 0,
+      duration_ms         INTEGER NOT NULL DEFAULT 0,
+      run_data            JSONB NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_evaluation_runs_suite_idx ON ap_evaluation_runs(suite_id, suite_version)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_evaluation_runs_status_idx ON ap_evaluation_runs(status)`);
+
+  // ── Sprint 8: Experiments ──────────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_experiments (
+      experiment_id       TEXT PRIMARY KEY,
+      name                TEXT NOT NULL,
+      hypothesis          TEXT,
+      baseline_run_id     TEXT NOT NULL,
+      eval_suite_id       TEXT NOT NULL,
+      status              TEXT NOT NULL,
+      arms_count          INTEGER NOT NULL DEFAULT 0,
+      repetitions         INTEGER NOT NULL DEFAULT 1,
+      experiment_data     JSONB NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_experiments_baseline_idx ON ap_experiments(baseline_run_id)`);
+
+  // ── Sprint 8: Experiment Trials ────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_experiment_trials (
+      trial_id            TEXT PRIMARY KEY,
+      experiment_id       TEXT NOT NULL,
+      arm_id              TEXT NOT NULL,
+      repetition_index    INTEGER NOT NULL DEFAULT 0,
+      derived_run_id      TEXT NOT NULL,
+      status              TEXT NOT NULL,
+      candidate_cost_usd  NUMERIC(12,6) NOT NULL DEFAULT 0,
+      grader_cost_usd     NUMERIC(12,6) NOT NULL DEFAULT 0,
+      duration_ms         INTEGER NOT NULL DEFAULT 0,
+      trial_data          JSONB NOT NULL,
+      started_at          TIMESTAMPTZ NOT NULL,
+      completed_at        TIMESTAMPTZ,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_experiment_trials_exp_idx ON ap_experiment_trials(experiment_id)`);
+
+  // ── Sprint 8: Experiment Results ───────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_experiment_results (
+      experiment_id       TEXT PRIMARY KEY,
+      status              TEXT NOT NULL,
+      baseline_arm_id     TEXT NOT NULL,
+      recommended_candidate TEXT,
+      recommendation_basis TEXT NOT NULL,
+      trials_executed     INTEGER NOT NULL DEFAULT 0,
+      total_cost_usd      NUMERIC(12,6) NOT NULL DEFAULT 0,
+      result_data         JSONB NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      completed_at        TIMESTAMPTZ NOT NULL
+    )
+  `);
 }

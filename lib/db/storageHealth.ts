@@ -28,6 +28,14 @@ export const AGENTPULSE_TABLES = [
   "ap_comparison_divergences",
   "ap_context_intelligence_reports",
   "ap_memory_intelligence_reports",
+  "ap_eval_definitions",
+  "ap_eval_suites",
+  "ap_eval_datasets",
+  "ap_eval_cases",
+  "ap_evaluation_runs",
+  "ap_experiments",
+  "ap_experiment_trials",
+  "ap_experiment_results",
 ] as const;
 
 export type DeploymentEnvironment = "production" | "preview" | "development";

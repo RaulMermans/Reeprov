@@ -33,8 +33,34 @@ export interface LegacyRunInput {
   updatedAt?: string;
 }
 
-function mapLegacyEvalType(legacyType: LegacyEvalResult["type"]): EvalFamily {
-  switch (legacyType) {
+function mapLegacyEvalType(legacyEval: LegacyEvalResult): EvalFamily {
+  const preserved =
+    legacyEval.canonical_family ??
+    (legacyEval.metadata?.["canonical_family"] as string | undefined);
+  if (preserved) {
+    const validFamilies: EvalFamily[] = [
+      "task_success",
+      "output_validity",
+      "schema_validity",
+      "tool_selection",
+      "argument_validity",
+      "retrieval",
+      "context",
+      "memory",
+      "trajectory",
+      "safety",
+      "approval_compliance",
+      "regression",
+      "cost",
+      "latency",
+      "model_benchmark",
+    ];
+    if (validFamilies.includes(preserved as EvalFamily)) {
+      return preserved as EvalFamily;
+    }
+  }
+
+  switch (legacyEval.type) {
     case "schema_validity":
       return "schema_validity";
     case "tool_call_assertion":
@@ -241,7 +267,7 @@ export function adaptLegacyRunToRunArtifact(input: LegacyRunInput | SavedRun): R
   // Evals: map legacy EvalResults to canonical EvalResult
   const evals = evalResults.map((ev) => ({
     eval_id: ev.eval_id,
-    eval_type: mapLegacyEvalType(ev.type),
+    eval_type: mapLegacyEvalType(ev),
     evaluator_id: ev.name,
     target_run_id: ev.run_id,
     target_node_id: ev.node_id,

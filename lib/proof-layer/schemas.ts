@@ -176,6 +176,8 @@ export const evalResultSchema = z.object({
   severity: evalSeveritySchema,
   findings: z.array(z.string()),
   recommendation: z.string().optional(),
+  canonical_family: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 // ── RunRecord ──────────────────────────────────────────────────────────────

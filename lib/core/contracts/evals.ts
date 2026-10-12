@@ -52,6 +52,26 @@ export type EvalSeverity = z.infer<typeof evalSeveritySchema>;
 
 // ── Canonical Eval Result ───────────────────────────────────────────────────
 
+export const graderStatusSchema = z.enum([
+  "PASSED",
+  "FAILED",
+  "EVALUATOR_ERROR",
+  "MISSING_EVIDENCE",
+]);
+
+export type GraderStatus = z.infer<typeof graderStatusSchema>;
+
+export const graderModelProvenanceSchema = z.object({
+  provider: z.string(),
+  model: z.string(),
+  revision: z.string().optional(),
+  prompt_hash: z.string().optional(),
+  config_hash: z.string().optional(),
+  temperature: z.number().optional(),
+});
+
+export type GraderModelProvenance = z.infer<typeof graderModelProvenanceSchema>;
+
 export const evalResultSchema = z.object({
   eval_id: z.string(),
   eval_type: evalFamilySchema,
@@ -74,6 +94,29 @@ export const evalResultSchema = z.object({
   recommendation: z.string().optional(),
   timestamp: z.string(),
   metadata: z.record(z.string(), z.unknown()).optional(),
+
+  // Sprint 8: Eval definition, suite, case, and experiment linkages
+  eval_definition_id: z.string().optional(),
+  eval_definition_version: z.union([z.number(), z.string()]).optional(),
+  eval_suite_id: z.string().optional(),
+  eval_suite_version: z.union([z.number(), z.string()]).optional(),
+  eval_case_id: z.string().optional(),
+  evaluation_run_id: z.string().optional(),
+  experiment_id: z.string().optional(),
+  experiment_arm_id: z.string().optional(),
+  experiment_trial_id: z.string().optional(),
+  grader_config_hash: z.string().optional(),
+  rubric_version: z.string().optional(),
+  source_artifact_hash: z.string().optional(),
+  execution_duration_ms: z.number().optional(),
+  grader_status: graderStatusSchema.optional(),
+  grader_cost_usd: z.number().optional(),
+  grader_tokens: z.object({
+    prompt: z.number(),
+    completion: z.number(),
+    total: z.number(),
+  }).optional(),
+  grader_model_provenance: graderModelProvenanceSchema.optional(),
 });
 
 export type EvalResult = z.infer<typeof evalResultSchema>;

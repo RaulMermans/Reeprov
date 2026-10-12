@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 const NAV_ITEMS = [
   { label: "Overview", href: "/dashboard" },
   { label: "Runs", href: "/dashboard/runs" },
+  { label: "Eval Studio", href: "/dashboard/evals" },
+  { label: "Experiment Lab", href: "/dashboard/experiments" },
   { label: "Workflows", href: "/dashboard/workflows" },
   { label: "Integrations", href: "/dashboard/integrations" },
   { label: "Repository Scanner", href: "/dashboard/scanner" },

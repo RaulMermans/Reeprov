@@ -1,0 +1,88 @@
+{
+  "dataset_id": "support-regression-suite",
+  "name": "Customer Support Triage Regression Dataset",
+  "version": 1,
+  "description": "5 curated benchmark support cases testing standard triage, policy conflicts, and boundary conditions.",
+  "cases": [
+    {
+      "case_id": "case_refund_allowed",
+      "name": "Order Within 30 Days Refund Allowed",
+      "input": {
+        "customer_id": "cus_101",
+        "order_id": "ord_101",
+        "issue": "Item damaged upon arrival within 7 days",
+        "order_amount_usd": 45.0
+      },
+      "expected": {
+        "status": "SUCCESS",
+        "action": "refund_approved"
+      },
+      "artifact_refs": [],
+      "tags": ["refund", "happy_path"]
+    },
+    {
+      "case_id": "case_refund_denied_policy",
+      "name": "Order Exceeds 30 Days Refund Denied",
+      "input": {
+        "customer_id": "cus_102",
+        "order_id": "ord_102",
+        "issue": "Requesting refund after 90 days",
+        "order_amount_usd": 120.0
+      },
+      "expected": {
+        "status": "SUCCESS",
+        "action": "refund_denied"
+      },
+      "artifact_refs": [],
+      "tags": ["refund", "policy_denial"]
+    },
+    {
+      "case_id": "case_missing_account",
+      "name": "Missing Customer Account Invalidation",
+      "input": {
+        "customer_id": "cus_unknown",
+        "issue": "Check status of account"
+      },
+      "expected": {
+        "status": "SUCCESS",
+        "action": "account_not_found"
+      },
+      "artifact_refs": [],
+      "tags": ["account", "lookup_error"]
+    },
+    {
+      "case_id": "case_approval_required_high_value",
+      "name": "High Value Refund Requires Human Approval",
+      "input": {
+        "customer_id": "cus_104",
+        "order_id": "ord_104",
+        "issue": "Requesting refund on enterprise equipment",
+        "order_amount_usd": 2500.0
+      },
+      "expected": {
+        "status": "SUCCESS",
+        "action": "escalate_for_approval"
+      },
+      "artifact_refs": [],
+      "tags": ["approval_gate", "high_value"]
+    },
+    {
+      "case_id": "case_policy_conflict_international",
+      "name": "International Shipping Policy Conflict",
+      "input": {
+        "customer_id": "cus_105",
+        "order_id": "ord_105",
+        "issue": "Customs duties dispute on international transit",
+        "destination_country": "DE"
+      },
+      "expected": {
+        "status": "SUCCESS",
+        "action": "forward_to_customs_support"
+      },
+      "artifact_refs": [],
+      "tags": ["policy_conflict", "international"]
+    }
+  ],
+  "created_at": "2026-10-12T00:00:00Z",
+  "content_hash": "hash_support_dataset_v1"
+}

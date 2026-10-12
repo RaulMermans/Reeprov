@@ -26,6 +26,27 @@ import {
   saveContextIntelligenceReport,
   saveMemoryIntelligenceReport,
 } from "../lib/core/intelligence/persistence";
+import {
+  listEvalDefinitions,
+  listEvalSuites,
+  getEvalSuite,
+  listEvalDatasets,
+  listEvaluationRuns,
+  saveEvaluationRun,
+} from "../lib/core/evals/persistence";
+import { evaluateRun } from "../lib/core/evals/runner";
+import { evalSuiteSchema } from "../lib/core/contracts/evalDefinitions";
+import {
+  experimentDefinitionSchema,
+  type ExperimentDefinition,
+} from "../lib/core/contracts/experiment";
+import { ExperimentPlanner } from "../lib/core/experiment/planner";
+import { ExperimentRunner } from "../lib/core/experiment/runner";
+import {
+  getExperimentDefinition,
+  getExperimentResult,
+  listExperimentResults,
+} from "../lib/core/experiment/persistence";
 
 export interface DiffCliOptions {
   command: "diff";
@@ -107,6 +128,41 @@ export interface ConfigDiffCliOptions {
   json: boolean;
 }
 
+export interface EvalListCliOptions {
+  command: "eval-list";
+  json: boolean;
+}
+
+export interface EvalRunCliOptions {
+  command: "eval-run";
+  runIdOrPath: string;
+  suiteIdOrPath: string;
+  json: boolean;
+}
+
+export interface DatasetListCliOptions {
+  command: "dataset-list";
+  json: boolean;
+}
+
+export interface ExperimentPlanCliOptions {
+  command: "experiment-plan";
+  definitionPathOrId: string;
+  json: boolean;
+}
+
+export interface ExperimentRunCliOptions {
+  command: "experiment-run";
+  definitionPathOrId: string;
+  json: boolean;
+}
+
+export interface ExperimentShowCliOptions {
+  command: "experiment-show";
+  experimentId: string;
+  json: boolean;
+}
+
 export type CliCommandOptions =
   | ReplayCliOptions
   | CheckpointsCliOptions
@@ -117,9 +173,60 @@ export type CliCommandOptions =
   | EvidenceCliOptions
   | ConfigCliOptions
   | ConfigDiffCliOptions
-  | DiffCliOptions;
+  | DiffCliOptions
+  | EvalListCliOptions
+  | EvalRunCliOptions
+  | DatasetListCliOptions
+  | ExperimentPlanCliOptions
+  | ExperimentRunCliOptions
+  | ExperimentShowCliOptions;
 
 export function parseArgs(args: string[]): CliCommandOptions | null {
+  // Eval subcommands: pulse eval list, pulse eval run <run> --suite <suite>
+  if (args[0] === "eval") {
+    const json = args.includes("--json");
+    if (args[1] === "list") {
+      return { command: "eval-list", json };
+    }
+    if (args[1] === "run" && args[2]) {
+      const runIdOrPath = args[2];
+      let suiteIdOrPath = "";
+      for (let i = 3; i < args.length; i++) {
+        if (args[i] === "--suite" && args[i + 1]) {
+          suiteIdOrPath = args[i + 1]!;
+          i++;
+        }
+      }
+      if (!suiteIdOrPath) return null;
+      return { command: "eval-run", runIdOrPath, suiteIdOrPath, json };
+    }
+    return null;
+  }
+
+  // Dataset subcommands: pulse dataset list
+  if (args[0] === "dataset") {
+    const json = args.includes("--json");
+    if (args[1] === "list") {
+      return { command: "dataset-list", json };
+    }
+    return null;
+  }
+
+  // Experiment subcommands: pulse experiment plan <def>, pulse experiment run <def>, pulse experiment show <id>
+  if (args[0] === "experiment") {
+    const json = args.includes("--json");
+    if (args[1] === "plan" && args[2]) {
+      return { command: "experiment-plan", definitionPathOrId: args[2], json };
+    }
+    if (args[1] === "run" && args[2]) {
+      return { command: "experiment-run", definitionPathOrId: args[2], json };
+    }
+    if (args[1] === "show" && args[2]) {
+      return { command: "experiment-show", experimentId: args[2], json };
+    }
+    return null;
+  }
+
   if (args.includes("diff") && !args.includes("config-diff")) {
     const idx = args.indexOf("diff");
     const runA = args[idx + 1];
@@ -305,6 +412,9 @@ export function parseArgs(args: string[]): CliCommandOptions | null {
 }
 
 export async function loadArtifact(idOrPath: string): Promise<RunArtifact> {
+  if (!idOrPath) {
+    throw new Error("Run ID or file path is required.");
+  }
   // 1. If it looks like a file path or exists as a file, try reading it
   if (idOrPath.endsWith(".json") || idOrPath.includes("/") || idOrPath.includes("\\")) {
     const absPath = resolve(process.cwd(), idOrPath);
@@ -348,6 +458,12 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
     pulse checkpoints <run-id|file-path> [--json]
     pulse fork <run-id|file-path> --checkpoint <checkpoint-id> [--mutations <file>] [--json]
     pulse replay <run-id|file-path> [options]
+    pulse eval list [--json]
+    pulse eval run <run-id|file-path> --suite <suite-id|file-path> [--json]
+    pulse dataset list [--json]
+    pulse experiment plan <definition-file|id> [--json]
+    pulse experiment run <definition-file|id> [--json]
+    pulse experiment show <experiment-id> [--json]
 
   Replay Options:
     --strict          Enforce strict offline execution with 0 network calls (default)
@@ -507,7 +623,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
       return diff.identical ? 0 : 1;
     }
 
-    const artifact = await loadArtifact(options.runIdOrPath);
+    const artifact = "runIdOrPath" in options ? await loadArtifact(options.runIdOrPath) : (null as any);
 
     if (options.command === "checkpoints") {
       const checkpoints =
@@ -669,15 +785,15 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
       const verificationStatus = artifact.evidence?.final_outcome?.verification_status ?? "NOT_RUN";
       const configHash = artifact.configuration_snapshot?.config_hash ?? "NOT_CAPTURED";
       const testsCount = artifact.evidence?.test_results?.length ?? 0;
-      const testsPassed = artifact.evidence?.test_results?.filter((t) => t.status === "PASSED").length ?? 0;
+      const testsPassed = artifact.evidence?.test_results?.filter((t: any) => t.status === "PASSED").length ?? 0;
       const reviewsCount = artifact.evidence?.review_results?.length ?? 0;
       const approvalsGranted =
-        artifact.evidence?.approval_events?.filter((a) => a.decision === "GRANTED").length ?? 0;
+        artifact.evidence?.approval_events?.filter((a: any) => a.decision === "GRANTED").length ?? 0;
       const approvalsRejected =
-        artifact.evidence?.approval_events?.filter((a) => a.decision === "REJECTED").length ?? 0;
+        artifact.evidence?.approval_events?.filter((a: any) => a.decision === "REJECTED").length ?? 0;
       const blocksCount =
         artifact.evidence?.security_events?.filter(
-          (s) => s.decision === "BLOCKED" || s.decision === "DENY"
+          (s: any) => s.decision === "BLOCKED" || s.decision === "DENY"
         ).length ?? 0;
       const artifactsCount = artifact.artifacts?.length ?? 0;
 
@@ -975,6 +1091,177 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(`========================================================================\n`);
       }
       return result.status === "COMPLETED" ? 0 : 1;
+    }
+
+    if (options.command === "eval-list") {
+      const definitions = await listEvalDefinitions();
+      const suites = await listEvalSuites();
+      if (options.json) {
+        console.log(JSON.stringify({ definitions, suites }, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Eval Studio: Library & Suites`);
+        console.log(`========================================================================`);
+        console.log(`Eval Definitions (${definitions.length}):`);
+        for (const d of definitions) {
+          console.log(`  - [${d.family}] ${d.eval_definition_id}@${d.version}: ${d.name} (${d.grader_type}, ${d.severity})`);
+        }
+        console.log(`\nEval Suites (${suites.length}):`);
+        for (const s of suites) {
+          console.log(`  - ${s.suite_id}@${s.version}: ${s.name} (${s.definitions.length} defs, mode: ${s.pass_policy.mode})`);
+        }
+        console.log(`========================================================================\n`);
+      }
+      return 0;
+    }
+
+    if (options.command === "eval-run") {
+      const artifact = await loadArtifact(options.runIdOrPath);
+      let suite: any = null;
+      if (options.suiteIdOrPath.endsWith(".json") || options.suiteIdOrPath.includes("/")) {
+        const raw = await readFile(resolve(process.cwd(), options.suiteIdOrPath), "utf8");
+        suite = evalSuiteSchema.parse(JSON.parse(raw));
+      } else {
+        const parts = options.suiteIdOrPath.split("@");
+        const suiteId = parts[0]!;
+        const version = parts[1] ? parseInt(parts[1], 10) : 1;
+        suite = await getEvalSuite(suiteId, version);
+      }
+      if (!suite) {
+        throw new Error(`EvalSuite "${options.suiteIdOrPath}" not found.`);
+      }
+
+      const evalRun = await evaluateRun(artifact, suite);
+      if (options.json) {
+        console.log(JSON.stringify(evalRun, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Post-Hoc Evaluation: ${evalRun.evaluation_run_id}`);
+        console.log(`========================================================================`);
+        console.log(`Run ID:              ${artifact.identity.run_id}`);
+        console.log(`Eval Suite:          ${evalRun.suite_id}@${evalRun.suite_version}`);
+        console.log(`Suite Verdict:       ${evalRun.summary.suite_verdict === "PASSED" ? "✅ PASSED" : "❌ FAILED"}`);
+        console.log(`Verdict Reason:      ${evalRun.summary.verdict_reason}`);
+        console.log(`Pass Rate:           ${(evalRun.summary.pass_rate * 100).toFixed(1)}% (${evalRun.summary.passed}/${evalRun.summary.total})`);
+        console.log(`Grader Cost:         $${evalRun.cost_usd.toFixed(4)}`);
+        console.log(`Duration:            ${evalRun.duration_ms}ms`);
+        console.log(`\nResults:`);
+        for (const r of evalRun.results) {
+          const badge = r.passed ? "✅" : "❌";
+          const status = r.grader_status ?? (r.passed ? "PASSED" : "FAILED");
+          console.log(`  ${badge} [${r.eval_type}] ${r.name}: ${status} (${r.findings.join("; ")})`);
+        }
+        console.log(`========================================================================\n`);
+      }
+      return evalRun.summary.suite_verdict === "PASSED" ? 0 : 1;
+    }
+
+    if (options.command === "dataset-list") {
+      const datasets = await listEvalDatasets();
+      if (options.json) {
+        console.log(JSON.stringify(datasets, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Eval Datasets (${datasets.length})`);
+        console.log(`========================================================================`);
+        for (const d of datasets) {
+          console.log(`  - ${d.dataset_id}@${d.version}: ${d.name} (${d.cases.length} cases)`);
+        }
+        console.log(`========================================================================\n`);
+      }
+      return 0;
+    }
+
+    if (options.command === "experiment-plan") {
+      let def: ExperimentDefinition;
+      if (options.definitionPathOrId.endsWith(".json") || options.definitionPathOrId.includes("/")) {
+        const raw = await readFile(resolve(process.cwd(), options.definitionPathOrId), "utf8");
+        def = experimentDefinitionSchema.parse(JSON.parse(raw));
+      } else {
+        const fetched = await getExperimentDefinition(options.definitionPathOrId);
+        if (!fetched) throw new Error(`Experiment definition "${options.definitionPathOrId}" not found.`);
+        def = fetched;
+      }
+
+      const plan = ExperimentPlanner.plan(def);
+      if (options.json) {
+        console.log(JSON.stringify(plan, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Experiment Plan: ${def.name}`);
+        console.log(`========================================================================`);
+        console.log(`Valid:               ${plan.valid ? "YES" : "NO"}`);
+        console.log(`Total Arms:          ${plan.total_arms}`);
+        console.log(`Total Trials:        ${plan.total_trials}`);
+        console.log(`Single Variable:     ${plan.single_variable ? "YES (Strong Causal Attribution)" : "NO (Confounded)"}`);
+        if (plan.warnings.length > 0) {
+          console.log(`\nWarnings:`);
+          for (const w of plan.warnings) console.log(`  ⚠️ ${w}`);
+        }
+        if (plan.errors.length > 0) {
+          console.log(`\nErrors:`);
+          for (const e of plan.errors) console.log(`  ❌ ${e}`);
+        }
+        console.log(`\nCandidate Arms (${plan.arms.length}):`);
+        for (const a of plan.arms) {
+          console.log(`  - [${a.is_baseline ? "BASELINE" : "CANDIDATE"}] ${a.arm_id}: ${a.name} (${a.mutations.length} mutations)`);
+        }
+        console.log(`========================================================================\n`);
+      }
+      return plan.valid ? 0 : 1;
+    }
+
+    if (options.command === "experiment-run") {
+      let def: ExperimentDefinition;
+      if (options.definitionPathOrId.endsWith(".json") || options.definitionPathOrId.includes("/")) {
+        const raw = await readFile(resolve(process.cwd(), options.definitionPathOrId), "utf8");
+        def = experimentDefinitionSchema.parse(JSON.parse(raw));
+      } else {
+        const fetched = await getExperimentDefinition(options.definitionPathOrId);
+        if (!fetched) throw new Error(`Experiment definition "${options.definitionPathOrId}" not found.`);
+        def = fetched;
+      }
+
+      const result = await ExperimentRunner.run(def);
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Experiment Result: ${result.experiment_id}`);
+        console.log(`========================================================================`);
+        console.log(`Status:              ${result.status}`);
+        console.log(`Baseline Arm:        ${result.baseline_arm_id}`);
+        console.log(`Recommended Arm:     ${result.recommended_candidate ?? "None"}`);
+        console.log(`Recommendation:      ${result.recommendation_basis}`);
+        console.log(`\nArm Summary:`);
+        for (const agg of result.aggregates) {
+          const repNote = agg.repeatability_note ? ` [${agg.repeatability_note}]` : "";
+          console.log(
+            `  - ${agg.arm_name} (${agg.is_baseline ? "Baseline" : "Candidate"}): Pass Rate ${(agg.pass_rate * 100).toFixed(0)}%, Mean Score: ${agg.mean_score.toFixed(3)}, Cost: $${agg.mean_total_cost.toFixed(4)}, Latency: ${agg.mean_latency_ms.toFixed(0)}ms${repNote}`
+          );
+        }
+        console.log(`========================================================================\n`);
+      }
+      return result.recommended_candidate ? 0 : 1;
+    }
+
+    if (options.command === "experiment-show") {
+      const result = await getExperimentResult(options.experimentId);
+      if (!result) throw new Error(`Experiment result "${options.experimentId}" not found.`);
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Experiment: ${result.experiment_id}`);
+        console.log(`========================================================================`);
+        console.log(`Status:              ${result.status}`);
+        console.log(`Recommended:         ${result.recommended_candidate ?? "None"}`);
+        console.log(`Recommendation:      ${result.recommendation_basis}`);
+        console.log(`Trials Executed:     ${result.trial_summaries.length}`);
+        console.log(`Cost Consumed:       $${result.budget_consumed.cost_usd.toFixed(4)}`);
+        console.log(`========================================================================\n`);
+      }
+      return 0;
     }
 
     return 1;

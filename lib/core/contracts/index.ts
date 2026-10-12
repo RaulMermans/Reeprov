@@ -20,3 +20,5 @@ export * from "./runArtifact";
 export * from "./configuration";
 export * from "./evidence";
 export * from "./comparison";
+export * from "./evalDefinitions";
+export * from "./experiment";

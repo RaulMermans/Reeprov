@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { runArtifactSchema, type RunArtifact } from "../contracts/runArtifact";
 import { executionBoundarySchema, type ExecutionBoundary } from "../contracts/replay";
 import { adaptLegacyRunToRunArtifact } from "../adapters/legacyRunAdapter";
+import { canonicalToLegacyEvalResult } from "../adapters/evalCompatibility";
 import { getDb, hasDatabaseUrl } from "../../db/client";
 import { ensureSchema } from "../../db/migrate";
 import { getRunStore } from "../../db/getStores";
@@ -106,18 +107,7 @@ function projectToSavedRun(artifact: RunArtifact): SavedRun {
       completed_at: tc.completed_at,
       duration_ms: tc.duration_ms,
     })),
-    evalResults: artifact.evals.map((ev) => ({
-      eval_id: ev.eval_id,
-      run_id: ev.target_run_id,
-      node_id: ev.target_node_id,
-      name: ev.name,
-      type: "schema_validity",
-      score: ev.score,
-      passed: ev.passed,
-      severity: ev.severity,
-      findings: ev.findings,
-      recommendation: ev.recommendation,
-    })),
+    evalResults: artifact.evals.map(canonicalToLegacyEvalResult),
     artifactRefs: artifact.artifacts.map((a) => a.uri ?? ""),
     createdAt: artifact.identity.created_at,
     updatedAt: now,

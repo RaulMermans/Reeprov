@@ -331,6 +331,7 @@ export const runOutcomeSchema = z.object({
   eval_status: z.enum(["PASS", "FAIL", "NOT_RUN"]).optional(),
   security_status: z.enum(["PASS", "VIOLATION", "BLOCKED", "NOT_RUN"]).optional(),
   completed_at: z.string(),
+  payload: z.unknown().optional(),
 });
 
 function runOutcomeStatusStatusSchema() {
