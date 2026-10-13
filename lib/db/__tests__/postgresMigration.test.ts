@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AGENTPULSE_TABLES } from "@/lib/db/storageHealth";
+import { _resetDbClient } from "@/lib/db/client";
+import { _resetMigrationFlag } from "@/lib/db/migrate";
 
 type MockRow = Record<string, unknown>;
 type MockSql = {
@@ -14,6 +16,8 @@ describe("Postgres store migration", () => {
   let executedQueries: string[];
 
   beforeEach(() => {
+    _resetDbClient();
+    _resetMigrationFlag();
     createdTables = new Set();
     executedQueries = [];
     process.env["DATABASE_URL"] = "postgresql://localhost/agentpulse_empty_test";
@@ -26,6 +30,8 @@ describe("Postgres store migration", () => {
   });
 
   afterEach(() => {
+    _resetDbClient();
+    _resetMigrationFlag();
     if (savedDatabaseUrl === undefined) delete process.env["DATABASE_URL"];
     else process.env["DATABASE_URL"] = savedDatabaseUrl;
     vi.doUnmock("postgres");

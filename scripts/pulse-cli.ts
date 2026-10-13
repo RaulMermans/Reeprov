@@ -47,8 +47,6 @@ import {
   getExperimentResult,
   listExperimentResults,
 } from "../lib/core/experiment/persistence";
-import { BaselineManager } from "../lib/core/regression/baseline";
-import { RegressionGateEngine } from "../lib/core/regression/gate";
 import {
   listRegressionBaselines,
   getRegressionBaseline,
@@ -294,42 +292,6 @@ export function parseArgs(args: string[]): CliCommandOptions | null {
     return null;
   }
 
-  // Baseline subcommands: pulse baseline list, pulse baseline set
-  if (args[0] === "baseline" || args.includes("baseline-list") || args.includes("baseline-set")) {
-    const json = args.includes("--json");
-    if (args[1] === "list" || args.includes("baseline-list")) {
-      const idx = args.indexOf("baseline-list");
-      const proj = idx !== -1 ? args[idx + 1] : args[2];
-      const projectId = proj && !proj.startsWith("--") ? proj : undefined;
-      return { command: "baseline-list", projectId, json };
-    }
-    if (args[1] === "set" || args.includes("baseline-set")) {
-      const idx = args.indexOf("baseline-set");
-      const baseIdx = idx !== -1 ? idx : 1;
-      const baselineId = args[baseIdx + 1];
-      const projectId = args[baseIdx + 2];
-      const evalSuiteId = args[baseIdx + 3];
-      const datasetId = args[baseIdx + 4];
-      if (!baselineId || !projectId || !evalSuiteId || !datasetId) return null;
-      return { command: "baseline-set", baselineId, projectId, evalSuiteId, datasetId, json };
-    }
-    return null;
-  }
-
-  // Regression subcommands: pulse regression check <candidate> [baseline]
-  if (args[0] === "regression" || args.includes("regression-check")) {
-    const json = args.includes("--json");
-    if (args[1] === "check" || args.includes("regression-check")) {
-      const idx = args.indexOf("regression-check");
-      const baseIdx = idx !== -1 ? idx : 1;
-      const candidateRunId = args[baseIdx + 1];
-      if (!candidateRunId) return null;
-      const candidateBaseline = args[baseIdx + 2];
-      const baselineId = candidateBaseline && !candidateBaseline.startsWith("--") ? candidateBaseline : undefined;
-      return { command: "regression-check", candidateRunId, baselineId, json };
-    }
-    return null;
-  }
 
   // Regression / gate subcommands: pulse regression check <candidate> --baseline <baseline> [--policy <policy>]
   // or alias: pulse gate <candidate> --baseline <baseline> [--policy <policy>]

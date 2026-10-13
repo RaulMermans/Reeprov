@@ -36,6 +36,15 @@ export const AGENTPULSE_TABLES = [
   "ap_experiments",
   "ap_experiment_trials",
   "ap_experiment_results",
+  "ap_regression_baselines",
+  "ap_regression_gate_policies",
+  "ap_regression_gate_results",
+  "ap_regression_reports",
+  "ap_capability_snapshots",
+  "ap_capability_drift_reports",
+  "ap_policy_snapshots",
+  "ap_policy_drift_reports",
+  "ap_release_evidence",
 ] as const;
 
 export type DeploymentEnvironment = "production" | "preview" | "development";
