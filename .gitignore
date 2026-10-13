@@ -20,5 +20,22 @@ pnpm-debug.log*
 .vercel
 
 .agentpulse
-/runs
-/workflows
+.agentpulse/
+*.agentpulse-export*
+*.agentpulse-export.json
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+*.sqlite3
+agentpulse.db*
+/runs/
+/workflows/
+/comparisons/
+/blobs/
+/evals/
+/experiments/
+/baselines/
+/reports/
+credentials.json
+.credentials

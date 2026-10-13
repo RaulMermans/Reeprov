@@ -12,9 +12,12 @@ import {
   regressionGatePolicySchema,
   type RegressionGatePolicy,
 } from "@/lib/core/contracts/regression";
+import { authorizeRequest } from "@/lib/auth/accessControl";
+import { apiErrorResponse } from "@/lib/api/errors";
 
 export async function POST(request: NextRequest) {
   try {
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
     const body = await request.json();
     const {
       baseline_id,
@@ -119,9 +122,6 @@ export async function POST(request: NextRequest) {
       artifact,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 }
-    );
+    return apiErrorResponse(error);
   }
 }

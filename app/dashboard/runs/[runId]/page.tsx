@@ -19,6 +19,7 @@ import { EvidencePanel } from "@/components/proof-layer/EvidencePanel";
 import { ContextIntelligenceStudio } from "@/components/proof-layer/ContextIntelligenceStudio";
 import { MemoryIntelligenceStudio } from "@/components/proof-layer/MemoryIntelligenceStudio";
 import { RunDetailTabs, type RunDetailTab } from "@/components/proof-layer/RunDetailTabs";
+import { RunSummaryView } from "@/components/runs/RunSummaryView";
 import { formatCurrency, formatDuration, formatDateTime, formatPercent } from "@/components/proof-layer/format";
 import {
   groupTraceEventsIntoStages,
@@ -549,6 +550,13 @@ export default function RunDetailPage() {
         <span>/</span>
         <span className="font-mono text-slate-400">{run.run_id}</span>
       </nav>
+
+      {/* Primary Diagnostic Screen: Run Summary & Divergence Banner */}
+      <RunSummaryView
+        runRecord={run}
+        traceEvents={traceEvents}
+        evalResults={evalResults}
+      />
 
       <RunDetailTabs tabs={tabs} />
     </main>

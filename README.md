@@ -1,261 +1,200 @@
 # AgentPulse
 
-AgentPulse is a private observability and proof layer for agentic AI workflows.
+> **Observe, prove, replay, and compare agent execution.**
+>
+> AgentPulse is the local-first debugging and reproducibility layer for AI agents.
 
-It accepts trace events from external AI projects, validates them, stores them as inspectable run timelines, and answers: **what happened, why, how much did it cost, and did it pass?**
+AgentPulse accepts execution evidence, causal trajectories, and boundary snapshots from external AI agents, validates them against canonical schemas, stores them locally, and provides offline reproducibility, diagnostic comparison, automated evaluations, and regression gates.
 
-AgentPulse also includes a repository scanner for auditing AI-agent and AI-workflow repositories: detecting agents, workflows, prompts, tools, evals, secrets, and scoring the codebase.
+AgentPulse is **not a public SaaS**. There are no subscriptions, billing tiers, cloud accounts, multi-tenant organizations, invitations, or telemetry uploads to external servers. Your execution evidence stays under your direct control.
 
-AgentPulse is not a public SaaS, not multi-user, not a workflow runtime, and does not execute AI project code.
+---
+
+## Operating Modes
+
+AgentPulse operates across three distinct operating postures using the exact same core engine:
+
+| Mode | Trigger | Auth Posture | Network Binding | Primary Use Case |
+|------|---------|--------------|-----------------|------------------|
+| **`PERSONAL_LOCAL`** (Default) | `AGENTPULSE_MODE=personal_local` (or unset) | None (zero login screen, no user accounts) | Loopback only (`127.0.0.1` / `::1`) | Local development, single developer operator, instant startup |
+| **`PRIVATE_SELF_HOSTED`** | `AGENTPULSE_MODE=self_hosted` | Mandatory (`AGENTPULSE_ACCESS_KEY` → HttpOnly session cookie) | Configurable network interface | Private VM, Docker host, home server, internal company server |
+| **`HEADLESS_CI`** | `AGENTPULSE_MODE=headless_ci` | CLI/API credential or project ingest key | Headless (no Studio required) | Automated CI regression gates, pre-merge evaluations, artifact generation |
+
+### Loopback Privacy Guarantee (`PERSONAL_LOCAL`)
+In `PERSONAL_LOCAL` mode, AgentPulse enforces a strict loopback binding policy (`127.0.0.1` / `::1`). It cannot be bound to public interfaces (`0.0.0.0`) without explicit mode transition to `PRIVATE_SELF_HOSTED`. Security in local mode is governed by OS user boundaries, filesystem permissions, and network isolation—not a synthetic login screen.
+
+### Hardened Session Security (`PRIVATE_SELF_HOSTED`)
+When running in `PRIVATE_SELF_HOSTED` mode, instance authentication is mandatory:
+- Unlocks via `POST /api/auth/unlock` using `AGENTPULSE_ACCESS_KEY`.
+- Issues a bounded, cryptographically signed, `HttpOnly`, `SameSite=Lax`, secure cookie (`agentpulse_session`).
+- The browser never repeatedly exposes the raw access key to client-side JavaScript or local storage.
+- Active sessions can be locked or invalidated instantly via `POST /api/auth/lock`.
+
+---
+
+## Top-Level Architecture: Projects
+
+**Project is the top-level product object** in AgentPulse:
+
+```
+AgentPulse Instance
+  └── Projects (Identity, Framework, Ingest Keys, Settings)
+        ├── Runs (Causal Trajectories, Model Calls, Tool Boundaries)
+        ├── Comparisons (Side-by-side run diffs & state divergence)
+        ├── Eval Suites & Datasets
+        ├── Experiments & Lineage Forks
+        └── Regression Baselines & Gate Reports
+```
+
+Each project is issued its own project-scoped ingest key (`ap_live_...`). Ingest keys grant authority **only** to start runs, append events, and complete runs for that specific project. Ingest keys cannot browse Studio, inspect other projects, read private traces, or alter regression baselines.
+
+---
 
 ## Quick Start
 
+### 1. Install & Launch
 ```bash
+git clone https://github.com/raulm/AgentPulse.git
+cd AgentPulse
 npm install
-cp .env.example .env.local
-# Edit .env.local with your values (see Environment Variables below)
 npm run dev
 ```
 
-Open `http://localhost:3000/dashboard` to see the dashboard.
+Open `http://localhost:3000/dashboard` in your browser.
+In `PERSONAL_LOCAL` mode, Studio opens immediately without an account prompt.
 
-To emit a sample trace run into the store without a live AI project:
+### 2. First-Launch Onboarding & Demo Project
+If no projects exist yet, the Studio welcomes you with:
+- **Connect your first agent**: 3-step project creation and framework instrumentation wizard (TypeScript, Python, LangGraph, PydanticAI, REST).
+- **Explore demo run**: Pre-populates a deterministic demo project (`demo-support-agent`) with a golden baseline, a drifted failure run, visual comparison, and a regression gate report.
+
+You can also initialize or reset the demo project from the CLI:
+```bash
+# Setup demo project
+pulse demo setup
+
+# Reset demo project
+pulse demo reset
+```
+
+---
+
+## Studio Information Architecture
+
+The AgentPulse Studio provides a focused, product-oriented navigation:
+
+- **Projects** (`/dashboard/projects`) — Project fleet, ingest keys, capture readiness scores, and project exports.
+- **Runs** (`/dashboard/runs`) — Chronological execution timelines, causal step graphs, token breakdowns, and tool invocations.
+- **Compare** (`/dashboard/runs/compare`) — Side-by-side diffing of runs, identifying the first causal divergence point.
+- **Evaluate** (`/dashboard/evals`) — Automated eval suites, test case datasets, and model benchmark runs.
+- **Regressions** (`/dashboard/regressions`) — Release baselines, drift detection, and gate progression reports.
+- **Settings & Privacy** (`/dashboard/settings`) — Active operating mode, local storage directory path, privacy posture, and project data management.
+
+*Legacy repository auditing and workflow registry tools remain accessible under Developer Tools in the top navigation.*
+
+---
+
+## Local CLI Reference (`pulse`)
+
+AgentPulse includes the `pulse` CLI for terminal productivity and headless CI automation:
 
 ```bash
-npm run seed:traces
-# Then visit: http://localhost:3000/dashboard/runs
+# General help
+pulse --help
+
+# Inspect local data root and operating mode
+pulse data-path
+pulse data-path --json
+
+# List configured projects
+pulse projects list
+pulse projects list --json
+
+# Export project bundle (sanitized of raw secret keys)
+pulse export project <project-id> --out ./backup.json
+
+# Setup / reset the deterministic demo project
+pulse demo setup
+pulse demo reset
+
+# Run offline deterministic replay
+pulse replay --run-id <run-id>
+
+# Run pre-merge regression release gate (CI)
+pulse regression-check --baseline <baseline-id> --candidate <candidate-run-id>
 ```
+
+---
 
 ## Environment Variables
 
-| Variable                  | Required          | Description                                                                         |
-|---------------------------|-------------------|-------------------------------------------------------------------------------------|
-| `DATABASE_URL`            | **Yes (production)** | Postgres connection string (Neon, Vercel Postgres, etc.). Required in production — `getStores()` throws on startup if `NODE_ENV=production` and `DATABASE_URL` is unset. Optional in local dev (falls back to file-backed stores). |
-| `AGENTPULSE_ACCESS_KEY`   | **Yes**           | Dashboard and scanner access key. Stored in sessionStorage client-side. Must be a long random value. |
-| `AGENTPULSE_INGEST_KEY`   | **Recommended**   | External trace ingestion key for connected AI projects. Should differ from `AGENTPULSE_ACCESS_KEY` in deployed environments. If unset, AgentPulse falls back to `AGENTPULSE_ACCESS_KEY` for local/dev convenience only. |
-| `GITHUB_TOKEN`            | For scanner       | Server-side read-only GitHub token for repository scanning. Use a fine-grained token with `contents: read` on selected repos. |
-| `AGENTPULSE_STORE_DIR`    | Local-only        | Override the file-backed run/report storage directory (default: `.agentpulse/` in cwd). Only used when `DATABASE_URL` is unset. Ignored entirely once `DATABASE_URL` is set. Not supported in production. |
-| `ENABLE_LLM_AUDITORS`     | No                | Set to `true` to enable LLM-based scanner auditors (disabled by default). Keep `false` in CI. |
-| `LLM_PROVIDER`            | No                | `openai` or `anthropic`. Only used when `ENABLE_LLM_AUDITORS=true`.                |
-| `OPENAI_API_KEY`          | Conditional       | Required only when `ENABLE_LLM_AUDITORS=true` and `LLM_PROVIDER=openai`.           |
-| `ANTHROPIC_API_KEY`       | Conditional       | Required only when `ENABLE_LLM_AUDITORS=true` and `LLM_PROVIDER=anthropic`.        |
-| `GOOGLE_API_KEY`          | Conditional       | Reserved for future Google LLM auditor support.                                     |
+| Variable | Operating Mode | Description |
+|---|---|---|
+| `AGENTPULSE_MODE` | All | `personal_local` (default), `self_hosted`, or `headless_ci`. |
+| `AGENTPULSE_HOME` | All | Custom local data root (defaults to `~/.agentpulse` in user home directory). |
+| `AGENTPULSE_ACCESS_KEY` | `self_hosted` | Instance owner credential for unlocking Studio in self-hosted deployments. |
+| `AGENTPULSE_INGEST_KEY` | Dev fallback | Global fallback ingest key. Prefer project-scoped ingest keys (`ap_live_...`). |
+| `DATABASE_URL` | Self-hosted / Prod | Optional Postgres connection string. When unset, AgentPulse uses the zero-dependency local filesystem store (`~/.agentpulse/`). |
+| `GITHUB_TOKEN` | Dev tools | Server-side read-only GitHub token for repository auditing tools. Never exposed to browser. |
 
-**Rules:**
-- Never prefix secrets with `NEXT_PUBLIC_`. All secrets are server-side only.
-- `AGENTPULSE_INGEST_KEY` and `AGENTPULSE_ACCESS_KEY` must be **different** in any deployed environment so that external projects cannot reach dashboard-only routes.
-- File-backed storage (`.agentpulse/` or `AGENTPULSE_STORE_DIR`) is local/dev/test only. Production always uses Postgres via `DATABASE_URL`.
+> [!IMPORTANT]
+> In deployed environments, `AGENTPULSE_INGEST_KEY` and `AGENTPULSE_ACCESS_KEY` must be **different** to prevent instrumented agents from accessing Studio administration.
+> Postgres via `DATABASE_URL` is supported for persistent multi-container deployments.
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment checklist.
+---
 
-## Trace Ingestion
+## Agent Instrumentation Example
 
-External AI projects emit trace events to AgentPulse using the ingestion API.
-
-### Quick integration
+Instrumenting an agent with the AgentPulse SDK takes less than 10 lines of code:
 
 ```typescript
 import { AgentPulseClient } from "@/lib/proof-layer/client";
 
 const pulse = new AgentPulseClient({
-  endpoint: process.env.AGENTPULSE_URL!,
-  apiKey:   process.env.AGENTPULSE_INGEST_KEY!,
-  projectId: "my-project",
-  projectName: "My Project",
-  workflowId: "my-workflow-v1",
+  endpoint: "http://127.0.0.1:3000",
+  apiKey: "ap_live_my_project_secret_key", // Project-scoped ingest key
+  projectId: "customer-support",
+  workflowId: "refund-flow-v1",
 });
 
-const run = await pulse.startRun({ summary: "Run description" });
+// 1. Start execution
+const run = await pulse.startRun({ summary: "Process refund request #9821" });
 
+// 2. Emit causal steps & boundaries
 await pulse.emitTraceEvent({
-  event_id:   crypto.randomUUID(),
-  run_id:     run.run_id,
-  workflow_id: "my-workflow-v1",
-  node_id:    "node-name",
-  timestamp:  new Date().toISOString(),
+  event_id: crypto.randomUUID(),
+  run_id: run.run_id,
+  workflow_id: "refund-flow-v1",
+  node_id: "triage-policy",
+  timestamp: new Date().toISOString(),
   event_type: "model_call_completed",
-  status:     "completed",
-  cost_usd:   0.0042,
-  metadata: { model_provider: "anthropic", model_name: "claude-sonnet-4-6" },
+  status: "completed",
+  cost_usd: 0.0018,
+  metadata: {
+    model_provider: "anthropic",
+    model_name: "claude-sonnet-4-6",
+    input_tokens: 420,
+    output_tokens: 180,
+  },
 });
 
-await pulse.completeRun({ run_id: run.run_id, summary: "Done." });
+// 3. Complete run
+await pulse.completeRun({ run_id: run.run_id, summary: "Refund evaluated successfully." });
 ```
 
-### API endpoints
+---
 
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| `POST` | `/api/runs/demo` | Access key | Create demo run (no external project needed) |
-| `POST` | `/api/runs/start` | Ingest key | Create a run |
-| `POST` | `/api/traces/events` | Ingest key | Append trace events |
-| `POST` | `/api/runs/complete` | Ingest key | Complete a run |
-| `POST` | `/api/runs/fail` | Ingest key | Fail a run |
-| `GET` | `/api/runs` | Access key | List runs |
-| `GET` | `/api/runs/[runId]` | Access key | Get full run |
-| `DELETE` | `/api/runs/[runId]` | Access key | Delete run |
+## Quality & Continuous Integration
 
-Auth header: `x-agentpulse-key: <key>`
-
-Trace events are validated before storage. Duplicate `event_id` values are silently skipped (idempotent ingestion). See [docs/trace_schema.md](docs/trace_schema.md) for the full schema.
-
-### Demo run (UI-driven)
-
-The easiest way to explore the runtime proof layer is the built-in demo run:
-
-1. Unlock the dashboard with your `AGENTPULSE_ACCESS_KEY`.
-2. Go to `/dashboard/runs`.
-3. Click **"Create demo run"**.
-4. Inspect the generated Website Auditor run — trace timeline, model calls, tool calls, evals, cost, latency, and artifact events.
-
-The demo run route requires only the dashboard access key (not the ingest key):
+AgentPulse maintains rigorous deterministic test coverage:
 
 ```bash
-curl -X POST http://localhost:3000/api/runs/demo \
-  -H "x-agentpulse-key: $AGENTPULSE_ACCESS_KEY"
-# Returns: { ok: true, runId: "demo-...", redirectTo: "/dashboard/runs/demo-..." }
-```
-
-### Seed script (local CLI)
-
-The seed script creates a realistic Campaign Sandbox run without a live project:
-
-```bash
-npm run seed:traces
-# View at: http://localhost:3000/dashboard/runs
-```
-
-## Repository Scanner
-
-The scanner audits GitHub repos and ZIP uploads for AI system structure.
-
-1. Start the dev server: `npm run dev`
-2. Go to `http://localhost:3000/dashboard/scanner`
-3. Enter your `AGENTPULSE_ACCESS_KEY`
-4. Select a GitHub repo or upload a ZIP
-
-Scanner results are saved to `.agentpulse/reports/` and viewable at `/dashboard/reports`.
-
-## Static Proof Reconstruction
-
-After scanning a repo, click **"Generate proof spec"** (or "Reconstruct" from the scan history) to produce a suggested WorkflowSpec, AI system graph, and optional instrumentation plan — without modifying the scanned project.
-
-The reconstruction:
-
-- Infers workflow stages from manifest files, detected agents, and file structure
-- Identifies missing links (agents without prompts/models/evals, unmapped eval files)
-- Generates 3 suggested files you can download or copy:
-  - `agentpulse.workflow.suggested.json` — WorkflowSpec ready for the proof dashboard
-  - `ai-system.suggested.yaml` — YAML agent/workflow/model inventory
-  - `instrumentation-plan.suggested.md` — optional trace event guide with code snippet
-- Assigns a confidence level: `high` (manifest-backed), `medium` (workflow files / manifest agents), `low` (scattered artifacts)
-
-**No fake reconstructions.** If the scanner finds no agent, workflow, prompt, tool, eval, or model evidence — for example a CI/dashboard repo with no AI artifacts — the reconstruction returns `workflowSpecs: []` and a single explanation file (`no-reconstruction.md`). AgentPulse does not invent a placeholder WorkflowSpec for non-AI repos. Assistant tooling (`.claude/`, `.cursor/`) and CI workflows alone do not count as AI evidence.
-
-**Suggested ≠ verified.** Suggested manifest files are starting points generated from static evidence. Review them before adopting them.
-
-**Static proof ≠ runtime proof.** Static reconstruction describes intent inferred from files. Real run timelines, eval pass/fail, cost, and latency require trace events from the scanned project — which is always optional.
-
-**Schema-validated output.** Every reconstruction returned by `/api/reconstruct` or `GET /api/reports/[reportId]/reconstruction` is validated against `staticProofReconstructionSchema` (Zod) before being serialized. Malformed objects never leave the engine.
-
-**Instrumentation is always optional.** The reconstruction works without any changes to the scanned project. If you want real run timelines and eval results, the instrumentation plan explains how to add trace events using `AgentPulseClient`.
-
-### Scan modes
-
-- **GitHub repository**: enter `owner/repo`; AgentPulse fetches files with the server-side GitHub token
-- **ZIP upload**: upload a `.zip` from GitHub; parsed in memory, never persisted, never executed
-
-ZIP uploads are capped at 4 MB. For larger repos, use GitHub scanning.
-
-## Access Model
-
-AgentPulse uses a dual-key access model:
-
-| Key | Purpose |
-|-----|---------|
-| `AGENTPULSE_ACCESS_KEY` | Protects all dashboard routes and scanner APIs |
-| `AGENTPULSE_INGEST_KEY` | Used by external AI projects to POST trace events |
-
-The dashboard prompts for the access key on first visit. The key is validated server-side
-and stored only in `sessionStorage` for the current browser session. No cookies, no OAuth.
-
-**Stored keys are revalidated on every page load.** `DashboardShell` calls `POST /api/auth/validate`
-on mount to verify any key already in `sessionStorage` before unlocking. An expired or invalid stored
-key is cleared and the user is returned to the access gate. Any protected API call that returns `401`
-also calls `onUnauthorized()`, which clears the key and re-shows the access gate.
-
-## Operating Modes
-
-- **Live Proof Runs** — ingest and inspect trace events from connected AI projects (`/dashboard/runs`)
-- **Static Repository Intelligence** — scan repos and ZIP files without code execution (`/dashboard/scanner`)
-- **Workflow Registry** — inspect workflow specs and example proof data (`/dashboard/workflows`)
-- **Saved Proof Reports** — review scan history, diffs, and reconstruction outputs (`/dashboard/reports`)
-
-## How to test the product end-to-end
-
-After starting the dev server (`npm run dev`):
-
-1. **Unlock** the dashboard at `http://localhost:3000/dashboard` using your `AGENTPULSE_ACCESS_KEY`.
-2. **Verify key revalidation**: refresh the page — the stored key is re-validated against `/api/auth/validate` before the dashboard unlocks. An expired key returns you to the access gate.
-3. **Scan a repo**: go to `/dashboard/scanner`, enter a GitHub repo (`owner/repo`), and run a scan.
-4. **Check scan history**: confirm the report appears in `/dashboard/reports`.
-5. **Generate Static Proof Reconstruction**: click "Reconstruct" on any saved report. For repos with no AI artifacts, the reconstruction panel shows "No AI workflow reconstruction generated" rather than a fake spec.
-6. **Create a demo run**: go to `/dashboard/runs` and click **"Create demo run"**. The UI POSTs `/api/runs/demo`, creates a complete Website Auditor run, and redirects to the run detail page.
-7. **Inspect the run**: the run detail page shows the trace timeline, 4 model calls (brand/UX/SEO/synthesis), 3 tool calls (fetch_page, sitemap_crawl, screenshot), 4 eval results (3 pass / 1 warning), 1 artifact, cost, and latency. The run is marked **degraded** because the source grounding eval raised a warning.
-8. **Verify 401 handling**: try calling a protected endpoint with a wrong key and confirm the dashboard returns to the access gate (not a blank or half-loaded state).
-
-## Security Posture
-
-- Repository code is never executed.
-- Repository dependencies are never installed.
-- GitHub token stays server-side.
-- All protected routes require `x-agentpulse-key`.
-- Secrets in scanned repos are redacted before reports.
-- ZIP entries are checked for path traversal before scanning.
-- Trace ingestion validates every event with Zod schemas before storage.
-- External trace summaries are human-readable text only — no raw code or secret values stored.
-
-## Store Layout
-
-```
-.agentpulse/
-  runs/
-    index.json          — run summaries, newest first
-    {runId}.json        — full saved run
-  reports/
-    index.json          — report summaries, newest first
-    {reportId}.json     — full saved scan report
-```
-
-Override the root directory with `AGENTPULSE_STORE_DIR`.
-
-## Local CI
-
-```bash
+# Run complete CI validation pipeline:
+# 1. Lint (ESLint)
+# 2. Typecheck (tsc --noEmit)
+# 3. Unit & Integration Tests (Vitest across 104 test suites)
+# 4. Next.js Production Build
 npm run ci
-# runs: lint + typecheck + test + build
 ```
 
-No `GITHUB_TOKEN`, `AGENTPULSE_ACCESS_KEY`, or provider API key required for CI. All tests use mock or static inputs.
-
-## Dashboard Routes
-
-| Route | Description |
-|-------|-------------|
-| `/dashboard` | Overview: live runs, quick nav, example metrics |
-| `/dashboard/runs` | Real proof runs from trace ingestion |
-| `/dashboard/runs/[runId]` | Run detail: trace timeline, evals, tool calls, model calls, artifacts |
-| `/dashboard/workflows` | Workflow gallery (example proof data) |
-| `/dashboard/scanner` | Repository scanner (access-key gated) |
-| `/dashboard/reports` | Scan history with diff and regression candidates |
-| `/dashboard/reports/[reportId]/reconstruction` | Static proof reconstruction for a saved scan report |
-
-## Docs
-
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system architecture (incl. Static Proof Reconstruction)
-- [docs/trace_schema.md](docs/trace_schema.md) — trace event schema and ingestion API
-- [docs/workflow_spec.md](docs/workflow_spec.md) — WorkflowSpec schema, SuggestedWorkflowSpec, static vs runtime proof
-- [docs/product_direction.md](docs/product_direction.md) — product positioning and roadmap
-- [docs/ROADMAP.md](docs/ROADMAP.md) — task history and upcoming work
-- [docs/SECURITY.md](docs/SECURITY.md) — security model and deployment guidance
-- [docs/SCORING_RUBRIC.md](docs/SCORING_RUBRIC.md) — scanner scoring rubric
+All 1,700+ tests run fully offline without live external API dependencies.

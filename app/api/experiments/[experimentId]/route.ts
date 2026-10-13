@@ -3,12 +3,15 @@ import {
   getExperimentDefinition,
   getExperimentResult,
 } from "@/lib/core/experiment/persistence";
+import { authorizeRequest } from "@/lib/auth/accessControl";
+import { apiErrorResponse } from "@/lib/api/errors";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ experimentId: string }> }
 ) {
   try {
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
     const { experimentId } = await context.params;
     const definition = await getExperimentDefinition(experimentId);
     const result = await getExperimentResult(experimentId);
@@ -25,9 +28,6 @@ export async function GET(
       result,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 }
-    );
+    return apiErrorResponse(error);
   }
 }

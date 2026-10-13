@@ -6,9 +6,12 @@ import {
 import { CapabilitySnapshotEngine } from "@/lib/core/capability/snapshot";
 import { getCanonicalRun } from "@/lib/core/capture/persistence";
 import { listEvaluationRuns } from "@/lib/core/evals/persistence";
+import { authorizeRequest } from "@/lib/auth/accessControl";
+import { apiErrorResponse } from "@/lib/api/errors";
 
 export async function GET(request: NextRequest) {
   try {
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
     const { searchParams } = new URL(request.url);
     const snapshotId = searchParams.get("id");
     const agentId = searchParams.get("agent_id");
@@ -28,15 +31,13 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ snapshots });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 }
-    );
+    return apiErrorResponse(error);
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
     const body = await request.json();
     const {
       agent_id,
@@ -79,9 +80,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ snapshot }, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 }
-    );
+    return apiErrorResponse(error);
   }
 }
+

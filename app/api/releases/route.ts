@@ -6,9 +6,12 @@ import {
 } from "@/lib/core/releases/persistence";
 import { ReleaseEvidenceEngine } from "@/lib/core/releases/snapshot";
 import { getRegressionBaseline, getRegressionGateResult } from "@/lib/core/regression/persistence";
+import { authorizeRequest } from "@/lib/auth/accessControl";
+import { apiErrorResponse } from "@/lib/api/errors";
 
 export async function GET(request: NextRequest) {
   try {
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
     const { searchParams } = new URL(request.url);
     const releaseId = searchParams.get("id");
     const version = searchParams.get("version");
@@ -33,15 +36,13 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ releases });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 }
-    );
+    return apiErrorResponse(error);
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
     const body = await request.json();
     const {
       release_version,
@@ -93,9 +94,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ releaseEvidence: snapshot }, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 }
-    );
+    return apiErrorResponse(error);
   }
 }
+

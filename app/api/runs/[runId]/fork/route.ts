@@ -7,7 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest } from "@/lib/auth/accessControl";
 import { getCanonicalRun } from "@/lib/core/capture/persistence";
 import { ForkRuntime } from "@/lib/core/fork/runtime";
 import type { ExperimentMutation } from "@/lib/core/contracts/lineage";
@@ -19,7 +19,7 @@ interface RouteParams {
 
 export async function POST(request: Request, { params }: RouteParams) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
     const { runId } = await params;
 
     const source = await getCanonicalRun(runId);

@@ -77,8 +77,8 @@ function projectToSavedRun(artifact: RunArtifact): SavedRun {
       tool_calls_count: artifact.observability.tool_calls_count,
       evals_passed: artifact.observability.evals_passed,
       evals_failed: artifact.observability.evals_failed,
-      approval_status: artifact.safety.approval_status === "not_required" ? undefined : artifact.safety.approval_status,
-      artifact_refs: artifact.artifacts.map((a) => a.uri ?? ""),
+      approval_status: artifact.safety?.approval_status === "not_required" ? undefined : artifact.safety?.approval_status,
+      artifact_refs: (artifact.artifacts ?? []).map((a) => a.uri ?? ""),
     },
     traceEvents: artifact.trajectory.map((step) => ({
       event_id: step.step_id,
@@ -93,7 +93,7 @@ function projectToSavedRun(artifact: RunArtifact): SavedRun {
       output_summary: step.output_summary,
       metadata: step.metadata,
     })),
-    toolCalls: artifact.tools.map((tc) => ({
+    toolCalls: (artifact.tools ?? []).map((tc) => ({
       tool_call_id: tc.tool_call_id,
       run_id: artifact.identity.run_id,
       node_id: tc.node_id ?? "unknown",
@@ -107,8 +107,8 @@ function projectToSavedRun(artifact: RunArtifact): SavedRun {
       completed_at: tc.completed_at,
       duration_ms: tc.duration_ms,
     })),
-    evalResults: artifact.evals.map(canonicalToLegacyEvalResult),
-    artifactRefs: artifact.artifacts.map((a) => a.uri ?? ""),
+    evalResults: (artifact.evals ?? []).map(canonicalToLegacyEvalResult),
+    artifactRefs: (artifact.artifacts ?? []).map((a) => a.uri ?? ""),
     createdAt: artifact.identity.created_at,
     updatedAt: now,
   };

@@ -5,21 +5,22 @@ import {
 } from "@/lib/core/evals/persistence";
 import { evaluateRun } from "@/lib/core/evals/runner";
 import { getCanonicalRun } from "@/lib/core/capture/persistence";
+import { authorizeRequest } from "@/lib/auth/accessControl";
+import { apiErrorResponse } from "@/lib/api/errors";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
     const runs = await listEvaluationRuns();
     return NextResponse.json({ evaluation_runs: runs });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 }
-    );
+    return apiErrorResponse(error);
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
     const body = await request.json();
     const { run_id, suite_id, suite_version } = body;
 
@@ -50,9 +51,6 @@ export async function POST(request: NextRequest) {
     const evaluationRun = await evaluateRun(artifact, suite);
     return NextResponse.json({ evaluation_run: evaluationRun }, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 400 }
-    );
+    return apiErrorResponse(error);
   }
 }

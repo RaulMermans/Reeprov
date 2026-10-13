@@ -4,6 +4,8 @@ import {
   getRegressionBaseline,
 } from "@/lib/core/regression/persistence";
 import { BaselineManager } from "@/lib/core/regression/baseline";
+import { authorizeRequest } from "@/lib/auth/accessControl";
+import { apiErrorResponse } from "@/lib/api/errors";
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,6 +13,11 @@ export async function GET(request: NextRequest) {
     const baselineId = searchParams.get("id");
     const agentId = searchParams.get("agent_id");
     const projectId = searchParams.get("project_id");
+
+    await authorizeRequest(request, {
+      capability: "DASHBOARD_READ",
+      projectId: projectId ?? undefined,
+    });
 
     if (baselineId) {
       const baseline = await getRegressionBaseline(baselineId);
@@ -30,16 +37,17 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ baselines });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 }
-    );
+    return apiErrorResponse(error);
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    await authorizeRequest(request, {
+      capability: "DASHBOARD_WRITE",
+      projectId: body.project_id ?? undefined,
+    });
     const action = body.action || "create";
 
     if (action === "revoke") {
@@ -98,9 +106,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ baseline }, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 400 }
-    );
+    return apiErrorResponse(error);
   }
 }

@@ -14,37 +14,60 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [validating, setValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expiredMessage, setExpiredMessage] = useState<string | null>(null);
+  const [operatingMode, setOperatingMode] = useState<string>("personal_local");
 
-  // On mount: revalidate any stored key — do not trust sessionStorage alone.
+  // On mount: check operating mode and session state
   useEffect(() => {
     async function init() {
-      const stored = getInternalKey();
-
-      if (!stored) {
-        // No key stored — show access gate immediately.
-        setMounted(true);
-        return;
-      }
-
-      // Key found — validate it server-side before unlocking.
       setRevalidating(true);
       try {
-        const response = await fetch("/api/auth/validate", {
-          method: "POST",
-          headers: { "x-agentpulse-key": stored },
-        });
+        const sessionRes = await fetch("/api/auth/session");
+        if (sessionRes.ok) {
+          const sessionData = (await sessionRes.json()) as {
+            mode: string;
+            requiresAuth: boolean;
+            authenticated: boolean;
+          };
+          setOperatingMode(sessionData.mode);
 
-        if (response.ok) {
-          setIsUnlocked(true);
-        } else {
-          // Stored key is invalid or expired.
-          clearInternalKey();
-          setExpiredMessage("Access key expired or invalid. Please unlock again.");
+          // In PERSONAL_LOCAL mode, never show a lock screen
+          if (sessionData.mode === "personal_local" || !sessionData.requiresAuth) {
+            setIsUnlocked(true);
+            setMounted(true);
+            setRevalidating(false);
+            return;
+          }
+
+          // If session cookie is already valid
+          if (sessionData.authenticated) {
+            setIsUnlocked(true);
+            setMounted(true);
+            setRevalidating(false);
+            return;
+          }
+        }
+
+        // Check fallback stored key in sessionStorage (backward compatibility)
+        const stored = getInternalKey();
+        if (stored) {
+          const response = await fetch("/api/auth/validate", {
+            method: "POST",
+            headers: { "x-agentpulse-key": stored },
+          });
+
+          if (response.ok) {
+            setIsUnlocked(true);
+          } else {
+            clearInternalKey();
+            setExpiredMessage("Access key expired or invalid. Please unlock again.");
+          }
         }
       } catch {
-        // Network error — clear key conservatively.
-        clearInternalKey();
-        setExpiredMessage("Access key expired or invalid. Please unlock again.");
+        // Fallback: check stored key
+        const stored = getInternalKey();
+        if (stored) {
+          setIsUnlocked(true);
+        }
       } finally {
         setRevalidating(false);
         setMounted(true);
@@ -54,7 +77,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     void init();
   }, []);
 
-  const lock = useCallback(() => {
+  const lock = useCallback(async () => {
+    try {
+      await fetch("/api/auth/lock", { method: "POST" });
+    } catch {
+      // ignore
+    }
     clearInternalKey();
     setIsUnlocked(false);
     setKeyInput("");
@@ -83,9 +111,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     setError(null);
 
     try {
-      const response = await fetch("/api/auth/validate", {
+      const response = await fetch("/api/auth/unlock", {
         method: "POST",
-        headers: { "x-agentpulse-key": trimmed },
+        headers: {
+          "Content-Type": "application/json",
+          "x-agentpulse-key": trimmed,
+        },
+        body: JSON.stringify({ accessKey: trimmed }),
       });
 
       if (response.status === 401) {
@@ -94,8 +126,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       }
 
       if (!response.ok) {
-        setError("Could not validate access key.");
-        return;
+        // Fallback verification via /api/auth/validate
+        const valRes = await fetch("/api/auth/validate", {
+          method: "POST",
+          headers: { "x-agentpulse-key": trimmed },
+        });
+        if (!valRes.ok) {
+          setError("Could not validate access key.");
+          return;
+        }
       }
 
       setInternalKey(trimmed);
@@ -125,28 +164,30 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Not unlocked: show access gate (no navbar, no page content).
+  // Not unlocked: show self-hosted access gate (no navbar, no page content).
   if (!isUnlocked) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#f7f8fb] px-4">
         <div className="mb-8 text-center">
           <div className="flex items-center justify-center gap-2">
             <span className="text-2xl font-bold tracking-tight text-slate-950">AgentPulse</span>
-            <span className="rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-xs font-medium text-teal-700">v0</span>
+            <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+              {operatingMode === "self_hosted" ? "Private Self-Hosted" : "Protected"}
+            </span>
           </div>
-          <p className="mt-2 text-sm text-slate-500">Internal observability dashboard</p>
+          <p className="mt-2 text-sm text-slate-500">Dashboard access — instance operator access gate</p>
         </div>
 
         <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <form className="flex flex-col gap-5" onSubmit={handleUnlock}>
             <div>
-              <h2 className="text-base font-semibold text-slate-950">Dashboard access</h2>
+              <h2 className="text-base font-semibold text-slate-950">Unlock instance</h2>
               <p className="mt-1 text-sm text-slate-500">
                 Enter your{" "}
                 <code className="rounded bg-slate-100 px-1 font-mono text-xs text-slate-700">
                   AGENTPULSE_ACCESS_KEY
                 </code>{" "}
-                to unlock the dashboard. The key is validated server-side and stored only for this browser session.
+                to unlock this private instance. An encrypted HttpOnly session cookie will be issued.
               </p>
             </div>
 
@@ -180,7 +221,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               disabled={validating}
               type="submit"
             >
-              {validating ? "Validating…" : "Unlock Dashboard"}
+              {validating ? "Unlocking…" : "Unlock Dashboard"}
             </button>
           </form>
         </div>
@@ -188,12 +229,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Unlocked: render dashboard with navbar and auth context.
+  // Unlocked: render shell with full nav and content.
   return (
     <DashboardAuthContext.Provider value={{ isUnlocked: true, lock, onUnauthorized }}>
-      <div className="min-h-screen bg-[#f7f8fb]">
+      <div className="min-h-screen bg-[#f7f8fb] text-slate-900">
         <NavBar onLock={lock} />
-        <div>{children}</div>
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          {children}
+        </main>
       </div>
     </DashboardAuthContext.Provider>
   );

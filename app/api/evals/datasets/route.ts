@@ -8,9 +8,12 @@ import {
   evalDatasetSchema,
   computeEvalDatasetHash,
 } from "@/lib/core/contracts/evalDefinitions";
+import { authorizeRequest } from "@/lib/auth/accessControl";
+import { apiErrorResponse } from "@/lib/api/errors";
 
 export async function GET(request: NextRequest) {
   try {
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
     const { searchParams } = new URL(request.url);
     const datasetId = searchParams.get("id");
     const versionStr = searchParams.get("version");
@@ -27,15 +30,13 @@ export async function GET(request: NextRequest) {
     const datasets = await listEvalDatasets();
     return NextResponse.json({ datasets });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 }
-    );
+    return apiErrorResponse(error);
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
     const body = await request.json();
     const hash = body.content_hash || computeEvalDatasetHash(body);
     const dataset = evalDatasetSchema.parse({
@@ -47,9 +48,6 @@ export async function POST(request: NextRequest) {
     await saveEvalDataset(dataset);
     return NextResponse.json({ dataset }, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 400 }
-    );
+    return apiErrorResponse(error);
   }
 }

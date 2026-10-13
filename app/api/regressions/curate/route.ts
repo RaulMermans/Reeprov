@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RegressionCaseCuration } from "@/lib/core/regression/curation";
+import { authorizeRequest } from "@/lib/auth/accessControl";
+import { apiErrorResponse } from "@/lib/api/errors";
 
 export async function POST(request: NextRequest) {
   try {
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
     const body = await request.json();
     const {
       run_id,
@@ -37,9 +40,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ evalCase }, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 }
-    );
+    return apiErrorResponse(error);
   }
 }

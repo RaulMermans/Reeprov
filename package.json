@@ -1,7 +1,7 @@
 {
   "name": "agentpulse",
   "version": "1.0.0",
-  "description": "Private dashboard for auditing personal GitHub AI-agent repositories.",
+  "description": "AgentPulse is the local-first debugging and reproducibility layer for AI agents.",
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",

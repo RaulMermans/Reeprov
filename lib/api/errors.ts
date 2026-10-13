@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { AccessKeyError } from "@/lib/auth/requireAccessKey";
+import { AccessControlError } from "@/lib/auth/accessControl";
 
 export class ApiError extends Error {
   constructor(
@@ -37,6 +38,10 @@ export function githubError(message = "GitHub API request failed.") {
 export function normalizeApiError(error: unknown): ApiError {
   if (error instanceof ApiError) {
     return error;
+  }
+
+  if (error instanceof AccessControlError) {
+    return new ApiError(error.status, error.code, error.message, true);
   }
 
   if (error instanceof AccessKeyError) {

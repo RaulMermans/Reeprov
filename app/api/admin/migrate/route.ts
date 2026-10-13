@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest } from "@/lib/auth/accessControl";
 import { ensureSchema } from "@/lib/db/migrate";
 import { getStorageHealth } from "@/lib/db/storageHealth";
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "ADMIN" });
     await ensureSchema();
     const health = await getStorageHealth();
     return NextResponse.json({ ok: true, ...health });

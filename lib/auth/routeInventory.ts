@@ -1,0 +1,543 @@
+/**
+ * Deterministic Route Security Inventory for AgentPulse.
+ *
+ * Declares the capability, nature, mode policy, project scope,
+ * and sensitive payload behavior for every API route.
+ */
+
+import type { AuthCapability } from "./accessControl";
+
+export type ProjectScopePolicy = "none" | "optional" | "required";
+export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+export interface RouteSecurityDeclaration {
+  pathPattern: string;
+  methods: HttpMethod[];
+  capability: AuthCapability;
+  isWrite: boolean;
+  projectScope: ProjectScopePolicy;
+  sensitivePayload: boolean;
+  description: string;
+}
+
+export const ROUTE_SECURITY_INVENTORY: RouteSecurityDeclaration[] = [
+  // Health & Public Probes
+  {
+    pathPattern: "/api/health",
+    methods: ["GET"],
+    capability: "HEALTH_PUBLIC",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Public health probe for monitoring / container orchestrators.",
+  },
+  {
+    pathPattern: "/api/auth/session",
+    methods: ["GET"],
+    capability: "HEALTH_PUBLIC",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Check session status and instance operating mode.",
+  },
+  {
+    pathPattern: "/api/auth/unlock",
+    methods: ["POST"],
+    capability: "HEALTH_PUBLIC",
+    isWrite: true,
+    projectScope: "none",
+    sensitivePayload: true,
+    description: "Unlock instance with access key, issuing HttpOnly session cookie.",
+  },
+  {
+    pathPattern: "/api/auth/lock",
+    methods: ["POST"],
+    capability: "HEALTH_PUBLIC",
+    isWrite: true,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Invalidate session and clear HttpOnly cookie.",
+  },
+  {
+    pathPattern: "/api/auth/validate",
+    methods: ["POST"],
+    capability: "HEALTH_PUBLIC",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: true,
+    description: "Validates access key header or session cookie.",
+  },
+
+  // Trace Ingestion Pipeline (Strictly isolated from dashboard credentials)
+  {
+    pathPattern: "/api/runs/start",
+    methods: ["POST"],
+    capability: "INGEST",
+    isWrite: true,
+    projectScope: "required",
+    sensitivePayload: false,
+    description: "Starts a new run. Must provide valid project-scoped ingest key.",
+  },
+  {
+    pathPattern: "/api/traces/events",
+    methods: ["POST"],
+    capability: "INGEST",
+    isWrite: true,
+    projectScope: "required",
+    sensitivePayload: false,
+    description: "Appends trace events to run. Requires project-scoped ingest key.",
+  },
+  {
+    pathPattern: "/api/traces/boundaries",
+    methods: ["POST"],
+    capability: "INGEST",
+    isWrite: true,
+    projectScope: "required",
+    sensitivePayload: false,
+    description: "Appends execution boundaries. Requires project-scoped ingest key.",
+  },
+  {
+    pathPattern: "/api/runs/complete",
+    methods: ["POST"],
+    capability: "INGEST",
+    isWrite: true,
+    projectScope: "required",
+    sensitivePayload: false,
+    description: "Marks a run as completed. Requires project-scoped ingest key.",
+  },
+  {
+    pathPattern: "/api/runs/fail",
+    methods: ["POST"],
+    capability: "INGEST",
+    isWrite: true,
+    projectScope: "required",
+    sensitivePayload: false,
+    description: "Marks a run as failed with error details. Requires project-scoped ingest key.",
+  },
+
+  // Projects Management
+  {
+    pathPattern: "/api/projects",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "List all local projects.",
+  },
+  {
+    pathPattern: "/api/projects",
+    methods: ["POST"],
+    capability: "DASHBOARD_WRITE",
+    isWrite: true,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Create a new project.",
+  },
+  {
+    pathPattern: "/api/projects/[projectId]",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "required",
+    sensitivePayload: false,
+    description: "Get project details.",
+  },
+  {
+    pathPattern: "/api/projects/[projectId]",
+    methods: ["PATCH", "DELETE"],
+    capability: "DASHBOARD_WRITE",
+    isWrite: true,
+    projectScope: "required",
+    sensitivePayload: false,
+    description: "Update or delete project.",
+  },
+  {
+    pathPattern: "/api/projects/[projectId]/export",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "required",
+    sensitivePayload: true,
+    description: "Sanitized project export without credentials.",
+  },
+  {
+    pathPattern: "/api/projects/[projectId]/readiness",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "required",
+    sensitivePayload: false,
+    description: "Derived capture readiness and replay capability report.",
+  },
+  {
+    pathPattern: "/api/projects/[projectId]/delete-preview",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "required",
+    sensitivePayload: false,
+    description: "Preview resource counts before confirmed project deletion.",
+  },
+
+  // Runs & Inspection
+  {
+    pathPattern: "/api/runs",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "List runs with optional filters.",
+  },
+  {
+    pathPattern: "/api/runs/[runId]",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Fetch run detail and execution trace.",
+  },
+  {
+    pathPattern: "/api/runs/[runId]/canonical",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Fetch canonical run evidence envelope.",
+  },
+  {
+    pathPattern: "/api/runs/[runId]/checkpoints",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Fetch execution state checkpoints.",
+  },
+  {
+    pathPattern: "/api/runs/[runId]/lineage",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Fetch run execution lineage graph.",
+  },
+  {
+    pathPattern: "/api/runs/[runId]/context-intelligence",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Fetch context intelligence and token attribution.",
+  },
+  {
+    pathPattern: "/api/runs/[runId]/memory-intelligence",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Fetch memory intelligence and state mutations.",
+  },
+  {
+    pathPattern: "/api/runs/[runId]/fork",
+    methods: ["POST"],
+    capability: "DASHBOARD_WRITE",
+    isWrite: true,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Fork run from a checkpoint with modified state.",
+  },
+  {
+    pathPattern: "/api/runs/compare",
+    methods: ["GET", "POST"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "Compare two runs or list comparisons.",
+  },
+  {
+    pathPattern: "/api/runs/compare/[comparisonId]",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Fetch run comparison details.",
+  },
+
+  // Evals & Experiments
+  {
+    pathPattern: "/api/evals/suites",
+    methods: ["GET", "POST"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "List or create eval suites.",
+  },
+  {
+    pathPattern: "/api/evals/datasets",
+    methods: ["GET", "POST"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "List or create eval datasets.",
+  },
+  {
+    pathPattern: "/api/evals/cases",
+    methods: ["GET", "POST"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "List or create eval cases.",
+  },
+  {
+    pathPattern: "/api/evals/definitions",
+    methods: ["GET", "POST"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "List or register eval metric definitions.",
+  },
+  {
+    pathPattern: "/api/evals/runs",
+    methods: ["GET", "POST"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "List or execute eval runs.",
+  },
+  {
+    pathPattern: "/api/evals/runs/[runId]",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Fetch eval run results.",
+  },
+  {
+    pathPattern: "/api/experiments",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "List experiment plans and executions.",
+  },
+  {
+    pathPattern: "/api/experiments/plan",
+    methods: ["POST"],
+    capability: "DASHBOARD_WRITE",
+    isWrite: true,
+    projectScope: "required",
+    sensitivePayload: false,
+    description: "Create or optimize an experiment plan.",
+  },
+  {
+    pathPattern: "/api/experiments/run",
+    methods: ["POST"],
+    capability: "DASHBOARD_WRITE",
+    isWrite: true,
+    projectScope: "required",
+    sensitivePayload: false,
+    description: "Execute experiment plan against trials.",
+  },
+  {
+    pathPattern: "/api/experiments/[experimentId]",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Fetch experiment detail and comparisons.",
+  },
+
+  // Baselines, Regressions & Governance
+  {
+    pathPattern: "/api/baselines",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "List baselines.",
+  },
+  {
+    pathPattern: "/api/baselines",
+    methods: ["POST"],
+    capability: "DASHBOARD_WRITE",
+    isWrite: true,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "Create, supersede, or revoke regression baselines.",
+  },
+  {
+    pathPattern: "/api/regressions/gate",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "List or evaluate regression gate policy.",
+  },
+  {
+    pathPattern: "/api/regressions/gate",
+    methods: ["POST"],
+    capability: "DASHBOARD_WRITE",
+    isWrite: true,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "Evaluate run against regression gate.",
+  },
+  {
+    pathPattern: "/api/regressions/reports",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "List or fetch regression reports.",
+  },
+  {
+    pathPattern: "/api/regressions/curate",
+    methods: ["POST"],
+    capability: "DASHBOARD_WRITE",
+    isWrite: true,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "Curate a regression test case into dataset.",
+  },
+  {
+    pathPattern: "/api/capabilities/snapshots",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "List capability snapshots.",
+  },
+  {
+    pathPattern: "/api/capabilities/drift",
+    methods: ["GET", "POST"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "Compute capability drift report.",
+  },
+  {
+    pathPattern: "/api/policy-drift",
+    methods: ["GET", "POST"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "Compute policy drift report.",
+  },
+  {
+    pathPattern: "/api/releases",
+    methods: ["GET", "POST"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "optional",
+    sensitivePayload: false,
+    description: "Assemble release evidence dossier.",
+  },
+
+  // Integrations (Legacy compatibility for Project)
+  {
+    pathPattern: "/api/integrations",
+    methods: ["GET", "POST"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Integration registry list and create.",
+  },
+  {
+    pathPattern: "/api/integrations/[integrationId]",
+    methods: ["GET", "PATCH", "DELETE"],
+    capability: "DASHBOARD_WRITE",
+    isWrite: true,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Integration detail, update, delete.",
+  },
+  {
+    pathPattern: "/api/integrations/[integrationId]/ingest-key",
+    methods: ["POST", "DELETE"],
+    capability: "DASHBOARD_WRITE",
+    isWrite: true,
+    projectScope: "none",
+    sensitivePayload: true,
+    description: "Generate, rotate, or revoke scoped ingest keys.",
+  },
+
+  // Settings & Privacy
+  {
+    pathPattern: "/api/settings/privacy",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "View local storage directory, mode, and zero-telemetry guarantee.",
+  },
+
+  // Admin & Migration
+  {
+    pathPattern: "/api/storage/health",
+    methods: ["GET"],
+    capability: "DASHBOARD_READ",
+    isWrite: false,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Database and filesystem storage diagnostics.",
+  },
+  {
+    pathPattern: "/api/admin/migrate",
+    methods: ["POST"],
+    capability: "ADMIN",
+    isWrite: true,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Run schema migrations.",
+  },
+  {
+    pathPattern: "/api/demo",
+    methods: ["POST"],
+    capability: "ADMIN",
+    isWrite: true,
+    projectScope: "none",
+    sensitivePayload: false,
+    description: "Setup or reset demo project.",
+  },
+];
+
+/**
+ * Finds the declared security policy for a given path and method.
+ */
+export function findRouteSecurityDeclaration(
+  pathname: string,
+  method: HttpMethod
+): RouteSecurityDeclaration | undefined {
+  return ROUTE_SECURITY_INVENTORY.find((route) => {
+    if (!route.methods.includes(method)) return false;
+
+    // Convert [param] to wildcard regex
+    const regexPattern = "^" + route.pathPattern.replace(/\[\w+\]/g, "[^/]+") + "$";
+    return new RegExp(regexPattern).test(pathname);
+  });
+}

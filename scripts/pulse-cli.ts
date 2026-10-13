@@ -7,8 +7,12 @@
  *   pulse fork <run-id|file-path> --checkpoint <checkpoint-id> [--mutations <file>] [--json]
  */
 
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { getAgentPulseHome, getPrivacyPosture, getStorageSubdirectories } from "../lib/storage/dataPath";
+import { ProjectStore } from "../lib/projects/projectStore";
+import { ProjectExporter } from "../lib/projects/projectExport";
+import { DemoProjectManager } from "../lib/projects/demoProject";
 import { getCanonicalRun } from "../lib/core/capture/persistence";
 import { runArtifactSchema, type RunArtifact } from "../lib/core/contracts/runArtifact";
 import { buildReplayPlan } from "../lib/core/replay/planner";
@@ -231,6 +235,33 @@ export interface ExperimentShowCliOptions {
   json: boolean;
 }
 
+export interface DataPathCliOptions {
+  command: "data-path";
+  json: boolean;
+}
+
+export interface ProjectsListCliOptions {
+  command: "projects-list";
+  json: boolean;
+}
+
+export interface ProjectExportCliOptions {
+  command: "project-export";
+  projectId: string;
+  outPath?: string;
+  json: boolean;
+}
+
+export interface DemoSetupCliOptions {
+  command: "demo-setup";
+  json: boolean;
+}
+
+export interface DemoResetCliOptions {
+  command: "demo-reset";
+  json: boolean;
+}
+
 export type CliCommandOptions =
   | ReplayCliOptions
   | CheckpointsCliOptions
@@ -253,9 +284,43 @@ export type CliCommandOptions =
   | RegressionCheckCliOptions
   | CapabilityShowCliOptions
   | CapabilityDiffCliOptions
-  | PolicyDriftCliOptions;
+  | PolicyDriftCliOptions
+  | DataPathCliOptions
+  | ProjectsListCliOptions
+  | ProjectExportCliOptions
+  | DemoSetupCliOptions
+  | DemoResetCliOptions;
 
 export function parseArgs(args: string[]): CliCommandOptions | null {
+  if (args[0] === "data-path") {
+    return { command: "data-path", json: args.includes("--json") };
+  }
+
+  if (args[0] === "projects" && args[1] === "list") {
+    return { command: "projects-list", json: args.includes("--json") };
+  }
+
+  if (args[0] === "export" && args[1] === "project") {
+    const projectId = args[2];
+    if (!projectId) return null;
+    let outPath: string | undefined;
+    const json = args.includes("--json");
+    for (let i = 3; i < args.length; i++) {
+      if (args[i] === "--out" && args[i + 1]) {
+        outPath = args[i + 1];
+        i++;
+      }
+    }
+    return { command: "project-export", projectId, outPath, json };
+  }
+
+  if (args[0] === "demo" && args[1] === "setup") {
+    return { command: "demo-setup", json: args.includes("--json") };
+  }
+
+  if (args[0] === "demo" && args[1] === "reset") {
+    return { command: "demo-reset", json: args.includes("--json") };
+  }
   // Baseline subcommands: pulse baseline list, pulse baseline set <run|release> --suite <suite> [--dataset <dataset>]
   if (args[0] === "baseline") {
     const json = args.includes("--json");
@@ -608,6 +673,12 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
   if (!options) {
     console.error(`AgentPulse CLI
 
+  Commands:
+    pulse data-path [--json]
+    pulse projects list [--json]
+    pulse export project <project-id> [--out <file>] [--json]
+    pulse demo setup [--json]
+    pulse demo reset [--json]
     pulse diff <run-a> <run-b> [--semantic] [--json] [--policy <file>] [--first-divergence]
     pulse evidence <run-id|file-path> [--policy <file>] [--json]
     pulse config <run-id|file-path> [--json]
@@ -624,6 +695,12 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
     pulse experiment plan <definition-file|id> [--json]
     pulse experiment run <definition-file|id> [--json]
     pulse experiment show <experiment-id> [--json]
+    pulse baseline list [--project <id>] [--json]
+    pulse baseline set <run-or-release> --suite <suite> [--dataset <id>] [--agent <id>] [--json]
+    pulse regression check <candidate> --baseline <baseline> [--policy <policy>] [--json]
+    pulse capability show <agent-id> [--json]
+    pulse capability diff <vA> <vB> [--agent <id>] [--json]
+    pulse policy-drift <baseline> <candidate> [--json]
 
   Replay Options:
     --strict          Enforce strict offline execution with 0 network calls (default)
@@ -1633,6 +1710,119 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(`========================================================================\n`);
       }
       return report.has_critical_drift ? 1 : 0;
+    }
+
+    if (options.command === "data-path") {
+      const dataDir = getAgentPulseHome();
+      const posture = getPrivacyPosture();
+      const subdirs = getStorageSubdirectories(dataDir);
+      if (options.json) {
+        console.log(JSON.stringify({ data_dir: dataDir, posture, subdirectories: subdirs }, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Personal Data & Storage Posture`);
+        console.log(`========================================================================`);
+        console.log(`Data Directory:     ${dataDir}`);
+        console.log(`Operating Mode:     ${posture.mode}`);
+        console.log(`Loopback Bound:     ${posture.loopbackBound ? "YES (127.0.0.1 / ::1 only)" : "NO"}`);
+        console.log(`Cloud Telemetry:    ${posture.telemetryStatus} (0 bytes sent to 3rd party)`);
+        console.log(`Cloud Sync:         ${posture.cloudSync}`);
+        console.log(`Account Bound:      ${posture.accountsConfigured}`);
+        console.log(`Bound Interface:    ${posture.networkBoundHost}`);
+        console.log(`Storage Directories:`);
+        for (const [key, path] of Object.entries(subdirs)) {
+          console.log(`  - ${key.padEnd(16)}: ${path}`);
+        }
+        console.log(`========================================================================\n`);
+      }
+      return 0;
+    }
+
+    if (options.command === "projects-list") {
+      const projects = await ProjectStore.listProjects();
+      if (options.json) {
+        console.log(JSON.stringify(projects, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Projects (${projects.length})`);
+        console.log(`========================================================================`);
+        if (projects.length === 0) {
+          console.log(`No projects found. Create one via Studio or run 'pulse demo setup'.`);
+        } else {
+          for (const p of projects) {
+            console.log(`\n[${p.id}] ${p.name}`);
+            if (p.description) console.log(`  Description: ${p.description}`);
+            console.log(`  Language:    ${p.language || "unspecified"}${p.framework ? ` (${p.framework})` : ""}`);
+            console.log(`  Status:      ${p.status}`);
+            console.log(`  Stats:       ${p.stats?.totalRuns ?? 0} runs | ${p.stats?.evalSuitesCount ?? 0} suites | ${p.stats?.baselinesCount ?? 0} baselines`);
+            console.log(`  Created:     ${p.createdAt}`);
+          }
+        }
+        console.log(`========================================================================\n`);
+      }
+      return 0;
+    }
+
+    if (options.command === "project-export") {
+      const bundle = await ProjectExporter.exportProject(options.projectId);
+      if (options.outPath) {
+        await writeFile(resolve(process.cwd(), options.outPath), JSON.stringify(bundle, null, 2), "utf8");
+        if (!options.json) {
+          console.log(`\nExported project "${bundle.project.name}" (${options.projectId}) to ${options.outPath}`);
+          console.log(`Contents: ${bundle.runs.length} runs, ${bundle.evalSuites.length} eval suites, ${bundle.evalDatasets.length} datasets, ${bundle.baselines.length} baselines.\n`);
+        }
+      }
+      if (options.json) {
+        console.log(JSON.stringify(bundle, null, 2));
+      } else if (!options.outPath) {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Project Export: ${bundle.project.name} (${bundle.project.id})`);
+        console.log(`========================================================================`);
+        console.log(`Exported At:   ${bundle.exportedAt}`);
+        console.log(`Format:        v${bundle.version}`);
+        console.log(`Runs:          ${bundle.runs.length}`);
+        console.log(`Eval Suites:   ${bundle.evalSuites.length}`);
+        console.log(`Eval Datasets: ${bundle.evalDatasets.length}`);
+        console.log(`Baselines:     ${bundle.baselines.length}`);
+        console.log(`(Use --out <path> to save to file, or --json to output raw JSON)`);
+        console.log(`========================================================================\n`);
+      }
+      return 0;
+    }
+
+    if (options.command === "demo-setup") {
+      const res = await DemoProjectManager.setupDemoProject();
+      if (options.json) {
+        console.log(JSON.stringify(res, null, 2));
+      } else {
+        const projName = res.project?.name ?? "Demo Support Agent";
+        const projId = res.project?.id ?? "demo-support-agent";
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Demo Project Setup`);
+        console.log(`========================================================================`);
+        console.log(`Project:       ${projName} (${projId})`);
+        console.log(`Success Run:   ${res.successRunId}`);
+        console.log(`Failure Run:   ${res.failureRunId}`);
+        console.log(`Baseline:      ${res.baselineId}`);
+        console.log(`\nDemo project successfully initialized! Open Studio to explore.`);
+        console.log(`========================================================================\n`);
+      }
+      return 0;
+    }
+
+    if (options.command === "demo-reset") {
+      await DemoProjectManager.resetDemoProject();
+      const project = await ProjectStore.getProject("demo-support-agent");
+      if (options.json) {
+        console.log(JSON.stringify({ status: "reset", project }, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Demo Project Reset`);
+        console.log(`========================================================================`);
+        console.log(`Project "demo-support-agent" wiped and reset to pristine state.`);
+        console.log(`========================================================================\n`);
+      }
+      return 0;
     }
 
     return 1;

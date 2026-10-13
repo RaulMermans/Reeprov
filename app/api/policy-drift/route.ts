@@ -8,9 +8,12 @@ import {
 import { PolicySnapshotEngine } from "@/lib/core/policyDrift/snapshot";
 import { PolicyDriftDetector } from "@/lib/core/policyDrift/detector";
 import { getCanonicalRun } from "@/lib/core/capture/persistence";
+import { authorizeRequest } from "@/lib/auth/accessControl";
+import { apiErrorResponse } from "@/lib/api/errors";
 
 export async function GET(request: NextRequest) {
   try {
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
     const { searchParams } = new URL(request.url);
     const reportId = searchParams.get("id");
 
@@ -25,15 +28,13 @@ export async function GET(request: NextRequest) {
     const reports = await listPolicyDriftReports();
     return NextResponse.json({ reports });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 }
-    );
+    return apiErrorResponse(error);
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
     const body = await request.json();
     const {
       baseline_run_id,
@@ -90,9 +91,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ report });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 }
-    );
+    return apiErrorResponse(error);
   }
 }
+
