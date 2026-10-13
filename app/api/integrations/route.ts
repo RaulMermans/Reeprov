@@ -18,7 +18,7 @@
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { getIntegrationStore, getRunStore, getWorkflowStore } from "@/lib/db/getStores";
 import type {
   IntegrationLanguage,
@@ -28,7 +28,7 @@ import type {
 
 export async function GET(request: Request) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
 
     const url = new URL(request.url);
     const projectId = url.searchParams.get("projectId") ?? undefined;
@@ -83,7 +83,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
 
     const body = await request.json() as Record<string, unknown>;
 

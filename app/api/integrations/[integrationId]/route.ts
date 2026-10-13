@@ -9,7 +9,7 @@
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { getDiagnosticStore, getIntegrationStore, getRunStore, getWorkflowStore } from "@/lib/db/getStores";
 import type { IntegrationLanguage, IntegrationMode, IntegrationStatus } from "@/lib/integrations/integrationTypes";
 import type { RunSummary } from "@/lib/runs/runTypes";
@@ -18,7 +18,7 @@ type RouteContext = { params: Promise<{ integrationId: string }> };
 
 export async function GET(request: Request, context: RouteContext) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
 
     const { integrationId } = await context.params;
     const integration = await getIntegrationStore().getIntegration(integrationId);
@@ -90,7 +90,7 @@ export async function GET(request: Request, context: RouteContext) {
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
 
     const { integrationId } = await context.params;
     const body = await request.json() as Record<string, unknown>;
@@ -122,7 +122,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
 export async function DELETE(request: Request, context: RouteContext) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
 
     const { integrationId } = await context.params;
     const deleted = await getIntegrationStore().deleteIntegration(integrationId);

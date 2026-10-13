@@ -1,0 +1,13 @@
+{
+  "name": "typescript-support-agent",
+  "version": "1.0.0",
+  "description": "Dogfood TypeScript support agent instrumented with AgentPulse standalone client",
+  "type": "module",
+  "scripts": {
+    "start": "tsx agent.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.0.0"
+  }
+}

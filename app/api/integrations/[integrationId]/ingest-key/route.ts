@@ -15,14 +15,14 @@
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { getIntegrationStore } from "@/lib/db/getStores";
 
 type RouteContext = { params: Promise<{ integrationId: string }> };
 
 export async function POST(request: Request, context: RouteContext) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
 
     const { integrationId } = await context.params;
     const result = await getIntegrationStore().generateIngestKey(integrationId);
@@ -45,7 +45,7 @@ export async function POST(request: Request, context: RouteContext) {
 
 export async function DELETE(request: Request, context: RouteContext) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
 
     const { integrationId } = await context.params;
     const updated = await getIntegrationStore().revokeIngestKey(integrationId);

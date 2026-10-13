@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { AccessKeyError, requireAccessKey } from "@/lib/auth/requireAccessKey";
+// Migrated from requireAccessKey to authorizeRequest
+import { authorizeRequest } from "@/lib/auth/accessControl";
 import { extractSessionToken, verifySessionToken } from "@/lib/auth/session";
-import { getOperatingMode, isLoopbackRequest } from "@/lib/auth/operatingMode";
 
 export async function POST(request: Request): Promise<NextResponse> {
   // Check session cookie first
@@ -11,12 +11,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
     return NextResponse.json({ ok: true, scope: "dashboard" }, { status: 200 });
-  } catch (error) {
-    if (error instanceof AccessKeyError) {
-      return NextResponse.json({ ok: false, error: "Invalid access key." }, { status: 401 });
-    }
+  } catch {
     return NextResponse.json({ ok: false, error: "Invalid access key." }, { status: 401 });
   }
 }
+

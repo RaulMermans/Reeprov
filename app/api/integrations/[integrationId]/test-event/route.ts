@@ -16,7 +16,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { apiErrorResponse } from "@/lib/api/errors";
 import { getIntegrationStore, getRunStore } from "@/lib/db/getStores";
 import { generateRunId } from "@/lib/runs/runId";
@@ -31,7 +31,7 @@ function ts(base: Date, offsetMs: number): string {
 
 export async function POST(request: Request, context: RouteContext) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
 
     const { integrationId } = await context.params;
     const integration = await getIntegrationStore().getIntegration(integrationId);

@@ -23,7 +23,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { getRunStore, touchIntegrationForProject } from "@/lib/db/getStores";
 import { generateRunId } from "@/lib/runs/runId";
 import {
@@ -50,7 +50,7 @@ interface FixtureFile {
 
 export async function POST(request: Request, context: RouteContext) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "ADMIN" });
 
     const { fixtureId } = await context.params;
     const filename = FIXTURE_FILES[fixtureId];

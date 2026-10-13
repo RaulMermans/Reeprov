@@ -181,7 +181,7 @@ export async function computeCaptureReadiness(
       category: "TOOLS",
       level: "NOT_APPLICABLE",
       details: "Agent trajectory did not execute external tools.",
-      score: 10,
+      score: 0,
     });
   }
 
@@ -201,7 +201,7 @@ export async function computeCaptureReadiness(
       category: "RETRIEVAL",
       level: "NOT_APPLICABLE",
       details: "No vector search or document retrieval in this execution.",
-      score: 10,
+      score: 0,
     });
   }
 
@@ -265,9 +265,10 @@ export async function computeCaptureReadiness(
     });
   }
 
-  // Total score calculation (sum / max)
-  const totalScorePossible = dimensions.length * 10;
-  const actualScoreSum = dimensions.reduce((acc, d) => acc + d.score, 0);
+  // Total score calculation (sum / max, excluding NOT_APPLICABLE dimensions from denominator)
+  const applicableDimensions = dimensions.filter((d) => d.level !== "NOT_APPLICABLE");
+  const totalScorePossible = applicableDimensions.length * 10;
+  const actualScoreSum = applicableDimensions.reduce((acc, d) => acc + d.score, 0);
   const overallScore = Math.round((actualScoreSum / (totalScorePossible || 1)) * 100);
 
   let rating: CaptureReadinessReport["rating"] = "OPTIMAL";

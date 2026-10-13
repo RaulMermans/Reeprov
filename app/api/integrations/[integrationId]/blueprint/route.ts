@@ -12,7 +12,7 @@
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { getDiagnosticStore, getIntegrationStore, getRunStore, getWorkflowStore } from "@/lib/db/getStores";
 import { getBuiltInWorkflowSpec } from "@/lib/workflows/builtInWorkflowSpecs";
 import { buildIntegrationBlueprint, DEFAULT_BLUEPRINT_RUN_WINDOW } from "@/lib/integrations/buildIntegrationBlueprint";
@@ -23,7 +23,7 @@ type RouteContext = { params: Promise<{ integrationId: string }> };
 
 export async function GET(request: Request, context: RouteContext) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
 
     const { integrationId } = await context.params;
     const integration = await getIntegrationStore().getIntegration(integrationId);

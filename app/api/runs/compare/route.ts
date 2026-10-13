@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { getCanonicalRun } from "@/lib/core/capture/persistence";
 import { compareRuns, saveRunComparison, listRunComparisons } from "@/lib/core/comparison";
 import { comparisonPolicySchema } from "@/lib/core/contracts/comparison";
 
 export async function GET(request: NextRequest) {
   try {
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
     const { searchParams } = new URL(request.url);
     const baselineRunId = searchParams.get("baseline");
     const candidateRunId = searchParams.get("candidate");
@@ -18,6 +20,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ comparisons });
   } catch (error) {
+    if (error instanceof AccessControlError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.json(
       { error: (error as Error).message },
       { status: 500 }
@@ -27,6 +32,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
     const body = await request.json();
     const { baseline_run_id, candidate_run_id, enable_semantic, policy } = body;
 
@@ -64,6 +70,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ comparison });
   } catch (error) {
+    if (error instanceof AccessControlError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.json(
       { error: (error as Error).message },
       { status: 500 }

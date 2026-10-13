@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { getGitHubClient } from "@/lib/github/client";
 import { fetchRepoFiles } from "@/lib/github/fetchRepoFiles";
 import { mockReport } from "@/lib/reports/buildReport";
@@ -16,7 +16,7 @@ const scanRequestSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
 
     const body = await parseScanBody(request);
     const octokit = getGitHubClient();

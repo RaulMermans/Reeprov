@@ -8,7 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { getWorkflowStore } from "@/lib/db/getStores";
 import type { WorkflowRegistryStatus } from "@/lib/workflows/workflowTypes";
 
@@ -19,7 +19,7 @@ export async function GET(
   { params }: { params: Promise<{ registryId: string }> },
 ) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
     const { registryId } = await params;
     const workflow = await getWorkflowStore().getWorkflow(registryId);
     if (!workflow) {
@@ -36,7 +36,7 @@ export async function PATCH(
   { params }: { params: Promise<{ registryId: string }> },
 ) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
     const { registryId } = await params;
 
     let body: Record<string, unknown>;
@@ -67,7 +67,7 @@ export async function DELETE(
   { params }: { params: Promise<{ registryId: string }> },
 ) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
     const { registryId } = await params;
     const deleted = await getWorkflowStore().deleteWorkflow(registryId);
     if (!deleted) {

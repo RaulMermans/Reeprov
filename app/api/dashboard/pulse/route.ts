@@ -8,7 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { getDiagnosticStore, getIntegrationStore, getRunStore, getWorkflowStore } from "@/lib/db/getStores";
 import {
   buildDashboardPulse,
@@ -23,7 +23,7 @@ const DASHBOARD_INTEGRATION_LIMIT = 200;
 
 export async function GET(request: Request) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
 
     const integrations = await getIntegrationStore().listIntegrations({ limit: DASHBOARD_INTEGRATION_LIMIT });
     const diagnosticsPromise = getDiagnosticStore()

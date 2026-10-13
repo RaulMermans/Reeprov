@@ -17,7 +17,7 @@
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 
 import { reconstructFromScanReport } from "@/lib/reconstruction/reconstructWorkflowSpec";
 import { staticProofReconstructionSchema } from "@/lib/reconstruction/schema";
@@ -28,7 +28,7 @@ import { getReportStore } from "@/lib/db/getStores";
 
 export async function POST(request: Request) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
 
     let body: Record<string, unknown>;
     try {

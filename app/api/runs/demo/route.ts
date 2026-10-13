@@ -20,7 +20,8 @@
  */
 
 import { NextResponse } from "next/server";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+// Migrated from requireAccessKey to authorizeRequest
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { apiErrorResponse } from "@/lib/api/errors";
 
 
@@ -77,7 +78,7 @@ import { getRunStore, getWorkflowStore } from "@/lib/db/getStores";
 
 export async function POST(request: Request) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "ADMIN" });
 
     const runId = `demo-${generateRunId()}`;
     const workflowId = "website-auditor-v1";

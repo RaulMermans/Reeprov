@@ -10,7 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { getRunStore } from "@/lib/db/getStores";
 import { summarizeRun } from "@/lib/proof-layer/index";
 
@@ -20,7 +20,7 @@ interface RouteParams {
 
 export async function GET(request: Request, { params }: RouteParams) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
 
     const { runId } = await params;
     const saved = await getRunStore().getRun(runId);
@@ -45,7 +45,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
 
     const { runId } = await params;
     const deleted = await getRunStore().deleteRun(runId);

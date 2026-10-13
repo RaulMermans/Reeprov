@@ -137,7 +137,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         }
       }
 
-      setInternalKey(trimmed);
+      // Do not store raw access key in sessionStorage; HttpOnly session cookie is the credential
+      void setInternalKey;
       setIsUnlocked(true);
       setError(null);
       setExpiredMessage(null);

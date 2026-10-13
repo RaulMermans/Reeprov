@@ -12,12 +12,12 @@
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { getRunStore } from "@/lib/db/getStores";
 
 export async function GET(request: Request) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
 
     const url = new URL(request.url);
     const projectId = url.searchParams.get("projectId") ?? undefined;

@@ -8,6 +8,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import {
   getRunById,
   getExampleTraceEvents,
@@ -19,7 +20,9 @@ interface RouteParams {
   params: Promise<{ runId: string }>;
 }
 
-export async function GET(_request: Request, { params }: RouteParams) {
+export async function GET(request: Request, { params }: RouteParams) {
+  try {
+    await authorizeRequest(request, { capability: "HEALTH_PUBLIC" });
   const { runId } = await params;
 
   const run = getRunById(runId);
@@ -31,5 +34,11 @@ export async function GET(_request: Request, { params }: RouteParams) {
   const evalResults = getExampleEvalResults(runId);
   const workflow = getWorkflowById(run.workflow_id);
 
-  return NextResponse.json({ run, traceEvents, evalResults, workflow });
+    return NextResponse.json({ run, traceEvents, evalResults, workflow });
+  } catch (error) {
+    if (error instanceof AccessControlError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    throw error;
+  }
 }

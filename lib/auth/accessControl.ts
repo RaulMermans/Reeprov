@@ -17,7 +17,6 @@ import { timingSafeEqual } from "node:crypto";
 import { getOperatingMode, isLoopbackRequest, type OperatingMode } from "./operatingMode";
 import { extractSessionToken, verifySessionToken } from "./session";
 import { hashIngestKey } from "@/lib/integrations/ingestKey";
-import { getIntegrationStore } from "@/lib/db/getStores";
 
 export type AuthCapability =
   | "DASHBOARD_READ"
@@ -118,6 +117,7 @@ export async function authorizeRequest(
 
     // Scoped per-project ingest key lookup
     const keyHash = hashIngestKey(provided);
+    const { getIntegrationStore } = await import("@/lib/db/getStores");
     const integration = await getIntegrationStore().findByIngestKeyHash(keyHash);
 
     if (integration) {
@@ -178,7 +178,38 @@ export async function authorizeRequest(
       );
     }
 
-    // Local loopback is authorized by default
+    const accessKey = process.env.AGENTPULSE_ACCESS_KEY;
+    if (accessKey) {
+      // Check session cookie
+      const sessionToken = extractSessionToken(request);
+      const session = verifySessionToken(sessionToken);
+      if (session) {
+        return {
+          authorized: true,
+          mode,
+          capability,
+          projectId,
+        };
+      }
+
+      // Check access key header
+      if (providedKey && constantTimeEqual(providedKey, accessKey)) {
+        return {
+          authorized: true,
+          mode,
+          capability,
+          projectId,
+        };
+      }
+
+      throw new AccessControlError(
+        401,
+        "unauthorized",
+        "Authentication required. Missing or invalid access key."
+      );
+    }
+
+    // Local loopback is authorized by default if AGENTPULSE_ACCESS_KEY is not configured
     return {
       authorized: true,
       mode,

@@ -10,7 +10,7 @@
  * Fails gracefully if the filesystem is read-only (e.g. Vercel production).
  */
 
-import { access, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { generateIntegrationId } from "./integrationId";
 import { generateRawIngestKey, hashIngestKey, previewIngestKey } from "./ingestKey";
@@ -69,7 +69,9 @@ async function readIndex(): Promise<ProjectIntegration[]> {
 }
 
 async function writeIndex(entries: ProjectIntegration[]): Promise<void> {
-  await writeFile(indexPath(), JSON.stringify(entries, null, 2), "utf8");
+  const tmp = `${indexPath()}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+  await writeFile(tmp, JSON.stringify(entries, null, 2), "utf8");
+  await rename(tmp, indexPath());
 }
 
 async function readSavedIntegration(integrationId: string): Promise<ProjectIntegration | null> {
@@ -83,7 +85,10 @@ async function readSavedIntegration(integrationId: string): Promise<ProjectInteg
 }
 
 async function writeSavedIntegration(integration: ProjectIntegration): Promise<void> {
-  await writeFile(integrationPath(integration.integrationId), JSON.stringify(integration, null, 2), "utf8");
+  const target = integrationPath(integration.integrationId);
+  const tmp = `${target}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+  await writeFile(tmp, JSON.stringify(integration, null, 2), "utf8");
+  await rename(tmp, target);
 }
 
 async function upsertIndex(integration: ProjectIntegration): Promise<void> {

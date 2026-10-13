@@ -14,7 +14,7 @@
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { getReportStore } from "@/lib/db/getStores";
 import { reconstructFromScanReport } from "@/lib/reconstruction/reconstructWorkflowSpec";
 import { staticProofReconstructionSchema } from "@/lib/reconstruction/schema";
@@ -25,7 +25,7 @@ interface RouteParams {
 
 export async function GET(request: Request, { params }: RouteParams) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_READ" });
 
     const { reportId } = await params;
     const report = await getReportStore().getReport(reportId);

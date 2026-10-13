@@ -118,29 +118,45 @@ export function ConnectAgentWizard({ isOpen, onClose, onProjectCreated }: Connec
     const pid = projectId || "my-agent-project";
 
     if (language === "typescript") {
-      return `// 1. Install AgentPulse client
-// npm install @agentpulse/client (or use fetch directly)
+      const endpoint = typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:3000";
+      return `// 1. Copy the AgentPulse client to your project:
+//    cp examples/integrations/typescript/agentpulseClient.ts ./agentpulseClient.ts
+//
+// 2. Or use the inline fetch pattern below:
 
-import { AgentPulse } from "agentpulse";
+import { AgentPulseClient } from "./agentpulseClient";
 
-const pulse = new AgentPulse({
-  endpoint: "http://127.0.0.1:3000",
-  apiKey: "${key}",
-  projectId: "${pid}",
+const pulse = new AgentPulseClient({
+  endpoint: "${endpoint}",
+  ingestKey: "${key}",
 });
 
-// 2. Instrument agent run lifecycle
-const run = await pulse.startRun({
-  workflowId: "main-agent-workflow",
+// Start a run
+const runId = await pulse.startRun({
+  projectId: "${pid}",
+  workflowId: "my-agent-workflow",
   summary: "Processing customer request",
 });
 
 try {
-  // Execute model / tools...
-  await run.recordToolCall("fetch_user", { id: "u1" }, { ok: true });
-  await run.complete();
-} catch (err) {
-  await run.fail(err.message);
+  // Record agent activity
+  await pulse.modelCallCompleted(runId, {
+    model: "gpt-4",
+    inputTokens: 150,
+    outputTokens: 80,
+    inputSummary: "User asked about refund policy",
+    outputSummary: "Provided refund instructions",
+  });
+
+  await pulse.toolCallCompleted(runId, {
+    toolName: "lookup_order",
+    inputSummary: JSON.stringify({ orderId: "ORD-123" }),
+    outputSummary: JSON.stringify({ status: "delivered" }),
+  });
+
+  await pulse.completeRun(runId);
+} catch (err: any) {
+  await pulse.failRun(runId, { error: err.message });
 }`;
     }
 
@@ -257,7 +273,7 @@ curl -X POST http://127.0.0.1:3000/api/runs/complete \\
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono text-xs focus:border-teal-600 focus:outline-none"
               />
               <p className="mt-1 text-[11px] text-slate-500">
-                Used in SDK calls and CLI regression checks.
+                Used in client calls and CLI regression checks.
               </p>
             </div>
             <div>
@@ -298,11 +314,11 @@ curl -X POST http://127.0.0.1:3000/api/runs/complete \\
         {step === 2 && (
           <div className="space-y-4 py-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-2">SDK / Language</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-2">Integration / Language</label>
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { id: "typescript", label: "TypeScript / Node", desc: "Native TS SDK" },
-                  { id: "python", label: "Python", desc: "Python SDK / HTTP" },
+                  { id: "typescript", label: "TypeScript / Node", desc: "TypeScript Client" },
+                  { id: "python", label: "Python", desc: "Python Client / HTTP" },
                   { id: "other", label: "REST / Custom", desc: "Direct curl / HTTP" },
                 ].map((opt) => (
                   <button
@@ -323,15 +339,15 @@ curl -X POST http://127.0.0.1:3000/api/runs/complete \\
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Framework Hint</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Framework Preset / Configuration Hint</label>
               <select
                 value={framework}
                 onChange={(e) => setFramework(e.target.value)}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:border-teal-600 focus:outline-none"
               >
-                <option value="langgraph">LangGraph / LangChain</option>
-                <option value="pydanticai">PydanticAI</option>
-                <option value="crewai">CrewAI</option>
+                <option value="langgraph">LangGraph / LangChain Preset</option>
+                <option value="pydanticai">PydanticAI Preset</option>
+                <option value="crewai">CrewAI Preset</option>
                 <option value="custom">Custom Agent Loop</option>
               </select>
             </div>

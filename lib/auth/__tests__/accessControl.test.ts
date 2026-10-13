@@ -101,6 +101,7 @@ describe("Centralized Access Control (authorizeRequest)", () => {
 
   it("in PERSONAL_LOCAL mode, allows loopback request without credentials", async () => {
     delete process.env.AGENTPULSE_MODE; // defaults to personal_local
+    delete process.env.AGENTPULSE_ACCESS_KEY;
     const req = new Request("http://127.0.0.1:3000/api/runs", {
       headers: { host: "127.0.0.1:3000" },
     });

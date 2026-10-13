@@ -20,7 +20,7 @@
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
-import { requireAccessKey } from "@/lib/auth/requireAccessKey";
+import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { getReportStore, getWorkflowStore } from "@/lib/db/getStores";
 import { reconstructFromScanReport } from "@/lib/reconstruction/reconstructWorkflowSpec";
 import { workflowSpecSchema } from "@/lib/proof-layer/schemas";
@@ -43,7 +43,7 @@ function assignStatus(
 
 export async function POST(request: Request) {
   try {
-    requireAccessKey(request);
+    await authorizeRequest(request, { capability: "DASHBOARD_WRITE" });
 
     let body: Record<string, unknown>;
     try {

@@ -27,6 +27,16 @@ function getConfig() {
   };
 }
 
+export interface AgentPulseClientOptions {
+  endpoint?: string;
+  url?: string;
+  ingestKey?: string;
+  projectId?: string;
+  projectName?: string;
+  workflowId?: string;
+  enabled?: boolean;
+}
+
 function shortId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -51,9 +61,34 @@ interface BaseEvent {
 // ── Client ────────────────────────────────────────────────────────────────────
 
 export class AgentPulseClient {
-  private cfg = getConfig();
+  private cfg: {
+    url: string;
+    ingestKey: string;
+    projectId: string;
+    projectName: string;
+    workflowId: string;
+    enabled: boolean;
+  };
 
-  /** Returns false when AGENTPULSE_ENABLED is not "true". */
+  constructor(options?: AgentPulseClientOptions) {
+    const env = getConfig();
+    const explicitUrl = options?.endpoint ?? options?.url;
+    const explicitKey = options?.ingestKey;
+    this.cfg = {
+      url: explicitUrl ?? env.url,
+      ingestKey: explicitKey ?? env.ingestKey,
+      projectId: options?.projectId ?? env.projectId,
+      projectName: options?.projectName ?? env.projectName,
+      workflowId: options?.workflowId ?? env.workflowId,
+      enabled:
+        options?.enabled ??
+        (explicitUrl !== undefined || explicitKey !== undefined
+          ? true
+          : env.enabled),
+    };
+  }
+
+  /** Returns false when AGENTPULSE_ENABLED is not "true" or disabled. */
   get isEnabled(): boolean {
     return this.cfg.enabled;
   }
@@ -65,14 +100,20 @@ export class AgentPulseClient {
   async startRun(opts: {
     summary: string;
     runId?: string;
+    projectId?: string;
+    projectName?: string;
+    workflowId?: string;
   }): Promise<string> {
     if (!this.cfg.enabled) return `noop-${shortId()}`;
-    const runId = opts.runId ?? `${this.cfg.projectId}-${shortId()}`;
+    const projectId = opts.projectId ?? this.cfg.projectId;
+    const projectName = opts.projectName ?? this.cfg.projectName ?? projectId;
+    const workflowId = opts.workflowId ?? this.cfg.workflowId ?? "default-workflow";
+    const runId = opts.runId ?? `${projectId || "run"}-${shortId()}`;
     await this.post("/api/runs/start", {
       run_id: runId,
-      project_id: this.cfg.projectId,
-      project_name: this.cfg.projectName,
-      workflow_id: this.cfg.workflowId,
+      project_id: projectId,
+      project_name: projectName,
+      workflow_id: workflowId,
       summary: opts.summary,
     });
     return runId;
@@ -93,12 +134,13 @@ export class AgentPulseClient {
   async modelCallCompleted(
     runId: string,
     opts: {
-      nodeId: string;
-      modelProvider: string;
-      modelName: string;
-      inputTokens: number;
-      outputTokens: number;
-      costUsd: number;
+      nodeId?: string;
+      modelProvider?: string;
+      modelName?: string;
+      model?: string;
+      inputTokens?: number;
+      outputTokens?: number;
+      costUsd?: number;
       durationMs?: number;
       inputSummary?: string;
       outputSummary?: string;
@@ -106,24 +148,33 @@ export class AgentPulseClient {
   ): Promise<void> {
     if (!this.cfg.enabled) return;
     const now = new Date().toISOString();
+    const nodeId = opts.nodeId ?? "agent_model";
+    const modelName = opts.modelName ?? opts.model ?? "unknown";
+    const modelProvider =
+      opts.modelProvider ??
+      (opts.model?.startsWith("gpt")
+        ? "openai"
+        : opts.model?.startsWith("claude")
+        ? "anthropic"
+        : "custom");
     await this.emitTraceEvents([
       {
-        event_id: `${runId}::${opts.nodeId}::model::${shortId()}`,
+        event_id: `${runId}::${nodeId}::model::${shortId()}`,
         run_id: runId,
         workflow_id: this.cfg.workflowId,
-        node_id: opts.nodeId,
+        node_id: nodeId,
         timestamp: now,
         event_type: "model_call_completed",
         status: "completed",
         duration_ms: opts.durationMs,
-        cost_usd: opts.costUsd,
+        cost_usd: opts.costUsd ?? 0,
         input_summary: opts.inputSummary,
         output_summary: opts.outputSummary,
         metadata: {
-          model_provider: opts.modelProvider,
-          model_name: opts.modelName,
-          input_tokens: opts.inputTokens,
-          output_tokens: opts.outputTokens,
+          model_provider: modelProvider,
+          model_name: modelName,
+          input_tokens: opts.inputTokens ?? 0,
+          output_tokens: opts.outputTokens ?? 0,
         },
       },
     ]);
@@ -133,7 +184,7 @@ export class AgentPulseClient {
   async toolCallCompleted(
     runId: string,
     opts: {
-      nodeId: string;
+      nodeId?: string;
       toolName: string;
       permissionClass?: string;
       durationMs?: number;
@@ -143,14 +194,15 @@ export class AgentPulseClient {
     },
   ): Promise<void> {
     if (!this.cfg.enabled) return;
+    const nodeId = opts.nodeId ?? "agent_tool";
     const toolCallId = `${runId}::tc::${shortId()}`;
     const now = new Date().toISOString();
     await this.emitTraceEvents([
       {
-        event_id: `${runId}::${opts.nodeId}::tool::${shortId()}`,
+        event_id: `${runId}::${nodeId}::tool::${shortId()}`,
         run_id: runId,
         workflow_id: this.cfg.workflowId,
-        node_id: opts.nodeId,
+        node_id: nodeId,
         timestamp: now,
         event_type: "tool_call_completed",
         status: "completed",
@@ -262,13 +314,38 @@ export class AgentPulseClient {
   /** Fail a run. */
   async failRun(
     runId: string,
-    opts: { errorSummary: string },
+    opts: { errorSummary?: string; error?: string } | string,
   ): Promise<void> {
     if (!this.cfg.enabled) return;
+    const summary =
+      typeof opts === "string"
+        ? opts
+        : (opts.errorSummary ?? opts.error ?? "Run failed");
     await this.post("/api/runs/fail", {
       run_id: runId,
-      error_summary: opts.errorSummary,
+      error_summary: summary,
     });
+  }
+
+  /** Emit a replay-grade execution boundary to AgentPulse. */
+  async captureBoundary(
+    runId: string,
+    boundary: Record<string, unknown>,
+  ): Promise<void> {
+    if (!this.cfg.enabled) return;
+    try {
+      await this.post("/api/traces/boundaries", {
+        boundaries: [
+          {
+            runId,
+            startedAt: new Date().toISOString(),
+            ...boundary,
+          },
+        ],
+      });
+    } catch {
+      // Non-fatal capture isolation
+    }
   }
 
   // ── Internal ────────────────────────────────────────────────────────────────
