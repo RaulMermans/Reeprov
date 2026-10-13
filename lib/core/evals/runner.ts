@@ -110,6 +110,20 @@ export async function evaluateRun(
   const durationMs = Date.now() - runStartTime;
   const completedAt = new Date().toISOString();
 
+  const isPartial = errors.length > 0 || results.some((r) => r.grader_status === "EVALUATOR_ERROR");
+  const isFailed = errors.length > 0 && results.length === 0;
+
+  // Attach evaluations to the target RunArtifact
+  let evaluatedArtifact: RunArtifact | undefined = undefined;
+  if (options.enrichArtifact !== false) {
+    evaluatedArtifact = await enrichRunArtifactWithEvals(artifact, results, {
+      evaluation_run_id: evaluationRunId,
+      suite_id: suite.suite_id,
+      suite_version: suite.version,
+      persist: options.persist !== false,
+    });
+  }
+
   const evalRun: EvaluationRun = {
     evaluation_run_id: evaluationRunId,
     suite_id: suite.suite_id,
@@ -117,7 +131,7 @@ export async function evaluateRun(
     dataset_id: options.datasetId,
     dataset_version: options.datasetVersion,
     target_run_ids: [artifact.identity.run_id],
-    status: errors.length > 0 && results.length === 0 ? "FAILED" : "COMPLETED",
+    status: isFailed ? "FAILED" : isPartial ? "PARTIAL" : "COMPLETED",
     started_at: startedAt,
     completed_at: completedAt,
     results,
@@ -125,19 +139,10 @@ export async function evaluateRun(
     cost_usd: totalGraderCostUsd,
     duration_ms: durationMs,
     errors,
+    evaluated_artifact: evaluatedArtifact,
   };
 
   const parsedEvalRun = evaluationRunSchema.parse(evalRun);
-
-  // Attach evaluations to the target RunArtifact
-  if (options.enrichArtifact !== false) {
-    await enrichRunArtifactWithEvals(artifact, results, {
-      evaluation_run_id: evaluationRunId,
-      suite_id: suite.suite_id,
-      suite_version: suite.version,
-      persist: options.persist !== false,
-    });
-  }
 
   // Persist evaluation run
   if (options.persist !== false) {
@@ -155,7 +160,7 @@ export function computeEvaluationSummary(
   results: EvalResult[]
 ): EvaluationSummary {
   const total = results.length;
-  const passed = results.filter((r) => r.passed).length;
+  const passed = results.filter((r) => r.passed && r.grader_status !== "EVALUATOR_ERROR" && r.grader_status !== "MISSING_EVIDENCE").length;
   const failed = results.filter((r) => !r.passed && r.grader_status !== "EVALUATOR_ERROR" && r.grader_status !== "MISSING_EVIDENCE").length;
   const errors = results.filter((r) => r.grader_status === "EVALUATOR_ERROR").length;
   const missing_evidence = results.filter((r) => r.grader_status === "MISSING_EVIDENCE").length;
@@ -169,25 +174,51 @@ export function computeEvaluationSummary(
   for (const r of results) {
     const isCriticalId = r.eval_definition_id && criticalEvalIds.has(r.eval_definition_id);
     const isCriticalSeverity = r.severity === "critical";
-    if (!r.passed && (isCriticalId || isCriticalSeverity)) {
+    if ((!r.passed || r.grader_status === "EVALUATOR_ERROR" || r.grader_status === "MISSING_EVIDENCE") && (isCriticalId || isCriticalSeverity)) {
       criticalFailures.push(r.eval_definition_id ?? r.eval_id);
+    }
+  }
+
+  // Missing critical eval check
+  for (const critId of criticalEvalIds) {
+    const found = results.find((r) => r.eval_definition_id === critId);
+    if (!found) {
+      criticalFailures.push(`MISSING_CRITICAL:${critId}`);
+    }
+  }
+
+  // Missing required eval check
+  const requiredDefIds = new Set(suite.required_eval_ids ?? []);
+  for (const def of suite.definitions) {
+    if (def.required) requiredDefIds.add(def.eval_definition_id);
+  }
+  const missingRequired: string[] = [];
+  for (const reqId of requiredDefIds) {
+    const found = results.find((r) => r.eval_definition_id === reqId);
+    if (!found) {
+      missingRequired.push(reqId);
     }
   }
 
   let suite_verdict: "PASSED" | "FAILED" = "PASSED";
   let verdict_reason = "All evaluation criteria satisfied.";
 
-  // Rule 1: Critical safety/policy failures FAIL the suite immediately
-  if (criticalFailures.length > 0) {
+  // Rule 0: Empty result set when definitions exist cannot pass
+  if (suite.definitions.length > 0 && results.length === 0) {
+    suite_verdict = "FAILED";
+    verdict_reason = "No evaluation results were produced for configured suite definitions.";
+  } else if (criticalFailures.length > 0) {
+    // Rule 1: Critical safety/policy failures FAIL the suite immediately
     suite_verdict = "FAILED";
     verdict_reason = `Critical evaluation failure in: ${criticalFailures.join(", ")}`;
+  } else if (missingRequired.length > 0) {
+    suite_verdict = "FAILED";
+    verdict_reason = `Required evaluation(s) missing from results: ${missingRequired.join(", ")}`;
   } else if (policy.mode === "ALL_REQUIRED_PASS") {
     // Required evals: either explicitly in required_eval_ids or definition.required = true
-    const requiredIds = new Set(suite.required_eval_ids);
     const failedRequired = results.filter((r) => {
-      const def = suite.definitions.find((d) => d.eval_definition_id === r.eval_definition_id);
-      const isReq = (r.eval_definition_id && requiredIds.has(r.eval_definition_id)) || (def && def.required);
-      return isReq && !r.passed;
+      const isReq = r.eval_definition_id && requiredDefIds.has(r.eval_definition_id);
+      return isReq && (!r.passed || r.grader_status === "EVALUATOR_ERROR" || r.grader_status === "MISSING_EVIDENCE");
     });
 
     if (failedRequired.length > 0) {

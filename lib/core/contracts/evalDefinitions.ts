@@ -208,6 +208,7 @@ export const evaluationRunSchema = z.object({
   cost_usd: z.number().nonnegative().default(0),
   duration_ms: z.number().nonnegative().default(0),
   errors: z.array(z.string()).default([]),
+  evaluated_artifact: z.custom<any>().optional(),
 });
 
 export type EvaluationRun = z.infer<typeof evaluationRunSchema>;

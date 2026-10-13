@@ -675,4 +675,162 @@ async function runMigrations(): Promise<void> {
       completed_at        TIMESTAMPTZ NOT NULL
     )
   `);
+
+  // ── Sprint 9: Regression Baselines ──────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_regression_baselines (
+      baseline_id         TEXT PRIMARY KEY,
+      project_id          TEXT NOT NULL,
+      agent_id            TEXT,
+      run_id              TEXT,
+      configuration_hash  TEXT NOT NULL,
+      eval_suite_id       TEXT NOT NULL,
+      eval_suite_version  INTEGER NOT NULL,
+      dataset_id          TEXT,
+      dataset_version     INTEGER,
+      approved_at         TIMESTAMPTZ NOT NULL,
+      approved_by         TEXT,
+      label               TEXT,
+      release_version     TEXT,
+      evidence_hash       TEXT NOT NULL,
+      status              TEXT NOT NULL DEFAULT 'ACTIVE',
+      baseline_data       JSONB NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_regression_baselines_project_idx ON ap_regression_baselines(project_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_regression_baselines_agent_idx ON ap_regression_baselines(agent_id)`);
+
+  // ── Sprint 9: Regression Gate Policies ──────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_regression_gate_policies (
+      policy_id           TEXT NOT NULL,
+      version             INTEGER NOT NULL,
+      name                TEXT NOT NULL,
+      policy_data         JSONB NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (policy_id, version)
+    )
+  `);
+
+  // ── Sprint 9: Regression Gate Results ───────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_regression_gate_results (
+      gate_id             TEXT PRIMARY KEY,
+      policy_id           TEXT NOT NULL,
+      policy_version      INTEGER NOT NULL,
+      baseline_id         TEXT NOT NULL,
+      candidate_run_id    TEXT NOT NULL,
+      candidate_config_hash TEXT NOT NULL,
+      status              TEXT NOT NULL,
+      gate_data           JSONB NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_regression_gate_results_baseline_idx ON ap_regression_gate_results(baseline_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_regression_gate_results_candidate_idx ON ap_regression_gate_results(candidate_run_id)`);
+
+  // ── Sprint 9: Regression Reports ────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_regression_reports (
+      report_id           TEXT PRIMARY KEY,
+      project_id          TEXT NOT NULL,
+      baseline_id         TEXT NOT NULL,
+      candidate_run_id    TEXT NOT NULL,
+      status              TEXT NOT NULL,
+      report_data         JSONB NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_regression_reports_project_idx ON ap_regression_reports(project_id)`);
+
+  // ── Sprint 9: Capability Snapshots ──────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_capability_snapshots (
+      capability_snapshot_id TEXT PRIMARY KEY,
+      project_id          TEXT NOT NULL,
+      agent_id            TEXT NOT NULL,
+      agent_version       TEXT NOT NULL,
+      configuration_hash  TEXT NOT NULL,
+      suite_id            TEXT NOT NULL,
+      suite_version       INTEGER NOT NULL,
+      dataset_id          TEXT,
+      dataset_version     INTEGER,
+      overall_status      TEXT NOT NULL,
+      evidence_quality    TEXT NOT NULL,
+      snapshot_data       JSONB NOT NULL,
+      captured_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_capability_snapshots_agent_idx ON ap_capability_snapshots(agent_id)`);
+
+  // ── Sprint 9: Capability Drift Reports ──────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_capability_drift_reports (
+      report_id           TEXT PRIMARY KEY,
+      baseline_snapshot_id TEXT NOT NULL,
+      candidate_snapshot_id TEXT NOT NULL,
+      agent_id            TEXT NOT NULL,
+      baseline_version    TEXT NOT NULL,
+      candidate_version   TEXT NOT NULL,
+      overall_drift       TEXT NOT NULL,
+      report_data         JSONB NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_capability_drift_reports_agent_idx ON ap_capability_drift_reports(agent_id)`);
+
+  // ── Sprint 9: Policy Snapshots ──────────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_policy_snapshots (
+      policy_snapshot_id  TEXT PRIMARY KEY,
+      project_id          TEXT NOT NULL,
+      run_id              TEXT NOT NULL,
+      policy_id           TEXT NOT NULL,
+      policy_version      INTEGER NOT NULL,
+      configuration_hash  TEXT NOT NULL,
+      snapshot_data       JSONB NOT NULL,
+      captured_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_policy_snapshots_run_idx ON ap_policy_snapshots(run_id)`);
+
+  // ── Sprint 9: Policy Drift Reports ──────────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_policy_drift_reports (
+      drift_report_id     TEXT PRIMARY KEY,
+      baseline_snapshot_id TEXT NOT NULL,
+      candidate_snapshot_id TEXT NOT NULL,
+      baseline_run_id     TEXT NOT NULL,
+      candidate_run_id    TEXT NOT NULL,
+      has_critical_drift  BOOLEAN NOT NULL DEFAULT FALSE,
+      report_data         JSONB NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_policy_drift_reports_baseline_idx ON ap_policy_drift_reports(baseline_snapshot_id)`);
+
+  // ── Sprint 9: Release Evidence Snapshots ────────────────────────────────────
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS ap_release_evidence (
+      release_evidence_id TEXT PRIMARY KEY,
+      project_id          TEXT NOT NULL,
+      release_version     TEXT NOT NULL,
+      git_sha             TEXT,
+      agent_id            TEXT NOT NULL,
+      configuration_hash  TEXT NOT NULL,
+      capability_snapshot_id TEXT NOT NULL,
+      policy_snapshot_id  TEXT NOT NULL,
+      eval_suite_id       TEXT NOT NULL,
+      eval_suite_version  INTEGER NOT NULL,
+      regression_gate_result_id TEXT NOT NULL,
+      regression_gate_status TEXT NOT NULL,
+      status              TEXT NOT NULL DEFAULT 'CANDIDATE',
+      evidence_hash       TEXT NOT NULL,
+      snapshot_data       JSONB NOT NULL,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_release_evidence_project_idx ON ap_release_evidence(project_id)`);
+  await sql.unsafe(`CREATE INDEX IF NOT EXISTS ap_release_evidence_agent_idx ON ap_release_evidence(agent_id)`);
 }

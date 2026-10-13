@@ -47,6 +47,76 @@ import {
   getExperimentResult,
   listExperimentResults,
 } from "../lib/core/experiment/persistence";
+import { BaselineManager } from "../lib/core/regression/baseline";
+import { RegressionGateEngine } from "../lib/core/regression/gate";
+import {
+  listRegressionBaselines,
+  getRegressionBaseline,
+  saveRegressionBaseline,
+  BaselineManager,
+  RegressionGateEngine,
+  getRegressionGatePolicy,
+  saveRegressionGatePolicy,
+} from "../lib/core/regression";
+import {
+  regressionGatePolicySchema,
+  type RegressionGatePolicy,
+} from "../lib/core/contracts/regression";
+import {
+  listCapabilitySnapshots,
+  getCapabilitySnapshot,
+  CapabilityDriftEngine,
+  CapabilitySnapshotEngine,
+} from "../lib/core/capability";
+import {
+  PolicySnapshotEngine,
+  PolicyDriftDetector,
+  getPolicyBehaviorSnapshot,
+} from "../lib/core/policyDrift";
+
+export interface BaselineListCliOptions {
+  command: "baseline-list";
+  projectId?: string;
+  json: boolean;
+}
+
+export interface BaselineSetCliOptions {
+  command: "baseline-set";
+  targetId: string;
+  suiteId: string;
+  datasetId?: string;
+  agentId?: string;
+  json: boolean;
+}
+
+export interface RegressionCheckCliOptions {
+  command: "regression-check";
+  candidateRunId: string;
+  baselineId: string;
+  policyIdOrPath?: string;
+  json: boolean;
+}
+
+export interface CapabilityShowCliOptions {
+  command: "capability-show";
+  agentId: string;
+  json: boolean;
+}
+
+export interface CapabilityDiffCliOptions {
+  command: "capability-diff";
+  versionA: string;
+  versionB: string;
+  agentId?: string;
+  json: boolean;
+}
+
+export interface PolicyDriftCliOptions {
+  command: "policy-drift";
+  baselineRunId: string;
+  candidateRunId: string;
+  json: boolean;
+}
 
 export interface DiffCliOptions {
   command: "diff";
@@ -179,9 +249,137 @@ export type CliCommandOptions =
   | DatasetListCliOptions
   | ExperimentPlanCliOptions
   | ExperimentRunCliOptions
-  | ExperimentShowCliOptions;
+  | ExperimentShowCliOptions
+  | BaselineListCliOptions
+  | BaselineSetCliOptions
+  | RegressionCheckCliOptions
+  | CapabilityShowCliOptions
+  | CapabilityDiffCliOptions
+  | PolicyDriftCliOptions;
 
 export function parseArgs(args: string[]): CliCommandOptions | null {
+  // Baseline subcommands: pulse baseline list, pulse baseline set <run|release> --suite <suite> [--dataset <dataset>]
+  if (args[0] === "baseline") {
+    const json = args.includes("--json");
+    if (args[1] === "list") {
+      let projectId: string | undefined;
+      for (let i = 2; i < args.length; i++) {
+        if (args[i] === "--project" && args[i + 1]) {
+          projectId = args[i + 1];
+          i++;
+        }
+      }
+      return { command: "baseline-list", projectId, json };
+    }
+    if (args[1] === "set" && args[2]) {
+      const targetId = args[2];
+      let suiteId = "";
+      let datasetId: string | undefined;
+      let agentId: string | undefined;
+      for (let i = 3; i < args.length; i++) {
+        if (args[i] === "--suite" && args[i + 1]) {
+          suiteId = args[i + 1]!;
+          i++;
+        } else if (args[i] === "--dataset" && args[i + 1]) {
+          datasetId = args[i + 1];
+          i++;
+        } else if (args[i] === "--agent" && args[i + 1]) {
+          agentId = args[i + 1];
+          i++;
+        }
+      }
+      if (!suiteId) return null;
+      return { command: "baseline-set", targetId, suiteId, datasetId, agentId, json };
+    }
+    return null;
+  }
+
+  // Baseline subcommands: pulse baseline list, pulse baseline set
+  if (args[0] === "baseline" || args.includes("baseline-list") || args.includes("baseline-set")) {
+    const json = args.includes("--json");
+    if (args[1] === "list" || args.includes("baseline-list")) {
+      const idx = args.indexOf("baseline-list");
+      const proj = idx !== -1 ? args[idx + 1] : args[2];
+      const projectId = proj && !proj.startsWith("--") ? proj : undefined;
+      return { command: "baseline-list", projectId, json };
+    }
+    if (args[1] === "set" || args.includes("baseline-set")) {
+      const idx = args.indexOf("baseline-set");
+      const baseIdx = idx !== -1 ? idx : 1;
+      const baselineId = args[baseIdx + 1];
+      const projectId = args[baseIdx + 2];
+      const evalSuiteId = args[baseIdx + 3];
+      const datasetId = args[baseIdx + 4];
+      if (!baselineId || !projectId || !evalSuiteId || !datasetId) return null;
+      return { command: "baseline-set", baselineId, projectId, evalSuiteId, datasetId, json };
+    }
+    return null;
+  }
+
+  // Regression subcommands: pulse regression check <candidate> [baseline]
+  if (args[0] === "regression" || args.includes("regression-check")) {
+    const json = args.includes("--json");
+    if (args[1] === "check" || args.includes("regression-check")) {
+      const idx = args.indexOf("regression-check");
+      const baseIdx = idx !== -1 ? idx : 1;
+      const candidateRunId = args[baseIdx + 1];
+      if (!candidateRunId) return null;
+      const candidateBaseline = args[baseIdx + 2];
+      const baselineId = candidateBaseline && !candidateBaseline.startsWith("--") ? candidateBaseline : undefined;
+      return { command: "regression-check", candidateRunId, baselineId, json };
+    }
+    return null;
+  }
+
+  // Regression / gate subcommands: pulse regression check <candidate> --baseline <baseline> [--policy <policy>]
+  // or alias: pulse gate <candidate> --baseline <baseline> [--policy <policy>]
+  if ((args[0] === "regression" && args[1] === "check" && args[2]) || (args[0] === "gate" && args[1])) {
+    const json = args.includes("--json");
+    const isGate = args[0] === "gate";
+    const candidateRunId = isGate ? args[1]! : args[2]!;
+    let baselineId = "";
+    let policyIdOrPath: string | undefined;
+    const startIdx = isGate ? 2 : 3;
+    for (let i = startIdx; i < args.length; i++) {
+      if (args[i] === "--baseline" && args[i + 1]) {
+        baselineId = args[i + 1]!;
+        i++;
+      } else if (args[i] === "--policy" && args[i + 1]) {
+        policyIdOrPath = args[i + 1];
+        i++;
+      }
+    }
+    if (!baselineId) return null;
+    return { command: "regression-check", candidateRunId, baselineId, policyIdOrPath, json };
+  }
+
+  // Capability subcommands: pulse capability show <agent>, pulse capability diff <vA> <vB> [--agent <agent>]
+  if (args[0] === "capability") {
+    const json = args.includes("--json");
+    if (args[1] === "show" && args[2]) {
+      return { command: "capability-show", agentId: args[2], json };
+    }
+    if (args[1] === "diff" && args[2] && args[3]) {
+      const versionA = args[2];
+      const versionB = args[3];
+      let agentId: string | undefined;
+      for (let i = 4; i < args.length; i++) {
+        if (args[i] === "--agent" && args[i + 1]) {
+          agentId = args[i + 1];
+          i++;
+        }
+      }
+      return { command: "capability-diff", versionA, versionB, agentId, json };
+    }
+    return null;
+  }
+
+  // Policy drift: pulse policy-drift <baseline> <candidate>
+  if (args[0] === "policy-drift" && args[1] && args[2]) {
+    const json = args.includes("--json");
+    return { command: "policy-drift", baselineRunId: args[1], candidateRunId: args[2], json };
+  }
+
   // Eval subcommands: pulse eval list, pulse eval run <run> --suite <suite>
   if (args[0] === "eval") {
     const json = args.includes("--json");
@@ -1262,6 +1460,217 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(`========================================================================\n`);
       }
       return 0;
+    }
+
+    if (options.command === "baseline-list") {
+      const baselines = await listRegressionBaselines(options.projectId);
+      if (options.json) {
+        console.log(JSON.stringify(baselines, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Regression Baselines (${baselines.length})`);
+        console.log(`========================================================================`);
+        for (const b of baselines) {
+          console.log(`  - [${b.status}] ${b.baseline_id}: agent=${b.agent_id ?? "unknown"} suite=${b.eval_suite_id}@${b.eval_suite_version} dataset=${b.dataset_id ?? "none"} approved=${b.approved_at}`);
+        }
+        console.log(`========================================================================\n`);
+      }
+      return 0;
+    }
+
+    if (options.command === "baseline-set") {
+      const targetRun = await getCanonicalRun(options.targetId);
+      if (!targetRun) throw new Error(`Target run "${options.targetId}" not found; cannot create baseline.`);
+
+      const baseline = await BaselineManager.createBaseline({
+        projectId: targetRun.identity.project_id ?? "default_project",
+        agentId: options.agentId ?? targetRun.identity.agent_id,
+        runId: targetRun.identity.run_id,
+        configurationHash: targetRun.configuration_snapshot?.config_hash || "config_hash",
+        evalSuiteId: options.suiteId,
+        evalSuiteVersion: 1,
+        datasetId: options.datasetId,
+        approvedBy: "cli_user",
+        label: `CLI Baseline for ${targetRun.identity.agent_id ?? "agent"}`,
+      });
+
+      if (options.json) {
+        console.log(JSON.stringify(baseline, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` Approved Baseline: ${baseline.baseline_id}`);
+        console.log(`========================================================================`);
+        console.log(`Status:              ${baseline.status}`);
+        console.log(`Suite:               ${baseline.eval_suite_id}@${baseline.eval_suite_version}`);
+        console.log(`Evidence Hash:       ${baseline.evidence_hash}`);
+        console.log(`Approved At:         ${baseline.approved_at}`);
+        console.log(`========================================================================\n`);
+      }
+      return 0;
+    }
+
+    if (options.command === "regression-check") {
+      const baseline = await getRegressionBaseline(options.baselineId);
+      if (!baseline) throw new Error(`Regression baseline "${options.baselineId}" not found.`);
+
+      const candidateRun = await getCanonicalRun(options.candidateRunId);
+      if (!candidateRun) throw new Error(`Candidate run "${options.candidateRunId}" not found.`);
+
+      const baselineRun = baseline.run_id ? await getCanonicalRun(baseline.run_id) : undefined;
+      const suite = await getEvalSuite(baseline.eval_suite_id, baseline.eval_suite_version);
+      if (!suite) throw new Error(`EvalSuite "${baseline.eval_suite_id}@${baseline.eval_suite_version}" not found.`);
+
+      // Evaluate candidate run against suite
+      const candidateEvalRun = await evaluateRun(candidateRun, suite, { persist: false });
+      const baselineEvalRun = baselineRun ? await evaluateRun(baselineRun, suite, { persist: false }) : undefined;
+
+      let policy: RegressionGatePolicy | null = null;
+      if (options.policyIdOrPath) {
+        if (options.policyIdOrPath.endsWith(".json") || options.policyIdOrPath.includes("/")) {
+          const raw = await readFile(resolve(process.cwd(), options.policyIdOrPath), "utf8");
+          policy = regressionGatePolicySchema.parse(JSON.parse(raw));
+        } else {
+          policy = await getRegressionGatePolicy(options.policyIdOrPath);
+        }
+      }
+      if (!policy) {
+        policy = regressionGatePolicySchema.parse({
+          policy_id: "default_release_policy",
+          version: 1,
+          name: "Standard Release Gate Policy",
+        });
+      }
+
+      const comparison = baselineRun ? await compareRuns(baselineRun, candidateRun) : undefined;
+
+      const { gateResult, report, artifact } = await RegressionGateEngine.evaluateGate({
+        baseline,
+        candidateRunId: candidateRun.identity.run_id,
+        candidateConfigHash: candidateRun.configuration_snapshot?.config_hash || "cand_hash",
+        candidateContext: {
+          suite_id: suite.suite_id,
+          suite_version: suite.version,
+          dataset_id: baseline.dataset_id,
+          dataset_version: baseline.dataset_version,
+        },
+        baselineEvalRun,
+        candidateEvalRun,
+        baselineArtifact: baselineRun ?? undefined,
+        candidateArtifact: candidateRun,
+        comparison: comparison ?? undefined,
+        policy,
+      });
+
+      if (options.json) {
+        console.log(JSON.stringify(artifact, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Regression Release Gate: ${gateResult.status}`);
+        console.log(`========================================================================`);
+        console.log(`Baseline:            ${baseline.baseline_id}`);
+        console.log(`Candidate:           ${candidateRun.identity.run_id}`);
+        console.log(`Policy:              ${policy.name}@v${policy.version}`);
+        console.log(`Comparability:       ${gateResult.comparability.verdict}`);
+        console.log(`Critical Regressions: ${artifact.critical_regressions}`);
+        console.log(`Case Regressions:    ${artifact.case_regressions}`);
+        console.log(`Summary:             ${gateResult.summary}`);
+        if (gateResult.findings.length > 0) {
+          console.log(`\nFindings (${gateResult.findings.length}):`);
+          for (const f of gateResult.findings) {
+            console.log(`  - [${f.severity}] ${f.category}: ${f.candidate_evidence.summary} (delta: ${f.delta})`);
+          }
+        }
+        console.log(`========================================================================\n`);
+      }
+      return artifact.exit_code;
+    }
+
+    if (options.command === "capability-show") {
+      const snapshots = await listCapabilitySnapshots(options.agentId);
+      if (options.json) {
+        console.log(JSON.stringify(snapshots, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Capability History: ${options.agentId} (${snapshots.length} snapshots)`);
+        console.log(`========================================================================`);
+        for (const snap of snapshots) {
+          console.log(`\nVersion: ${snap.agent_version} (Captured: ${snap.captured_at}, Status: ${snap.overall_status})`);
+          for (const d of snap.dimensions) {
+            console.log(`  - ${d.dimension.padEnd(20)}: Score ${(d.score * 100).toFixed(0)}% | Pass Rate ${(d.pass_rate * 100).toFixed(0)}%`);
+          }
+        }
+        console.log(`========================================================================\n`);
+      }
+      return 0;
+    }
+
+    if (options.command === "capability-diff") {
+      const all = await listCapabilitySnapshots(options.agentId);
+      const snapA = all.find((s) => s.agent_version === options.versionA || s.capability_snapshot_id === options.versionA);
+      const snapB = all.find((s) => s.agent_version === options.versionB || s.capability_snapshot_id === options.versionB);
+      if (!snapA || !snapB) throw new Error(`Could not find capability snapshots for versions ${options.versionA} and ${options.versionB}.`);
+
+      const report = await CapabilityDriftEngine.analyzeDrift({
+        baselineSnapshot: snapA,
+        candidateSnapshot: snapB,
+      });
+
+      if (options.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Capability Drift: ${snapA.agent_version} -> ${snapB.agent_version}`);
+        console.log(`========================================================================`);
+        console.log(`Overall Drift:       ${report.overall_drift}`);
+        console.log(`Summary:             ${report.drift_summary}`);
+        console.log(`\nDimensional Drift:`);
+        for (const d of report.dimensions) {
+          const arrow = d.direction === "IMPROVED" ? "↑" : d.direction === "REGRESSED" ? "↓" : "=";
+          console.log(`  - ${d.dimension.padEnd(20)}: ${d.direction} ${arrow} (baseline: ${d.baseline_score.toFixed(2)}, candidate: ${d.candidate_score.toFixed(2)}, delta: ${d.score_delta > 0 ? "+" : ""}${d.score_delta.toFixed(2)})`);
+        }
+        console.log(`========================================================================\n`);
+      }
+      return 0;
+    }
+
+    if (options.command === "policy-drift") {
+      const runA = await getCanonicalRun(options.baselineRunId);
+      const runB = await getCanonicalRun(options.candidateRunId);
+      if (!runA || !runB) throw new Error(`Could not load runs "${options.baselineRunId}" and/or "${options.candidateRunId}".`);
+
+      const snapA = await PolicySnapshotEngine.captureSnapshot({
+        projectId: runA.identity.project_id ?? "project",
+        runArtifact: runA,
+        persist: false,
+      });
+      const snapB = await PolicySnapshotEngine.captureSnapshot({
+        projectId: runB.identity.project_id ?? "project",
+        runArtifact: runB,
+        persist: false,
+      });
+
+      const report = await PolicyDriftDetector.detect({
+        baselineSnapshot: snapA,
+        candidateSnapshot: snapB,
+      });
+
+      if (options.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(`\n========================================================================`);
+        console.log(` AgentPulse Policy Drift: ${options.baselineRunId} -> ${options.candidateRunId}`);
+        console.log(`========================================================================`);
+        console.log(`Critical Drift:      ${report.has_critical_drift ? "YES ⚠️" : "NO"}`);
+        console.log(`Summary:             ${report.summary}`);
+        if (report.drift_findings.length > 0) {
+          console.log(`\nFindings (${report.drift_findings.length}):`);
+          for (const f of report.drift_findings) {
+            console.log(`  - [${f.severity}] ${f.drift_type}: ${f.description}`);
+          }
+        }
+        console.log(`========================================================================\n`);
+      }
+      return report.has_critical_drift ? 1 : 0;
     }
 
     return 1;

@@ -100,6 +100,7 @@ export const winnerPolicySchema = z.object({
   required_eval_ids: z.array(z.string()).default([]),
   critical_eval_ids: z.array(z.string()).default([]),
   required_non_regression_eval_ids: z.array(z.string()).default([]),
+  max_score_degradation: z.number().default(0),
   optimization_criterion: winnerOptimizationCriterionSchema.default("QUALITY_FIRST"),
   min_pass_rate: z.number().min(0).max(1).default(0.8),
   weights: z.object({
@@ -142,6 +143,7 @@ export const experimentDefinitionSchema = z.object({
     required_eval_ids: [],
     critical_eval_ids: [],
     required_non_regression_eval_ids: [],
+    max_score_degradation: 0,
     optimization_criterion: "QUALITY_FIRST",
     min_pass_rate: 0.8,
     weights: { quality: 0.6, cost: 0.2, latency: 0.2 },
@@ -169,6 +171,7 @@ export const experimentTrialSchema = z.object({
   experiment_id: z.string(),
   arm_id: z.string(),
   repetition_index: z.number().int().nonnegative(),
+  eval_case_id: z.string().optional(),
   derived_run_id: z.string(),
   status: experimentTrialStatusSchema,
   eval_run_id: z.string().optional(),
@@ -227,7 +230,7 @@ export type CandidateRankingEntry = z.infer<typeof candidateRankingEntrySchema>;
 
 export const experimentResultSchema = z.object({
   experiment_id: z.string(),
-  status: z.enum(["COMPLETED", "BUDGET_EXCEEDED", "FAILED", "CANCELLED"]),
+  status: z.enum(["COMPLETED", "PARTIAL", "BUDGET_EXCEEDED", "FAILED", "CANCELLED"]),
   baseline_arm_id: z.string(),
   arms: z.array(experimentArmSchema),
   trial_summaries: z.array(experimentTrialSchema),

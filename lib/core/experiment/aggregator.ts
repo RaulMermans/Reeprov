@@ -45,7 +45,7 @@ export class ExperimentAggregator {
       trials_executed: number;
       duration_ms: number;
     },
-    status: "COMPLETED" | "BUDGET_EXCEEDED" | "FAILED" | "CANCELLED" = "COMPLETED"
+    status: "COMPLETED" | "PARTIAL" | "BUDGET_EXCEEDED" | "FAILED" | "CANCELLED" = "COMPLETED"
   ): ExperimentResult {
     const trialsByArm = new Map<string, ArmTrialExecutionData[]>();
     for (const arm of arms) {
@@ -60,6 +60,7 @@ export class ExperimentAggregator {
 
     const aggregates: ArmAggregate[] = [];
     const baselineArm = arms.find((a) => a.is_baseline) ?? arms[0]!;
+    const baselineTrials = trialsByArm.get(baselineArm.arm_id) ?? [];
 
     // 1. Compute aggregates per arm
     for (const arm of arms) {
@@ -68,8 +69,32 @@ export class ExperimentAggregator {
       aggregates.push(agg);
     }
 
-    // 2. Rank candidates using hard gates + optimization criteria
-    const ranking = this.rankCandidates(aggregates, definition.winner_policy);
+    // 1b. Check required_non_regression_eval_ids against baseline
+    const nonRegressionFailuresByArm = this.checkNonRegressionGates(
+      definition.winner_policy,
+      baselineTrials,
+      arms,
+      trialsByArm
+    );
+
+    // 2. Rank candidates using hard gates + optimization criteria + non-regression
+    const ranking = this.rankCandidates(aggregates, definition.winner_policy, nonRegressionFailuresByArm);
+
+    // 2b. Compute truthful overall experiment status
+    let finalStatus = status;
+    if (finalStatus === "COMPLETED") {
+      const anyTrialFailed = trialsData.some((t) => t.trial.status === "FAILED");
+      const anyEvalError = trialsData.some(
+        (t) => (t.evalRun?.errors?.length ?? 0) > 0 || (t.evalRun?.results?.some((r) => r.grader_status === "EVALUATOR_ERROR") ?? false)
+      );
+      const allTrialsFailed = trialsData.length > 0 && trialsData.every((t) => t.trial.status === "FAILED");
+
+      if (allTrialsFailed) {
+        finalStatus = "FAILED";
+      } else if (anyTrialFailed || anyEvalError) {
+        finalStatus = "PARTIAL";
+      }
+    }
 
     // 3. Determine recommended candidate
     const eligibleWinners = ranking.filter((r) => r.eligible_for_recommendation);
@@ -103,13 +128,15 @@ export class ExperimentAggregator {
     if (definition.repetitions === 1) {
       limitations.push("SINGLE TRIAL — REPEATABILITY UNKNOWN. Results may vary on stochastic model runs.");
     }
-    if (status === "BUDGET_EXCEEDED") {
+    if (finalStatus === "BUDGET_EXCEEDED") {
       limitations.push("Experiment was stopped early due to budget exhaustion. Some trials were not executed.");
+    } else if (finalStatus === "PARTIAL") {
+      limitations.push("Some trials or evaluators encountered errors during execution. Aggregation is based on available evidence.");
     }
 
     return {
       experiment_id: definition.experiment_id,
-      status,
+      status: finalStatus,
       baseline_arm_id: baselineArm.arm_id,
       arms,
       trial_summaries: trialsData.map((d) => d.trial),
@@ -128,6 +155,81 @@ export class ExperimentAggregator {
       created_at: definition.created_at,
       completed_at: new Date().toISOString(),
     };
+  }
+
+  private static checkNonRegressionGates(
+    policy: WinnerPolicy,
+    baselineTrials: ArmTrialExecutionData[],
+    arms: ExperimentArm[],
+    trialsByArm: Map<string, ArmTrialExecutionData[]>
+  ): Map<string, string[]> {
+    const failuresByArm = new Map<string, string[]>();
+    const requiredNonReg = policy.required_non_regression_eval_ids ?? [];
+    if (requiredNonReg.length === 0) return failuresByArm;
+
+    // Build baseline lookup: evalId -> average score, pass status
+    const baselineEvals = new Map<string, { passed: boolean; score: number }>();
+    for (const bTrial of baselineTrials) {
+      if (!bTrial.evalRun) continue;
+      for (const res of bTrial.evalRun.results) {
+        if (res.eval_definition_id && requiredNonReg.includes(res.eval_definition_id)) {
+          baselineEvals.set(res.eval_definition_id, {
+            passed: res.passed && res.grader_status !== "EVALUATOR_ERROR" && res.grader_status !== "MISSING_EVIDENCE",
+            score: typeof res.score === "number" ? res.score : res.passed ? 1 : 0,
+          });
+        }
+      }
+    }
+
+    const maxAllowedDrop = policy.max_score_degradation ?? 0;
+
+    for (const arm of arms) {
+      if (arm.is_baseline) continue; // Baseline doesn't regress against itself
+      const armFailures: string[] = [];
+      const armTrials = trialsByArm.get(arm.arm_id) ?? [];
+
+      for (const evalId of requiredNonReg) {
+        const base = baselineEvals.get(evalId);
+        // Candidate results for this evalId across all trials
+        const candResults = armTrials.flatMap((t) =>
+          (t.evalRun?.results ?? []).filter((r) => r.eval_definition_id === evalId)
+        );
+
+        if (candResults.length === 0) {
+          armFailures.push(`NON_REGRESSION_GATE_FAILED: Required non-regression eval '${evalId}' missing from candidate`);
+          continue;
+        }
+
+        for (const cRes of candResults) {
+          if (cRes.grader_status === "EVALUATOR_ERROR") {
+            armFailures.push(`NON_REGRESSION_GATE_FAILED: Required non-regression eval '${evalId}' encountered EVALUATOR_ERROR`);
+            break;
+          }
+          if (cRes.grader_status === "MISSING_EVIDENCE") {
+            armFailures.push(`NON_REGRESSION_GATE_FAILED: Required non-regression eval '${evalId}' encountered MISSING_EVIDENCE`);
+            break;
+          }
+          if (base && base.passed && !cRes.passed) {
+            armFailures.push(`NON_REGRESSION_GATE_FAILED: Required non-regression eval '${evalId}' regressed PASS -> FAIL`);
+            break;
+          }
+          if (base && typeof base.score === "number") {
+            const candScore = typeof cRes.score === "number" ? cRes.score : cRes.passed ? 1 : 0;
+            const drop = base.score - candScore;
+            if (drop > maxAllowedDrop + 1e-6) {
+              armFailures.push(`NON_REGRESSION_GATE_FAILED: Required non-regression eval '${evalId}' score degraded by ${drop.toFixed(3)} (max allowed: ${maxAllowedDrop})`);
+              break;
+            }
+          }
+        }
+      }
+
+      if (armFailures.length > 0) {
+        failuresByArm.set(arm.arm_id, armFailures);
+      }
+    }
+
+    return failuresByArm;
   }
 
   private static computeArmAggregate(
@@ -169,6 +271,9 @@ export class ExperimentAggregator {
     let approvalPassedAll = true;
     let requiredGatesPassedAll = true;
 
+    const criticalEvalIds = new Set(winnerPolicy.critical_eval_ids ?? []);
+    const requiredIds = new Set(winnerPolicy.required_eval_ids ?? []);
+
     for (const { trial, evalRun } of trialsData) {
       totalCandidateCost += trial.candidate_cost_usd || 0;
       totalGraderCost += trial.grader_cost_usd || 0;
@@ -182,31 +287,47 @@ export class ExperimentAggregator {
           passedCount++;
         }
 
-        // Safety gate check
+        // Safety gate check: if any safety results exist, must pass and not be error/missing
         const safetyEvals = evalRun.results.filter((r) => r.eval_type === "safety");
-        const safetyPassed = safetyEvals.every((r) => r.passed);
-        if (!safetyPassed) safetyPassedAll = false;
+        if (safetyEvals.length > 0) {
+          const safetyPassed = safetyEvals.every(
+            (r) => r.passed && r.grader_status !== "EVALUATOR_ERROR" && r.grader_status !== "MISSING_EVIDENCE"
+          );
+          if (!safetyPassed) safetyPassedAll = false;
+        }
 
         // Approval compliance check
         const approvalEvals = evalRun.results.filter((r) => r.eval_type === "approval_compliance");
-        const approvalPassed = approvalEvals.every((r) => r.passed);
-        if (!approvalPassed) approvalPassedAll = false;
+        if (approvalEvals.length > 0) {
+          const approvalPassed = approvalEvals.every(
+            (r) => r.passed && r.grader_status !== "EVALUATOR_ERROR" && r.grader_status !== "MISSING_EVIDENCE"
+          );
+          if (!approvalPassed) approvalPassedAll = false;
+        }
 
-        // Critical violations check
+        // Critical violations check: suite criticals + winnerPolicy criticals + critical severity
         if (evalRun.summary.critical_failures.length > 0) {
           criticalViolations += evalRun.summary.critical_failures.length;
         }
 
-        // Required gates check
-        const requiredIds = new Set(winnerPolicy.required_eval_ids);
-        const requiredEvals = evalRun.results.filter(
-          (r) => r.eval_definition_id && requiredIds.has(r.eval_definition_id)
-        );
-        const reqPassed = requiredEvals.every((r) => r.passed);
-        if (!reqPassed) requiredGatesPassedAll = false;
+        for (const critId of criticalEvalIds) {
+          const found = evalRun.results.find((r) => r.eval_definition_id === critId);
+          if (!found || !found.passed || found.grader_status === "EVALUATOR_ERROR" || found.grader_status === "MISSING_EVIDENCE") {
+            criticalViolations++;
+          }
+        }
+
+        // Required gates check: every required ID must be present and pass
+        for (const reqId of requiredIds) {
+          const found = evalRun.results.find((r) => r.eval_definition_id === reqId);
+          if (!found || !found.passed || found.grader_status === "EVALUATOR_ERROR" || found.grader_status === "MISSING_EVIDENCE") {
+            requiredGatesPassedAll = false;
+          }
+        }
       } else {
         scores.push(trial.status === "COMPLETED" ? 1 : 0);
         if (trial.status === "COMPLETED") passedCount++;
+        if (requiredIds.size > 0) requiredGatesPassedAll = false;
       }
     }
 
@@ -258,12 +379,18 @@ export class ExperimentAggregator {
 
   private static rankCandidates(
     aggregates: ArmAggregate[],
-    policy: WinnerPolicy
+    policy: WinnerPolicy,
+    nonRegressionFailuresByArm?: Map<string, string[]>
   ): CandidateRankingEntry[] {
     const entries: CandidateRankingEntry[] = [];
 
     for (const agg of aggregates) {
       const gateFailures: string[] = [];
+
+      // Non-regression check
+      if (nonRegressionFailuresByArm && nonRegressionFailuresByArm.has(agg.arm_id)) {
+        gateFailures.push(...nonRegressionFailuresByArm.get(agg.arm_id)!);
+      }
 
       // Hard Gates Check
       if (!agg.safety_pass) {
