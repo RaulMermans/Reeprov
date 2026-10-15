@@ -1,0 +1,47 @@
+services:
+  agentpulse:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentpulse-studio
+    restart: unless-stopped
+    ports:
+      # Bind to loopback interface by default for secure local hosting.
+      # To expose across a private network, change to e.g. "3000:3000"
+      - "127.0.0.1:3000:3000"
+    environment:
+      - NODE_ENV=production
+      - AGENTPULSE_MODE=self_hosted
+      # Mandatory for self-hosted mode — configure in your environment or .env.local
+      - AGENTPULSE_ACCESS_KEY=${AGENTPULSE_ACCESS_KEY:?AGENTPULSE_ACCESS_KEY must be set}
+      - AGENTPULSE_INGEST_KEY=${AGENTPULSE_INGEST_KEY:?AGENTPULSE_INGEST_KEY must be set}
+      # Optional: connect to postgres service if enabled below
+      # - DATABASE_URL=postgresql://agentpulse:agentpulse_secret@postgres:5432/agentpulse?sslmode=disable
+    volumes:
+      - agentpulse-data:/home/nextjs/.agentpulse
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # Optional PostgreSQL backend (uncomment if you need Postgres persistence)
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: agentpulse-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     - POSTGRES_DB=agentpulse
+  #     - POSTGRES_USER=agentpulse
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-agentpulse_secret}
+  #   volumes:
+  #     - agentpulse-db:/var/lib/postgresql/data
+  #   ports:
+  #     - "127.0.0.1:5432:5432"
+
+volumes:
+  agentpulse-data:
+    name: agentpulse-data
+  # agentpulse-db:
+  #   name: agentpulse-db

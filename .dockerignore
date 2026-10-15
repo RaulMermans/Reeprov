@@ -1,0 +1,14 @@
+.git
+.github
+node_modules
+.next
+.agentpulse
+.venv*
+venv
+dist
+build
+coverage
+*.log
+.DS_Store
+.env*
+!docker-compose.yml

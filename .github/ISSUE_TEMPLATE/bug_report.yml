@@ -1,0 +1,79 @@
+name: Bug Report
+description: Report a bug in AgentPulse
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the information below.
+
+        > **⚠️ Security issues**: Do NOT report security vulnerabilities here. Use [GitHub Security Advisories](../../security/advisories/new) instead.
+        > **⚠️ Sensitive data**: Do NOT upload trace payloads, agent outputs, or execution evidence that may contain sensitive information.
+  - type: input
+    id: version
+    attributes:
+      label: AgentPulse Version
+      placeholder: "0.1.0-beta.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment-mode
+    attributes:
+      label: Deployment Mode
+      options:
+        - PERSONAL_LOCAL
+        - PRIVATE_SELF_HOSTED
+        - HEADLESS_CI
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js Version
+      placeholder: "22.x"
+  - type: input
+    id: python-version
+    attributes:
+      label: Python Version (if using Python SDK)
+      placeholder: "3.12"
+  - type: dropdown
+    id: integration
+    attributes:
+      label: Integration Type
+      options:
+        - TypeScript SDK (@agentpulse/client)
+        - Python SDK (agentpulse-client)
+        - REST API
+        - CLI (pulse)
+        - Studio UI
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: Clear description of what happened
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal steps to reproduce the issue
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: "⚠️ Remove any sensitive data or API keys before pasting logs"
+      render: shell

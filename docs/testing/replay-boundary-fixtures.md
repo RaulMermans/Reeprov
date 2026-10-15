@@ -6,7 +6,7 @@
 
 ## 1. The Reference Vertical Slice Agent
 
-To prove replay fidelity across all boundary types simultaneously, AgentPulse implements a canonical multi-turn agent workflow: the **Customer Support Triage Agent** (tested in [`verticalSliceAndOfflineProof.test.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/__tests__/verticalSliceAndOfflineProof.test.ts)).
+To prove replay fidelity across all boundary types simultaneously, AgentPulse implements a canonical multi-turn agent workflow: the **Customer Support Triage Agent** (tested in [`verticalSliceAndOfflineProof.test.ts`](../../../lib/core/capture/__tests__/verticalSliceAndOfflineProof.test.ts)).
 
 ### Scenario Walkthrough
 
@@ -45,7 +45,7 @@ sequenceDiagram
 
 ## 2. The Canonical Fixture: `fixture-h-vertical-slice.json`
 
-Generated automatically and located at [`tests/fixtures/canonical/fixture-h-vertical-slice.json`](file:///Users/raulm/Desktop/GitHub/AgentPulse/tests/fixtures/canonical/fixture-h-vertical-slice.json), this fixture represents a complete, schema-validated [`RunArtifact`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/contracts/runArtifact.ts) conforming to schema `1.0.0-alpha`.
+Generated automatically and located at [`tests/fixtures/canonical/fixture-h-vertical-slice.json`](../../../tests/fixtures/canonical/fixture-h-vertical-slice.json), this fixture represents a complete, schema-validated [`RunArtifact`](../../../lib/core/contracts/runArtifact.ts) conforming to schema `1.0.0-alpha`.
 
 ### Key Fixture Properties
 
@@ -61,7 +61,7 @@ Generated automatically and located at [`tests/fixtures/canonical/fixture-h-vert
 
 ## 3. The Offline Replay Proof
 
-The test suite in [`verticalSliceAndOfflineProof.test.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/__tests__/verticalSliceAndOfflineProof.test.ts) provides formal proof of deterministic offline substitution:
+The test suite in [`verticalSliceAndOfflineProof.test.ts`](../../../lib/core/capture/__tests__/verticalSliceAndOfflineProof.test.ts) provides formal proof of deterministic offline substitution:
 
 ```typescript
 it("PROVES DETERMINISTIC OFFLINE REPLAY: substitutes recorded boundaries with live providers disabled", async () => {
@@ -114,7 +114,7 @@ The replay harness detects and rejects three distinct failure modes:
 
 ## 4. Overhead & Performance Benchmarking
 
-Capture instrumentation performance is monitored via [`lib/core/capture/benchmark.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/benchmark.ts):
+Capture instrumentation performance is monitored via [`lib/core/capture/benchmark.ts`](../../../lib/core/capture/benchmark.ts):
 
 - **Capture Runtime Overhead:** ~0.5ms to 1.5ms per boundary (including canonicalization, SHA-256 hashing, and secret redaction).
 - **Deduplication Ratio:** Up to 10x-50x storage savings across long-running multi-turn dialogs sharing large system prompts or common document chunks.

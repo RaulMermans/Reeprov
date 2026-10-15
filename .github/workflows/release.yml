@@ -1,0 +1,94 @@
+name: Release Publish (Manual Approval Gated)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 0.1.0-beta.1)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run (do not publish to external registries)'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  validate:
+    name: Validate Release Candidate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run CI Suite
+        run: npm run ci
+
+  publish-packages:
+    name: Publish Packages (Approval Gated)
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build & Publish TypeScript SDK
+        run: |
+          cd packages/client-typescript
+          npm install
+          npm run build
+          if [ "${{ inputs.dry_run }}" = "false" ]; then
+            npm publish --access public --provenance
+          else
+            npm pack --dry-run
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Build & Publish Python SDK
+        run: |
+          cd packages/client-python
+          python -m pip install --upgrade pip build twine
+          python -m build
+          if [ "${{ inputs.dry_run }}" = "false" ]; then
+            twine upload dist/*
+          else
+            twine check dist/*
+          fi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Create GitHub Release
+        if: ${{ inputs.dry_run == false }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: AgentPulse v${{ inputs.version }}
+          body_path: CHANGELOG.md
+          prerelease: true

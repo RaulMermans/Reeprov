@@ -1,7 +1,7 @@
 # IRIS Dogfood Friction Log & Developer Experience (DX) Hardening Report
 
 **Project:** AgentPulse  
-**External Dogfood Target:** IRIS Autonomous Executive Agent (`/Users/raulm/Desktop/GitHub/IRIS`)  
+**External Dogfood Target:** IRIS Autonomous Executive Agent  
 **Target Workflow:** `generateMorningBrief` (`today-brief-synthesis`)  
 **Sprint:** 10.2 — Real External Dogfood & DX Hardening  
 **Date:** 2026-10-15  

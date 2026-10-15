@@ -1,7 +1,7 @@
 # IRIS External Dogfood & DX Hardening Report
 
 **Project:** AgentPulse  
-**External Agent Target:** IRIS Autonomous Executive Agent (`/Users/raulm/Desktop/GitHub/IRIS`)  
+**External Agent Target:** IRIS Autonomous Executive Agent  
 **Sprint:** 10.2 — Real External Dogfood & DX Hardening  
 **Date:** 2026-10-15  
 

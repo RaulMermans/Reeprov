@@ -1,0 +1,23 @@
+name: Integration / Adapter Request
+description: Request or propose a framework integration or adapter
+labels: ["integration"]
+body:
+  - type: input
+    id: framework
+    attributes:
+      label: Framework / Platform
+      placeholder: "e.g., LangGraph, CrewAI, PydanticAI, AutoGen"
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: How would you use AgentPulse with this agent framework?
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Additional Details
+      description: Links, example code patterns, or relevant documentation

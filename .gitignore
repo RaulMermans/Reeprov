@@ -39,3 +39,13 @@ agentpulse.db*
 /reports/
 credentials.json
 .credentials
+
+# Python & Package Builds
+.venv
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+*.whl
+*.tar.gz
+*.tgz

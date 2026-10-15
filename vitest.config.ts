@@ -8,7 +8,7 @@ export default defineConfig({
     },
   },
   test: {
-    exclude: [...configDefaults.exclude, ".claude/**", ".cursor/**"],
+    exclude: [...configDefaults.exclude, ".claude/**", ".cursor/**", "packages/**"],
     fileParallelism: false,
     isolate: false,
     pool: "threads",

@@ -1,7 +1,19 @@
 {
   "name": "agentpulse",
-  "version": "1.0.0",
+  "version": "0.1.0-beta.1",
   "description": "AgentPulse is the local-first debugging and reproducibility layer for AI agents.",
+  "author": "AgentPulse Contributors",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/raulm/AgentPulse.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "pulse": "./bin/pulse.mjs"
+  },
   "scripts": {
     "dev": "tsx scripts/start-agentpulse.ts --dev",
     "start": "tsx scripts/start-agentpulse.ts",
@@ -20,14 +32,20 @@
     "pulse": "node bin/pulse.mjs",
     "ci": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
-  "keywords": [],
-  "author": "",
-  "license": "UNLICENSED",
+  "keywords": [
+    "agentpulse",
+    "ai-agents",
+    "debugging",
+    "tracing",
+    "reproducibility",
+    "evals"
+  ],
   "type": "module",
   "private": true,
   "dependencies": {
     "@octokit/rest": "^22.0.1",
     "@xyflow/react": "^12.11.1",
+    "jiti": "^2.7.0",
     "js-yaml": "^4.1.1",
     "jszip": "^3.10.1",
     "lucide-react": "^1.14.0",

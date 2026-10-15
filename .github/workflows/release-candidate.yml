@@ -1,0 +1,132 @@
+name: Release Candidate Validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'packages/**'
+      - 'bin/**'
+      - '.github/workflows/release-candidate.yml'
+      - 'package.json'
+
+permissions:
+  contents: read
+
+jobs:
+  core-ci:
+    name: Core App Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Core Tests
+        run: npm run test
+
+      - name: Production Build
+        run: npm run build
+
+      - name: Audit Private Paths
+        run: |
+          echo "Scanning for forbidden absolute user paths..."
+          ! grep -rn '/Users/' --include='*.md' --include='*.ts' --include='*.js' --include='*.json' --include='*.py' . \
+            --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git --exclude='package-lock.json'
+
+  typescript-sdk:
+    name: TypeScript SDK Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build TypeScript SDK
+        run: |
+          cd packages/client-typescript
+          npm install
+          npm run build
+          npm test
+
+      - name: Pack TypeScript SDK
+        run: |
+          cd packages/client-typescript
+          npm pack
+
+      - name: Fresh External Project Install Proof
+        run: |
+          mkdir /tmp/fresh-ts-app
+          cd /tmp/fresh-ts-app
+          npm init -y
+          TARBALL=$(ls $GITHUB_WORKSPACE/packages/client-typescript/agentpulse-client-*.tgz)
+          npm install "$TARBALL"
+          node -e "
+            const { AgentPulseClient } = require('@agentpulse/client');
+            const client = new AgentPulseClient({ endpoint: 'http://127.0.0.1:3000', apiKey: 'test' });
+            console.log('Client successfully instantiated in fresh project');
+          "
+
+  python-sdk:
+    name: Python SDK Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build Python SDK Wheel & Sdist
+        run: |
+          cd packages/client-python
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Fresh Virtualenv Install Proof
+        run: |
+          python -m venv /tmp/fresh-py-env
+          source /tmp/fresh-py-env/bin/activate
+          WHEEL=$(ls $GITHUB_WORKSPACE/packages/client-python/dist/*.whl)
+          pip install "$WHEEL"
+          python -c "
+          from agentpulse_client import AgentPulseClient
+          client = AgentPulseClient(url='http://127.0.0.1:3000', ingest_key='test')
+          print('Python client successfully imported from built wheel')
+          "
+
+  cli-packaging:
+    name: CLI Clean Packaging Proof
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify CLI Executable
+        run: |
+          chmod +x bin/pulse.mjs
+          ./bin/pulse.mjs --help

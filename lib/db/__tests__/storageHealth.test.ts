@@ -44,7 +44,7 @@ describe("getAppVersion", () => {
 
   it("falls back to the package.json version when no commit SHA is set", () => {
     delete process.env["VERCEL_GIT_COMMIT_SHA"];
-    expect(getAppVersion()).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(getAppVersion()).toMatch(/^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/);
   });
 });
 

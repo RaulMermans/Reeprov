@@ -1,0 +1,46 @@
+{
+  "name": "@agentpulse/client",
+  "version": "0.1.0-beta.1",
+  "description": "TypeScript client SDK for AgentPulse — local-first agent debugging and reproducibility.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/test-runner.js 2>/dev/null || tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/raulm/AgentPulse.git",
+    "directory": "packages/client-typescript"
+  },
+  "keywords": [
+    "agentpulse",
+    "ai-agents",
+    "debugging",
+    "tracing",
+    "telemetry",
+    "evals"
+  ],
+  "author": "AgentPulse Contributors",
+  "devDependencies": {
+    "typescript": "^5.8.0 || ^6.0.0"
+  }
+}

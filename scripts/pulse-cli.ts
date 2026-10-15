@@ -262,7 +262,18 @@ export interface DemoResetCliOptions {
   json: boolean;
 }
 
+export interface VersionCliOptions {
+  command: "version";
+  json: boolean;
+}
+
+export interface HelpCliOptions {
+  command: "help";
+}
+
 export type CliCommandOptions =
+  | VersionCliOptions
+  | HelpCliOptions
   | ReplayCliOptions
   | CheckpointsCliOptions
   | ForkCliOptions
@@ -292,6 +303,14 @@ export type CliCommandOptions =
   | DemoResetCliOptions;
 
 export function parseArgs(args: string[]): CliCommandOptions | null {
+  if (args.length === 0 || args.includes("--help") || args.includes("-h") || args[0] === "help") {
+    return { command: "help" };
+  }
+
+  if (args.includes("--version") || args.includes("-v") || args[0] === "version") {
+    return { command: "version", json: args.includes("--json") };
+  }
+
   if (args[0] === "data-path") {
     return { command: "data-path", json: args.includes("--json") };
   }
@@ -670,37 +689,38 @@ export async function loadArtifact(idOrPath: string): Promise<RunArtifact> {
 export async function runCli(argv: string[] = process.argv.slice(2)): Promise<number> {
   const options = parseArgs(argv);
 
-  if (!options) {
-    console.error(`AgentPulse CLI
+  if (!options || options.command === "help") {
+    const helpOutput = `AgentPulse CLI
 
   Commands:
-    pulse data-path [--json]
-    pulse projects list [--json]
-    pulse export project <project-id> [--out <file>] [--json]
-    pulse demo setup [--json]
-    pulse demo reset [--json]
-    pulse diff <run-a> <run-b> [--semantic] [--json] [--policy <file>] [--first-divergence]
-    pulse evidence <run-id|file-path> [--policy <file>] [--json]
-    pulse config <run-id|file-path> [--json]
-    pulse config-diff <run-a> <run-b> [--json]
-    pulse context <run-id|file-path> [--step <id>] [--snapshot <id>] [--signals] [--json]
-    pulse memory <run-id|file-path> [--memory <id>] [--timeline] [--signals] [--json]
-    pulse ablate <run-id|file-path> --checkpoint <checkpoint-id> [--context-item <id>] [--memory <id>] [--json]
-    pulse checkpoints <run-id|file-path> [--json]
-    pulse fork <run-id|file-path> --checkpoint <checkpoint-id> [--mutations <file>] [--json]
-    pulse replay <run-id|file-path> [options]
-    pulse eval list [--json]
-    pulse eval run <run-id|file-path> --suite <suite-id|file-path> [--json]
-    pulse dataset list [--json]
-    pulse experiment plan <definition-file|id> [--json]
-    pulse experiment run <definition-file|id> [--json]
-    pulse experiment show <experiment-id> [--json]
-    pulse baseline list [--project <id>] [--json]
-    pulse baseline set <run-or-release> --suite <suite> [--dataset <id>] [--agent <id>] [--json]
-    pulse regression check <candidate> --baseline <baseline> [--policy <policy>] [--json]
-    pulse capability show <agent-id> [--json]
-    pulse capability diff <vA> <vB> [--agent <id>] [--json]
-    pulse policy-drift <baseline> <candidate> [--json]
+    pulse --version                       Show AgentPulse version
+    pulse data-path [--json]              Inspect storage data root and privacy posture
+    pulse projects list [--json]          List configured projects and ingest keys
+    pulse export project <id> [--out <f>] Export complete project bundle
+    pulse demo setup [--json]             Initialize deterministic demo project
+    pulse demo reset [--json]             Reset demo project to clean state
+    pulse diff <run-a> <run-b> [opts]     Side-by-side execution comparison
+    pulse evidence <run-id|file> [opts]   Inspect execution evidence completeness
+    pulse config <run-id|file>            Inspect agent configuration snapshot
+    pulse config-diff <run-a> <run-b>     Diff configuration between two runs
+    pulse context <run-id|file> [opts]    Analyze prompt context provenance
+    pulse memory <run-id|file> [opts]     Analyze agent memory lifecycle
+    pulse ablate <run-id|file> [opts]     Run context/memory ablation test
+    pulse checkpoints <run-id|file>       List execution checkpoints
+    pulse fork <run-id|file> [opts]       Fork execution from checkpoint
+    pulse replay <run-id|file> [options]  Run deterministic offline replay
+    pulse eval list [--json]              List evaluation suites and datasets
+    pulse eval run <run-id|file> [opts]   Execute automated evaluation suite
+    pulse dataset list [--json]           List evaluation test datasets
+    pulse experiment plan <def>           Validate experiment hypothesis plan
+    pulse experiment run <def>            Execute experiment matrix
+    pulse experiment show <id>            Show experiment report
+    pulse baseline list [opts]            List regression baselines
+    pulse baseline set <id> [opts]        Set golden regression baseline
+    pulse regression check <candidate>    Enforce pre-merge release gate
+    pulse capability show <agent-id>      Show capability baseline
+    pulse capability diff <vA> <vB>       Diff capability baselines
+    pulse policy-drift <base> <cand>      Detect execution policy drift
 
   Replay Options:
     --strict          Enforce strict offline execution with 0 network calls (default)
@@ -708,12 +728,27 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
     --validate-only   Build and validate ReplayPlan without executing the replay
     --from-start      Execute replay from the initial step (default: true)
     --json            Output machine-readable JSON to stdout
-  `);
+`;
+    if (!options) {
+      console.error(helpOutput);
       return 1;
     }
+    console.log(helpOutput);
+    return 0;
+  }
 
-    try {
-      if (options.command === "diff") {
+  if (options.command === "version") {
+    const version = "0.1.0-beta.1";
+    if (options.json) {
+      console.log(JSON.stringify({ version, release: "beta", platform: process.platform, node: process.version }, null, 2));
+    } else {
+      console.log(`AgentPulse v${version} (beta)`);
+    }
+    return 0;
+  }
+
+  try {
+    if (options.command === "diff") {
         const artifactA = await loadArtifact(options.runA);
         const artifactB = await loadArtifact(options.runB);
 

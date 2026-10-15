@@ -19,7 +19,7 @@ AgentPulse is a private single-user Next.js dashboard. All repository indexing a
 
 ## 2. Server-Side Secret Scrubbing Engine
 
-Implemented in [`lib/core/capture/redaction.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/redaction.ts), the engine evaluates all boundary inputs, outputs, arguments, and headers across eight distinct pattern classes:
+Implemented in [`lib/core/capture/redaction.ts`](../../lib/core/capture/redaction.ts), the engine evaluates all boundary inputs, outputs, arguments, and headers across eight distinct pattern classes:
 
 ```mermaid
 flowchart TD
@@ -50,7 +50,7 @@ flowchart TD
 
 ## 3. Configurable Capture Modes
 
-Telemetry minimization is governed by three capture modes defined in [`lib/core/capture/types.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/types.ts):
+Telemetry minimization is governed by three capture modes defined in [`lib/core/capture/types.ts`](../../lib/core/capture/types.ts):
 
 ### 1. `STRUCTURE_ONLY`
 - Omit all prompt text, document content, and output strings.
@@ -77,6 +77,6 @@ A common concern in agent debugging is whether scrubbed payloads break replay re
 
 AgentPulse resolves this through **cryptographic separation**:
 1. When a secret is redacted, the boundary stores `redaction_status: "redacted"` along with the names of the redacted fields.
-2. In strict replay mode, the [`BoundaryReplayHarness`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/replayHarness.ts) verifies the **persisted sanitized hash**.
+2. In strict replay mode, the [`BoundaryReplayHarness`](../../lib/core/capture/replayHarness.ts) verifies the **persisted sanitized hash**.
 3. During offline replay, the harness substitutes the recorded output directly without needing the original live API keys.
 4. If an agent step depends on a secret that was scrubbed and not available in recorded output, the boundary is classified as `SIDE_EFFECT_GATED` or `NON_REPLAYABLE`, failing closed and preventing silent corruption.

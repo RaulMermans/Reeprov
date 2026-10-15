@@ -10,8 +10,8 @@ A common failure mode in agent tracing is conflating **internal control flow** w
 
 | Concept | Contract | Scope | Role in Replay |
 |---|---|---|---|
-| **Execution Step** | [`ExecutionStep`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/contracts/executionStep.ts) | High-level logical block of work (e.g. `Agent Planning Phase`, `Task Evaluation Loop`). | Defines trajectory sequence and nesting; cannot be substituted directly. |
-| **Execution Boundary** | [`ExecutionBoundary`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/contracts/replay.ts) | Specific nondeterministic boundary crossing with an external system (LLM, tool, vector index, memory, HTTP API). | Unit of deterministic offline substitution; captures inputs, outputs, hashes, and side effects. |
+| **Execution Step** | [`ExecutionStep`](../../lib/core/contracts/executionStep.ts) | High-level logical block of work (e.g. `Agent Planning Phase`, `Task Evaluation Loop`). | Defines trajectory sequence and nesting; cannot be substituted directly. |
+| **Execution Boundary** | [`ExecutionBoundary`](../../lib/core/contracts/replay.ts) | Specific nondeterministic boundary crossing with an external system (LLM, tool, vector index, memory, HTTP API). | Unit of deterministic offline substitution; captures inputs, outputs, hashes, and side effects. |
 
 A single `ExecutionStep` may encompass zero, one, or multiple `ExecutionBoundary` records.
 
@@ -76,7 +76,7 @@ classDiagram
 
 ### Supported Boundary Types
 
-1. **`model_call`:** LLM generation invocations (Anthropic, OpenAI, local models). Captures prompt, tools exposed, generation parameters, latency, token usage, and links to a materialized [`ContextSnapshot`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/contracts/context.ts).
+1. **`model_call`:** LLM generation invocations (Anthropic, OpenAI, local models). Captures prompt, tools exposed, generation parameters, latency, token usage, and links to a materialized [`ContextSnapshot`](../../lib/core/contracts/context.ts).
 2. **`tool_call`:** Invocation of agent tools and functions. Captures canonical tool name, arguments, argument hashes, output, duration, and error states.
 3. **`retrieval_call`:** Vector database and search queries (RAG). Captures search query, collection identity, top-k parameters, candidate results with scores and ranks, and tracks whether items entered model context.
 4. **`memory_read`:** Direct lookups or similarity recall from episodic/semantic/procedural memory stores.
@@ -89,7 +89,7 @@ classDiagram
 
 ## 3. Side-Effect Classification
 
-Operations are classified into five side-effect tiers by [`sideEffectClassifier.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/sideEffectClassifier.ts):
+Operations are classified into five side-effect tiers by [`sideEffectClassifier.ts`](../../lib/core/capture/sideEffectClassifier.ts):
 
 | Class | Invariant | Examples |
 |---|---|---|
@@ -106,7 +106,7 @@ Unknown tools default to `external_side_effect` unless explicitly registered or 
 
 ## 4. Evidence-Based Replayability Classification
 
-A boundary cannot be deemed replayable solely because a response was received. [`replayabilityClassifier.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/replayabilityClassifier.ts) evaluates concrete evidence:
+A boundary cannot be deemed replayable solely because a response was received. [`replayabilityClassifier.ts`](../../lib/core/capture/replayabilityClassifier.ts) evaluates concrete evidence:
 
 ```mermaid
 flowchart TD
@@ -171,4 +171,4 @@ Every boundary contains structured representations of both sides of the boundary
 }
 ```
 
-This complete record enables the [`BoundaryReplayHarness`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/replayHarness.ts) to verify inputs down to the cryptographic hash and substitute recorded outputs without touching the live database.
+This complete record enables the [`BoundaryReplayHarness`](../../lib/core/capture/replayHarness.ts) to verify inputs down to the cryptographic hash and substitute recorded outputs without touching the live database.

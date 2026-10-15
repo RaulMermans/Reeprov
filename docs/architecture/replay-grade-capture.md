@@ -42,21 +42,21 @@ flowchart TD
     Linkage --> Persistence["Dual Persistence (Postgres & JSON)"]
 ```
 
-### Pipeline Modules in [`lib/core/capture/`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/)
+### Pipeline Modules in [`lib/core/capture/`](../../lib/core/capture/)
 
-1. **[`types.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/types.ts):** Type definitions for capture policies, redaction results, adapter payloads, and storage interfaces.
-2. **[`policy.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/policy.ts):** Configurable capture policies (`STRUCTURE_ONLY`, `SAFE_CONTENT`, `FULL_CONTENT`), payload size thresholds, and sensitive field lists.
-3. **[`hashing.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/hashing.ts):** Deterministic object sorting and canonical serialization (`canonicalJsonStringify`) with SHA-256 / SHA-512 cryptographic hashing.
-4. **[`redaction.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/redaction.ts):** Server-side secret scrubbing engine covering 8 distinct secret families and sensitive object/header keys.
-5. **[`contentStore.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/contentStore.ts):** Content-addressed blob store providing transparent deduplication across runs and steps.
-6. **[`sideEffectClassifier.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/sideEffectClassifier.ts):** Conservative, fail-closed side-effect classification (`read_only`, `write_draft`, `external_side_effect`, `sensitive_data`, `destructive`).
-7. **[`replayabilityClassifier.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/replayabilityClassifier.ts):** Evidence-based evaluation ensuring recorded outputs exist before marking boundaries replayable.
-8. **[`boundaryClassifier.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/boundaryClassifier.ts):** Boundary normalization and dependency identity derivation.
-9. **[`normalizeBoundary.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/normalizeBoundary.ts):** Core pipeline coordinator synthesizing boundaries according to canonical contracts.
-10. **[`contextSnapshotBuilder.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/contextSnapshotBuilder.ts):** Assembles fine-grained `ContextSnapshot` records linking model inputs to source types and hashes.
-11. **[`sdk.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/sdk.ts):** TypeScript client SDK exposing transparent function wrappers (`wrapTool`, `wrapModel`) and manual boundary capture methods with non-fatal failure isolation.
-12. **[`persistence.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/persistence.ts):** High-reliability persistence supporting both `.agentpulse/runs/{runId}.canonical.json` filesystem store and PostgreSQL (`ap_canonical_runs`).
-13. **[`replayHarness.ts`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/replayHarness.ts):** Offline substitution harness validating boundary sequence, side-effect gates, and input hashes without live provider connectivity.
+1. **[`types.ts`](../../lib/core/capture/types.ts):** Type definitions for capture policies, redaction results, adapter payloads, and storage interfaces.
+2. **[`policy.ts`](../../lib/core/capture/policy.ts):** Configurable capture policies (`STRUCTURE_ONLY`, `SAFE_CONTENT`, `FULL_CONTENT`), payload size thresholds, and sensitive field lists.
+3. **[`hashing.ts`](../../lib/core/capture/hashing.ts):** Deterministic object sorting and canonical serialization (`canonicalJsonStringify`) with SHA-256 / SHA-512 cryptographic hashing.
+4. **[`redaction.ts`](../../lib/core/capture/redaction.ts):** Server-side secret scrubbing engine covering 8 distinct secret families and sensitive object/header keys.
+5. **[`contentStore.ts`](../../lib/core/capture/contentStore.ts):** Content-addressed blob store providing transparent deduplication across runs and steps.
+6. **[`sideEffectClassifier.ts`](../../lib/core/capture/sideEffectClassifier.ts):** Conservative, fail-closed side-effect classification (`read_only`, `write_draft`, `external_side_effect`, `sensitive_data`, `destructive`).
+7. **[`replayabilityClassifier.ts`](../../lib/core/capture/replayabilityClassifier.ts):** Evidence-based evaluation ensuring recorded outputs exist before marking boundaries replayable.
+8. **[`boundaryClassifier.ts`](../../lib/core/capture/boundaryClassifier.ts):** Boundary normalization and dependency identity derivation.
+9. **[`normalizeBoundary.ts`](../../lib/core/capture/normalizeBoundary.ts):** Core pipeline coordinator synthesizing boundaries according to canonical contracts.
+10. **[`contextSnapshotBuilder.ts`](../../lib/core/capture/contextSnapshotBuilder.ts):** Assembles fine-grained `ContextSnapshot` records linking model inputs to source types and hashes.
+11. **[`sdk.ts`](../../lib/core/capture/sdk.ts):** TypeScript client SDK exposing transparent function wrappers (`wrapTool`, `wrapModel`) and manual boundary capture methods with non-fatal failure isolation.
+12. **[`persistence.ts`](../../lib/core/capture/persistence.ts):** High-reliability persistence supporting both `.agentpulse/runs/{runId}.canonical.json` filesystem store and PostgreSQL (`ap_canonical_runs`).
+13. **[`replayHarness.ts`](../../lib/core/capture/replayHarness.ts):** Offline substitution harness validating boundary sequence, side-effect gates, and input hashes without live provider connectivity.
 
 ---
 

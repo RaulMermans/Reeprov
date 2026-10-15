@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { requireIngestAuth } from "@/lib/db/getStores";
 import { fileIntegrationStore } from "@/lib/integrations/integrationStore";
-import { AgentPulseClient } from "@/examples/integrations/typescript/agentpulseClient";
+import { AgentPulseClient } from "@/packages/client-typescript/src/index";
 import { getCanonicalRun } from "@/lib/core/capture/persistence";
 import { runArtifactSchema } from "@/lib/core/contracts/runArtifact";
 import { computeCaptureReadiness } from "@/lib/projects/captureReadiness";

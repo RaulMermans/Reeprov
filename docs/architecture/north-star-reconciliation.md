@@ -100,5 +100,5 @@ In Sprint 2, the transition from passive trace evidence to replay-grade executio
 - **Content-Addressed Deduplication:** Payloads >4KB are hashed with SHA-256 and deduplicated into `.agentpulse/blobs/` or `ap_content_blobs`, eliminating redundant storage in multi-turn runs.
 - **Server-Side Secret Sanitization:** Mandatory scrubbing of 8 secret pattern classes, environment variables, and sensitive headers/keys across all capture modes (`STRUCTURE_ONLY`, `SAFE_CONTENT`, `FULL_CONTENT`).
 - **Context Snapshot Materialization:** Precise token-attributed `ContextSnapshot` records for model calls linking prompts to source provenance without LLM-based compression.
-- **Deterministic Offline Replay Proof:** Implemented [`BoundaryReplayHarness`](file:///Users/raulm/Desktop/GitHub/AgentPulse/lib/core/capture/replayHarness.ts) and proved 100% offline deterministic substitution of a multi-turn support agent workflow ([`fixture-h-vertical-slice.json`](file:///Users/raulm/Desktop/GitHub/AgentPulse/tests/fixtures/canonical/fixture-h-vertical-slice.json)).
+- **Deterministic Offline Replay Proof:** Implemented [`BoundaryReplayHarness`](../../lib/core/capture/replayHarness.ts) and proved 100% offline deterministic substitution of a multi-turn support agent workflow ([`fixture-h-vertical-slice.json`](../../tests/fixtures/canonical/fixture-h-vertical-slice.json)).
 
