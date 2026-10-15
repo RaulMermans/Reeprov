@@ -110,14 +110,30 @@ export function revokeSessionToken(token: string | null | undefined): void {
 }
 
 /**
+ * Determines whether an incoming HTTP request is over HTTPS, directly or via a trusted reverse proxy.
+ */
+export function isRequestHttps(request: Request): boolean {
+  if (request.url.startsWith("https:")) return true;
+  const forwarded = request.headers.get("x-forwarded-proto");
+  if (forwarded) {
+    const proto = forwarded.split(",")[0].trim().toLowerCase();
+    if (proto === "https") return true;
+  }
+  return false;
+}
+
+/**
  * Returns cookie options for setting the HttpOnly session cookie.
  */
-export function getSessionCookieOptions(isHttps = false): Partial<ResponseCookie> {
+export function getSessionCookieOptions(reqOrHttps: Request | boolean = false): Partial<ResponseCookie> {
+  const isHttps = typeof reqOrHttps === "boolean" ? reqOrHttps : isRequestHttps(reqOrHttps);
+  const forceSecure = process.env.AGENTPULSE_FORCE_SECURE_COOKIES === "true";
+  const secure = forceSecure || isHttps;
   const maxAge = DEFAULT_SESSION_TTL_HOURS * 60 * 60; // seconds
   return {
     name: SESSION_COOKIE_NAME,
     httpOnly: true,
-    secure: isHttps || process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax",
     path: "/",
     maxAge,

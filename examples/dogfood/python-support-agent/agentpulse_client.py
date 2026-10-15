@@ -18,6 +18,8 @@ import json
 import os
 import random
 import string
+import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -36,13 +38,31 @@ def _now() -> str:
 class AgentPulseClient:
     """Thin client for emitting AgentPulse trace events."""
 
-    def __init__(self) -> None:
-        self._url = os.environ.get("AGENTPULSE_URL", "")
-        self._ingest_key = os.environ.get("AGENTPULSE_INGEST_KEY", "")
-        self._project_id = os.environ.get("AGENTPULSE_PROJECT_ID", "")
-        self._project_name = os.environ.get("AGENTPULSE_PROJECT_NAME", "")
-        self._workflow_id = os.environ.get("AGENTPULSE_WORKFLOW_ID", "")
-        self._enabled = os.environ.get("AGENTPULSE_ENABLED", "").lower() == "true"
+    def __init__(
+        self,
+        *,
+        url: Optional[str] = None,
+        ingest_key: Optional[str] = None,
+        project_id: Optional[str] = None,
+        project_name: Optional[str] = None,
+        workflow_id: Optional[str] = None,
+        enabled: Optional[bool] = None,
+        timeout: int = 10,
+        max_retries: int = 2,
+        fail_open: bool = True,
+    ) -> None:
+        self._url = url or os.environ.get("AGENTPULSE_URL", "")
+        self._ingest_key = ingest_key or os.environ.get("AGENTPULSE_INGEST_KEY", "")
+        self._project_id = project_id or os.environ.get("AGENTPULSE_PROJECT_ID", "")
+        self._project_name = project_name or os.environ.get("AGENTPULSE_PROJECT_NAME", "")
+        self._workflow_id = workflow_id or os.environ.get("AGENTPULSE_WORKFLOW_ID", "")
+        if enabled is not None:
+            self._enabled = enabled
+        else:
+            self._enabled = os.environ.get("AGENTPULSE_ENABLED", "").lower() == "true"
+        self._timeout = timeout
+        self._max_retries = max_retries
+        self._fail_open = fail_open if os.environ.get("AGENTPULSE_FAIL_OPEN") != "false" else False
 
     @property
     def is_enabled(self) -> bool:
@@ -384,18 +404,43 @@ class AgentPulseClient:
     def _post(self, path: str, body: dict[str, Any]) -> None:
         url = f"{self._url}{path}"
         data = json.dumps(body).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=data,
-            headers={
-                "Content-Type": "application/json",
-                "x-agentpulse-key": self._ingest_key,
-            },
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                if resp.status >= 400:
-                    raise RuntimeError(f"AgentPulse {resp.status}: {path}")
-        except urllib.error.HTTPError as e:
-            raise RuntimeError(f"AgentPulse request failed: {e.code} {path}") from e
+        last_error: Optional[Exception] = None
+
+        for attempt in range(self._max_retries + 1):
+            req = urllib.request.Request(
+                url,
+                data=data,
+                headers={
+                    "Content-Type": "application/json",
+                    "x-agentpulse-key": self._ingest_key,
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+                    if resp.status < 400:
+                        return
+                    last_error = RuntimeError(f"AgentPulse {resp.status}: {path}")
+            except urllib.error.HTTPError as e:
+                # Non-retryable: 401, 403, or 4xx client errors
+                if e.code in (401, 403) or (400 <= e.code < 500):
+                    err = RuntimeError(f"AgentPulse request failed: {e.code} {path}")
+                    if self._fail_open:
+                        print(f"[AgentPulse] Non-retryable error ({e.code}): {path}", file=sys.stderr)
+                        return
+                    raise err from e
+                # Server 5xx: transient error, retry
+                last_error = e
+                if attempt < self._max_retries:
+                    time.sleep(0.05 * (2 ** attempt))
+                    continue
+            except Exception as e:
+                last_error = e
+                if attempt < self._max_retries:
+                    time.sleep(0.05 * (2 ** attempt))
+                    continue
+
+        if self._fail_open:
+            print(f"[AgentPulse] Telemetry request to {path} failed: {last_error}", file=sys.stderr)
+            return
+        raise last_error or RuntimeError(f"AgentPulse request failed: {path}")

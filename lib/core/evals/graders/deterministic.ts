@@ -783,7 +783,12 @@ export class DeterministicEvaluatorAdapter implements EvaluatorAdapter {
   ): EvalResult {
     const config = input.definition.grader_config;
     const expected = String(config["expected_status"] ?? "SUCCESS").toUpperCase();
-    const actual = String(input.artifact.evidence?.final_outcome?.status ?? "UNKNOWN").toUpperCase();
+    const actual = String(
+      input.artifact.evidence?.final_outcome?.status ??
+      input.artifact.execution?.status ??
+      (input.artifact as any).status ??
+      "UNKNOWN"
+    ).toUpperCase();
 
     const passed = actual === expected;
     return {

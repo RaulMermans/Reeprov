@@ -9,8 +9,8 @@ import type { BoundaryType } from "../contracts/replay";
 /**
  * Normalizes various raw boundary type strings into the canonical BoundaryType enum.
  */
-export function normalizeBoundaryType(rawType: string): BoundaryType {
-  const norm = rawType.toLowerCase().trim();
+export function normalizeBoundaryType(rawType?: string): BoundaryType {
+  const norm = (rawType || "").toLowerCase().trim();
   switch (norm) {
     case "model_call":
     case "model":

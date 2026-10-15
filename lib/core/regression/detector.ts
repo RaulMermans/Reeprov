@@ -85,9 +85,19 @@ export class RegressionDetector {
       ? [...comparison.configuration_diff.summary]
       : [];
 
-    const divergenceStep =
+    const divergenceStepId =
       comparison?.first_meaningful_divergence?.step_id ??
       comparison?.first_structural_divergence?.step_id;
+
+    let divergenceStepIndex: number | undefined = undefined;
+    if (divergenceStepId && comparison?.execution_alignment?.aligned_steps) {
+      const aligned = comparison.execution_alignment.aligned_steps.find(
+        (s) => s.baseline_step_id === divergenceStepId || s.candidate_step_id === divergenceStepId
+      );
+      if (aligned) {
+        divergenceStepIndex = aligned.logical_index;
+      }
+    }
 
     // ── 1. Case-Level Matrix & Paired Comparison ────────────────────────────
     const caseMatrix: RegressionCaseResult[] = [];
@@ -161,7 +171,8 @@ export class RegressionDetector {
           baseline_score: bScore,
           candidate_score: cScore,
           score_delta: scoreDelta,
-          divergence_step_index: divergenceStep,
+          divergence_step_index: divergenceStepIndex ?? divergenceStepId,
+          divergence_step_id: divergenceStepId,
           evidence_refs: evidenceRefs,
         })
       );
@@ -206,9 +217,9 @@ export class RegressionDetector {
             eval_references: cList.map(extractEvalId),
             case_references: [caseKey],
             configuration_differences: configDiffs,
-            first_meaningful_divergence: divergenceStep ? `Step ${divergenceStep}` : undefined,
+            first_meaningful_divergence: divergenceStepId ? `Step ${divergenceStepId}` : undefined,
             causal_status: "ASSOCIATED_CHANGE",
-            recommendation: `Inspect case "${caseName}" inputs and divergence at step ${divergenceStep ?? "unknown"}.`,
+            recommendation: `Inspect case "${caseName}" inputs and divergence at step ${divergenceStepId ?? "unknown"}.`,
             status: "ACTIVE",
           })
         );

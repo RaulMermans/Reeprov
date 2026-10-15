@@ -157,7 +157,7 @@ export function adaptLegacyRunToRunArtifact(input: LegacyRunInput | SavedRun): R
     artifact_ids: [],
     input_summary: evt.input_summary,
     output_summary: evt.output_summary,
-    metadata: evt.metadata,
+    metadata: { ...evt.metadata, original_event_type: evt.event_type },
   }));
 
   // Tools: map ToolCallRecords to ToolInvocations

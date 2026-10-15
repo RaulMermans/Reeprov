@@ -7,7 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/errors";
-import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
+import { authorizeRequest } from "@/lib/auth/accessControl";
 import { getCanonicalRun } from "@/lib/core/capture/persistence";
 
 interface RouteParams {
@@ -43,3 +43,5 @@ export async function GET(request: Request, { params }: RouteParams) {
     return apiErrorResponse(error);
   }
 }
+
+

@@ -88,20 +88,31 @@ export interface ContentStore {
 
 export interface RawBoundaryInput {
   boundaryId?: string;
+  boundary_id?: string;
   runId: string;
+  run_id?: string;
   stepId?: string;
+  step_id?: string;
   nodeId?: string;
+  node_id?: string;
   sequenceIndex?: number;
+  sequence_index?: number;
   boundaryType: BoundaryType;
+  boundary_type?: BoundaryType;
   name: string;
   startedAt?: string;
+  started_at?: string;
   completedAt?: string;
+  completed_at?: string;
   durationMs?: number;
+  duration_ms?: number;
   status?: "completed" | "failed" | "pending" | "interrupted" | "skipped";
   input: unknown;
   inputSummary?: string;
+  input_summary?: string;
   output?: unknown;
   outputSummary?: string;
+  output_summary?: string;
   error?: {
     message: string;
     code?: string;

@@ -1,9 +1,18 @@
 import { AgentPulseClient } from "./agentpulseClient.js";
 
-// Read configuration from environment or use local dev defaults
+const ingestKey = process.env["AGENTPULSE_INGEST_KEY"];
+if (!ingestKey) {
+  console.error(
+    "No AgentPulse ingest key configured.\n" +
+    "Create a project in AgentPulse Studio and copy its generated ingest key."
+  );
+  process.exit(1);
+}
+
+// Read configuration from environment
 const pulse = new AgentPulseClient({
   endpoint: process.env["AGENTPULSE_URL"] || "http://127.0.0.1:3000",
-  ingestKey: process.env["AGENTPULSE_INGEST_KEY"] || "ap_live_support_agent_demo",
+  ingestKey,
   projectId: process.env["AGENTPULSE_PROJECT_ID"] || "support-agent",
   projectName: process.env["AGENTPULSE_PROJECT_NAME"] || "Customer Support Agent",
   workflowId: process.env["AGENTPULSE_WORKFLOW_ID"] || "customer-support-v1",

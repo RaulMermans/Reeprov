@@ -36,6 +36,7 @@ export interface AuthorizeResult {
   capability: AuthCapability;
   projectId?: string;
   integrationId?: string;
+  integration?: import("@/lib/integrations/integrationTypes").ProjectIntegration;
   reason?: string;
 }
 
@@ -134,6 +135,7 @@ export async function authorizeRequest(
         capability,
         projectId: integration.projectId,
         integrationId: integration.integrationId,
+        integration,
       };
     }
 

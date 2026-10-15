@@ -183,7 +183,8 @@ export const regressionCaseResultSchema = z.object({
   baseline_score: z.number().optional(),
   candidate_score: z.number().optional(),
   score_delta: z.number().optional(),
-  divergence_step_index: z.number().int().optional(),
+  divergence_step_index: z.union([z.number().int(), z.string()]).optional(),
+  divergence_step_id: z.string().optional(),
   evidence_refs: z.array(z.string()).default([]),
 });
 

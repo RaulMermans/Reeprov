@@ -23,6 +23,8 @@ import { pgWorkflowStore } from "@/lib/workflows/pgWorkflowStore";
 import { fileDiagnosticStore } from "@/lib/diagnostics/fileDiagnosticStore";
 import { pgDiagnosticStore } from "@/lib/diagnostics/pgDiagnosticStore";
 import { requireIngestKey, IngestKeyError } from "@/lib/auth/requireIngestKey";
+import { authorizeRequest, AccessControlError, extractProvidedKey } from "@/lib/auth/accessControl";
+import { ApiError } from "@/lib/api/errors";
 import { hashIngestKey } from "@/lib/integrations/ingestKey";
 import type { IntegrationStore, ProjectIntegration } from "@/lib/integrations/integrationTypes";
 import type { RunStore } from "@/lib/runs/runTypes";
@@ -117,40 +119,51 @@ export async function recordIngestDiagnostic(input: RecordDiagnosticInput): Prom
 export interface IngestAuthResult {
   /** Set only when authentication succeeded via a per-integration scoped key. */
   integration?: ProjectIntegration;
+  projectId?: string;
+  integrationId?: string;
 }
 
 /**
- * Authenticates an ingestion request. Tries the shared deployment-wide
- * AGENTPULSE_INGEST_KEY first (fast, no DB lookup, preserves backward
- * compatibility with existing integrations). If that fails, falls back to
- * looking up a per-integration scoped ingest key by its hash.
- *
- * Fails closed: throws IngestKeyError (401) if neither check succeeds.
+ * Route-friendly adapter for ingestion authentication.
+ * Delegates to canonical authorizeRequest(request, { capability: "INGEST", projectId }).
  * Records a redacted diagnostic on failure — never the provided key value.
  */
-export async function requireIngestAuth(request: Request, routeLabel: string): Promise<IngestAuthResult> {
+export async function requireIngestAuth(
+  request: Request,
+  routeLabel: string,
+  projectId?: string
+): Promise<IngestAuthResult> {
   try {
-    requireIngestKey(request);
-    return {};
-  } catch {
-    // Fall through to scoped-key lookup below.
-  }
+    const auth = await authorizeRequest(request, { capability: "INGEST", projectId });
+    return {
+      integration: auth.integration,
+      projectId: auth.projectId,
+      integrationId: auth.integrationId,
+    };
+  } catch (err) {
+    const provided = extractProvidedKey(request);
+    const status = err instanceof AccessControlError ? err.status : 401;
+    const category = !provided
+      ? "missing_auth_header"
+      : err instanceof AccessControlError && err.code === "forbidden_project_scope"
+        ? "invalid_ingest_key"
+        : "invalid_ingest_key";
 
-  const provided = request.headers.get("x-agentpulse-key");
-  if (provided) {
-    const hash = hashIngestKey(provided);
-    const integration = await getIntegrationStore().findByIngestKeyHash(hash);
-    if (integration) {
-      return { integration };
+    await recordIngestDiagnostic({
+      category,
+      errorCode: String(status),
+      message: `Ingest authentication failed on ${routeLabel}${err instanceof Error ? `: ${err.message}` : ""}.`,
+      projectId,
+    });
+
+    if (err instanceof AccessControlError) {
+      if (err.status === 403) {
+        throw new ApiError(403, err.code, err.message, true);
+      }
+      throw new IngestKeyError(err.message);
     }
+    throw new IngestKeyError();
   }
-
-  await recordIngestDiagnostic({
-    category: provided ? "invalid_ingest_key" : "missing_auth_header",
-    errorCode: "401",
-    message: `Ingest authentication failed on ${routeLabel}.`,
-  });
-  throw new IngestKeyError();
 }
 
 /**

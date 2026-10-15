@@ -155,3 +155,57 @@ export class CustomerSupportResumableHostAdapter
     return fallbackAnswer;
   }
 }
+
+/**
+ * Generic Resumable Host Adapter.
+ *
+ * Universal host adapter for arbitrary workflows (e.g. external dogfood projects):
+ * - Accepts any valid resume step index.
+ * - Restores mutated state.
+ * - Records applied overrides.
+ * - Produces a deterministic completed output.
+ */
+export class GenericResumableHostAdapter
+  implements ResumableHostAdapter<Record<string, unknown>, unknown>
+{
+  private state: Record<string, unknown> = {};
+  private finalOutput: unknown;
+  private checkpoint?: CheckpointReference;
+  private resumeStepIndex = 0;
+
+  async initializeFromCheckpoint(params: ResumableHostParams<Record<string, unknown>>): Promise<void> {
+    this.state = structuredClone(params.state);
+    this.checkpoint = params.checkpoint;
+    this.resumeStepIndex = params.resumeStepIndex;
+  }
+
+  supportsResume(_resumeStepIndex: number): boolean {
+    return true;
+  }
+
+  getState(): Record<string, unknown> {
+    return structuredClone(this.state);
+  }
+
+  getFinalOutput(): unknown {
+    return this.finalOutput;
+  }
+
+  async finalize(output: unknown): Promise<void> {
+    this.finalOutput = output;
+  }
+
+  async executeFrom(params: ExecuteFromParams<Record<string, unknown>>): Promise<unknown> {
+    this.state = structuredClone(params.state);
+    const output = {
+      status: "resumed",
+      resume_step_index: params.stepIndex,
+      applied_tool_overrides: params.toolOverrides ? Array.from(params.toolOverrides.keys()) : [],
+      applied_model_overrides: params.modelOverrides ? Array.from(params.modelOverrides.keys()) : [],
+      applied_prompt_overrides: params.promptOverrides ? Array.from(params.promptOverrides.keys()) : [],
+      final_state: this.state,
+    };
+    await this.finalize(output);
+    return output;
+  }
+}

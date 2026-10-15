@@ -17,9 +17,13 @@ import { canonicalToLegacyEvalResult } from "../adapters/evalCompatibility";
 import { getDb, hasDatabaseUrl } from "../../db/client";
 import { ensureSchema } from "../../db/migrate";
 import { getRunStore } from "../../db/getStores";
-import type { SavedRun, RunSummary } from "../../runs/runTypes";
 import { buildRunSummary } from "../../runs/runSummary";
 import { globalCaptureMetrics } from "./metrics";
+import { traceEventTypeSchema, type TraceEvent } from "../../proof-layer/schemas";
+import type { SavedRun, RunSummary } from "../../runs/runTypes";
+import type { z } from "zod";
+
+type TraceEventType = z.infer<typeof traceEventTypeSchema>;
 
 // ── File Path Helpers ───────────────────────────────────────────────────────
 
@@ -57,8 +61,48 @@ async function ensureStoreDir(): Promise<void> {
 
 // ── Legacy Run Projection ───────────────────────────────────────────────────
 
-function projectToSavedRun(artifact: RunArtifact): SavedRun {
+function projectToSavedRun(artifact: RunArtifact, existingSaved?: SavedRun | null): SavedRun {
   const now = new Date().toISOString();
+  const existingEventsMap = new Map((existingSaved?.traceEvents ?? []).map((e) => [e.event_id, e]));
+
+  const projectedEvents = artifact.trajectory.map((step) => {
+    const existing = existingEventsMap.get(step.step_id);
+    if (existing) {
+      return existing;
+    }
+    const origType = (step.metadata?.["original_event_type"] as string) || (step.metadata?.["event_type"] as string);
+    let event_type: TraceEventType = "node_completed";
+    if (origType && (traceEventTypeSchema.options as readonly string[]).includes(origType)) {
+      event_type = origType as TraceEventType;
+    } else if (step.name.endsWith("run_started") || step.step_id.endsWith("run_started")) {
+      event_type = "run_started";
+    } else if (step.name.endsWith("run_completed") || step.step_id.endsWith("run_completed")) {
+      event_type = "run_completed";
+    } else if (step.name.endsWith("run_failed") || step.step_id.endsWith("run_failed")) {
+      event_type = "run_failed";
+    }
+    return {
+      event_id: step.step_id,
+      run_id: artifact.identity.run_id,
+      workflow_id: artifact.identity.workflow_id,
+      event_type,
+      timestamp: step.started_at,
+      duration_ms: step.duration_ms,
+      node_id: step.node_id,
+      status: step.status === "failed" ? "failed" : "completed",
+      input_summary: step.input_summary,
+      output_summary: step.output_summary,
+      metadata: step.metadata,
+    } satisfies TraceEvent;
+  });
+
+  // Include any existing events that weren't in trajectory
+  for (const existing of (existingSaved?.traceEvents ?? [])) {
+    if (!projectedEvents.some((e) => e.event_id === existing.event_id)) {
+      projectedEvents.push(existing);
+    }
+  }
+
   return {
     runRecord: {
       run_id: artifact.identity.run_id,
@@ -80,19 +124,7 @@ function projectToSavedRun(artifact: RunArtifact): SavedRun {
       approval_status: artifact.safety?.approval_status === "not_required" ? undefined : artifact.safety?.approval_status,
       artifact_refs: (artifact.artifacts ?? []).map((a) => a.uri ?? ""),
     },
-    traceEvents: artifact.trajectory.map((step) => ({
-      event_id: step.step_id,
-      run_id: artifact.identity.run_id,
-      workflow_id: artifact.identity.workflow_id,
-      event_type: "node_completed",
-      timestamp: step.started_at,
-      duration_ms: step.duration_ms,
-      node_id: step.node_id,
-      status: step.status === "failed" ? "failed" : "completed",
-      input_summary: step.input_summary,
-      output_summary: step.output_summary,
-      metadata: step.metadata,
-    })),
+    traceEvents: projectedEvents,
     toolCalls: (artifact.tools ?? []).map((tc) => ({
       tool_call_id: tc.tool_call_id,
       run_id: artifact.identity.run_id,
@@ -429,8 +461,14 @@ export async function saveCanonicalRun(artifact: RunArtifact): Promise<{ success
     await ensureStoreDir();
     await writeFile(canonicalPath(runId), JSON.stringify(artifact, null, 2), "utf8");
 
-    // Also persist legacy representation so existing UI / run list stays green
-    const saved = projectToSavedRun(artifact);
+    let existingSaved: SavedRun | null = null;
+    try {
+      const raw = await readFile(legacyPath(runId), "utf8");
+      existingSaved = JSON.parse(raw);
+    } catch {
+      // No existing legacy file
+    }
+    const saved = projectToSavedRun(artifact, existingSaved);
     await writeFile(legacyPath(runId), JSON.stringify(saved, null, 2), "utf8");
     await upsertFileIndex(buildRunSummary(saved));
 

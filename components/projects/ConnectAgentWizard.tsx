@@ -116,61 +116,68 @@ export function ConnectAgentWizard({ isOpen, onClose, onProjectCreated }: Connec
   function getSnippet(): string {
     const key = rawKey || "ap_live_your_ingest_key_here";
     const pid = projectId || "my-agent-project";
+    const endpoint = typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:3000";
 
     if (language === "typescript") {
-      const endpoint = typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:3000";
-      return `// 1. Copy the AgentPulse client to your project:
-//    cp examples/integrations/typescript/agentpulseClient.ts ./agentpulseClient.ts
-//
-// 2. Or use the inline fetch pattern below:
+      return `# Shell / .env configuration:
+export AGENTPULSE_URL="${endpoint}"
+export AGENTPULSE_PROJECT_ID="${pid}"
+export AGENTPULSE_INGEST_KEY="${key}"
 
+// Application code (using client):
 import { AgentPulseClient } from "./agentpulseClient";
 
 const pulse = new AgentPulseClient({
-  endpoint: "${endpoint}",
-  ingestKey: "${key}",
+  endpoint: process.env["AGENTPULSE_URL"] || "${endpoint}",
+  ingestKey: process.env["AGENTPULSE_INGEST_KEY"] || "${key}",
 });
 
-// Start a run
+// Start run
 const runId = await pulse.startRun({
   projectId: "${pid}",
-  workflowId: "my-agent-workflow",
-  summary: "Processing customer request",
+  workflowId: "main-pipeline",
+  summary: "Processing agent task",
 });
 
 try {
-  // Record agent activity
+  // Record activity
   await pulse.modelCallCompleted(runId, {
-    model: "gpt-4",
-    inputTokens: 150,
-    outputTokens: 80,
-    inputSummary: "User asked about refund policy",
-    outputSummary: "Provided refund instructions",
+    model: "gpt-4o",
+    inputTokens: 120,
+    outputTokens: 60,
+    inputSummary: "Classified incoming user request",
+    outputSummary: "Delegated to customer support tool",
   });
 
   await pulse.toolCallCompleted(runId, {
-    toolName: "lookup_order",
-    inputSummary: JSON.stringify({ orderId: "ORD-123" }),
-    outputSummary: JSON.stringify({ status: "delivered" }),
+    toolName: "database_lookup",
+    inputSummary: JSON.stringify({ query: "account_status" }),
+    outputSummary: JSON.stringify({ active: true }),
   });
 
-  await pulse.completeRun(runId);
+  await pulse.completeRun(runId, { summary: "Task completed successfully" });
 } catch (err: any) {
   await pulse.failRun(runId, { error: err.message });
 }`;
     }
 
     if (language === "python") {
-      return `# 1. Send trace evidence using requests
+      return `# Shell / .env configuration:
+export AGENTPULSE_URL="${endpoint}"
+export AGENTPULSE_PROJECT_ID="${pid}"
+export AGENTPULSE_INGEST_KEY="${key}"
+
+# Python stdlib or requests:
+import os
 import requests
 
-ENDPOINT = "http://127.0.0.1:3000"
-INGEST_KEY = "${key}"
-PROJECT_ID = "${pid}"
+ENDPOINT = os.environ.get("AGENTPULSE_URL", "${endpoint}")
+INGEST_KEY = os.environ.get("AGENTPULSE_INGEST_KEY", "${key}")
+PROJECT_ID = os.environ.get("AGENTPULSE_PROJECT_ID", "${pid}")
 
 headers = {"x-agentpulse-key": INGEST_KEY}
 
-# Start run
+# 1. Start run
 res = requests.post(
     f"{ENDPOINT}/api/runs/start",
     headers=headers,
@@ -178,52 +185,43 @@ res = requests.post(
         "project_id": PROJECT_ID,
         "project_name": "${projectName || pid}",
         "workflow_id": "main-pipeline",
-        "summary": "Agent session started",
+        "summary": "Processing agent task",
     },
 )
 run_id = res.json()["run_id"]
 
-# Complete run
+# 2. Complete run
 requests.post(
     f"{ENDPOINT}/api/runs/complete",
     headers=headers,
-    json={"run_id": run_id},
+    json={"run_id": run_id, "summary": "Task completed successfully"},
 )`;
     }
 
-    // REST curl
-    return `# 1. Start Run
-curl -X POST http://127.0.0.1:3000/api/runs/start \\
-  -H "Content-Type: application/json" \\
-  -H "x-agentpulse-key: ${key}" \\
-  -d '{
-    "project_id": "${pid}",
-    "project_name": "${projectName || pid}",
-    "workflow_id": "custom-agent-workflow",
-    "summary": "First instrumented run"
-  }'
+    // REST curl — fully executable copy-paste
+    return `# 1. Export configuration
+export AGENTPULSE_URL="${endpoint}"
+export AGENTPULSE_PROJECT_ID="${pid}"
+export AGENTPULSE_INGEST_KEY="${key}"
 
-# 2. Append Trace Event
-curl -X POST http://127.0.0.1:3000/api/traces/events \\
-  -H "Content-Type: application/json" \\
-  -H "x-agentpulse-key: ${key}" \\
-  -d '{
-    "events": [{
-      "event_id": "evt_001",
-      "run_id": "<run_id_from_step_1>",
-      "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
-      "event_type": "tool_call_completed",
-      "status": "completed",
-      "input_summary": "fetch_data",
-      "output_summary": "success"
-    }]
-  }'
+# 2. Execute test run immediately
+RUN_ID="${pid}-$(date +%s)"
 
-# 3. Complete Run
-curl -X POST http://127.0.0.1:3000/api/runs/complete \\
+curl -s -X POST "$AGENTPULSE_URL/api/runs/start" \\
   -H "Content-Type: application/json" \\
-  -H "x-agentpulse-key: ${key}" \\
-  -d '{"run_id": "<run_id_from_step_1>"}'`;
+  -H "x-agentpulse-key: $AGENTPULSE_INGEST_KEY" \\
+  -d "{
+    \\"run_id\\": \\"$RUN_ID\\",
+    \\"project_id\\": \\"$AGENTPULSE_PROJECT_ID\\",
+    \\"project_name\\": \\"${projectName || pid}\\",
+    \\"workflow_id\\": \\"custom-agent-workflow\\",
+    \\"summary\\": \\"First instrumented run\\"
+  }"
+
+curl -s -X POST "$AGENTPULSE_URL/api/runs/complete" \\
+  -H "Content-Type: application/json" \\
+  -H "x-agentpulse-key: $AGENTPULSE_INGEST_KEY" \\
+  -d "{\\"run_id\\": \\"$RUN_ID\\", \\"summary\\": \\"Completed successfully\\"}"`;
   }
 
   return (

@@ -71,7 +71,7 @@ const SENSITIVE_KEYWORDS = [
  */
 export function classifySideEffect(
   boundaryType: BoundaryType,
-  name: string,
+  name?: string,
   declared?: SideEffectClass,
   httpMethod?: string
 ): SideEffectClass {
@@ -80,7 +80,7 @@ export function classifySideEffect(
     return declared;
   }
 
-  const lowerName = name.toLowerCase();
+  const lowerName = (name || "").toLowerCase();
 
   // 2. Sensitive keywords check
   if (SENSITIVE_KEYWORDS.some((kw) => lowerName.includes(kw))) {

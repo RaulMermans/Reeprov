@@ -5,6 +5,7 @@ import {
   revokeSessionToken,
   getSessionCookieOptions,
   extractSessionToken,
+  isRequestHttps,
   SESSION_COOKIE_NAME,
   DEFAULT_SESSION_TTL_HOURS,
 } from "../session";
@@ -108,5 +109,40 @@ describe("Session Security & Cryptographic Integrity (Sprint Items 14, 31)", () 
 
     const reqWithoutCookie = new Request("http://localhost:3000/api/auth/session");
     expect(extractSessionToken(reqWithoutCookie)).toBeNull();
+  });
+
+  it("10. isRequestHttps detects direct HTTPS and reverse proxy X-Forwarded-Proto header", () => {
+    const directHttps = new Request("https://agentpulse.example.com/api/auth/session");
+    expect(isRequestHttps(directHttps)).toBe(true);
+
+    const directHttp = new Request("http://localhost:3000/api/auth/session");
+    expect(isRequestHttps(directHttp)).toBe(false);
+
+    const proxyHttps = new Request("http://127.0.0.1:3000/api/auth/session", {
+      headers: { "x-forwarded-proto": "https" },
+    });
+    expect(isRequestHttps(proxyHttps)).toBe(true);
+
+    const proxyMultiProto = new Request("http://127.0.0.1:3000/api/auth/session", {
+      headers: { "x-forwarded-proto": "https, http" },
+    });
+    expect(isRequestHttps(proxyMultiProto)).toBe(true);
+
+    const proxyHttp = new Request("http://127.0.0.1:3000/api/auth/session", {
+      headers: { "x-forwarded-proto": "http" },
+    });
+    expect(isRequestHttps(proxyHttp)).toBe(false);
+  });
+
+  it("11. getSessionCookieOptions prevents silent cookie drops on direct HTTP but enables secure over reverse-proxy HTTPS", () => {
+    const httpReq = new Request("http://127.0.0.1:3000/api/auth/unlock");
+    const httpOpts = getSessionCookieOptions(httpReq);
+    expect(httpOpts.secure).toBe(false);
+
+    const proxyHttpsReq = new Request("http://127.0.0.1:3000/api/auth/unlock", {
+      headers: { "x-forwarded-proto": "https" },
+    });
+    const proxyOpts = getSessionCookieOptions(proxyHttpsReq);
+    expect(proxyOpts.secure).toBe(true);
   });
 });

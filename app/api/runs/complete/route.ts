@@ -22,6 +22,8 @@ import { traceEventSchema } from "@/lib/proof-layer/schemas";
 import { assertTraceContract, summarizeRun } from "@/lib/proof-layer/index";
 import type { TraceEvent } from "@/lib/proof-layer/schemas";
 import { getRunStore, recordIngestDiagnostic, requireIngestAuth, touchIntegrationForProject } from "@/lib/db/getStores";
+import { getCanonicalRun, saveCanonicalRun } from "@/lib/core/capture/persistence";
+import { adaptLegacyRunToRunArtifact } from "@/lib/core/adapters/legacyRunAdapter";
 
 export async function POST(request: Request) {
   try {
@@ -103,6 +105,33 @@ export async function POST(request: Request) {
         runId: run_id,
         runStatus: finalStatus,
       });
+    }
+
+    // Update canonical run artifact if present
+    try {
+      const canonical = await getCanonicalRun(run_id);
+      const existingBoundaries = canonical?.boundaries ?? [];
+      const existingCheckpoints = canonical?.checkpoints ?? [];
+      const existingState = canonical?.state ?? [];
+      const incomingCheckpoints = Array.isArray(body["checkpoints"]) ? (body["checkpoints"] as any[]) : [];
+      const incomingState = Array.isArray(body["state"]) ? (body["state"] as any[]) : [];
+      if (finalRun) {
+        const fullArtifact = adaptLegacyRunToRunArtifact(finalRun);
+        fullArtifact.boundaries = existingBoundaries;
+        fullArtifact.checkpoints = incomingCheckpoints.length > 0 ? incomingCheckpoints : existingCheckpoints;
+        fullArtifact.state = incomingState.length > 0 ? incomingState : existingState;
+        fullArtifact.execution.status = finalStatus === "failed" ? "failed" : "completed";
+        fullArtifact.execution.completed_at = completedAt;
+        if (typeof body["total_duration_ms"] === "number") {
+          fullArtifact.execution.duration_ms = body["total_duration_ms"];
+        }
+        if (typeof body["total_cost_usd"] === "number") {
+          fullArtifact.observability.total_cost_usd = body["total_cost_usd"] as number;
+        }
+        await saveCanonicalRun(fullArtifact);
+      }
+    } catch {
+      // Non-fatal
     }
 
     return NextResponse.json({

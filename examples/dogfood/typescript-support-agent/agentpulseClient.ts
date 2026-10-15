@@ -35,6 +35,9 @@ export interface AgentPulseClientOptions {
   projectName?: string;
   workflowId?: string;
   enabled?: boolean;
+  timeoutMs?: number;
+  maxRetries?: number;
+  failOpen?: boolean;
 }
 
 function shortId(): string {
@@ -68,6 +71,9 @@ export class AgentPulseClient {
     projectName: string;
     workflowId: string;
     enabled: boolean;
+    timeoutMs: number;
+    maxRetries: number;
+    failOpen: boolean;
   };
 
   constructor(options?: AgentPulseClientOptions) {
@@ -85,6 +91,9 @@ export class AgentPulseClient {
         (explicitUrl !== undefined || explicitKey !== undefined
           ? true
           : env.enabled),
+      timeoutMs: options?.timeoutMs ?? 10000,
+      maxRetries: options?.maxRetries ?? 2,
+      failOpen: options?.failOpen ?? (process.env["AGENTPULSE_FAIL_OPEN"] !== "false"),
     };
   }
 
@@ -291,6 +300,36 @@ export class AgentPulseClient {
     ]);
   }
 
+  /** Record a state checkpoint for the run. */
+  async checkpointSaved(
+    runId: string,
+    opts: {
+      checkpointId: string;
+      stepId: string;
+      state: Record<string, unknown>;
+      snapshotType?: string;
+    },
+  ): Promise<void> {
+    if (!this.cfg.enabled) return;
+    const now = new Date().toISOString();
+    await this.emitTraceEvents([
+      {
+        event_id: `${runId}::checkpoint::${opts.checkpointId}`,
+        run_id: runId,
+        workflow_id: this.cfg.workflowId,
+        timestamp: now,
+        event_type: "checkpoint_saved",
+        status: "completed",
+        metadata: {
+          checkpoint_id: opts.checkpointId,
+          step_id: opts.stepId,
+          snapshot_type: opts.snapshotType ?? "STEP_CHECKPOINT",
+          state: opts.state,
+        },
+      },
+    ]);
+  }
+
   /** Complete a run. */
   async completeRun(
     runId: string,
@@ -299,6 +338,8 @@ export class AgentPulseClient {
       totalCostUsd?: number;
       totalDurationMs?: number;
       artifactRefs?: string[];
+      checkpoints?: Array<Record<string, unknown>>;
+      state?: Array<Record<string, unknown>>;
     } = {},
   ): Promise<void> {
     if (!this.cfg.enabled) return;
@@ -308,13 +349,24 @@ export class AgentPulseClient {
       ...(opts.totalCostUsd !== undefined ? { total_cost_usd: opts.totalCostUsd } : {}),
       ...(opts.totalDurationMs !== undefined ? { total_duration_ms: opts.totalDurationMs } : {}),
       ...(opts.artifactRefs ? { artifact_refs: opts.artifactRefs } : {}),
+      ...(opts.checkpoints ? { checkpoints: opts.checkpoints } : {}),
+      ...(opts.state ? { state: opts.state } : {}),
     });
   }
 
   /** Fail a run. */
   async failRun(
     runId: string,
-    opts: { errorSummary?: string; error?: string } | string,
+    opts:
+      | {
+          errorSummary?: string;
+          error?: string;
+          totalCostUsd?: number;
+          totalDurationMs?: number;
+          checkpoints?: Array<Record<string, unknown>>;
+          state?: Array<Record<string, unknown>>;
+        }
+      | string,
   ): Promise<void> {
     if (!this.cfg.enabled) return;
     const summary =
@@ -324,6 +376,18 @@ export class AgentPulseClient {
     await this.post("/api/runs/fail", {
       run_id: runId,
       error_summary: summary,
+      ...(typeof opts !== "string" && opts.totalCostUsd !== undefined
+        ? { total_cost_usd: opts.totalCostUsd }
+        : {}),
+      ...(typeof opts !== "string" && opts.totalDurationMs !== undefined
+        ? { total_duration_ms: opts.totalDurationMs }
+        : {}),
+      ...(typeof opts !== "string" && opts.checkpoints
+        ? { checkpoints: opts.checkpoints }
+        : {}),
+      ...(typeof opts !== "string" && opts.state
+        ? { state: opts.state }
+        : {}),
     });
   }
 
@@ -351,17 +415,64 @@ export class AgentPulseClient {
   // ── Internal ────────────────────────────────────────────────────────────────
 
   private async post(path: string, body: unknown): Promise<void> {
-    const res = await fetch(`${this.cfg.url}${path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-agentpulse-key": this.cfg.ingestKey,
-      },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`AgentPulse request failed: ${res.status} ${path} — ${text}`);
+    const url = `${this.cfg.url}${path}`;
+    const timeoutMs = this.cfg.timeoutMs;
+    const maxRetries = this.cfg.maxRetries;
+
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-agentpulse-key": this.cfg.ingestKey,
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+        clearTimeout(timer);
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          const err = new Error(`AgentPulse request failed: ${res.status} ${path} — ${text}`);
+          // Non-retryable client errors: 401, 403, or 4xx
+          if (res.status === 401 || res.status === 403 || (res.status >= 400 && res.status < 500)) {
+            if (this.cfg.failOpen) {
+              console.warn(`[AgentPulse] Non-retryable error (${res.status}): ${text || path}`);
+              return;
+            }
+            (err as any).nonRetryable = true;
+            throw err;
+          }
+          // Server 5xx — transient, eligible for retry
+          lastError = err;
+          if (attempt < maxRetries) {
+            await new Promise((r) => setTimeout(r, 50 * Math.pow(2, attempt)));
+            continue;
+          }
+        } else {
+          return;
+        }
+      } catch (err: any) {
+        if (err?.nonRetryable) {
+          throw err;
+        }
+        lastError = err instanceof Error ? err : new Error(String(err));
+        if (attempt < maxRetries && err.name !== "AbortError") {
+          await new Promise((r) => setTimeout(r, 50 * Math.pow(2, attempt)));
+          continue;
+        }
+      }
     }
+
+    if (this.cfg.failOpen) {
+      console.warn(`[AgentPulse] Telemetry request to ${path} failed after retries:`, lastError?.message);
+      return;
+    }
+    throw lastError ?? new Error(`AgentPulse request failed: ${path}`);
   }
 }

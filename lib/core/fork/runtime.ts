@@ -44,6 +44,7 @@ import { MutationApplier } from "./mutationApplier";
 import {
   type ResumableHostAdapter,
   CustomerSupportResumableHostAdapter,
+  GenericResumableHostAdapter,
 } from "./hostAdapter";
 import type { ExecutionStep, StateSnapshot } from "../contracts/execution";
 import type { ExecutionBoundary } from "../contracts/replay";
@@ -235,8 +236,16 @@ export class ForkRuntime {
     });
 
     // 5. Mount Resumable Host Adapter
+    const workflowId = this.sourceRun.identity.workflow_id ?? "";
+    const isCustomerSupport =
+      workflowId === "customer_support_triage" ||
+      workflowId === "default_workflow" ||
+      workflowId.includes("triage");
     const hostAdapter: ResumableHostAdapter =
-      this.options.hostAdapter ?? new CustomerSupportResumableHostAdapter();
+      this.options.hostAdapter ??
+      (isCustomerSupport
+        ? new CustomerSupportResumableHostAdapter()
+        : new GenericResumableHostAdapter());
 
     if (!hostAdapter.supportsResume(plan.resume_step_index)) {
       const completedAt = new Date().toISOString();

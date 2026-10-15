@@ -56,7 +56,17 @@ export async function POST(request: Request) {
         // Link into canonical run artifact
         let canonicalArtifact = await getCanonicalRun(bInput.runId);
         if (canonicalArtifact) {
-          canonicalArtifact.boundaries.push(canonicalBoundary);
+          const existingIdx = canonicalArtifact.boundaries.findIndex(
+            (b) => b.boundary_id === canonicalBoundary.boundary_id
+          );
+          if (existingIdx >= 0) {
+            canonicalArtifact.boundaries[existingIdx] = canonicalBoundary;
+          } else {
+            canonicalArtifact.boundaries.push(canonicalBoundary);
+          }
+          canonicalArtifact.boundaries.sort(
+            (a, b) => (a.sequence_index ?? 0) - (b.sequence_index ?? 0)
+          );
           await saveCanonicalRun(canonicalArtifact);
         }
 

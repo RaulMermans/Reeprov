@@ -12,11 +12,19 @@ import sys
 
 # Provide development defaults if not explicitly set in the environment
 os.environ.setdefault("AGENTPULSE_URL", "http://127.0.0.1:3000")
-os.environ.setdefault("AGENTPULSE_INGEST_KEY", "ap_live_support_agent_demo")
 os.environ.setdefault("AGENTPULSE_PROJECT_ID", "python-support-agent")
 os.environ.setdefault("AGENTPULSE_PROJECT_NAME", "Python Support Agent")
 os.environ.setdefault("AGENTPULSE_WORKFLOW_ID", "customer-support-v1")
 os.environ.setdefault("AGENTPULSE_ENABLED", "true")
+
+ingest_key = os.environ.get("AGENTPULSE_INGEST_KEY")
+if not ingest_key:
+    print(
+        "No AgentPulse ingest key configured.\n"
+        "Create a project in AgentPulse Studio and copy its generated ingest key.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 from agentpulse_client import AgentPulseClient
 

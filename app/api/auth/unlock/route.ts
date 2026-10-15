@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { getOperatingMode } from "@/lib/auth/operatingMode";
-import { createSessionToken, getSessionCookieOptions } from "@/lib/auth/session";
+import { createSessionToken, getSessionCookieOptions, isRequestHttps } from "@/lib/auth/session";
 
 function constantTimeEqual(left: string, right: string): boolean {
   const leftBuf = Buffer.from(left);
@@ -41,9 +41,16 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
+    const isHttps = isRequestHttps(request);
+    if (process.env.AGENTPULSE_REQUIRE_HTTPS === "true" && !isHttps) {
+      return NextResponse.json(
+        { ok: false, error: "HTTPS is required for self-hosted browser sessions. Connect via HTTPS or provide X-Forwarded-Proto: https." },
+        { status: 403 }
+      );
+    }
+
     // Generate secure bounded HttpOnly session token
     const token = createSessionToken();
-    const isHttps = request.url.startsWith("https:");
     const cookieOpts = getSessionCookieOptions(isHttps);
 
     const response = NextResponse.json({

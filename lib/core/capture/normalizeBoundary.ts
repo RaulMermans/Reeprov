@@ -26,10 +26,13 @@ export async function normalizeBoundary(
   const policy = resolvePolicy(policyOverrides);
   const contentStore = getContentStore();
 
-  const boundaryType = normalizeBoundaryType(raw.boundaryType);
-  const sequenceIndex = raw.sequenceIndex ?? 0;
-  const boundaryId = raw.boundaryId || `bnd_${boundaryType}_${raw.runId}_${sequenceIndex}`;
-  const timestamp = raw.startedAt || new Date().toISOString();
+  const rawAny = raw as unknown as Record<string, unknown>;
+  const rawType = (rawAny.boundaryType ?? rawAny.boundary_type ?? rawAny.type ?? rawAny.kind ?? "custom") as string;
+  const boundaryType = normalizeBoundaryType(rawType);
+  const boundaryName = (rawAny.name ?? rawAny.toolName ?? rawAny.tool_name ?? rawAny.model ?? rawAny.operation ?? rawAny.url ?? `${boundaryType}_op`) as string;
+  const sequenceIndex = (rawAny.sequenceIndex ?? rawAny.sequence_index ?? raw.sequenceIndex ?? 0) as number;
+  const boundaryId = (rawAny.boundaryId ?? rawAny.boundary_id ?? `bnd_${boundaryType}_${raw.runId || rawAny.run_id}_${sequenceIndex}`) as string;
+  const timestamp = (rawAny.startedAt ?? rawAny.started_at ?? new Date().toISOString()) as string;
 
   // ── 1. Process Input Payload ──────────────────────────────────────────────
   const inputRedaction = sanitizePayload(raw.input, { policy });
@@ -127,7 +130,7 @@ export async function normalizeBoundary(
   // ── 3. Classify Side-Effect & Replayability ────────────────────────────────
   const sideEffectClass = classifySideEffect(
     boundaryType,
-    raw.name,
+    boundaryName,
     raw.declaredSideEffectClass
   );
 
@@ -157,20 +160,20 @@ export async function normalizeBoundary(
     allFieldsRedacted.length > 0 ? "partially_redacted" : "none";
 
   const dependencyIdentity =
-    raw.dependencyIdentity || deriveDependencyIdentity(boundaryType, raw.name);
+    raw.dependencyIdentity || deriveDependencyIdentity(boundaryType, boundaryName);
 
   const boundaryRecord: ExecutionBoundary = {
     boundary_id: boundaryId,
-    run_id: raw.runId,
-    step_id: raw.stepId,
-    node_id: raw.nodeId,
+    run_id: (rawAny.runId ?? rawAny.run_id ?? raw.runId) as string,
+    step_id: (rawAny.stepId ?? rawAny.step_id) as string | undefined,
+    node_id: (rawAny.nodeId ?? rawAny.node_id) as string | undefined,
     sequence_index: sequenceIndex,
     boundary_type: boundaryType,
-    name: raw.name,
+    name: boundaryName,
     status: raw.status || (raw.error ? "failed" : "completed"),
-    started_at: raw.startedAt || timestamp,
-    completed_at: raw.completedAt,
-    duration_ms: raw.durationMs,
+    started_at: (rawAny.startedAt ?? rawAny.started_at ?? timestamp) as string,
+    completed_at: (rawAny.completedAt ?? rawAny.completed_at) as string | undefined,
+    duration_ms: (rawAny.durationMs ?? rawAny.duration_ms) as number | undefined,
     input: inputPayload,
     output: outputPayload,
     error: raw.error,

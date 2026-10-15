@@ -23,6 +23,7 @@ export const stateSnapshotTypeSchema = z.enum([
   "STEP_STATE",
   "FINAL_STATE",
   "CUSTOM",
+  "STEP_CHECKPOINT",
 ]);
 
 export type StateSnapshotType = z.infer<typeof stateSnapshotTypeSchema>;
