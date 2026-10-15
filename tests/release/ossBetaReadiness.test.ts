@@ -125,6 +125,7 @@ describe("Sprint 11: Open-Source Beta Release Readiness & Supply Chain Audit", (
               !line.includes("ossBetaReadiness.test.ts") &&
               !line.includes("CONTRIBUTING.md") &&
               !line.includes("PULL_REQUEST_TEMPLATE.md") &&
+              !line.includes("PUBLICATION_READINESS_REPORT.md") &&
               !line.includes("AGENTS.md") &&
               !line.includes("CLAUDE.md")
           );

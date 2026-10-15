@@ -17,7 +17,7 @@ Key accomplishments:
 2. **Package Boundaries Defined:** Root package maintains `private: true` preventing accidental Next.js monolith publishing, while publishing dedicated client SDK packages: `@agentpulse/client` on npm and `agentpulse-client` on PyPI.
 3. **Standalone SDKs Proven:** Both TypeScript and Python client packages were built, packed (`npm pack` and `python3 setup.py sdist`), installed in completely clean virtual environments / fresh projects, and executed without any repository-relative dependencies.
 4. **Dogfood Verified with Packaged SDK:** IRIS external executive dogfood suite was migrated to the packaged SDK and verified 100% green across 13 integration and contract tests.
-5. **Private Paths & Personal Data Scrubbed:** All 29+ `file:///Users/` and `/Users/raulm` paths across documentation and fixtures were scrubbed and replaced with repository-relative links.
+5. **Private Paths & Personal Data Scrubbed:** All 29+ local absolute user paths across documentation and fixtures were scrubbed and replaced with repository-relative links.
 6. **Docker Self-Host Path:** Hardened multi-stage `Dockerfile`, `docker-compose.yml`, and `.dockerignore` were added with non-root security and loopback binding defaults.
 7. **CI & Release Automation:** Full CI pipeline passes with 120 test files, 1,875 tests, ESLint, TypeScript compiler checks, and Next.js production build. Dedicated approval-gated release workflows were configured.
 
@@ -33,7 +33,7 @@ Key accomplishments:
 | **CLI Version & Help** | `--version` printed generic help text | `pulse --version` returns formatted version metadata |
 | **TypeScript SDK** | Copy-in file with internal `@/` imports | `@agentpulse/client` standalone package (zero dependencies) |
 | **Python SDK** | Copy-in file in examples | `agentpulse-client` standalone sdist/wheel |
-| **Private Absolute Paths** | 29+ `file:///Users/raulm` links | 0 private absolute paths |
+| **Private Absolute Paths** | 29+ local user paths | 0 private absolute paths |
 | **Public README Onboarding** | Used internal `@/lib/proof-layer/client` | Uses `@agentpulse/client` with parallel Python examples |
 | **Security Disclosure** | Scattered in `docs/` | Root `SECURITY.md` with GitHub Advisory workflow |
 | **Contributor Docs** | Absent | Root `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` |
@@ -178,8 +178,7 @@ The test suite in [`tests/dogfood/irisDogfood.test.ts`](tests/dogfood/irisDogfoo
 
 - **Secret Scan:** Verified clean. Zero live API keys, OpenAI tokens, Anthropic credentials, or database passwords committed.
 - **Private Path Scan:**
-  - `file:///Users/`: 0 instances found in code or docs.
-  - `/Users/raulm`: 0 instances found in code or docs.
+  - Zero local developer machine paths or personal absolute paths found in code or docs.
 - **Operating Mode Guarantees:**
   - `PERSONAL_LOCAL`: Binds strictly to `127.0.0.1` / `::1`. Zero external cloud uploads.
   - `PRIVATE_SELF_HOSTED`: Session authentication required via `AGENTPULSE_ACCESS_KEY`. HttpOnly, SameSite=Lax signed cookies.
