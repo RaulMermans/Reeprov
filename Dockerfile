@@ -19,13 +19,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 RUN npm run build
 
-# Stage 3: Runner
+# Stage 3: Runner (Clean compiled/standalone runtime)
 FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV AGENTPULSE_MODE=self_hosted
+ENV AGENTPULSE_HOME=/home/nextjs/.agentpulse
+ENV AGENTPULSE_STORE_DIR=/home/nextjs/.agentpulse
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
@@ -37,18 +39,15 @@ RUN addgroup --system --gid 1001 nodejs && \
 RUN mkdir -p /home/nextjs/.agentpulse && chown -R nextjs:nodejs /home/nextjs/.agentpulse
 VOLUME ["/home/nextjs/.agentpulse"]
 
-COPY --from=builder /app/public ./public 2>/dev/null || true
-COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
-COPY --from=builder --chown=nextjs:nodejs /app/bin ./bin
-COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+# Copy Next.js standalone compiled output and static assets
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

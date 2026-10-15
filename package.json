@@ -30,6 +30,7 @@
     "seed:cs": "node --experimental-strip-types scripts/seed-campaign-sandbox-run.ts",
     "simulate:live": "node --experimental-strip-types scripts/simulate-live-run.ts",
     "pulse": "node bin/pulse.mjs",
+    "audit:paths": "node scripts/audit-private-paths.mjs",
     "ci": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "keywords": [

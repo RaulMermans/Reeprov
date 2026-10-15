@@ -18,10 +18,15 @@ import { buildSavedReportSummary, type ReportStore, type SavedReport, type Saved
 // ── Store directory ───────────────────────────────────────────────────────────
 
 function storeDir(): string {
-  return (
-    process.env["AGENTPULSE_STORE_DIR"] ??
-    join(process.cwd(), ".agentpulse", "reports")
-  );
+  if (process.env["AGENTPULSE_STORE_DIR"]) {
+    return process.env["AGENTPULSE_STORE_DIR"].endsWith("reports")
+      ? process.env["AGENTPULSE_STORE_DIR"]
+      : join(process.env["AGENTPULSE_STORE_DIR"], "reports");
+  }
+  if (process.env["AGENTPULSE_HOME"]) {
+    return join(process.env["AGENTPULSE_HOME"], "reports");
+  }
+  return join(process.cwd(), ".agentpulse", "reports");
 }
 
 function indexPath(): string {

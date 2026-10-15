@@ -22,7 +22,7 @@ This document formally defines the stability taxonomy and compatibility commitme
 | **HTTP Ingest API** | `PUBLIC` | `POST /api/runs/*`, `POST /api/traces/*` | Standard JSON contracts for external agents. |
 | **TypeScript Client SDK** | `PUBLIC` | `@agentpulse/client` | Official npm package. |
 | **Python Client SDK** | `PUBLIC` | `agentpulse-client` | Official PyPI package. |
-| **CLI (`pulse`)** | `PUBLIC` | `bin/pulse.mjs` | Core developer tool commands (`data-path`, `projects`, `replay`, `diff`, `regression check`). |
+| **CLI (`pulse`)** | `REPO-LOCAL PUBLIC/BETA` | `bin/pulse.mjs` (`npm run pulse -- ...`) | Repo-local developer tool commands (`data-path`, `projects`, `replay`, `diff`, `regression check`). Not registry-distributed; run via `npm run pulse -- <cmd>` within repository. |
 | **RunArtifact Schema** | `PUBLIC` (Beta) | `lib/core/contracts/runArtifact.ts` | Serialized canonical execution evidence envelope (`schemaVersion: 1.0.0-beta`). |
 | **Execution Boundary Schema** | `PUBLIC` (Beta) | `lib/core/contracts/replay.ts` | Model calls, tool invocations, retrieval operations, and checkpoints. |
 | **Evaluation Suite Schema** | `PUBLIC` (Beta) | `lib/core/contracts/evalDefinitions.ts` | Declarative eval suites and test case assertions. |

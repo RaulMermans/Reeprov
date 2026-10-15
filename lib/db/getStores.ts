@@ -39,6 +39,15 @@ function isProduction(): boolean {
   return process.env["NODE_ENV"] === "production";
 }
 
+function shouldUseFileStore(): boolean {
+  const mode = process.env["AGENTPULSE_MODE"];
+  return (
+    mode === "self_hosted" ||
+    mode === "personal_local" ||
+    Boolean(process.env["AGENTPULSE_HOME"])
+  );
+}
+
 function assertDatabaseConfigured(): void {
   throw new Error(
     "[AgentPulse] DATABASE_URL is required in production. " +
@@ -75,31 +84,31 @@ function usePostgresStore<T extends object>(store: T): T {
 
 export function getIntegrationStore(): IntegrationStore {
   if (hasDatabaseUrl()) return usePostgresStore(pgIntegrationStore);
-  if (isProduction()) assertDatabaseConfigured();
+  if (isProduction() && !shouldUseFileStore()) assertDatabaseConfigured();
   return fileIntegrationStore;
 }
 
 export function getRunStore(): RunStore {
   if (hasDatabaseUrl()) return usePostgresStore(pgRunStore);
-  if (isProduction()) assertDatabaseConfigured();
+  if (isProduction() && !shouldUseFileStore()) assertDatabaseConfigured();
   return fileRunStore;
 }
 
 export function getReportStore(): ReportStore {
   if (hasDatabaseUrl()) return usePostgresStore(pgReportStore);
-  if (isProduction()) assertDatabaseConfigured();
+  if (isProduction() && !shouldUseFileStore()) assertDatabaseConfigured();
   return fileReportStore;
 }
 
 export function getWorkflowStore(): WorkflowStore {
   if (hasDatabaseUrl()) return usePostgresStore(pgWorkflowStore);
-  if (isProduction()) assertDatabaseConfigured();
+  if (isProduction() && !shouldUseFileStore()) assertDatabaseConfigured();
   return fileWorkflowStore;
 }
 
 export function getDiagnosticStore(): DiagnosticStore {
   if (hasDatabaseUrl()) return usePostgresStore(pgDiagnosticStore);
-  if (isProduction()) assertDatabaseConfigured();
+  if (isProduction() && !shouldUseFileStore()) assertDatabaseConfigured();
   return fileDiagnosticStore;
 }
 

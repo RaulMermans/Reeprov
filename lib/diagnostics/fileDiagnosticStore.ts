@@ -25,6 +25,7 @@ import {
 function storeDir(): string {
   const base =
     process.env["AGENTPULSE_STORE_DIR"] ??
+    process.env["AGENTPULSE_HOME"] ??
     join(process.cwd(), ".agentpulse");
   return join(base, "diagnostics");
 }

@@ -15,11 +15,64 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  getOperatingMode,
-  validateHostBinding,
-  type OperatingMode,
-} from "../lib/auth/operatingMode";
+
+export type OperatingMode = "personal_local" | "self_hosted" | "headless_ci";
+
+/**
+ * Checks whether an IP address is a local loopback address.
+ */
+export function isLoopbackAddress(ip: string | null | undefined): boolean {
+  if (!ip) return false;
+  const normalized = ip.trim().toLowerCase();
+  if (normalized === "::1" || normalized === "[::1]") return true;
+  if (normalized.startsWith("[::1]:")) return true;
+  let host = normalized;
+  if (normalized.startsWith("[") && normalized.includes("]")) {
+    host = normalized.slice(1, normalized.indexOf("]"));
+  } else if (!normalized.includes("::") && normalized.includes(":")) {
+    const colonCount = (normalized.match(/:/g) || []).length;
+    if (colonCount === 1) host = normalized.split(":")[0];
+  }
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1") return true;
+  if (host.startsWith("127.")) return true;
+  if (normalized.startsWith("::ffff:127.") || normalized === "::ffff:7f00:1") return true;
+  return false;
+}
+
+/**
+ * Resolves operating mode from environment.
+ */
+export function getOperatingMode(env: NodeJS.ProcessEnv = process.env): OperatingMode {
+  const raw = env.AGENTPULSE_MODE?.toLowerCase().trim();
+  if (raw === "self_hosted" || raw === "private_self_hosted") return "self_hosted";
+  if (raw === "headless_ci" || raw === "ci" || raw === "headless") return "headless_ci";
+  return "personal_local";
+}
+
+/**
+ * Enforces loopback binding for PERSONAL_LOCAL mode.
+ */
+export function validateHostBinding(
+  host: string,
+  mode: OperatingMode
+): { valid: boolean; reason?: string } {
+  if (mode === "personal_local") {
+    if (host === "0.0.0.0" || host === "::" || host === "") {
+      return {
+        valid: false,
+        reason:
+          "Loopback privacy guarantee: PERSONAL_LOCAL must bind only to loopback (127.0.0.1 or ::1). Exposing 0.0.0.0 requires AGENTPULSE_MODE=self_hosted with authentication.",
+      };
+    }
+    if (!isLoopbackAddress(host)) {
+      return {
+        valid: false,
+        reason: `Loopback privacy guarantee: Host '${host}' is not a loopback interface. In PERSONAL_LOCAL mode, only 127.0.0.1 and ::1 are permitted.`,
+      };
+    }
+  }
+  return { valid: true };
+}
 
 export interface LauncherConfig {
   mode: OperatingMode;
@@ -191,6 +244,48 @@ export async function runLauncher(options?: {
       process.exit(1);
     }
     throw new Error(validation.error);
+  }
+
+  const standaloneServer = resolve(process.cwd(), ".next/standalone/server.js");
+  if (!config.isDev && existsSync(standaloneServer)) {
+    console.log(`[AgentPulse] Launching standalone server: ${process.execPath} ${standaloneServer}`);
+    const child = spawn(process.execPath, [standaloneServer], {
+      stdio: "inherit",
+      env: {
+        ...env,
+        AGENTPULSE_MODE: config.mode,
+        AGENTPULSE_HOST: config.host,
+        HOSTNAME: config.host,
+        PORT: String(config.port),
+      },
+      shell: process.platform === "win32",
+    });
+
+    child.on("error", (err) => {
+      console.error(`[AgentPulse] Failed to spawn standalone process: ${err.message}`);
+      if (exitOnError) {
+        process.exit(1);
+      }
+    });
+
+    child.on("exit", (code, signal) => {
+      if (signal) {
+        process.kill(process.pid, signal);
+      } else if (exitOnError) {
+        process.exit(code ?? 0);
+      }
+    });
+
+    const forwardSignal = (sig: NodeJS.Signals) => {
+      if (child && !child.killed) {
+        child.kill(sig);
+      }
+    };
+
+    process.on("SIGINT", () => forwardSignal("SIGINT"));
+    process.on("SIGTERM", () => forwardSignal("SIGTERM"));
+
+    return child;
   }
 
   const nextBin = resolveNextExecutable(process.cwd());

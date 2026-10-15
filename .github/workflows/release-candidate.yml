@@ -42,10 +42,7 @@ jobs:
         run: npm run build
 
       - name: Audit Private Paths
-        run: |
-          echo "Scanning for forbidden absolute user paths..."
-          ! grep -rn '/Users/' --include='*.md' --include='*.ts' --include='*.js' --include='*.json' --include='*.py' . \
-            --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git --exclude='package-lock.json'
+        run: npm run audit:paths
 
   typescript-sdk:
     name: TypeScript SDK Validation

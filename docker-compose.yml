@@ -12,6 +12,8 @@ services:
     environment:
       - NODE_ENV=production
       - AGENTPULSE_MODE=self_hosted
+      - AGENTPULSE_HOME=/home/nextjs/.agentpulse
+      - AGENTPULSE_STORE_DIR=/home/nextjs/.agentpulse
       # Mandatory for self-hosted mode — configure in your environment or .env.local
       - AGENTPULSE_ACCESS_KEY=${AGENTPULSE_ACCESS_KEY:?AGENTPULSE_ACCESS_KEY must be set}
       - AGENTPULSE_INGEST_KEY=${AGENTPULSE_INGEST_KEY:?AGENTPULSE_INGEST_KEY must be set}
@@ -20,7 +22,7 @@ services:
     volumes:
       - agentpulse-data:/home/nextjs/.agentpulse
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3

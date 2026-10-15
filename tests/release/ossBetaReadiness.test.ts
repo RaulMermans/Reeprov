@@ -95,48 +95,37 @@ describe("Sprint 11: Open-Source Beta Release Readiness & Supply Chain Audit", (
     expect(compose).toContain("AGENTPULSE_ACCESS_KEY");
   });
 
-  it("Item 22 & 23: Zero private developer absolute paths exist in documentation or code", () => {
-    const checkGrep = (term: string) => {
-      try {
-        const out = execFileSync(
-          "grep",
-          [
-            "-rn",
-            term,
-            "--include=*.md",
-            "--include=*.ts",
-            "--include=*.js",
-            "--include=*.json",
-            "--include=*.py",
-            ".",
-            "--exclude-dir=node_modules",
-            "--exclude-dir=.next",
-            "--exclude-dir=.git",
-            "--exclude=package-lock.json",
-          ],
-          { cwd: rootDir, encoding: "utf8" }
-        );
-        // Exclude self, documentation rules in CONTRIBUTING/PR template, and AGENTS.md / CLAUDE.md
-        const validHits = out
-          .split("\n")
-          .filter((line) => line.trim())
-          .filter(
-            (line) =>
-              !line.includes("ossBetaReadiness.test.ts") &&
-              !line.includes("CONTRIBUTING.md") &&
-              !line.includes("PULL_REQUEST_TEMPLATE.md") &&
-              !line.includes("PUBLICATION_READINESS_REPORT.md") &&
-              !line.includes("AGENTS.md") &&
-              !line.includes("CLAUDE.md")
-          );
-        return validHits;
-      } catch {
-        return [];
-      }
-    };
+  it("Item 22 & 23: Zero private developer absolute paths exist and audit scanner fails closed", () => {
+    // 1. Audit clean repository - must pass with 0 violations
+    const auditScript = resolve(rootDir, "scripts/audit-private-paths.mjs");
+    expect(existsSync(auditScript)).toBe(true);
 
-    expect(checkGrep("file:///Users/")).toEqual([]);
-    expect(checkGrep("/Users/raulm")).toEqual([]);
+    const cleanResult = execFileSync("node", [auditScript], {
+      cwd: rootDir,
+      encoding: "utf8",
+    });
+    expect(cleanResult).toContain("Zero private developer paths detected");
+
+    // 2. Audit deliberate bad-path fixture - must fail closed
+    const badFixture = resolve(rootDir, "tests/fixtures/privacy/bad-paths-fixture.md");
+    expect(existsSync(badFixture)).toBe(true);
+
+    let failedClosed = false;
+    try {
+      execFileSync("node", [auditScript, badFixture], {
+        cwd: rootDir,
+        encoding: "utf8",
+        stdio: "pipe",
+      });
+    } catch (err: any) {
+      failedClosed = true;
+      const output = (err.stdout?.toString() || "") + (err.stderr?.toString() || "");
+      expect(output).toContain("FAILED: Found");
+      expect(output).toContain("johndoe");
+      expect(output).toContain("alice");
+      expect(output).toContain("bob");
+    }
+    expect(failedClosed).toBe(true);
   });
 
   it("Item 24 & 25: Root SECURITY.md exists with supported versions and responsible disclosure", () => {

@@ -214,7 +214,7 @@ If you don't have an external agent running yet, explore AgentPulse using our pr
 
 ```bash
 # Setup demo project with golden baseline & drifted failure run
-pulse demo setup
+npm run pulse -- demo setup
 ```
 
 Navigate to:
@@ -227,38 +227,41 @@ Navigate to:
 
 To clean up:
 ```bash
-pulse demo reset
+npm run pulse -- demo reset
 ```
 
 ---
 
 ## Local CLI Reference (`pulse`)
 
-AgentPulse includes the `pulse` CLI for terminal productivity and headless CI automation:
+AgentPulse includes the `pulse` CLI for terminal productivity and headless CI automation.
+
+> [!NOTE]
+> The root `agentpulse` repository maintains `"private": true` and is not published to the npm registry. The `pulse` CLI is classified as **REPO-LOCAL PUBLIC/BETA**. Within the cloned repository, run commands using `npm run pulse -- <command>` (or directly via `node bin/pulse.mjs <command>` / `./bin/pulse.mjs <command>`).
 
 ```bash
 # Version & help
-pulse --version
-pulse --help
+npm run pulse -- --version
+npm run pulse -- --help
 
 # Inspect local data root and privacy posture
-pulse data-path
-pulse data-path --json
+npm run pulse -- data-path
+npm run pulse -- data-path --json
 
 # List configured projects
-pulse projects list
+npm run pulse -- projects list
 
 # Export project bundle (sanitized of raw secret keys)
-pulse export project <project-id> --out ./backup.json
+npm run pulse -- export project <project-id> --out ./backup.json
 
 # Run offline deterministic replay
-pulse replay <run-id-or-path> --strict
+npm run pulse -- replay <run-id-or-path> --strict
 
 # Side-by-side run comparison
-pulse diff <run-a> <run-b> --first-divergence
+npm run pulse -- diff <run-a> <run-b> --first-divergence
 
 # Pre-merge CI regression check
-pulse regression check <candidate-run-id> --baseline <baseline-id>
+npm run pulse -- regression check <candidate-run-id> --baseline <baseline-id>
 ```
 
 ---

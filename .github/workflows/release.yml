@@ -19,11 +19,13 @@ permissions:
 
 jobs:
   validate:
-    name: Validate Release Candidate
+    name: Validate Release Candidate & Build Artifacts
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -31,11 +33,76 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install dependencies
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install root dependencies
         run: npm ci
+
+      - name: Deterministic Release Version Consistency
+        run: node scripts/validate-release-version.mjs --version ${{ inputs.version }}
 
       - name: Run CI Suite
         run: npm run ci
+
+      - name: Audit Private Paths
+        run: npm run audit:paths
+
+      - name: Build & Package TypeScript SDK
+        run: |
+          cd packages/client-typescript
+          npm install
+          npm run build
+          npm test
+          npm pack
+
+      - name: Fresh Project TypeScript Install Proof
+        run: |
+          mkdir /tmp/fresh-ts-app
+          cd /tmp/fresh-ts-app
+          npm init -y
+          TARBALL=$(ls $GITHUB_WORKSPACE/packages/client-typescript/agentpulse-client-*.tgz)
+          npm install "$TARBALL"
+          node -e "
+            const { AgentPulseClient } = require('@agentpulse/client');
+            const client = new AgentPulseClient({ endpoint: 'http://127.0.0.1:3000', apiKey: 'test' });
+            console.log('TypeScript SDK successfully verified from packaged tarball');
+          "
+
+      - name: Build & Package Python SDK
+        run: |
+          cd packages/client-python
+          python -m pip install --upgrade pip build twine
+          python -m build
+          twine check dist/*
+
+      - name: Fresh Virtualenv Python Install Proof
+        run: |
+          python -m venv /tmp/fresh-py-env
+          source /tmp/fresh-py-env/bin/activate
+          WHEEL=$(ls $GITHUB_WORKSPACE/packages/client-python/dist/*.whl)
+          pip install "$WHEEL"
+          python -c "
+          from agentpulse_client import AgentPulseClient
+          client = AgentPulseClient(url='http://127.0.0.1:3000', ingest_key='test')
+          print('Python SDK successfully verified from built wheel')
+          "
+
+      - name: Upload TypeScript SDK Tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: typescript-sdk-tarball
+          path: packages/client-typescript/agentpulse-client-*.tgz
+          if-no-files-found: error
+
+      - name: Upload Python SDK Dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-sdk-dist
+          path: packages/client-python/dist/*
+          if-no-files-found: error
 
   publish-packages:
     name: Publish Packages (Approval Gated)
@@ -45,6 +112,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -57,28 +126,45 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build & Publish TypeScript SDK
+      - name: Download TypeScript SDK Tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: typescript-sdk-tarball
+          path: packages/client-typescript
+
+      - name: Download Python SDK Dist
+        uses: actions/download-artifact@v4
+        with:
+          name: python-sdk-dist
+          path: packages/client-python/dist
+
+      - name: Promote & Publish TypeScript SDK
         run: |
-          cd packages/client-typescript
-          npm install
-          npm run build
+          TARBALL=$(ls packages/client-typescript/agentpulse-client-*.tgz)
+          echo "Promoting pre-built verified tarball: $TARBALL"
           if [ "${{ inputs.dry_run }}" = "false" ]; then
-            npm publish --access public --provenance
+            npm publish "$TARBALL" --access public --provenance
           else
-            npm pack --dry-run
+            npm publish "$TARBALL" --access public --dry-run
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Build & Publish Python SDK
+      # NOTE on PyPI Publication:
+      # PyPI publication currently uses standard API-Token authentication (__token__ + PYPI_API_TOKEN secret).
+      # PyPI Trusted Publishing (OIDC) is NOT currently enabled or claimed because it requires pre-configuring
+      # the PyPI project/organization settings to link to this specific GitHub repository and workflow.
+      # If Trusted Publishing is configured in the future, the action 'pypa/gh-action-pypi-publish' can replace twine.
+      - name: Promote & Publish Python SDK
         run: |
-          cd packages/client-python
-          python -m pip install --upgrade pip build twine
-          python -m build
+          python -m pip install --upgrade twine
+          echo "Checking pre-built dist artifacts..."
+          twine check packages/client-python/dist/*
           if [ "${{ inputs.dry_run }}" = "false" ]; then
-            twine upload dist/*
+            echo "Uploading artifacts to PyPI..."
+            twine upload packages/client-python/dist/*
           else
-            twine check dist/*
+            echo "Dry run: skipping PyPI upload."
           fi
         env:
           TWINE_USERNAME: __token__
@@ -92,3 +178,6 @@ jobs:
           name: AgentPulse v${{ inputs.version }}
           body_path: CHANGELOG.md
           prerelease: true
+          files: |
+            packages/client-typescript/agentpulse-client-*.tgz
+            packages/client-python/dist/*
