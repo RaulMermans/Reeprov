@@ -2,7 +2,7 @@
  * POST   /api/integrations/[integrationId]/ingest-key  — generate or rotate a scoped ingest key
  * DELETE /api/integrations/[integrationId]/ingest-key  — revoke a scoped ingest key
  *
- * Protected by AGENTPULSE_ACCESS_KEY (dashboard key), not the ingest key.
+ * Protected by REEPROV_ACCESS_KEY (dashboard key), not the ingest key.
  *
  * The raw key is returned exactly once, in the POST response body. Only its
  * SHA-256 hash and a short non-secret preview are ever persisted. Generating
@@ -10,7 +10,7 @@
  * integration (this endpoint doubles as rotation).
  *
  * Revoking a scoped key does not disable ingestion for the project — the
- * shared deployment-wide AGENTPULSE_INGEST_KEY, if configured, still works.
+ * shared deployment-wide REEPROV_INGEST_KEY, if configured, still works.
  */
 
 import { NextResponse } from "next/server";
@@ -36,7 +36,7 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({
       integration: result.integration,
       rawKey: result.rawKey,
-      warning: "This key is shown only once. Store it now — AgentPulse never displays the full value again.",
+      warning: "This key is shown only once. Store it now — Reeprov never displays the full value again.",
     });
   } catch (error) {
     return apiErrorResponse(error);

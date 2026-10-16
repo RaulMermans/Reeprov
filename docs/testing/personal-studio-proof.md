@@ -14,7 +14,7 @@ This proof document certifies the test coverage and verification suite for Sprin
 | **Process Binding** | `lib/auth/__tests__/processBinding.test.ts` | Host binding validation rejects `0.0.0.0` in `personal_local` mode |
 | **Capture Readiness** | `lib/projects/__tests__/captureReadiness.scoring.test.ts` | `NOT_APPLICABLE` scores 0 and does not inflate overall score |
 | **Documentation Presence** | `__tests__/documentation.presence.test.ts` | All product, architecture, and testing documentation files present and populated |
-| **Git Safety** | `__tests__/gitSafety.test.ts` | `.gitignore` covers private paths (`.agentpulse/`, `*.db`, credentials, `.env`) |
+| **Git Safety** | `__tests__/gitSafety.test.ts` | `.gitignore` covers private paths (`.reeprov/`, `*.db`, credentials, `.env`) |
 
 ## Determinism Guarantee
 

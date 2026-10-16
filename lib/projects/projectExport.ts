@@ -1,5 +1,5 @@
 /**
- * Safe Project Export for AgentPulse.
+ * Safe Project Export for Reeprov.
  *
  * Exports a project bundle for backup, transfer, or CI reproducibility.
  * Strictly redacts and excludes all secret credentials (ingest keys, hashes, env secrets).

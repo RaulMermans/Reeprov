@@ -62,13 +62,13 @@ export function RepoSelector({
       <input
         className="min-h-10 flex-1 rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-100"
         disabled={loading}
-        list="agentpulse-repositories"
+        list="reeprov-repositories"
         id="repo"
         onChange={(event) => setRepo(event.target.value)}
         placeholder={loadingRepos ? "Loading repositories..." : "owner/repo manual fallback"}
         value={repo}
       />
-      <datalist id="agentpulse-repositories">
+      <datalist id="reeprov-repositories">
         {repositories.map((repository) => (
           <option key={repository.fullName} value={repository.fullName} />
         ))}

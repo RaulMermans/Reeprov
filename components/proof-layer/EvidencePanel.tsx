@@ -82,7 +82,7 @@ export function EvidencePanel({ runId, initialArtifact }: EvidencePanelProps) {
       <Card className="p-8 text-center text-sm text-slate-500">
         <p className="font-medium text-slate-700">No canonical evidence plane available</p>
         <p className="mt-1 text-xs text-slate-500">
-          {error ?? "This run does not contain an AgentPulse canonical evidence block."}
+          {error ?? "This run does not contain a Reeprov canonical evidence block."}
         </p>
       </Card>
     );

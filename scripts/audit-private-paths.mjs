@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * AgentPulse Private Path & Leak Scanner.
+ * Reeprov Private Path & Leak Scanner.
  *
  * Scans the repository for leaked absolute developer machine paths:
  *   - file:///Users/<username>/...

@@ -2,7 +2,7 @@
  * GET /api/runs/[runId]/lineage
  * Returns the lineage hierarchy (parent, root, ancestors, descendants) and materialized view for a run.
  *
- * Auth: x-agentpulse-key
+ * Auth: x-reeprov-key
  */
 
 import { NextResponse } from "next/server";

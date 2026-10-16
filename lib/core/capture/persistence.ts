@@ -25,12 +25,16 @@ import type { z } from "zod";
 
 type TraceEventType = z.infer<typeof traceEventTypeSchema>;
 
+import { getReeprovEnv } from "@/lib/config/env";
+import { getReeprovHome } from "@/lib/storage/dataPath";
+
 // ── File Path Helpers ───────────────────────────────────────────────────────
 
 function storeDir(): string {
   const base =
-    process.env["AGENTPULSE_STORE_DIR"] ??
-    join(process.cwd(), ".agentpulse");
+    getReeprovEnv("REEPROV_STORE_DIR") ??
+    getReeprovEnv("REEPROV_HOME") ??
+    getReeprovHome();
   return join(base, "runs");
 }
 

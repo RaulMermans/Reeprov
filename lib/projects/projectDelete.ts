@@ -1,5 +1,5 @@
 /**
- * Safe Two-Phase Project Deletion for AgentPulse.
+ * Safe Two-Phase Project Deletion for Reeprov.
  *
  * 1. previewDeletion(projectId): counts affected runs, evals, baselines, and estimated disk impact.
  * 2. confirmDelete(projectId, confirmationId): cleans up runs, artifacts, checkpoints, and integrations.

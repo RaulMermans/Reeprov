@@ -1,7 +1,7 @@
 /**
- * @agentpulse/client — Canonical Type Definitions
+ * @reeprov/client — Canonical Type Definitions
  *
- * Standalone interfaces for AgentPulse trace ingestion and execution boundary capture.
+ * Standalone interfaces for Reeprov trace ingestion and execution boundary capture.
  */
 
 export type PermissionClass =
@@ -30,13 +30,15 @@ export interface TraceEvent {
   error_message?: string;
 }
 
-export interface AgentPulseClientOptions {
-  /** Base URL of the AgentPulse instance, e.g. "http://127.0.0.1:3000" */
+export interface ReeprovClientOptions {
+  /** Base URL of the Reeprov instance, e.g. "http://127.0.0.1:3000" */
+  url?: string;
+  /** Backwards-compatible alias for url */
   endpoint?: string;
   /** Project-scoped ingest API key (or global ingest key) */
-  apiKey?: string;
-  /** Backwards-compatible alias for apiKey */
   ingestKey?: string;
+  /** Backwards-compatible alias for ingestKey */
+  apiKey?: string;
   /** Stable project identifier (e.g. "my-agent-service") */
   projectId?: string;
   /** Human-readable project display name */
@@ -49,9 +51,11 @@ export interface AgentPulseClientOptions {
   maxRetries?: number;
   /** Fail-open posture: log telemetry warnings instead of throwing (default: true) */
   failOpen?: boolean;
-  /** Explicit enable flag: defaults to true if endpoint and apiKey are provided */
+  /** Explicit enable flag: defaults to true if endpoint and ingestKey are provided */
   enabled?: boolean;
 }
+
+export type AgentPulseClientOptions = ReeprovClientOptions;
 
 export interface StartRunInput {
   /** Brief human summary describing the run's goal or trigger */

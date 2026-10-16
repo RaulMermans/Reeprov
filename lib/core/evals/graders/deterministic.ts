@@ -17,7 +17,7 @@ import type { EvalTargetScope } from "../../contracts/evalDefinitions";
 import { hashPayload } from "../../capture/hashing";
 
 export class DeterministicEvaluatorAdapter implements EvaluatorAdapter {
-  readonly evaluator_id = "agentpulse_deterministic_evaluator";
+  readonly evaluator_id = "reeprov_deterministic_evaluator";
   readonly evaluator_version = "1.0.0";
   readonly grader_type = "deterministic" as const;
   readonly deterministic = true;

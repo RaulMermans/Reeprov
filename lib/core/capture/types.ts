@@ -1,5 +1,5 @@
 /**
- * Types & Interfaces for AgentPulse Replay-Grade Boundary Capture Pipeline.
+ * Types & Interfaces for Reeprov Replay-Grade Boundary Capture Pipeline.
  */
 
 import type {

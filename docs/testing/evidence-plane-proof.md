@@ -1,8 +1,8 @@
-# AgentPulse Evidence Plane Verification Proof
+# Reeprov Evidence Plane Verification Proof
 
 ## Overview
 
-This document demonstrates the verification and empirical proof for Sprint 5: **AgentPulse Evidence & Agent Configuration Plane**.
+This document demonstrates the verification and empirical proof for Sprint 5: **Reeprov Evidence & Agent Configuration Plane**.
 All requirements specified in the mission have been implemented, tested, and validated with zero regressions across the codebase.
 
 ---

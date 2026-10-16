@@ -182,7 +182,7 @@ export default function RunDetailPage() {
           isDemo: data.runRecord.run_id.startsWith("demo-"),
         });
       } catch {
-        setError("Could not connect to AgentPulse. Is the dev server running?");
+        setError("Could not connect to Reeprov. Is the dev server running?");
       } finally {
         setLoading(false);
       }

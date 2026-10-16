@@ -1,4 +1,4 @@
-# AgentPulse Policy Drift Detection
+# Reeprov Policy Drift Detection
 
 ## Declared Governance vs Behavioral Realities
 
@@ -6,7 +6,7 @@
 
 In complex agentic architectures, governance policies are often declared in code or configuration (e.g. "Agent has read-only access to customer records"). However, behavioral execution frequently deviates from declared intentions due to prompt injection, tool hallucination, or improper boundary enforcement.
 
-AgentPulse bifurcates policy into two distinct layers:
+Reeprov bifurcates policy into two distinct layers:
 1. **Declared Policy**: The permissions, tool authorizations, and human approval gates explicitly configured.
 2. **Behavioral Policy**: The actual tools executed, permissions exercised, boundaries touched, and side-effects performed during runtime execution.
 

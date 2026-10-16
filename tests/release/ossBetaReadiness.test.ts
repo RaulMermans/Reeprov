@@ -20,16 +20,18 @@ describe("Sprint 11: Open-Source Beta Release Readiness & Supply Chain Audit", (
     expect(existsSync(pkgPath)).toBe(true);
     const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
 
+    expect(pkg.name).toBe("reeprov");
     expect(pkg.license).toBe("Apache-2.0");
     expect(pkg.version).toBe("0.1.0-beta.1");
     expect(pkg.private).toBe(true);
-    expect(pkg.author).toBe("AgentPulse Contributors");
+    expect(pkg.author).toBe("Reeprov Contributors");
     expect(pkg.engines?.node).toBeDefined();
+    expect(pkg.bin?.reeprov).toBe("./bin/reeprov.mjs");
     expect(pkg.bin?.pulse).toBe("./bin/pulse.mjs");
     expect(pkg.dependencies?.jiti).toBeDefined();
   });
 
-  it("Item 4 & 5: TypeScript SDK package (@agentpulse/client) is standalone and correctly structured", () => {
+  it("Item 4 & 5: TypeScript SDK package (@reeprov/client) is standalone and correctly structured", () => {
     const tsPkgDir = resolve(rootDir, "packages/client-typescript");
     expect(existsSync(resolve(tsPkgDir, "package.json"))).toBe(true);
     expect(existsSync(resolve(tsPkgDir, "tsconfig.json"))).toBe(true);
@@ -40,7 +42,7 @@ describe("Sprint 11: Open-Source Beta Release Readiness & Supply Chain Audit", (
     expect(existsSync(resolve(tsPkgDir, "src/types.ts"))).toBe(true);
 
     const tsPkg = JSON.parse(readFileSync(resolve(tsPkgDir, "package.json"), "utf8"));
-    expect(tsPkg.name).toBe("@agentpulse/client");
+    expect(tsPkg.name).toBe("@reeprov/client");
     expect(tsPkg.version).toBe("0.1.0-beta.1");
     expect(tsPkg.license).toBe("Apache-2.0");
     expect(tsPkg.main).toBe("dist/index.js");
@@ -48,33 +50,41 @@ describe("Sprint 11: Open-Source Beta Release Readiness & Supply Chain Audit", (
     expect(tsPkg.private).toBeUndefined(); // publishable SDK
   });
 
-  it("Item 7 & 8: Python SDK package (agentpulse-client) is standalone and correctly structured", () => {
+  it("Item 7 & 8: Python SDK package (reeprov-client) is standalone and correctly structured", () => {
     const pyPkgDir = resolve(rootDir, "packages/client-python");
     expect(existsSync(resolve(pyPkgDir, "pyproject.toml"))).toBe(true);
     expect(existsSync(resolve(pyPkgDir, "setup.py"))).toBe(true);
     expect(existsSync(resolve(pyPkgDir, "README.md"))).toBe(true);
     expect(existsSync(resolve(pyPkgDir, "LICENSE"))).toBe(true);
+    expect(existsSync(resolve(pyPkgDir, "src/reeprov_client/__init__.py"))).toBe(true);
+    expect(existsSync(resolve(pyPkgDir, "src/reeprov_client/client.py"))).toBe(true);
+    // Legacy compatibility module exists
     expect(existsSync(resolve(pyPkgDir, "src/agentpulse_client/__init__.py"))).toBe(true);
-    expect(existsSync(resolve(pyPkgDir, "src/agentpulse_client/client.py"))).toBe(true);
 
     const pyProject = readFileSync(resolve(pyPkgDir, "pyproject.toml"), "utf8");
-    expect(pyProject).toContain('name = "agentpulse-client"');
+    expect(pyProject).toContain('name = "reeprov-client"');
     expect(pyProject).toContain('version = "0.1.0b1"');
     expect(pyProject).toContain('license = {text = "Apache-2.0"}');
   });
 
   it("Item 11, 13 & 46: CLI binary executes and responds to --version and --help without repo assumptions", () => {
-    const cliPath = resolve(rootDir, "bin/pulse.mjs");
+    const cliPath = resolve(rootDir, "bin/reeprov.mjs");
     expect(existsSync(cliPath)).toBe(true);
 
     const versionOut = execFileSync("node", [cliPath, "--version"], { encoding: "utf8" }).trim();
-    expect(versionOut).toContain("AgentPulse v0.1.0-beta.1 (beta)");
+    expect(versionOut).toContain("Reeprov v0.1.0-beta.1 (beta)");
 
     const helpOut = execFileSync("node", [cliPath, "--help"], { encoding: "utf8" }).trim();
-    expect(helpOut).toContain("AgentPulse CLI");
-    expect(helpOut).toContain("pulse --version");
-    expect(helpOut).toContain("pulse data-path");
-    expect(helpOut).toContain("pulse replay");
+    expect(helpOut).toContain("Reeprov CLI");
+    expect(helpOut).toContain("reeprov --version");
+    expect(helpOut).toContain("reeprov data-path");
+    expect(helpOut).toContain("reeprov replay");
+
+    // Backward-compatible bin/pulse.mjs also functions
+    const legacyCliPath = resolve(rootDir, "bin/pulse.mjs");
+    expect(existsSync(legacyCliPath)).toBe(true);
+    const legacyVersionOut = execFileSync("node", [legacyCliPath, "--version"], { encoding: "utf8" }).trim();
+    expect(legacyVersionOut).toContain("Reeprov v0.1.0-beta.1 (beta)");
   });
 
   it("Item 17 & 18: Docker self-host configuration exists and enforces non-root and mandatory secrets", () => {
@@ -92,7 +102,7 @@ describe("Sprint 11: Open-Source Beta Release Readiness & Supply Chain Audit", (
 
     const compose = readFileSync(composePath, "utf8");
     expect(compose).toContain("127.0.0.1:3000:3000"); // Secure loopback default
-    expect(compose).toContain("AGENTPULSE_ACCESS_KEY");
+    expect(compose).toContain("REEPROV_ACCESS_KEY");
   });
 
   it("Item 22 & 23: Zero private developer absolute paths exist and audit scanner fails closed", () => {
@@ -187,8 +197,8 @@ describe("Sprint 11: Open-Source Beta Release Readiness & Supply Chain Audit", (
     const envPath = resolve(rootDir, ".env.example");
     expect(existsSync(envPath)).toBe(true);
     const content = readFileSync(envPath, "utf8");
-    expect(content).toContain("AGENTPULSE_MODE=personal_local");
-    expect(content).toContain("AGENTPULSE_ACCESS_KEY");
+    expect(content).toContain("REEPROV_MODE=personal_local");
+    expect(content).toContain("REEPROV_ACCESS_KEY");
     expect(content).toContain("DATABASE_URL");
   });
 

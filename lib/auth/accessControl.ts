@@ -1,5 +1,5 @@
 /**
- * Centralized, Mode-Aware Authorization Layer for AgentPulse.
+ * Centralized, Mode-Aware Authorization Layer for Reeprov.
  *
  * Implements authorizeRequest(request, { capability, projectId? })
  *
@@ -17,6 +17,7 @@ import { timingSafeEqual } from "node:crypto";
 import { getOperatingMode, isLoopbackRequest, type OperatingMode } from "./operatingMode";
 import { extractSessionToken, verifySessionToken } from "./session";
 import { hashIngestKey } from "@/lib/integrations/ingestKey";
+import { getReeprovEnv } from "@/lib/config/env";
 
 export type AuthCapability =
   | "DASHBOARD_READ"
@@ -60,11 +61,14 @@ function constantTimeEqual(left: string, right: string): boolean {
 }
 
 /**
- * Extracts any provided access key from headers (x-agentpulse-key or Authorization Bearer).
+ * Extracts any provided access key from headers (x-reeprov-key, legacy x-agentpulse-key, or Authorization Bearer).
  */
 export function extractProvidedKey(request: Request): string | null {
-  const customHeader = request.headers.get("x-agentpulse-key");
-  if (customHeader) return customHeader.trim();
+  const canonicalHeader = request.headers.get("x-reeprov-key");
+  if (canonicalHeader) return canonicalHeader.trim();
+
+  const legacyHeader = request.headers.get("x-agentpulse-key");
+  if (legacyHeader) return legacyHeader.trim();
 
   const authHeader = request.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {
@@ -101,12 +105,12 @@ export async function authorizeRequest(
       throw new AccessControlError(
         401,
         "missing_ingest_key",
-        "Missing ingest key. Provide 'x-agentpulse-key' or 'Authorization: Bearer <key>'."
+        "Missing ingest key. Provide 'x-reeprov-key' or 'Authorization: Bearer <key>'."
       );
     }
 
-    // Ingest keys format check (ap_live_...) or deployment-wide key
-    const deploymentIngestKey = process.env.AGENTPULSE_INGEST_KEY;
+    // Ingest keys format check (ree_live_... / legacy ap_live_...) or deployment-wide key
+    const deploymentIngestKey = getReeprovEnv("REEPROV_INGEST_KEY");
     if (deploymentIngestKey && constantTimeEqual(provided, deploymentIngestKey)) {
       return {
         authorized: true,
@@ -140,7 +144,7 @@ export async function authorizeRequest(
     }
 
     // Dev fallback for PERSONAL_LOCAL mode if no ingest key configured
-    const accessKey = process.env.AGENTPULSE_ACCESS_KEY;
+    const accessKey = getReeprovEnv("REEPROV_ACCESS_KEY");
     if (mode === "personal_local" && accessKey && constantTimeEqual(provided, accessKey)) {
       return {
         authorized: true,
@@ -158,9 +162,9 @@ export async function authorizeRequest(
   }
 
   // 3. DASHBOARD_READ, DASHBOARD_WRITE, ADMIN Authority
-  // Notice: Ingest keys (ap_live_...) must NEVER be accepted for dashboard access.
+  // Notice: Ingest keys (ree_live_... or legacy ap_live_...) must NEVER be accepted for dashboard access.
   const providedKey = extractProvidedKey(request);
-  if (providedKey?.startsWith("ap_live_")) {
+  if (providedKey?.startsWith("ree_live_") || providedKey?.startsWith("ap_live_")) {
     throw new AccessControlError(
       403,
       "ingest_key_disallowed",
@@ -176,11 +180,11 @@ export async function authorizeRequest(
       throw new AccessControlError(
         403,
         "loopback_required",
-        "Loopback privacy guarantee: PERSONAL_LOCAL only accepts local loopback connections (127.0.0.1 or ::1). Set AGENTPULSE_MODE=self_hosted to allow remote access."
+        "Loopback privacy guarantee: PERSONAL_LOCAL only accepts local loopback connections (127.0.0.1 or ::1). Set REEPROV_MODE=self_hosted to allow remote access."
       );
     }
 
-    const accessKey = process.env.AGENTPULSE_ACCESS_KEY;
+    const accessKey = getReeprovEnv("REEPROV_ACCESS_KEY");
     if (accessKey) {
       // Check session cookie
       const sessionToken = extractSessionToken(request);
@@ -235,7 +239,7 @@ export async function authorizeRequest(
     }
 
     // Check 2: Direct access key in header
-    const accessKey = process.env.AGENTPULSE_ACCESS_KEY;
+    const accessKey = getReeprovEnv("REEPROV_ACCESS_KEY");
     if (accessKey && providedKey && constantTimeEqual(providedKey, accessKey)) {
       return {
         authorized: true,

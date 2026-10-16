@@ -3,7 +3,7 @@
  *
  * Ingests replay-grade execution boundaries for a run.
  *
- * Auth: x-agentpulse-key (AGENTPULSE_INGEST_KEY or AGENTPULSE_ACCESS_KEY)
+ * Auth: x-reeprov-key (REEPROV_INGEST_KEY or REEPROV_ACCESS_KEY)
  *
  * Body:
  *   boundaries: RawBoundaryInput[]

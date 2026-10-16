@@ -1,7 +1,7 @@
 import { EvalStudioView } from "@/components/proof-layer/EvalStudioView";
 
 export const metadata = {
-  title: "Eval Studio | AgentPulse",
+  title: "Eval Studio | Reeprov",
   description: "Deterministic and model-based evaluations for agent reliability and regression protection.",
 };
 

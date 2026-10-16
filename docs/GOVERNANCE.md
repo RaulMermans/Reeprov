@@ -1,12 +1,12 @@
-# AgentPulse Governance Auditor
+# Reeprov Governance Auditor
 
-This document explains how AgentPulse v2.0 classifies repositories, scores them, and what the new governance fields mean.
+This document explains how Reeprov v2.0 classifies repositories, scores them, and what the new governance fields mean.
 
 ---
 
 ## Repository Modes
 
-AgentPulse now classifies every scanned repository into one of five **modes** before scoring. The mode determines which scoring dimensions apply and how strictly the scanner evaluates the repo.
+Reeprov now classifies every scanned repository into one of five **modes** before scoring. The mode determines which scoring dimensions apply and how strictly the scanner evaluates the repo.
 
 | Mode | Meaning | Scored as |
 |------|---------|-----------|
@@ -54,7 +54,7 @@ Without mode classification, a framework repo with dozens of sample agents and n
 
 ## Score Dimensions (v2)
 
-AgentPulse now reports **four score dimensions** alongside the legacy category scores.
+Reeprov now reports **four score dimensions** alongside the legacy category scores.
 
 | Dimension | Range | Description |
 |-----------|-------|-------------|
@@ -204,7 +204,7 @@ workflows:
 
 ## Eval Performance Result Schema
 
-AgentPulse detects and parses eval result files automatically.
+Reeprov detects and parses eval result files automatically.
 
 **Detected file names/paths:**
 - `eval-results.json`, `eval-results.jsonl`
@@ -250,9 +250,9 @@ SVG files and other binary assets inside `/agents/` directories are never classi
 
 ---
 
-## What AgentPulse Cannot Determine (Static Mode)
+## What Reeprov Cannot Determine (Static Mode)
 
-AgentPulse is a **static scanner** — it reads files but never executes code. This means:
+Reeprov is a **static scanner** — it reads files but never executes code. This means:
 
 - It cannot determine runtime behavior (what tools are actually called)
 - It cannot verify that approval policies are actually enforced in code
@@ -289,7 +289,7 @@ A repo meeting all of these will receive:
 
 ## Framework and Example Repos
 
-AgentPulse does not penalize framework repos (CrewAI, LangChain, etc.) for not having app-level manifests. If a repo is classified as `ai_framework_library` or `example_template`:
+Reeprov does not penalize framework repos (CrewAI, LangChain, etc.) for not having app-level manifests. If a repo is classified as `ai_framework_library` or `example_template`:
 
 - `ai_system_health` is `null` — not applicable
 - `governanceCompleteness` is `null` — not applicable

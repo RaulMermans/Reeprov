@@ -2,7 +2,7 @@
 
 ## 1. Test Suite Coverage
 
-AgentPulse Sprint 7 Context & Memory Intelligence is validated through 4 specialized test suites and 2 canonical reference fixtures:
+Reeprov Sprint 7 Context & Memory Intelligence is validated through 4 specialized test suites and 2 canonical reference fixtures:
 
 | Test Suite | Purpose | Tests | Status |
 | :--- | :--- | :--- | :--- |

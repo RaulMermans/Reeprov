@@ -1,8 +1,8 @@
-# AgentPulse Sprint 6: Run Diff & Divergence Proof Report
+# Reeprov Sprint 6: Run Diff & Divergence Proof Report
 
 ## 1. Executive Summary
 
-Sprint 6 implements the **COMPARE** stage of the AgentPulse pipeline:
+Sprint 6 implements the **COMPARE** stage of the Reeprov pipeline:
 ```
 CAPTURE → INSPECT → REPRODUCE → FORK → PROVE → COMPARE → EVALUATE → REGRESSION
 ```

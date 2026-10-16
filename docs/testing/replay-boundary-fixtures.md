@@ -6,7 +6,7 @@
 
 ## 1. The Reference Vertical Slice Agent
 
-To prove replay fidelity across all boundary types simultaneously, AgentPulse implements a canonical multi-turn agent workflow: the **Customer Support Triage Agent** (tested in [`verticalSliceAndOfflineProof.test.ts`](../../../lib/core/capture/__tests__/verticalSliceAndOfflineProof.test.ts)).
+To prove replay fidelity across all boundary types simultaneously, Reeprov implements a canonical multi-turn agent workflow: the **Customer Support Triage Agent** (tested in [`verticalSliceAndOfflineProof.test.ts`](../../../lib/core/capture/__tests__/verticalSliceAndOfflineProof.test.ts)).
 
 ### Scenario Walkthrough
 

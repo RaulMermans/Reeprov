@@ -194,11 +194,11 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
   }
 
   function downloadJson() {
-    downloadText(`${safeFilename(report.scanSource?.label ?? report.repoName)}-agentpulse-report.json`, JSON.stringify(report, null, 2), "application/json");
+    downloadText(`${safeFilename(report.scanSource?.label ?? report.repoName)}-reeprov-report.json`, JSON.stringify(report, null, 2), "application/json");
   }
 
   function downloadMarkdown() {
-    downloadText(`${safeFilename(report.scanSource?.label ?? report.repoName)}-agentpulse-report.md`, exportReportMarkdown(report), "text/markdown");
+    downloadText(`${safeFilename(report.scanSource?.label ?? report.repoName)}-reeprov-report.md`, exportReportMarkdown(report), "text/markdown");
   }
 
   async function copyMarkdown() {
@@ -465,7 +465,7 @@ export function DashboardClient({ initialReport }: { initialReport: ScanReport }
           </ScannerSection>
 
           <footer className="border-t border-slate-100 pt-4 text-center text-xs text-slate-400">
-            AgentPulse {appVersion()} · Static scanner · Redacted report
+            Reeprov {appVersion()} · Static scanner · Redacted report
           </footer>
         </>
       )}
@@ -585,8 +585,9 @@ function noAgentsMessage(projectType: ScanReport["projectType"]): string {
 }
 
 function appVersion(): string {
-  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_AGENTPULSE_VERSION) {
-    return process.env.NEXT_PUBLIC_AGENTPULSE_VERSION;
+  if (typeof process !== "undefined") {
+    if (process.env.NEXT_PUBLIC_REEPROV_VERSION) return process.env.NEXT_PUBLIC_REEPROV_VERSION;
+    if (process.env.NEXT_PUBLIC_AGENTPULSE_VERSION) return process.env.NEXT_PUBLIC_AGENTPULSE_VERSION;
   }
   return "local";
 }

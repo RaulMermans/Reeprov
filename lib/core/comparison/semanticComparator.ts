@@ -21,7 +21,7 @@ import type {
 } from "../contracts/comparison";
 
 export class DefaultSemanticComparator implements SemanticComparator {
-  public readonly name = "agentpulse-deterministic-evaluator";
+  public readonly name = "reeprov-deterministic-evaluator";
   public readonly version = "1.0.0";
 
   async compareText(request: SemanticComparisonRequest): Promise<SemanticComparisonResult> {

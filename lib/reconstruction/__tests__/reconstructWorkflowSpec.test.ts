@@ -169,14 +169,14 @@ describe("Campaign Sandbox reconstruction", () => {
     const result = reconstructFromScanReport(campaignReport);
     expect(result.suggestedFiles).toHaveLength(3);
     const paths = result.suggestedFiles.map((f) => f.path);
-    expect(paths).toContain("agentpulse.workflow.suggested.json");
+    expect(paths).toContain("reeprov.workflow.suggested.json");
     expect(paths).toContain("ai-system.suggested.yaml");
     expect(paths).toContain("instrumentation-plan.suggested.md");
   });
 
   it("suggested WorkflowSpec JSON parses and contains the workflow_id", () => {
     const result = reconstructFromScanReport(campaignReport);
-    const jsonFile = result.suggestedFiles.find((f) => f.path === "agentpulse.workflow.suggested.json");
+    const jsonFile = result.suggestedFiles.find((f) => f.path === "reeprov.workflow.suggested.json");
     expect(jsonFile).toBeDefined();
     const parsed = JSON.parse(jsonFile!.content) as Record<string, unknown>;
     expect(parsed["workflow_id"]).toBe("campaign-sandbox-v1");
@@ -701,8 +701,8 @@ describe("Instrumentation plan", () => {
 
   it("recommends standard env vars when AI evidence is present", () => {
     const result = reconstructFromScanReport(reportWithEvidence());
-    expect(result.instrumentationPlan.recommendedEnvVars).toContain("AGENTPULSE_URL");
-    expect(result.instrumentationPlan.recommendedEnvVars).toContain("AGENTPULSE_INGEST_KEY");
+    expect(result.instrumentationPlan.recommendedEnvVars).toContain("REEPROV_URL");
+    expect(result.instrumentationPlan.recommendedEnvVars).toContain("REEPROV_INGEST_KEY");
   });
 
   it("includes code hints when AI evidence is present", () => {

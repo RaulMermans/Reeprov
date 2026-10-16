@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "Reeprov Atomic Rename Manifest",
+  "version": "0.1.0-beta.1",
+  "generatedAt": "2026-10-16T09:07:33Z",
+  "canonicalProduct": {
+    "name": "Reeprov",
+    "pronunciation": "ree-proove",
+    "concept": "REPRODUCE + PROVE",
+    "tagline": "Reproduce the failure. Prove the fix.",
+    "shortDescription": "Local-first debugging and reproducibility infrastructure for AI agents.",
+    "description": "Reeprov is local-first debugging and reproducibility infrastructure for AI agents. Capture execution evidence, reproduce failures, fork from checkpoints, compare behavior, evaluate candidate fixes, and turn failures into regression tests.",
+    "productLoop": [
+      "CAPTURE",
+      "INSPECT",
+      "REPLAY",
+      "FORK",
+      "COMPARE",
+      "EVALUATE",
+      "REGRESSION"
+    ]
+  },
+  "canonicalMappings": {
+    "brandProper": {
+      "from": "AgentPulse",
+      "to": "Reeprov"
+    },
+    "brandLower": {
+      "from": "agentpulse",
+      "to": "reeprov"
+    },
+    "brandUpper": {
+      "from": "AGENTPULSE",
+      "to": "REEPROV"
+    },
+    "clientClass": {
+      "from": "AgentPulseClient",
+      "to": "ReeprovClient"
+    },
+    "npmClientPackage": {
+      "from": "@agentpulse/client",
+      "to": "@reeprov/client"
+    },
+    "pypiClientPackage": {
+      "from": "agentpulse-client",
+      "to": "reeprov-client"
+    },
+    "pythonImportModule": {
+      "from": "agentpulse_client",
+      "to": "reeprov_client"
+    },
+    "cliCommand": {
+      "from": "pulse",
+      "to": "reeprov"
+    },
+    "cliBinary": {
+      "from": "bin/pulse.mjs",
+      "to": "bin/reeprov.mjs"
+    },
+    "localDataDir": {
+      "from": "~/.agentpulse",
+      "to": "~/.reeprov"
+    },
+    "authHeader": {
+      "from": "x-agentpulse-key",
+      "to": "x-reeprov-key"
+    },
+    "sessionCookie": {
+      "from": "agentpulse_session",
+      "to": "reeprov_session"
+    },
+    "ingestKeyPrefix": {
+      "from": "ap_live_",
+      "to": "ree_live_"
+    },
+    "environmentVariables": {
+      "AGENTPULSE_HOME": "REEPROV_HOME",
+      "AGENTPULSE_MODE": "REEPROV_MODE",
+      "AGENTPULSE_URL": "REEPROV_URL",
+      "AGENTPULSE_HOST": "REEPROV_HOST",
+      "AGENTPULSE_PROJECT_ID": "REEPROV_PROJECT_ID",
+      "AGENTPULSE_ACCESS_KEY": "REEPROV_ACCESS_KEY",
+      "AGENTPULSE_INGEST_KEY": "REEPROV_INGEST_KEY",
+      "AGENTPULSE_STORE_DIR": "REEPROV_STORE_DIR"
+    }
+  },
+  "legacyCompatibilityWindow": {
+    "envFallback": true,
+    "envWarning": true,
+    "headerFallback": "x-agentpulse-key",
+    "ingestKeyPrefixFallback": "ap_live_",
+    "localDataFallback": "~/.agentpulse",
+    "migrationCommand": "npm run reeprov -- migrate-brand"
+  },
+  "internalExceptionsRetained": {
+    "dbTablePrefix": "ap_",
+    "rationale": "Internal storage identifiers retained to avoid unnecessary SQLite/DuckDB migration risk during brand rename."
+  },
+  "baselineBrandInventory": {
+    "AgentPulse": 853,
+    "agentpulse": 615,
+    "AGENTPULSE": 774,
+    "Agent Pulse": 0,
+    "@agentpulse": 50,
+    "agentpulse-client": 54,
+    "agentpulse_client": 50,
+    "x-agentpulse": 176,
+    "ap_live_": 43,
+    ".agentpulse": 117,
+    "bin/pulse.mjs": 11,
+    "npm run pulse": 26
+  }
+}

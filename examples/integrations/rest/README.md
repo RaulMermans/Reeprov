@@ -1,20 +1,20 @@
-# AgentPulse REST Integration
+# Reeprov REST Integration
 
-Use the AgentPulse ingest API directly from any language via HTTP.
+Use the Reeprov ingest API directly from any language via HTTP.
 
 ## Environment variables
 
 ```env
-AGENTPULSE_URL=https://<your-agentpulse-url>
-AGENTPULSE_INGEST_KEY=<your-ingest-key>
+REEPROV_URL=http://127.0.0.1:3000
+REEPROV_INGEST_KEY=<your-ingest-key>
 ```
 
 ## 1. Start a run
 
 ```bash
-curl -s -X POST "$AGENTPULSE_URL/api/runs/start" \
+curl -s -X POST "$REEPROV_URL/api/runs/start" \
   -H "Content-Type: application/json" \
-  -H "x-agentpulse-key: $AGENTPULSE_INGEST_KEY" \
+  -H "x-reeprov-key: $REEPROV_INGEST_KEY" \
   -d '{
     "project_id": "my-project",
     "project_name": "My Project",
@@ -28,9 +28,9 @@ Response: `{ "run_id": "...", ... }`
 ## 2. Append trace events
 
 ```bash
-curl -s -X POST "$AGENTPULSE_URL/api/traces/events" \
+curl -s -X POST "$REEPROV_URL/api/traces/events" \
   -H "Content-Type: application/json" \
-  -H "x-agentpulse-key: $AGENTPULSE_INGEST_KEY" \
+  -H "x-reeprov-key: $REEPROV_INGEST_KEY" \
   -d '{
     "events": [
       {
@@ -58,9 +58,9 @@ curl -s -X POST "$AGENTPULSE_URL/api/traces/events" \
 ## 3. Complete the run
 
 ```bash
-curl -s -X POST "$AGENTPULSE_URL/api/runs/complete" \
+curl -s -X POST "$REEPROV_URL/api/runs/complete" \
   -H "Content-Type: application/json" \
-  -H "x-agentpulse-key: $AGENTPULSE_INGEST_KEY" \
+  -H "x-reeprov-key: $REEPROV_INGEST_KEY" \
   -d '{
     "run_id": "<run_id>",
     "summary": "Workflow complete",
@@ -72,9 +72,9 @@ curl -s -X POST "$AGENTPULSE_URL/api/runs/complete" \
 ## 4. Fail a run
 
 ```bash
-curl -s -X POST "$AGENTPULSE_URL/api/runs/fail" \
+curl -s -X POST "$REEPROV_URL/api/runs/fail" \
   -H "Content-Type: application/json" \
-  -H "x-agentpulse-key: $AGENTPULSE_INGEST_KEY" \
+  -H "x-reeprov-key: $REEPROV_INGEST_KEY" \
   -d '{
     "run_id": "<run_id>",
     "error_summary": "Agent failed: timeout"
@@ -83,8 +83,8 @@ curl -s -X POST "$AGENTPULSE_URL/api/runs/fail" \
 
 ## Notes
 
-- All ingest endpoints use `x-agentpulse-key: $AGENTPULSE_INGEST_KEY`.
-- `AGENTPULSE_INGEST_KEY` is separate from `AGENTPULSE_ACCESS_KEY` (dashboard key).
+- All ingest endpoints use `x-reeprov-key: $REEPROV_INGEST_KEY` (with legacy `x-reeprov-key` supported).
+- `REEPROV_INGEST_KEY` is separate from `REEPROV_ACCESS_KEY` (dashboard key).
 - `event_id` must be unique per run. Use `<run_id>::<node>::<shortid>` format.
 - Events for an unknown `run_id` are rejected — call `/api/runs/start` first.
 - Duplicate `event_id` values are silently deduplicated (idempotent).

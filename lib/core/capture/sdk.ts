@@ -1,5 +1,5 @@
 /**
- * AgentPulse TypeScript Capture SDK.
+ * Reeprov TypeScript Capture SDK.
  *
  * Lightweight, non-intrusive runtime instrumentation layer.
  *
@@ -1069,7 +1069,7 @@ export class CaptureSession {
       provenance: {
         capture_method: "sdk_trace",
         adapter_version: "1.0.0-canonical",
-        captured_by: "AgentPulseCaptureSDK",
+        captured_by: "ReeprovCaptureSDK",
         redaction_verified: true,
       },
       safety: {
@@ -1142,7 +1142,7 @@ export class CaptureSession {
       if (this.strict) {
         throw new ExecutionIntegrityError(integrityReport.errors);
       }
-      console.warn("[AgentPulse Execution Integrity Warning]", integrityReport.errors);
+      console.warn("[Reeprov Execution Integrity Warning]", integrityReport.errors);
     }
 
     // Persist
@@ -1154,11 +1154,11 @@ export class CaptureSession {
     if (this.strict) {
       throw err;
     }
-    console.warn(`[AgentPulse Capture Warning] ${source} failed:`, err);
+    console.warn(`[Reeprov Capture Warning] ${source} failed:`, err);
   }
 }
 
-export class AgentPulseCaptureService {
+export class ReeprovCaptureService {
   startRun(options: StartRunOptions): CaptureSession {
     return new CaptureSession(options);
   }
@@ -1393,4 +1393,10 @@ export class ReplaySession {
   }
 }
 
-export const agentpulse = new AgentPulseCaptureService();
+/** Legacy class alias for backward compatibility */
+export const AgentPulseCaptureService = ReeprovCaptureService;
+
+export const reeprov = new ReeprovCaptureService();
+/** Legacy instance alias for backward compatibility */
+export const agentpulse = reeprov;
+

@@ -9,6 +9,8 @@
 
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { getReeprovEnv } from "@/lib/config/env";
+import { getReeprovHome } from "@/lib/storage/dataPath";
 import { computeSha256 } from "./hashing";
 import type { ContentBlob, ContentStore, ContentStorePutResult, ContentStoreStats } from "./types";
 
@@ -79,8 +81,9 @@ export class FileContentStore implements ContentStore {
   constructor(baseDir?: string) {
     const root =
       baseDir ??
-      process.env["AGENTPULSE_STORE_DIR"] ??
-      join(process.cwd(), ".agentpulse");
+      getReeprovEnv("REEPROV_STORE_DIR") ??
+      getReeprovEnv("REEPROV_HOME") ??
+      getReeprovHome();
     this.baseDir = join(root, "blobs");
   }
 

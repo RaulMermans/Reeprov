@@ -1,5 +1,5 @@
 /**
- * AgentPulse Capture Internal Observability Metrics.
+ * Reeprov Capture Internal Observability Metrics.
  *
  * Tracks telemetry volume, boundary counts, redaction frequency, and capture overhead.
  * Invariant: Never log raw payloads in metrics.

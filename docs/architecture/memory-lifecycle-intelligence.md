@@ -2,11 +2,11 @@
 
 ## 1. Product Boundaries & Scope
 
-AgentPulse is strictly an observation, audit, and diagnostic plane for external memory systems (Mem0, Letta, Zep, LangGraph memory stores, custom databases).
+Reeprov is strictly an observation, audit, and diagnostic plane for external memory systems (Mem0, Letta, Zep, LangGraph memory stores, custom databases).
 
-- AgentPulse **does not** act as a memory database or vector index.
-- AgentPulse **does not** mutate live external memory stores.
-- AgentPulse **records and audits** observable memory operations: read, write proposals, committed writes, updates, superseding, evictions, consolidations, and retrievals.
+- Reeprov **does not** act as a memory database or vector index.
+- Reeprov **does not** mutate live external memory stores.
+- Reeprov **records and audits** observable memory operations: read, write proposals, committed writes, updates, superseding, evictions, consolidations, and retrievals.
 
 ---
 
@@ -46,7 +46,7 @@ Tracks whether memories retrieved from external stores actually entered prompt c
 
 ## 4. Strictly Bounded Causal Proof Standard
 
-AgentPulse enforces 4 strictly bounded evidence levels:
+Reeprov enforces 4 strictly bounded evidence levels:
 
 1. **`OBSERVED`**: Memory was retrieved or injected into context.
 2. **`CORRELATED`**: Memory presence co-occurs with specific downstream model actions.

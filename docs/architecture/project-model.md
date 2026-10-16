@@ -1,6 +1,6 @@
 # Architecture: Multi-Project Workspace Model
 
-AgentPulse manages multiple agent projects within a unified local workspace, implemented in `lib/projects/projectStore.ts`.
+Reeprov manages multiple agent projects within a unified local workspace, implemented in `lib/projects/projectStore.ts`.
 
 ## Project Entities
 

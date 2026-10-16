@@ -1,4 +1,4 @@
-# AgentPulse Run Lineage Architecture
+# Reeprov Run Lineage Architecture
 
 ## 1. Lineage Graph Model
 
@@ -54,7 +54,7 @@ In Postgres/SQLite, lineage columns are indexed for high-performance hierarchy t
 
 ## 3. The Non-Duplication Invariant
 
-AgentPulse strictly rejects duplicating historical prefix steps into derived runs:
+Reeprov strictly rejects duplicating historical prefix steps into derived runs:
 
 ### Why Duplicating Steps is Wrong:
 1. **Falsification of Execution**: Claims steps executed in the child when they never ran in that process.

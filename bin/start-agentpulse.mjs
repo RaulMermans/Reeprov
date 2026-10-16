@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * AgentPulse Mode-Aware Launcher Entrypoint (bin).
+ * @deprecated Legacy AgentPulse launcher wrapper. Delegates to start-reeprov.ts.
  */
 import process from "node:process";
 import createJiti from "jiti";
@@ -11,5 +11,5 @@ const jiti = createJiti(import.meta.url, {
   },
 });
 
-const { runLauncher } = await jiti.import("../scripts/start-agentpulse.ts");
+const { runLauncher } = await jiti.import("../scripts/start-reeprov.ts");
 await runLauncher();

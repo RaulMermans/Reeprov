@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { requireIngestAuth } from "@/lib/db/getStores";
 import { fileIntegrationStore } from "@/lib/integrations/integrationStore";
-import { AgentPulseClient } from "@/packages/client-typescript/src/index";
+import { ReeprovClient, AgentPulseClient } from "@/packages/client-typescript/src/index";
 import { getCanonicalRun } from "@/lib/core/capture/persistence";
 import { runArtifactSchema } from "@/lib/core/contracts/runArtifact";
 import { computeCaptureReadiness } from "@/lib/projects/captureReadiness";
@@ -18,6 +18,7 @@ describe("Sprint 10.2: IRIS External Dogfood & DX Hardening", () => {
 
   beforeEach(async () => {
     process.env = { ...originalEnv };
+    delete process.env.REEPROV_MODE;
     delete process.env.AGENTPULSE_MODE; // defaults to personal_local
 
     const integA = await fileIntegrationStore.createIntegration({
@@ -42,22 +43,31 @@ describe("Sprint 10.2: IRIS External Dogfood & DX Hardening", () => {
 
   // 1. One Authorization Policy Engine
   it("Item 8: ingest adapter delegates directly to the canonical policy engine", async () => {
+    // Tests canonical x-reeprov-key header
     const req = new Request("http://127.0.0.1:3000/api/traces/events", {
       method: "POST",
-      headers: { "x-agentpulse-key": projectAKey },
+      headers: { "x-reeprov-key": projectAKey },
     });
 
     const result = await requireIngestAuth(req, "POST /api/traces/events", "project-iris");
     expect(result.projectId).toBe("project-iris");
     expect(result.integration).toBeDefined();
     expect(result.integrationId).toBeDefined();
+
+    // Tests backward-compatible x-agentpulse-key header
+    const legacyReq = new Request("http://127.0.0.1:3000/api/traces/events", {
+      method: "POST",
+      headers: { "x-agentpulse-key": projectAKey },
+    });
+    const legacyResult = await requireIngestAuth(legacyReq, "POST /api/traces/events", "project-iris");
+    expect(legacyResult.projectId).toBe("project-iris");
   });
 
   // 2. Ingest Auth Preserves Project Resolution & Isolation
   it("Item 9: ingest project isolation is strictly preserved (Project A key cannot ingest Project B)", async () => {
     const req = new Request("http://127.0.0.1:3000/api/traces/events", {
       method: "POST",
-      headers: { "x-agentpulse-key": projectAKey },
+      headers: { "x-reeprov-key": projectAKey },
     });
 
     await expect(
@@ -66,12 +76,12 @@ describe("Sprint 10.2: IRIS External Dogfood & DX Hardening", () => {
   });
 
   it("Item 10: dashboard access key does NOT grant scoped ingest authority in self_hosted mode", async () => {
-    process.env.AGENTPULSE_MODE = "self_hosted";
-    process.env.AGENTPULSE_ACCESS_KEY = "dashboard-secret-admin";
+    process.env.REEPROV_MODE = "self_hosted";
+    process.env.REEPROV_ACCESS_KEY = "dashboard-secret-admin";
 
     const req = new Request("http://127.0.0.1:3000/api/runs/start", {
       method: "POST",
-      headers: { "x-agentpulse-key": "dashboard-secret-admin" },
+      headers: { "x-reeprov-key": "dashboard-secret-admin" },
     });
 
     await expect(
@@ -80,7 +90,7 @@ describe("Sprint 10.2: IRIS External Dogfood & DX Hardening", () => {
 
     // And verify ingest key cannot access dashboard APIs
     const dashReq = new Request("http://127.0.0.1:3000/api/runs", {
-      headers: { "x-agentpulse-key": projectAKey },
+      headers: { "x-reeprov-key": projectAKey },
     });
     await expect(
       authorizeRequest(dashReq, { capability: "DASHBOARD_READ" })
@@ -99,7 +109,7 @@ describe("Sprint 10.2: IRIS External Dogfood & DX Hardening", () => {
 
     const invalidKeyReq = new Request("http://127.0.0.1:3000/api/runs/start", {
       method: "POST",
-      headers: { "x-agentpulse-key": "ap_live_invalid_revoked_key" },
+      headers: { "x-reeprov-key": "ree_live_invalid_revoked_key" },
     });
 
     await expect(
@@ -113,15 +123,15 @@ describe("Sprint 10.2: IRIS External Dogfood & DX Hardening", () => {
     const key = projectAKey;
 
     const envSnippet = [
-      `export AGENTPULSE_URL="${endpoint}"`,
-      `export AGENTPULSE_PROJECT_ID="${projectId}"`,
-      `export AGENTPULSE_INGEST_KEY="${key}"`,
+      `export REEPROV_URL="${endpoint}"`,
+      `export REEPROV_PROJECT_ID="${projectId}"`,
+      `export REEPROV_INGEST_KEY="${key}"`,
     ].join("\n");
 
-    expect(envSnippet).toContain(`export AGENTPULSE_URL="http://127.0.0.1:3000"`);
-    expect(envSnippet).toContain(`export AGENTPULSE_PROJECT_ID="project-iris"`);
-    expect(envSnippet).toContain(`export AGENTPULSE_INGEST_KEY="${projectAKey}"`);
-    expect(envSnippet).not.toContain("ap_live_support_agent_demo");
+    expect(envSnippet).toContain(`export REEPROV_URL="http://127.0.0.1:3000"`);
+    expect(envSnippet).toContain(`export REEPROV_PROJECT_ID="project-iris"`);
+    expect(envSnippet).toContain(`export REEPROV_INGEST_KEY="${projectAKey}"`);
+    expect(envSnippet).not.toContain("ree_live_support_agent_demo");
   });
 
   // 4. Client Networking Robustness: Timeout, Retries, Fail-Open
@@ -146,7 +156,7 @@ describe("Sprint 10.2: IRIS External Dogfood & DX Hardening", () => {
       })
     );
 
-    const client = new AgentPulseClient({
+    const client = new ReeprovClient({
       endpoint: "http://127.0.0.1:3000",
       ingestKey: projectAKey,
       timeoutMs: 2000,
@@ -180,9 +190,9 @@ describe("Sprint 10.2: IRIS External Dogfood & DX Hardening", () => {
       })
     );
 
-    const client = new AgentPulseClient({
+    const client = new ReeprovClient({
       endpoint: "http://127.0.0.1:3000",
-      ingestKey: "ap_live_wrong",
+      ingestKey: "ree_live_wrong",
       maxRetries: 3,
       failOpen: false,
     });
@@ -208,7 +218,7 @@ describe("Sprint 10.2: IRIS External Dogfood & DX Hardening", () => {
       vi.fn().mockRejectedValue(new Error("Connection refused: ECONNREFUSED 127.0.0.1:3000"))
     );
 
-    const client = new AgentPulseClient({
+    const client = new ReeprovClient({
       endpoint: "http://127.0.0.1:3000",
       ingestKey: projectAKey,
       maxRetries: 1,

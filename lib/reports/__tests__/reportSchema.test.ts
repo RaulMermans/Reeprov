@@ -69,7 +69,7 @@ describe("staticScan — report identity fields", () => {
   it("scannerVersion matches constant", () => {
     const report = scanEmpty();
     expect(report.scannerVersion).toBe(SCANNER_VERSION);
-    expect(report.scannerVersion).toBe("agentpulse-static-scanner-v2");
+    expect(report.scannerVersion).toBe("reeprov-static-scanner-v2");
   });
 
   it("generatedAt is a valid ISO timestamp", () => {

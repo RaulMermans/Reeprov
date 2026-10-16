@@ -1,12 +1,8 @@
-/**
- * Personal Data Root & Local Storage Layout for AgentPulse.
- *
- * Implements AGENTPULSE_HOME (~/.agentpulse) resolution and privacy posture.
- */
-
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { getOperatingMode } from "@/lib/auth/operatingMode";
+import { getReeprovEnv } from "@/lib/config/env";
 
 export interface PrivacyPosture {
   mode: string;
@@ -19,34 +15,59 @@ export interface PrivacyPosture {
 }
 
 /**
- * Resolves the root data storage directory for AgentPulse.
+ * Resolves the root data storage directory for Reeprov.
  * Precedence:
- *   1. AGENTPULSE_HOME
- *   2. AGENTPULSE_STORE_DIR
- *   3. ~/.agentpulse
+ *   1. REEPROV_HOME (or legacy AGENTPULSE_HOME)
+ *   2. REEPROV_STORE_DIR (or legacy AGENTPULSE_STORE_DIR)
+ *   3. ~/.reeprov (with fallback to existing ~/.agentpulse during migration)
  */
-export function getAgentPulseHome(): string {
-  if (process.env.AGENTPULSE_HOME) {
-    return path.resolve(process.env.AGENTPULSE_HOME);
+export function getReeprovHome(): string {
+  const customHome = getReeprovEnv("REEPROV_HOME");
+  if (customHome) {
+    return path.resolve(customHome);
   }
 
-  if (process.env.AGENTPULSE_STORE_DIR) {
-    return path.resolve(process.env.AGENTPULSE_STORE_DIR);
+  const customStore = getReeprovEnv("REEPROV_STORE_DIR");
+  if (customStore) {
+    return path.resolve(customStore);
   }
 
-  // During tests, default to local .agentpulse in cwd to avoid polluting user home dir
+  // During tests, default to local directory in cwd to avoid polluting user home dir
   if (process.env.NODE_ENV === "test" || process.env.VITEST) {
-    return path.resolve(process.cwd(), ".agentpulse");
+    const cwdReeprov = path.resolve(process.cwd(), ".reeprov");
+    const cwdAgentpulse = path.resolve(process.cwd(), ".agentpulse");
+    if (!fs.existsSync(cwdReeprov) && fs.existsSync(cwdAgentpulse)) {
+      return cwdAgentpulse;
+    }
+    return cwdReeprov;
   }
 
-  return path.resolve(os.homedir(), ".agentpulse");
+  const canonicalDir = path.resolve(os.homedir(), ".reeprov");
+  const legacyDir = path.resolve(os.homedir(), ".agentpulse");
+
+  // Fallback to existing legacy directory if canonical does not exist yet
+  if (!fs.existsSync(canonicalDir) && fs.existsSync(legacyDir)) {
+    return legacyDir;
+  }
+
+  return canonicalDir;
 }
 
-export function getStorageSubdirectories(baseDir = getAgentPulseHome()) {
+/** Legacy alias for getReeprovHome */
+export const getAgentPulseHome = getReeprovHome;
+
+export function getStorageSubdirectories(baseDir = getReeprovHome()) {
+  const dbName =
+    fs.existsSync(path.join(baseDir, "reeprov.db"))
+      ? "reeprov.db"
+      : fs.existsSync(path.join(baseDir, "agentpulse.db"))
+        ? "agentpulse.db"
+        : "reeprov.db";
+
   return {
     root: baseDir,
     config: path.join(baseDir, "config.json"),
-    db: path.join(baseDir, "agentpulse.db"),
+    db: path.join(baseDir, dbName),
     runs: path.join(baseDir, "runs"),
     comparisons: path.join(baseDir, "comparisons"),
     evals: path.join(baseDir, "evals"),
@@ -64,7 +85,7 @@ export function getStorageSubdirectories(baseDir = getAgentPulseHome()) {
  */
 export function getPrivacyPosture(): PrivacyPosture {
   const mode = getOperatingMode();
-  const dataPath = getAgentPulseHome();
+  const dataPath = getReeprovHome();
 
   return {
     mode,

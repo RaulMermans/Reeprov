@@ -77,7 +77,7 @@ export default function RunsPage() {
       const data = await res.json() as { runs: RunSummary[] };
       setRuns(data.runs ?? []);
     } catch {
-      setError("Could not connect to AgentPulse. Is the dev server running?");
+      setError("Could not connect to Reeprov. Is the dev server running?");
     } finally {
       setLoading(false);
     }
@@ -172,7 +172,7 @@ export default function RunsPage() {
         <Card className="p-8">
           <p className="text-sm font-medium text-amber-700">{error}</p>
           <p className="mt-2 text-xs text-slate-500">
-            Start the dev server and emit traces using the AgentPulse client, or create a demo run below.
+            Start the dev server and emit traces using the Reeprov client, or create a demo run below.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <button
@@ -197,7 +197,7 @@ export default function RunsPage() {
         <Card className="p-8">
           <p className="text-sm font-medium text-slate-700">No live proof runs yet.</p>
           <p className="mt-2 text-sm text-slate-500">
-            Runtime runs appear here after a connected project emits AgentPulse trace events.
+            Runtime runs appear here after a connected project emits Reeprov trace events.
             Create a demo run to explore the runtime proof layer now — no external project needed.
           </p>
           {demoError ? (
@@ -252,7 +252,7 @@ export default function RunsPage() {
                 <li><code className="font-mono">POST /api/runs/fail</code> — fail a run</li>
               </ul>
               <p className="mt-2">
-                Auth: <code className="font-mono">x-agentpulse-key: $AGENTPULSE_INGEST_KEY</code>
+                Auth: <code className="font-mono">x-reeprov-key: $REEPROV_INGEST_KEY</code>
               </p>
               <p className="mt-2">
                 Or seed locally: <code className="font-mono">npm run seed:traces</code>

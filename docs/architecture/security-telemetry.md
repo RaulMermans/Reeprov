@@ -2,8 +2,8 @@
 
 ## Overview
 
-AgentPulse **observes** policy and permission decisions made by agent runtimes.
-It does **NOT** enforce policy or act as an execution gateway. The runtime executes or blocks; AgentPulse records the evidence so operators can reconstruct why a decision occurred.
+Reeprov **observes** policy and permission decisions made by agent runtimes.
+It does **NOT** enforce policy or act as an execution gateway. The runtime executes or blocks; Reeprov records the evidence so operators can reconstruct why a decision occurred.
 
 ---
 
@@ -100,4 +100,4 @@ export interface ApprovalEvidence {
 ## 4. Separation of Concerns
 
 1. **External Runtime Responsibility:** Determines capabilities, grants permissions, prompts users for approval, and blocks unauthorized network operations.
-2. **AgentPulse Responsibility:** Records append-only facts, hashes proposal payloads, preserves lineage, and computes evidence completeness metrics.
+2. **Reeprov Responsibility:** Records append-only facts, hashes proposal payloads, preserves lineage, and computes evidence completeness metrics.

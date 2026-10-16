@@ -109,7 +109,7 @@ export const traceEventTypeSchema = z.enum([
 // Optional, user-safe reasoning/decision summaries an integration may attach
 // to an "agent_note_recorded" trace event's metadata. Never hidden
 // chain-of-thought — only a structured, integration-authored summary.
-// visibility must be exactly "user_safe" for AgentPulse to ever render it;
+// visibility must be exactly "user_safe" for Reeprov to ever render it;
 // anything else (or missing) is treated as not safe to display.
 
 export const agentNoteTypeSchema = z.enum(["plan", "decision", "critique", "recovery", "confidence", "risk"]);

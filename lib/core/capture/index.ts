@@ -1,5 +1,5 @@
 /**
- * Canonical AgentPulse Replay-Grade Boundary Capture Module.
+ * Canonical Reeprov Replay-Grade Boundary Capture Module.
  */
 
 export * from "./types";

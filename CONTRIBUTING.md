@@ -1,6 +1,6 @@
-# Contributing to AgentPulse
+# Contributing to Reeprov
 
-Thank you for your interest in contributing to AgentPulse! AgentPulse is a local-first debugging and reproducibility layer for external AI agents.
+Thank you for your interest in contributing to Reeprov! Reeprov is local-first debugging and reproducibility infrastructure for external AI agents.
 
 ## Getting Started
 
@@ -13,8 +13,8 @@ Thank you for your interest in contributing to AgentPulse! AgentPulse is a local
 ### Development Setup
 ```bash
 # Clone the repository
-git clone https://github.com/raulm/AgentPulse.git
-cd AgentPulse
+git clone https://github.com/RaulMermans/Reeprov.git
+cd Reeprov
 
 # Clean reproducible install
 npm ci
@@ -49,18 +49,18 @@ npm run ci
 
 ## Architecture Orientation
 
-A high-level understanding of the AgentPulse pipeline:
+A high-level understanding of the Reeprov pipeline:
 
 ```
 External Agent (TypeScript / Python SDK / REST)
        ↓  (HTTP Ingest API: /api/runs/*, /api/traces/*)
 Proof Layer / Ingest Controller
        ↓  (Secret Redaction & Schema Validation)
-Canonical Evidence Store (.agentpulse/ or Postgres)
+Canonical Evidence Store (.reeprov/ or Postgres)
        ↓
 Replay & Fork Engine ←→ Diagnostic Run Diff ←→ Eval & Regression Gates
        ↓
-AgentPulse Studio (Next.js Dashboard) / Local CLI (`pulse`)
+Reeprov Studio (Next.js Dashboard) / Local CLI (`reeprov`)
 ```
 
 - Complete architectural specifications are indexed in [docs/README.md](docs/README.md).
@@ -71,17 +71,17 @@ AgentPulse Studio (Next.js Dashboard) / Local CLI (`pulse`)
 ## Public API & Stability Rules
 
 When adding or modifying interfaces, classify them according to our stability taxonomy:
-- **PUBLIC:** Guaranteed backwards-compatible within minor versions (HTTP Ingest, `@agentpulse/client`, `agentpulse-client`, `pulse` CLI).
+- **PUBLIC:** Guaranteed backwards-compatible within minor versions (HTTP Ingest, `@reeprov/client`, `reeprov-client`, `reeprov` CLI).
 - **EXPERIMENTAL:** Subject to refinement across releases (e.g. advanced semantic evaluators, new memory ablation adapters).
 - **INTERNAL:** Private server and studio components (`lib/core/*`, database helpers). Not exposed externally.
-- **LEGACY:** Retained temporarily for backward compatibility with deprecation warnings.
+- **LEGACY:** Retained temporarily for backward compatibility with deprecation warnings (e.g. `pulse` CLI command, `AGENTPULSE_*` env fallbacks).
 
 ---
 
 ## Security Boundaries & Rules
 
 1. **Server-Side Credentials Only:** Never expose tokens or secrets to client components. Never use `NEXT_PUBLIC_` for sensitive environment variables.
-2. **Scanned Code Untrusted:** AgentPulse never executes or imports code from scanned repositories or external agent runtimes.
+2. **Scanned Code Untrusted:** Reeprov never executes or imports code from scanned repositories or external agent runtimes.
 3. **Route Security Parity:** Any newly added API route under `/app/api/` must be registered in the route security matrix and audited against mode-specific auth controls.
 4. **No Private Absolute Paths:** Never commit absolute paths like `/Users/...` or `/home/...`. Use repository-relative links.
 5. **Synthetic Fixtures Only:** Test fixtures and demo data must be strictly synthetic, sanitized, and free of real personal or operational secrets.
@@ -91,7 +91,7 @@ When adding or modifying interfaces, classify them according to our stability ta
 ## How to Add Features
 
 ### Adding an Evaluator Adapter
-Implement the evaluator interface defined in `lib/core/eval/` and register it in the eval registry. Add test coverage in `tests/` with synthetic datasets.
+Implement the evaluator interface defined in `lib/core/evals/` and register it in the eval registry. Add test coverage in `tests/` with synthetic datasets.
 
 ### Adding a Framework Adapter
 Framework-specific adapters belong in community packages or `examples/integrations/`. Ensure they comply with the [Contributor Adapter Contract](docs/integrations/frameworks.md).

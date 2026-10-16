@@ -1,6 +1,6 @@
 # Maintainer Release Process & Governance
 
-This document outlines the strict release procedure for AgentPulse core releases and public SDK packages.
+This document outlines the strict release procedure for Reeprov core releases and public SDK packages.
 
 ---
 
@@ -32,7 +32,7 @@ npm run ci
 
 Verify that the CLI executable works without error:
 ```bash
-./bin/pulse.mjs --help
+./bin/reeprov.mjs --help
 ```
 
 ### Step 4: Audit Distributable Artifacts
@@ -66,7 +66,7 @@ Verify the contents of the built tarball and wheel.
 If a critical flaw or security vulnerability is discovered after publication:
 - **npm:** Deprecate the package version immediately:
   ```bash
-  npm deprecate @agentpulse/client@0.1.0-beta.1 "Critical defect in telemetry queue. Upgrade to 0.1.0-beta.2"
+  npm deprecate @reeprov/client@0.1.0-beta.1 "Critical defect in telemetry queue. Upgrade to 0.1.0-beta.2"
   ```
 - **PyPI:** Yank the release on PyPI to prevent new installs while preserving reproducibility for pinned builds:
   ```bash

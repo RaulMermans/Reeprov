@@ -5,7 +5,7 @@
  * and resumes execution under controlled dependency policies.
  *
  * Invariant:
- * AgentPulse does not attempt OS/process memory time-travel.
+ * Reeprov does not attempt OS/process memory time-travel.
  * The application host is responsible for executing its workflow from the resumed step.
  */
 

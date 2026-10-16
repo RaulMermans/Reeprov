@@ -1,5 +1,5 @@
 /**
- * Canonical Project Store for AgentPulse.
+ * Canonical Project Store for Reeprov.
  *
  * Implements full project CRUD, statistics calculation, and ingest key management
  * while maintaining 100% storage compatibility with existing integration records.

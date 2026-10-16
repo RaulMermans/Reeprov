@@ -1,6 +1,6 @@
 # Workflow Spec
 
-A `WorkflowSpec` is a declarative description of what an AI workflow does. It is the structural contract AgentPulse uses to validate trace events and generate run summaries.
+A `WorkflowSpec` is a declarative description of what an AI workflow does. It is the structural contract Reeprov uses to validate trace events and generate run summaries.
 
 Task 2 uses workflow specs as dashboard proof data. Specs power the workflow gallery, workflow inspector, node detail panels, edge/dependency rows, declared tools, eval references, permission badges, approval gates, and artifact lists.
 
@@ -95,7 +95,7 @@ Additional fields on `SuggestedWorkflowSpec`:
 | `source` | `"static_inference"` | Always `"static_inference"` — never runtime data |
 | `confidence` | `"high" \| "medium" \| "low"` | How much evidence supports the inferred spec |
 | `evidencePaths` | `string[]` | Repo file paths that drove the inference |
-| `missingFields` | `string[]` | Fields AgentPulse could not determine from static evidence (e.g. `"model_provider"`) |
+| `missingFields` | `string[]` | Fields Reeprov could not determine from static evidence (e.g. `"model_provider"`) |
 | `recommendations` | `string[]` | Suggestions for improving the spec (e.g. add evals, declare model) |
 
 **Confidence rules:**
@@ -110,13 +110,13 @@ Additional fields on `SuggestedWorkflowSpec`:
 | Aspect | Static reconstruction | Runtime proof |
 |---|---|---|
 | Source of truth | `ScanReport` (file evidence) | `TraceEvent[]` + `EvalResult[]` |
-| Requires code changes | No | Optional (`AgentPulseClient`) |
+| Requires code changes | No | Optional (`ReeprovClient`) |
 | Accuracy | Best-effort, may be incomplete | Exact — reflects what happened |
 | Cost/latency data | Not available | Available |
 | Eval pass/fail | Inferred from eval file presence | Real results from eval runs |
 | When to use | Onboarding, gap analysis, spec generation | Ongoing observability, regression detection |
 
-Static reconstruction is the **entry point**. Runtime proof is the **upgrade path**. AgentPulse supports both and does not require instrumentation.
+Static reconstruction is the **entry point**. Runtime proof is the **upgrade path**. Reeprov supports both and does not require instrumentation.
 
 ## Next Planned Task
 
@@ -166,8 +166,8 @@ Project integrations: Website Auditor, Campaign Sandbox, Content Trend Analyzer,
 
 A WorkflowSpec can arrive in two ways:
 
-1. **Authored** — a project commits a `workflow.yaml` / `workflow.json` (or an `agents.yaml`) and AgentPulse parses it directly.
-2. **Suggested** — AgentPulse reconstructs a `SuggestedWorkflowSpec` from static evidence and returns it via `/api/reconstruct`.
+1. **Authored** — a project commits a `workflow.yaml` / `workflow.json` (or an `agents.yaml`) and Reeprov parses it directly.
+2. **Suggested** — Reeprov reconstructs a `SuggestedWorkflowSpec` from static evidence and returns it via `/api/reconstruct`.
 
 A `SuggestedWorkflowSpec` is **not** a `WorkflowSpec` until a human reviews and adopts it. The suggested form carries reconstruction metadata:
 
@@ -176,7 +176,7 @@ A `SuggestedWorkflowSpec` is **not** a `WorkflowSpec` until a human reviews and 
 | `source` | `manifest`, `framework_adapter`, `path_inference`, `readme_inference`, `mixed` |
 | `confidence` | `high` / `medium` / `low` |
 | `evidencePaths` | files that contributed evidence |
-| `missingFields` | fields AgentPulse could not infer |
+| `missingFields` | fields Reeprov could not infer |
 | `recommendations` | concrete improvements to raise confidence |
 
 ### When no SuggestedWorkflowSpec is generated

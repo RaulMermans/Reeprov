@@ -1,6 +1,6 @@
 # Studio Navigation & Workspace Structure
 
-The AgentPulse Studio UI provides a focused developer experience organized around debugging, evaluating, and governing autonomous AI agents.
+The Reeprov Studio UI provides a focused developer experience organized around debugging, evaluating, and governing autonomous AI agents.
 
 ## Core Navigation Modules
 

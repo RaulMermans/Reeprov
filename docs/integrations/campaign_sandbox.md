@@ -1,8 +1,8 @@
-# Campaign Sandbox — AgentPulse Integration Guide
+# Campaign Sandbox — Reeprov Integration Guide
 
-This guide shows how Campaign Sandbox emits trace events to AgentPulse so every run is inspectable, proof-validated, and cost-tracked.
+This guide shows how Campaign Sandbox emits trace events to Reeprov so every run is inspectable, proof-validated, and cost-tracked.
 
-AgentPulse is a **black-box recorder** — it never executes Campaign Sandbox code, never reads its secrets, and only receives event summaries that you choose to send.
+Reeprov is a **black-box recorder** — it never executes Campaign Sandbox code, never reads its secrets, and only receives event summaries that you choose to send.
 
 ## Overview
 
@@ -30,17 +30,17 @@ Each node emits `node_started` / `node_completed`, LLM nodes emit `model_call_st
 Add these to Campaign Sandbox's `.env.local` / `.env` (do **not** commit real values):
 
 ```env
-# AgentPulse ingestion endpoint (your running AgentPulse instance)
-AGENTPULSE_URL=http://localhost:3000
+# Reeprov ingestion endpoint (your running Reeprov instance)
+REEPROV_URL=http://localhost:3000
 
-# Ingestion key — matches AGENTPULSE_INGEST_KEY in AgentPulse
-# Must NOT be the same as AGENTPULSE_ACCESS_KEY in production
-AGENTPULSE_INGEST_KEY=your-ingest-key-here
+# Ingestion key — matches REEPROV_INGEST_KEY in Reeprov
+# Must NOT be the same as REEPROV_ACCESS_KEY in production
+REEPROV_INGEST_KEY=your-ingest-key-here
 
 # Project identity (stable identifiers that group runs together)
-AGENTPULSE_PROJECT_ID=campaign-sandbox
-AGENTPULSE_PROJECT_NAME=Campaign Sandbox
-AGENTPULSE_WORKFLOW_ID=campaign-sandbox-v1
+REEPROV_PROJECT_ID=campaign-sandbox
+REEPROV_PROJECT_NAME=Campaign Sandbox
+REEPROV_WORKFLOW_ID=campaign-sandbox-v1
 ```
 
 **Security rules:**
@@ -53,21 +53,21 @@ AGENTPULSE_WORKFLOW_ID=campaign-sandbox-v1
 
 **Option A — Copy the minimal client (recommended for now):**
 
-Copy `examples/integrations/campaign-sandbox/agentpulse-client.ts` from the AgentPulse repo into your Campaign Sandbox project and adapt the import path.
+Copy `examples/integrations/campaign-sandbox/reeprov-client.ts` from the Reeprov repo into your Campaign Sandbox project and adapt the import path.
 
-**Option B — Import AgentPulseClient directly (if on a shared monorepo or npm package):**
+**Option B — Import ReeprovClient directly (if on a shared monorepo or npm package):**
 
 ```typescript
-import { AgentPulseClient } from "@agentpulse/client";
+import { ReeprovClient } from "@reeprov/client";
 // or, if running in a monorepo:
-import { AgentPulseClient } from "../agentpulse/lib/proof-layer/client";
+import { ReeprovClient } from "../reeprov/lib/proof-layer/client";
 ```
 
 **Option C — POST directly to the API (any language/framework):**
 
 ```http
 POST /api/runs/start
-x-agentpulse-key: <AGENTPULSE_INGEST_KEY>
+x-reeprov-key: <REEPROV_INGEST_KEY>
 Content-Type: application/json
 
 {
@@ -277,21 +277,21 @@ await pulse.failRun({
 To disable trace emission without removing instrumentation code:
 
 ```env
-AGENTPULSE_ENABLED=false
+REEPROV_ENABLED=false
 ```
 
-Check this flag at the top of each emit helper and no-op when disabled. This lets Campaign Sandbox run offline without a live AgentPulse instance.
+Check this flag at the top of each emit helper and no-op when disabled. This lets Campaign Sandbox run offline without a live Reeprov instance.
 
 ## Example Integration
 
 See the minimal copy-paste helper at:
 [examples/integrations/campaign-sandbox/](../../examples/integrations/campaign-sandbox/)
 
-This includes `agentpulse-client.ts` (the minimal HTTP client), `instrumentation.ts` (stage-specific helpers), and `README.md`.
+This includes `reeprov-client.ts` (the minimal HTTP client), `instrumentation.ts` (stage-specific helpers), and `README.md`.
 
 ## Verifying the Integration Locally
 
-1. Start AgentPulse: `npm run dev` (in the AgentPulse repo)
+1. Start Reeprov: `npm run dev` (in the Reeprov repo)
 2. Set env vars in Campaign Sandbox (see above)
 3. Run one Campaign Sandbox workflow
 4. Visit `http://localhost:3000/dashboard/runs`
@@ -299,6 +299,6 @@ This includes `agentpulse-client.ts` (the minimal HTTP client), `instrumentation
 6. Open the run detail and verify: trace timeline, model calls, eval results, artifact ref
 
 If no runs appear, check:
-- `AGENTPULSE_URL` is correct and AgentPulse is running
-- `AGENTPULSE_INGEST_KEY` matches `AGENTPULSE_INGEST_KEY` in AgentPulse
+- `REEPROV_URL` is correct and Reeprov is running
+- `REEPROV_INGEST_KEY` matches `REEPROV_INGEST_KEY` in Reeprov
 - Network errors appear in Campaign Sandbox logs (the client should log warnings, not crash)

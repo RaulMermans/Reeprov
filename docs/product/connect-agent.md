@@ -1,6 +1,6 @@
 # Connect Agent Wizard
 
-The **Connect Agent Wizard** (`components/projects/ConnectAgentWizard.tsx`) provides an interactive interface for connecting existing AI agents to AgentPulse.
+The **Connect Agent Wizard** (`components/projects/ConnectAgentWizard.tsx`) provides an interactive interface for connecting existing AI agents to Reeprov.
 
 ## Supported Frameworks & Runtimes
 
@@ -15,6 +15,6 @@ The wizard supports copy-paste integration across major agent ecosystems:
 
 ## Scoped Ingest Credentials
 
-- Creating a project automatically generates a dedicated project ingest key (`ap_live_<hash>`).
+- Creating a project automatically generates a dedicated project ingest key (`ree_live_<hash>`).
 - Keys are scoped strictly to the created project.
 - Ingest keys cannot browse, query, or delete runs or projects.

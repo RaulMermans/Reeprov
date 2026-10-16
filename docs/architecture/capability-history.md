@@ -1,4 +1,4 @@
-# AgentPulse Capability History
+# Reeprov Capability History
 
 ## Multi-Dimensional Capability Tracking and Longitudinal Evolution
 
@@ -6,7 +6,7 @@
 
 In real-world agent engineering, collapsing an agent's capability into a single scalar "IQ" or "Quality Score" hides critical regressions. For example, a candidate might achieve higher task completion (+5%) by completely bypassing safety safeguards and multiplying API costs tenfold.
 
-AgentPulse enforces **Multi-Dimensional Capability Tracking**:
+Reeprov enforces **Multi-Dimensional Capability Tracking**:
 - Every agent version is tracked across distinct, independent capability dimensions.
 - Dimensions cannot mask one another: a gain in reasoning cannot offset a degradation in safety or cost.
 
@@ -66,7 +66,7 @@ export interface CapabilityDimensionScore {
 
 ### 4. Configuration Change Attribution
 
-When capability shifts across versions, AgentPulse associates the drift with concrete configuration diffs:
+When capability shifts across versions, Reeprov associates the drift with concrete configuration diffs:
 
 ```mermaid
 flowchart LR

@@ -3,16 +3,16 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agentpulse-client"
+name = "reeprov-client"
 version = "0.1.0b1"
-description = "Python client SDK for AgentPulse — local-first agent debugging and reproducibility."
+description = "Python client SDK for Reeprov — local-first debugging and reproducibility infrastructure for AI agents."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
 authors = [
-    {name = "AgentPulse Contributors"}
+    {name = "Reeprov Contributors"}
 ]
-keywords = ["agentpulse", "ai-agents", "debugging", "tracing", "telemetry", "evals"]
+keywords = ["reeprov", "ai-agents", "debugging", "reproducibility", "tracing", "telemetry", "evals"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -27,9 +27,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/raulm/AgentPulse"
-Repository = "https://github.com/raulm/AgentPulse.git"
-Documentation = "https://github.com/raulm/AgentPulse/tree/main/packages/client-python"
+Homepage = "https://github.com/RaulMermans/Reeprov"
+Repository = "https://github.com/RaulMermans/Reeprov.git"
+Documentation = "https://github.com/RaulMermans/Reeprov/tree/main/packages/client-python"
 
 [tool.setuptools.packages.find]
 where = ["src"]

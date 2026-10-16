@@ -128,7 +128,7 @@ export default function RegistryWorkflowDetailPage() {
         // related runs are optional
       }
     } catch {
-      setError("Could not connect to AgentPulse API.");
+      setError("Could not connect to Reeprov API.");
     } finally {
       setLoading(false);
     }

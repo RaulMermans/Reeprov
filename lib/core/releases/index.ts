@@ -1,5 +1,5 @@
 /**
- * AgentPulse Release Evidence Engine Entry Point.
+ * Reeprov Release Evidence Engine Entry Point.
  */
 
 export * from "./snapshot";

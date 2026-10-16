@@ -2,7 +2,7 @@
 
 ## 1. Zero Live Network Guarantee (`NetworkKillSwitch`)
 
-During `STRICT_OFFLINE` replay, AgentPulse activates a strict `NetworkKillSwitch`.
+During `STRICT_OFFLINE` replay, Reeprov activates a strict `NetworkKillSwitch`.
 
 ### Interception Seam:
 - Global `fetch` is patched to reject immediately with `NetworkAccessDeniedError`.

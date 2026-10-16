@@ -24,12 +24,12 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   try {
     const body = (await request.json().catch(() => ({}))) as { accessKey?: string };
-    const provided = body.accessKey || request.headers.get("x-agentpulse-key");
+    const provided = body.accessKey || request.headers.get("x-reeprov-key") || request.headers.get("x-agentpulse-key");
 
-    const expected = process.env.AGENTPULSE_ACCESS_KEY;
+    const expected = process.env.REEPROV_ACCESS_KEY ?? process.env.AGENTPULSE_ACCESS_KEY;
     if (!expected) {
       return NextResponse.json(
-        { ok: false, error: "AGENTPULSE_ACCESS_KEY is not configured on this self-hosted server." },
+        { ok: false, error: "REEPROV_ACCESS_KEY is not configured on this self-hosted server." },
         { status: 500 }
       );
     }
@@ -42,7 +42,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     const isHttps = isRequestHttps(request);
-    if (process.env.AGENTPULSE_REQUIRE_HTTPS === "true" && !isHttps) {
+    const requireHttps = (process.env.REEPROV_REQUIRE_HTTPS ?? process.env.AGENTPULSE_REQUIRE_HTTPS) === "true";
+    if (requireHttps && !isHttps) {
       return NextResponse.json(
         { ok: false, error: "HTTPS is required for self-hosted browser sessions. Connect via HTTPS or provide X-Forwarded-Proto: https." },
         { status: 403 }
@@ -60,7 +61,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
 
     response.cookies.set({
-      name: cookieOpts.name ?? "agentpulse_session",
+      name: cookieOpts.name ?? "reeprov_session",
       value: token,
       httpOnly: true,
       secure: cookieOpts.secure ?? false,

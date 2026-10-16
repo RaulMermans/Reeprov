@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
 import { mergeAuthHeaders } from "@/lib/auth/internalKey";
-import type { AgentPulseDashboardPulse } from "@/lib/dashboard/buildDashboardPulse";
+import type { ReeprovDashboardPulse } from "@/lib/dashboard/buildDashboardPulse";
 
 function badgeTone(status: string): "success" | "warning" | "danger" | "neutral" | "info" {
   if (status === "live" || status === "completed" || status === "recovered") return "success";
@@ -41,7 +41,7 @@ function StatusMetric({ label, value, detail, tone = "neutral" }: { label: strin
 
 export function DashboardPulse() {
   const { onUnauthorized } = useDashboardAuth();
-  const [pulse, setPulse] = useState<AgentPulseDashboardPulse | null>(null);
+  const [pulse, setPulse] = useState<ReeprovDashboardPulse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -59,10 +59,10 @@ export function DashboardPulse() {
           setError("Could not load the dashboard pulse.");
           return;
         }
-        const data = await response.json() as { pulse?: AgentPulseDashboardPulse };
+        const data = await response.json() as { pulse?: ReeprovDashboardPulse };
         setPulse(data.pulse ?? null);
       } catch {
-        if (active) setError("Could not connect to AgentPulse.");
+        if (active) setError("Could not connect to Reeprov.");
       } finally {
         if (active) setLoading(false);
       }
@@ -163,7 +163,7 @@ export function DashboardPulse() {
   );
 }
 
-function IntegrationHealthCard({ integration }: { integration: AgentPulseDashboardPulse["integrations"][number] }) {
+function IntegrationHealthCard({ integration }: { integration: ReeprovDashboardPulse["integrations"][number] }) {
   const health = `${integration.recentCompleted} completed · ${integration.recentDegraded} degraded · ${integration.recentFailed} failed`;
   return (
     <Card className="p-5">

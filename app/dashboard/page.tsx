@@ -8,7 +8,7 @@ export default function DashboardPage() {
     <main className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:px-8">
       <section>
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">AgentPulse</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Reeprov</h1>
           <span className="rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-xs font-medium text-teal-700">All-integrations pulse</span>
         </div>
         <p className="mt-2 max-w-3xl text-sm text-slate-500">

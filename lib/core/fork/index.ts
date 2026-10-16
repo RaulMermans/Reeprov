@@ -1,5 +1,5 @@
 /**
- * AgentPulse Execution Fork Runtime.
+ * Reeprov Execution Fork Runtime.
  *
  * Re-exports contracts, planner, runtime, host adapters, mutation applier,
  * validation, and lineage queries.

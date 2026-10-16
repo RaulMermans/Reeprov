@@ -6,7 +6,7 @@
  * and MemoryAblationCandidate.
  *
  * Invariant:
- * AgentPulse observes and analyzes external memory operations.
+ * Reeprov observes and analyzes external memory operations.
  * It is NOT a memory database, vector store, or memory optimizer.
  */
 
@@ -19,7 +19,8 @@ import {
 } from "./memory";
 
 export const MEMORY_INTELLIGENCE_SCHEMA_VERSION = "1.0.0-alpha";
-export const DEFAULT_MEMORY_ANALYZER_NAME = "AgentPulseMemoryAnalyzer";
+export const DEFAULT_MEMORY_ANALYZER_NAME = "ReeprovMemoryAnalyzer";
+export const LEGACY_DEFAULT_MEMORY_ANALYZER_NAME = "AgentPulseMemoryAnalyzer";
 export const DEFAULT_MEMORY_ANALYZER_VERSION = "1.0.0";
 export const DEFAULT_MEMORY_RULESET_VERSION = "2026.10";
 

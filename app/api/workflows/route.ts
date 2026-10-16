@@ -2,7 +2,7 @@
  * GET /api/workflows
  *
  * Lists workflow registry summaries.
- * Protected by AGENTPULSE_ACCESS_KEY (x-agentpulse-key header).
+ * Protected by REEPROV_ACCESS_KEY (x-reeprov-key header).
  *
  * Query params:
  *   ?projectId=...    filter by projectId

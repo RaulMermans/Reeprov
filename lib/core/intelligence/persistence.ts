@@ -21,8 +21,14 @@ import {
 import { getDb, hasDatabaseUrl } from "../../db/client";
 import { ensureSchema } from "../../db/migrate";
 
+import { getReeprovEnv } from "@/lib/config/env";
+import { getReeprovHome } from "@/lib/storage/dataPath";
+
 function intelligenceDir(type: "context" | "memory"): string {
-  const base = process.env["AGENTPULSE_STORE_DIR"] ?? join(process.cwd(), ".agentpulse");
+  const base =
+    getReeprovEnv("REEPROV_STORE_DIR") ??
+    getReeprovEnv("REEPROV_HOME") ??
+    getReeprovHome();
   return join(base, "intelligence", type);
 }
 

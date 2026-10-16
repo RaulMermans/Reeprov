@@ -2,7 +2,7 @@
  * GET  /api/integrations  — list project integrations
  * POST /api/integrations  — create a new integration
  *
- * Protected by AGENTPULSE_ACCESS_KEY (x-agentpulse-key header).
+ * Protected by REEPROV_ACCESS_KEY (x-reeprov-key header).
  *
  * GET query params:
  *   ?projectId=...    filter by projectId

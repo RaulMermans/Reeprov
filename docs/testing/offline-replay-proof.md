@@ -29,4 +29,4 @@ All boundaries have monotonic sequence indices 0..4, distinct IDs, real state sn
 | **Live Network Attempt** | Logic invokes `fetch()` directly | `NETWORK_ATTEMPT_BLOCKED`, `live_calls_blocked: 1` | `replayRuntime.test.ts` |
 | **Pre-flight Corruption** | Incompatible schema version `99.0.0` | `NOT_REPLAYABLE`, `status: "UNSUPPORTED"` | `replayRuntime.test.ts` |
 | **Clock & Random** | Seeded random & frozen time | Exact deterministic equivalence | `replayRuntime.test.ts` |
-| **Persistence Parity** | `saveReplayResult()` invoked | Written to `.agentpulse/replays/` with JSON parity | `replayRuntime.test.ts` |
+| **Persistence Parity** | `saveReplayResult()` invoked | Written to `.reeprov/replays/` with JSON parity | `replayRuntime.test.ts` |

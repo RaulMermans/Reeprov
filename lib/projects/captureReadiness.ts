@@ -76,7 +76,7 @@ export async function computeCaptureReadiness(
         missingRequirements: ["No run evidence provided."],
         explanation: "No run data available to evaluate capture quality.",
       },
-      recommendations: ["Instrument your agent using the AgentPulse SDK to emit execution events."],
+      recommendations: ["Instrument your agent using the Reeprov SDK to emit execution events."],
     };
   }
 

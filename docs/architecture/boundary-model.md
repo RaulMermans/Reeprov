@@ -1,4 +1,4 @@
-# AgentPulse Execution Boundary Model
+# Reeprov Execution Boundary Model
 
 > **Definition:** The formal taxonomy and structural model describing nondeterministic interaction points between an autonomous agent and external systems.
 
@@ -6,7 +6,7 @@
 
 ## 1. Execution Steps vs. Execution Boundaries
 
-A common failure mode in agent tracing is conflating **internal control flow** with **external interaction points**. AgentPulse enforces a strict separation:
+A common failure mode in agent tracing is conflating **internal control flow** with **external interaction points**. Reeprov enforces a strict separation:
 
 | Concept | Contract | Scope | Role in Replay |
 |---|---|---|---|
@@ -19,7 +19,7 @@ A single `ExecutionStep` may encompass zero, one, or multiple `ExecutionBoundary
 
 ## 2. Boundary Taxonomy
 
-AgentPulse recognizes eight first-class execution boundary types:
+Reeprov recognizes eight first-class execution boundary types:
 
 ```mermaid
 classDiagram
@@ -100,7 +100,7 @@ Operations are classified into five side-effect tiers by [`sideEffectClassifier.
 | `destructive` | Irrevocably destroys or mutates system state. Blocked during offline replay. | `delete_database`, `terminate_instance`, `rm_rf` |
 
 ### Fail-Closed Principle
-Unknown tools default to `external_side_effect` unless explicitly registered or exhibiting unequivocal read-only semantics. AgentPulse **never assumes a tool is safe to replay simply because it completed successfully**.
+Unknown tools default to `external_side_effect` unless explicitly registered or exhibiting unequivocal read-only semantics. Reeprov **never assumes a tool is safe to replay simply because it completed successfully**.
 
 ---
 

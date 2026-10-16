@@ -1,5 +1,5 @@
 /**
- * AgentPulse Comparison & Divergence Analysis Engine.
+ * Reeprov Comparison & Divergence Analysis Engine.
  *
  * Sprint 6 canonical exports.
  */

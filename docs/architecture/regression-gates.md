@@ -1,4 +1,4 @@
-# AgentPulse Regression Gates
+# Reeprov Regression Gates
 
 ## Automated Gate Policies, Comparability Guards, and CI Integration
 
@@ -88,7 +88,7 @@ The output of gate evaluation:
 
 ### 4. CI / Release Gate Integration
 
-AgentPulse supports headless CI gate checking via `pulse-cli regression-check`.
+Reeprov supports headless CI gate checking via `pulse-cli regression-check`.
 
 #### Standardized Exit Codes:
 

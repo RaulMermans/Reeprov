@@ -37,7 +37,7 @@ export function getDb(): Sql {
   const url = process.env["DATABASE_URL"];
   if (!url) {
     throw new Error(
-      "[AgentPulse] DATABASE_URL is not set. " +
+      "[Reeprov] DATABASE_URL is not set. " +
         "Production deployments require a Postgres connection string. " +
         "For local development without a database, leave DATABASE_URL unset and file-backed stores will be used instead.",
     );
@@ -62,6 +62,11 @@ export function getDb(): Sql {
 /** For testing: reset the cached client. */
 export function _resetDbClient(): void {
   _sql = null;
+}
+
+/** For testing: inject a mock database client. */
+export function _setDbClient(client: Sql | null): void {
+  _sql = client;
 }
 
 /** Close the cached client, primarily for one-shot scripts and tests. */

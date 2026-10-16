@@ -22,7 +22,7 @@ export interface HumanReviewPayload {
 }
 
 export class HumanEvaluatorAdapter implements EvaluatorAdapter {
-  readonly evaluator_id = "agentpulse_human_evaluator";
+  readonly evaluator_id = "reeprov_human_evaluator";
   readonly evaluator_version = "1.0.0";
   readonly grader_type = "human" as const;
   readonly deterministic = false;

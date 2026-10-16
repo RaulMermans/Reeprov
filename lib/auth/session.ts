@@ -7,8 +7,9 @@
 
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { type ResponseCookie } from "next/dist/compiled/@edge-runtime/cookies";
+import { getReeprovEnv } from "@/lib/config/env";
 
-export const SESSION_COOKIE_NAME = "agentpulse_session";
+export const SESSION_COOKIE_NAME = "reeprov_session";
 export const DEFAULT_SESSION_TTL_HOURS = 24;
 
 interface SessionPayload {
@@ -24,12 +25,14 @@ const revokedSessionIds = new Set<string>();
 let runtimeSigningSecret: string | null = null;
 
 function getSigningSecret(): string {
-  if (process.env.AGENTPULSE_SESSION_SECRET) {
-    return process.env.AGENTPULSE_SESSION_SECRET;
+  const sessionSecret = getReeprovEnv("REEPROV_SESSION_SECRET");
+  if (sessionSecret) {
+    return sessionSecret;
   }
-  if (process.env.AGENTPULSE_ACCESS_KEY) {
-    return createHmac("sha256", "agentpulse_session_salt")
-      .update(process.env.AGENTPULSE_ACCESS_KEY)
+  const accessKey = getReeprovEnv("REEPROV_ACCESS_KEY");
+  if (accessKey) {
+    return createHmac("sha256", "reeprov_session_salt")
+      .update(accessKey)
       .digest("hex");
   }
   if (!runtimeSigningSecret) {
@@ -127,7 +130,7 @@ export function isRequestHttps(request: Request): boolean {
  */
 export function getSessionCookieOptions(reqOrHttps: Request | boolean = false): Partial<ResponseCookie> {
   const isHttps = typeof reqOrHttps === "boolean" ? reqOrHttps : isRequestHttps(reqOrHttps);
-  const forceSecure = process.env.AGENTPULSE_FORCE_SECURE_COOKIES === "true";
+  const forceSecure = (process.env.REEPROV_FORCE_SECURE_COOKIES ?? process.env.AGENTPULSE_FORCE_SECURE_COOKIES) === "true";
   const secure = forceSecure || isHttps;
   const maxAge = DEFAULT_SESSION_TTL_HOURS * 60 * 60; // seconds
   return {

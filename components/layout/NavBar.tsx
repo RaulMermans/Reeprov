@@ -40,7 +40,7 @@ export function NavBar({ onLock }: { onLock?: () => void }) {
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-4">
           <Link href="/dashboard" className="flex shrink-0 items-center gap-2">
-            <span className="text-sm font-bold tracking-tight text-slate-950">AgentPulse</span>
+            <span className="text-sm font-bold tracking-tight text-slate-950">Reeprov</span>
             <span className="hidden rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-xs font-medium text-teal-700 sm:inline">
               Personal Studio
             </span>

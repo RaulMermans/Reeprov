@@ -2,7 +2,7 @@
  * GET /api/runs/[runId]/canonical
  * Returns the canonical RunArtifact for a run (or an adapted legacy run if created prior to v1).
  *
- * Auth: x-agentpulse-key (AGENTPULSE_ACCESS_KEY or AGENTPULSE_INGEST_KEY)
+ * Auth: x-reeprov-key (REEPROV_ACCESS_KEY or REEPROV_INGEST_KEY)
  */
 
 import { NextResponse } from "next/server";

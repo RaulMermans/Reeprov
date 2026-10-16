@@ -7,8 +7,8 @@
  * - ExperimentResults
  *
  * File layout:
- * .agentpulse/experiments/${id}.definition.json
- * .agentpulse/experiments/${id}.result.json
+ * .reeprov/experiments/${id}.definition.json
+ * .reeprov/experiments/${id}.result.json
  */
 
 import { access, mkdir, readFile, writeFile, readdir } from "node:fs/promises";
@@ -22,8 +22,14 @@ import {
 import { getDb, hasDatabaseUrl } from "../../db/client";
 import { ensureSchema } from "../../db/migrate";
 
+import { getReeprovEnv } from "@/lib/config/env";
+import { getReeprovHome } from "@/lib/storage/dataPath";
+
 function experimentsDir(): string {
-  const base = process.env["AGENTPULSE_STORE_DIR"] ?? join(process.cwd(), ".agentpulse");
+  const base =
+    getReeprovEnv("REEPROV_STORE_DIR") ??
+    getReeprovEnv("REEPROV_HOME") ??
+    getReeprovHome();
   return join(base, "experiments");
 }
 

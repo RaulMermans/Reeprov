@@ -5,7 +5,7 @@
  * DELETE /api/runs/[runId]
  * Deletes a saved run.
  *
- * Auth: x-agentpulse-key (AGENTPULSE_ACCESS_KEY for dashboard access)
+ * Auth: x-reeprov-key (REEPROV_ACCESS_KEY for dashboard access)
  */
 
 import { NextResponse } from "next/server";

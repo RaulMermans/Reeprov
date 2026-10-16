@@ -4,7 +4,7 @@
 
 Ablation is the scientific method of testing whether a piece of context or memory materially affected an agent's execution.
 
-Instead of guessing or prompting an LLM to judge relevance, AgentPulse:
+Instead of guessing or prompting an LLM to judge relevance, Reeprov:
 1. Identifies **Ablation Candidates** via deterministic signals (duplicates, high token share, low retrieval score, stale memory).
 2. Clones the execution at a stable historical checkpoint using `ForkRuntime`.
 3. Applies a `context_exclusion` or `memory_exclusion` mutation.
@@ -25,7 +25,7 @@ When an ablation changes model input context:
 - If no candidate handler is supplied, `ForkRuntime` rejects the fork with `ABLATION_REQUIRES_CANDIDATE_MODEL`.
 
 ### Non-Destructive Memory Policy
-AgentPulse **never** performs destructive write operations against live external memory databases (such as calling `mem0.delete()` or `letta.delete_memory()`). Memory ablation is applied by filtering candidate context assembly and candidate memory operations during fork execution.
+Reeprov **never** performs destructive write operations against live external memory databases (such as calling `mem0.delete()` or `letta.delete_memory()`). Memory ablation is applied by filtering candidate context assembly and candidate memory operations during fork execution.
 
 ---
 

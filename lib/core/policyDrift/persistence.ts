@@ -6,8 +6,8 @@
  * - PolicyDriftReport (versioned comparison evidence)
  *
  * Directory layout:
- * .agentpulse/policy-drift/snapshots/
- * .agentpulse/policy-drift/reports/
+ * .reeprov/policy-drift/snapshots/
+ * .reeprov/policy-drift/reports/
  */
 
 import { access, mkdir, readFile, writeFile, readdir } from "node:fs/promises";
@@ -21,8 +21,14 @@ import {
 import { getDb, hasDatabaseUrl } from "../../db/client";
 import { ensureSchema } from "../../db/migrate";
 
+import { getReeprovEnv } from "@/lib/config/env";
+import { getReeprovHome } from "@/lib/storage/dataPath";
+
 function basePolicyDriftDir(): string {
-  const base = process.env["AGENTPULSE_STORE_DIR"] ?? join(process.cwd(), ".agentpulse");
+  const base =
+    getReeprovEnv("REEPROV_STORE_DIR") ??
+    getReeprovEnv("REEPROV_HOME") ??
+    getReeprovHome();
   return join(base, "policy-drift");
 }
 

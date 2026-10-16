@@ -32,25 +32,27 @@ function read(rel: string): string {
 // ── Test setup ────────────────────────────────────────────────────────────────
 
 let tmpDir: string;
-const originalStoreDir = process.env["AGENTPULSE_STORE_DIR"];
-const originalAccessKey = process.env["AGENTPULSE_ACCESS_KEY"];
+const originalStoreDir = process.env["REEPROV_STORE_DIR"] ?? process.env["AGENTPULSE_STORE_DIR"];
+const originalAccessKey = process.env["REEPROV_ACCESS_KEY"] ?? process.env["AGENTPULSE_ACCESS_KEY"];
 
 beforeEach(async () => {
-  tmpDir = await mkdtemp(join(tmpdir(), "agentpulse-task11-"));
-  process.env["AGENTPULSE_STORE_DIR"] = tmpDir;
-  process.env["AGENTPULSE_ACCESS_KEY"] = "test-key-task11";
+  tmpDir = await mkdtemp(join(tmpdir(), "reeprov-task11-"));
+  process.env["REEPROV_STORE_DIR"] = tmpDir;
+  process.env["REEPROV_ACCESS_KEY"] = "test-key-task11";
 });
 
 afterEach(async () => {
   if (originalStoreDir === undefined) {
+    delete process.env["REEPROV_STORE_DIR"];
     delete process.env["AGENTPULSE_STORE_DIR"];
   } else {
-    process.env["AGENTPULSE_STORE_DIR"] = originalStoreDir;
+    process.env["REEPROV_STORE_DIR"] = originalStoreDir;
   }
   if (originalAccessKey === undefined) {
+    delete process.env["REEPROV_ACCESS_KEY"];
     delete process.env["AGENTPULSE_ACCESS_KEY"];
   } else {
-    process.env["AGENTPULSE_ACCESS_KEY"] = originalAccessKey;
+    process.env["REEPROV_ACCESS_KEY"] = originalAccessKey;
   }
   await rm(tmpDir, { recursive: true, force: true });
 });
@@ -64,7 +66,7 @@ function req(method: string, url: string, headers: Record<string, string> = {}, 
 }
 
 function authHeader() {
-  return { "x-agentpulse-key": "test-key-task11" };
+  return { "x-reeprov-key": "test-key-task11" };
 }
 
 // ── GET /api/integrations — auth ──────────────────────────────────────────────
@@ -76,7 +78,7 @@ describe("GET /api/integrations — auth", () => {
   });
 
   it("returns 401 with wrong key", async () => {
-    const res = await integrationsGet(req("GET", "/api/integrations", { "x-agentpulse-key": "wrong" }));
+    const res = await integrationsGet(req("GET", "/api/integrations", { "x-reeprov-key": "wrong" }));
     expect(res.status).toBe(401);
   });
 
@@ -455,10 +457,10 @@ describe("Integration detail page", () => {
 
   it("shows environment variable block", () => {
     const src = read("app/dashboard/integrations/[integrationId]/page.tsx");
-    expect(src).toContain("AGENTPULSE_URL");
-    expect(src).toContain("AGENTPULSE_INGEST_KEY");
-    expect(src).toContain("AGENTPULSE_PROJECT_ID");
-    expect(src).toContain("AGENTPULSE_ENABLED");
+    expect(src).toContain("REEPROV_URL");
+    expect(src).toContain("REEPROV_INGEST_KEY");
+    expect(src).toContain("REEPROV_PROJECT_ID");
+    expect(src).toContain("REEPROV_ENABLED");
   });
 
   it("includes TypeScript, Python, and REST snippet tabs", () => {
@@ -477,7 +479,7 @@ describe("Integration detail page", () => {
   it("includes troubleshooting section explaining env vars alone do not send events", () => {
     const src = read("app/dashboard/integrations/[integrationId]/page.tsx");
     expect(src).toContain("Environment variables alone do not send events");
-    expect(src).toContain("AGENTPULSE_ENABLED=true");
+    expect(src).toContain("REEPROV_ENABLED=true");
   });
 
   it("includes recent runs section", () => {
@@ -490,33 +492,33 @@ describe("Integration detail page", () => {
 
 describe("TypeScript SDK template", () => {
   it("client file exists", () => {
-    const src = read("examples/integrations/typescript/agentpulseClient.ts");
-    expect(src).toContain("AgentPulseClient");
+    const src = read("examples/integrations/typescript/reeprovClient.ts");
+    expect(src).toContain("ReeprovClient");
   });
 
-  it("reads AGENTPULSE_URL, AGENTPULSE_INGEST_KEY, AGENTPULSE_PROJECT_ID from env", () => {
-    const src = read("examples/integrations/typescript/agentpulseClient.ts");
-    expect(src).toContain("AGENTPULSE_URL");
-    expect(src).toContain("AGENTPULSE_INGEST_KEY");
-    expect(src).toContain("AGENTPULSE_PROJECT_ID");
-    expect(src).toContain("AGENTPULSE_ENABLED");
+  it("reads REEPROV_URL, REEPROV_INGEST_KEY, REEPROV_PROJECT_ID from env", () => {
+    const src = read("examples/integrations/typescript/reeprovClient.ts");
+    expect(src).toContain("REEPROV_URL");
+    expect(src).toContain("REEPROV_INGEST_KEY");
+    expect(src).toContain("REEPROV_PROJECT_ID");
+    expect(src).toContain("REEPROV_ENABLED");
   });
 
-  it("is no-op when AGENTPULSE_ENABLED is not true", () => {
-    const src = read("examples/integrations/typescript/agentpulseClient.ts");
-    expect(src).toContain("AGENTPULSE_ENABLED");
+  it("is no-op when REEPROV_ENABLED is not true", () => {
+    const src = read("examples/integrations/typescript/reeprovClient.ts");
+    expect(src).toContain("REEPROV_ENABLED");
     expect(src).toContain("noop-");
   });
 
   it("does not log or print the ingest key", () => {
-    const src = read("examples/integrations/typescript/agentpulseClient.ts");
+    const src = read("examples/integrations/typescript/reeprovClient.ts");
     // Must never console.log the key
     expect(src).not.toMatch(/console\.log.*ingestKey/);
     expect(src).not.toMatch(/console\.log.*INGEST_KEY/);
   });
 
   it("exports startRun, completeRun, failRun, modelCallCompleted, toolCallCompleted, evalCompleted, artifactCreated", () => {
-    const src = read("examples/integrations/typescript/agentpulseClient.ts");
+    const src = read("examples/integrations/typescript/reeprovClient.ts");
     expect(src).toContain("startRun");
     expect(src).toContain("completeRun");
     expect(src).toContain("failRun");
@@ -528,7 +530,7 @@ describe("TypeScript SDK template", () => {
 
   it("has a README", () => {
     const src = read("examples/integrations/typescript/README.md");
-    expect(src).toContain("AGENTPULSE_ENABLED");
+    expect(src).toContain("REEPROV_ENABLED");
   });
 });
 
@@ -536,33 +538,33 @@ describe("TypeScript SDK template", () => {
 
 describe("Python SDK template", () => {
   it("client file exists", () => {
-    const src = read("examples/integrations/python/agentpulse_client.py");
-    expect(src).toContain("AgentPulseClient");
+    const src = read("examples/integrations/python/reeprov_client.py");
+    expect(src).toContain("ReeprovClient");
   });
 
   it("reads env vars", () => {
-    const src = read("examples/integrations/python/agentpulse_client.py");
-    expect(src).toContain("AGENTPULSE_URL");
-    expect(src).toContain("AGENTPULSE_INGEST_KEY");
-    expect(src).toContain("AGENTPULSE_PROJECT_ID");
-    expect(src).toContain("AGENTPULSE_ENABLED");
+    const src = read("examples/integrations/python/reeprov_client.py");
+    expect(src).toContain("REEPROV_URL");
+    expect(src).toContain("REEPROV_INGEST_KEY");
+    expect(src).toContain("REEPROV_PROJECT_ID");
+    expect(src).toContain("REEPROV_ENABLED");
   });
 
-  it("is no-op when AGENTPULSE_ENABLED is not true", () => {
-    const src = read("examples/integrations/python/agentpulse_client.py");
-    expect(src).toContain("AGENTPULSE_ENABLED");
+  it("is no-op when REEPROV_ENABLED is not true", () => {
+    const src = read("examples/integrations/python/reeprov_client.py");
+    expect(src).toContain("REEPROV_ENABLED");
     expect(src).toContain("is_enabled");
     expect(src).toContain("noop-");
   });
 
   it("does not log or print the ingest key", () => {
-    const src = read("examples/integrations/python/agentpulse_client.py");
+    const src = read("examples/integrations/python/reeprov_client.py");
     expect(src).not.toMatch(/print.*ingest_key/i);
     expect(src).not.toMatch(/print.*INGEST_KEY/);
   });
 
   it("exports start_run, complete_run, fail_run, model_call_completed, tool_call_completed, eval_completed, artifact_created", () => {
-    const src = read("examples/integrations/python/agentpulse_client.py");
+    const src = read("examples/integrations/python/reeprov_client.py");
     expect(src).toContain("def start_run");
     expect(src).toContain("def complete_run");
     expect(src).toContain("def fail_run");
@@ -574,7 +576,7 @@ describe("Python SDK template", () => {
 
   it("has a README", () => {
     const src = read("examples/integrations/python/README.md");
-    expect(src).toContain("AGENTPULSE_ENABLED");
+    expect(src).toContain("REEPROV_ENABLED");
   });
 });
 
@@ -589,14 +591,14 @@ describe("REST template", () => {
     expect(src).toContain("/api/runs/fail");
   });
 
-  it("README uses x-agentpulse-key header", () => {
+  it("README uses x-reeprov-key header", () => {
     const src = read("examples/integrations/rest/README.md");
-    expect(src).toContain("x-agentpulse-key");
+    expect(src).toContain("x-reeprov-key");
   });
 
-  it("README explains AGENTPULSE_INGEST_KEY is separate from dashboard key", () => {
+  it("README explains REEPROV_INGEST_KEY is separate from dashboard key", () => {
     const src = read("examples/integrations/rest/README.md");
-    expect(src).toContain("AGENTPULSE_INGEST_KEY");
+    expect(src).toContain("REEPROV_INGEST_KEY");
     expect(src).toContain("dashboard");
   });
 });

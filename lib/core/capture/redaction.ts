@@ -52,6 +52,8 @@ function getSensitiveEnvValues(): string[] {
     "OPENAI_API_KEY",
     "ANTHROPIC_API_KEY",
     "GITHUB_TOKEN",
+    "REEPROV_INGEST_KEY",
+    "REEPROV_ACCESS_KEY",
     "AGENTPULSE_INGEST_KEY",
     "AGENTPULSE_ACCESS_KEY",
     "DATABASE_URL",

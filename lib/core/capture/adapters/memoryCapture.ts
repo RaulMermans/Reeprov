@@ -4,7 +4,7 @@
  * Framework-neutral observability contracts for external memory systems
  * (e.g. Mem0, Letta, Zep, custom DB).
  *
- * Invariant: AgentPulse observes memory operations; it does not manage or persist long-term memory.
+ * Invariant: Reeprov observes memory operations; it does not manage or persist long-term memory.
  */
 
 import {

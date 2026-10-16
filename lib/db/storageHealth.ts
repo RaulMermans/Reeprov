@@ -2,7 +2,7 @@ import { getDb, hasDatabaseUrl } from "./client";
 import { fileRunStore } from "@/lib/runs/runStore";
 import packageJson from "@/package.json";
 
-export const AGENTPULSE_TABLES = [
+export const REEPROV_TABLES = [
   "ap_integrations",
   "ap_runs",
   "ap_trace_events",
@@ -46,6 +46,9 @@ export const AGENTPULSE_TABLES = [
   "ap_policy_drift_reports",
   "ap_release_evidence",
 ] as const;
+
+/** Legacy alias during AgentPulse -> Reeprov migration */
+export const AGENTPULSE_TABLES = REEPROV_TABLES;
 
 export type DeploymentEnvironment = "production" | "preview" | "development";
 
@@ -92,7 +95,7 @@ export async function getStorageHealth(): Promise<StorageHealth> {
       driver: "file",
       databaseUrlPresent,
       tablesPresent: [],
-      missingTables: [...AGENTPULSE_TABLES],
+      missingTables: [...REEPROV_TABLES],
       runCount,
       environment,
       version,
@@ -109,7 +112,7 @@ export async function getStorageHealth(): Promise<StorageHealth> {
   `;
 
   const tablesPresent = rows.map((row) => String(row["tablename"]));
-  const missingTables = AGENTPULSE_TABLES.filter((table) => !tablesPresent.includes(table));
+  const missingTables = REEPROV_TABLES.filter((table) => !tablesPresent.includes(table));
 
   let runCount = 0;
   if (tablesPresent.includes("ap_runs")) {

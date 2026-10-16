@@ -2,7 +2,7 @@
  * GET /api/runs/[runId]/checkpoints
  * Returns all recorded checkpoints for a run.
  *
- * Auth: x-agentpulse-key
+ * Auth: x-reeprov-key
  */
 
 import { NextResponse } from "next/server";

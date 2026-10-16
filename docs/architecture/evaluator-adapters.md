@@ -6,7 +6,7 @@
 
 ## 1. Adapter Contract
 
-All evaluators in AgentPulse implement the `EvaluatorAdapter` interface:
+All evaluators in Reeprov implement the `EvaluatorAdapter` interface:
 
 ```typescript
 export interface EvaluatorAdapter {
@@ -29,7 +29,7 @@ Every result records the exact `evaluator_id` and `evaluator_version` that produ
 
 ## 2. Deterministic Grader First (`DeterministicEvaluatorAdapter`)
 
-AgentPulse prioritizes deterministic graders whenever an assertion is objectively verifiable. This avoids non-deterministic model variance, eliminates unnecessary LLM API costs, and executes in sub-millisecond durations.
+Reeprov prioritizes deterministic graders whenever an assertion is objectively verifiable. This avoids non-deterministic model variance, eliminates unnecessary LLM API costs, and executes in sub-millisecond durations.
 
 Supported structured assertions:
 

@@ -1,10 +1,10 @@
-# AgentPulse Deterministic Offline Replay Runtime Architecture
+# Reeprov Deterministic Offline Replay Runtime Architecture
 
 ## 1. Overview and Core Invariant
 
-The **AgentPulse Deterministic Offline Replay Runtime** proves the primary milestone of Sprint 3:
+The **Reeprov Deterministic Offline Replay Runtime** proves the primary milestone of Sprint 3:
 
-> **"Given a supported captured agent run, AgentPulse can reconstruct and validate the execution trajectory offline using the original application logic plus recorded nondeterministic boundaries."**
+> **"Given a supported captured agent run, Reeprov can reconstruct and validate the execution trajectory offline using the original application logic plus recorded nondeterministic boundaries."**
 
 Unlike naive mocking or static trace viewing, the replay runtime executes authentic host agent code in an isolated execution harness where all non-deterministic external interactions (LLM calls, tool executions, vector searches, database queries, clocks, and pseudo-random generators) are resolved deterministically against recorded execution boundaries without live dependencies or network access.
 
@@ -61,7 +61,7 @@ Unlike naive mocking or static trace viewing, the replay runtime executes authen
 5. **Divergence Detection**:
    Any deviation in boundary type, identity, input hash, step index, or side-effect intent triggers immediate divergence recording.
 6. **Finalization & Persistence**:
-   Output comparison against recorded terminal step summary, event log finalization, and persistence to `.agentpulse/replays/<id>.json` and Postgres `ap_replay_runs`.
+   Output comparison against recorded terminal step summary, event log finalization, and persistence to `.reeprov/replays/<id>.json` and Postgres `ap_replay_runs`.
 
 ---
 

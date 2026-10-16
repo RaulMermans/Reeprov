@@ -7,7 +7,7 @@
  *   ?status=failed                 — filter by status
  *   ?limit=50                      — max results (default 50, max 200)
  *
- * Auth: x-agentpulse-key (AGENTPULSE_ACCESS_KEY for dashboard access)
+ * Auth: x-reeprov-key (REEPROV_ACCESS_KEY for dashboard access)
  */
 
 import { NextResponse } from "next/server";

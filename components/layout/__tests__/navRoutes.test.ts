@@ -66,8 +66,8 @@ describe("scanner page", () => {
 });
 
 describe("proof dashboard page", () => {
-  it("renders the AgentPulse heading", () => {
-    expect(dashboardPageSrc).toContain("AgentPulse");
+  it("renders the Reeprov heading", () => {
+    expect(dashboardPageSrc).toContain("Reeprov");
   });
 
   it("links to /dashboard/workflows", () => {

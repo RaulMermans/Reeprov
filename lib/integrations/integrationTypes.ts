@@ -6,7 +6,7 @@
  *
  * Mode:
  *   static_only         — project was scanned but not trace-instrumented
- *   trace_sdk           — project emits trace events via the AgentPulse SDK/client
+ *   trace_sdk           — project emits trace events via the Reeprov SDK/client
  *   manual_trace_import — trace data was manually imported
  *   gateway_future      — planned; not yet implemented
  *
@@ -50,7 +50,7 @@ export interface ProjectIntegration {
   mode: IntegrationMode;
   /** SHA-256 hash of the project-specific ingest key, if generated. Never the raw key. */
   ingestKeyHash?: string;
-  /** Short non-secret preview: "ap_live_...9f2a". Never the full key. */
+  /** Short non-secret preview: "ree_live_...9f2a" (or legacy "ap_live_...9f2a"). Never the full key. */
   ingestKeyPreview?: string;
   lastEventAt?: string;
   lastRunId?: string;

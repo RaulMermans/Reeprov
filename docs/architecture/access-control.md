@@ -1,6 +1,6 @@
 # Architecture: Centralized Access Control
 
-AgentPulse implements a unified, mode-aware authorization framework in `lib/auth/accessControl.ts` centered around `authorizeRequest(request, options)`.
+Reeprov implements a unified, mode-aware authorization framework in `lib/auth/accessControl.ts` centered around `authorizeRequest(request, options)`.
 
 ## Capabilities
 

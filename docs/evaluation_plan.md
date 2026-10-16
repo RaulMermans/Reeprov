@@ -58,4 +58,4 @@ When a run fails an eval at `fail` or `critical` severity, the failing behavior 
 2. Future runs are expected to pass that same eval.
 3. If a future run fails the same eval again, it is a regression.
 
-In v1, promotion is manual — the user marks a failing eval as a regression case. In a future phase, AgentPulse will detect when a previously passing eval starts failing and flag it automatically.
+In v1, promotion is manual — the user marks a failing eval as a regression case. In a future phase, Reeprov will detect when a previously passing eval starts failing and flag it automatically.

@@ -1,4 +1,4 @@
-# AgentPulse Fork Runtime Architecture
+# Reeprov Fork Runtime Architecture
 
 ## 1. Core Philosophy & Invariants
 
@@ -86,7 +86,7 @@ Mutations allow developers to isolate variables and test counterfactual scenario
 
 ## 4. Resumable Host Adapter Contract
 
-AgentPulse does not claim arbitrary language runtime time-travel. Workflows must implement `ResumableHostAdapter`:
+Reeprov does not claim arbitrary language runtime time-travel. Workflows must implement `ResumableHostAdapter`:
 
 ```typescript
 export interface ResumableHostAdapter {

@@ -63,11 +63,11 @@ jobs:
           mkdir /tmp/fresh-ts-app
           cd /tmp/fresh-ts-app
           npm init -y
-          TARBALL=$(ls $GITHUB_WORKSPACE/packages/client-typescript/agentpulse-client-*.tgz)
+          TARBALL=$(ls $GITHUB_WORKSPACE/packages/client-typescript/reeprov-client-*.tgz)
           npm install "$TARBALL"
           node -e "
-            const { AgentPulseClient } = require('@agentpulse/client');
-            const client = new AgentPulseClient({ endpoint: 'http://127.0.0.1:3000', apiKey: 'test' });
+            const { ReeprovClient } = require('@reeprov/client');
+            const client = new ReeprovClient({ endpoint: 'http://127.0.0.1:3000', apiKey: 'test' });
             console.log('TypeScript SDK successfully verified from packaged tarball');
           "
 
@@ -85,8 +85,8 @@ jobs:
           WHEEL=$(ls $GITHUB_WORKSPACE/packages/client-python/dist/*.whl)
           pip install "$WHEEL"
           python -c "
-          from agentpulse_client import AgentPulseClient
-          client = AgentPulseClient(url='http://127.0.0.1:3000', ingest_key='test')
+          from reeprov_client import ReeprovClient
+          client = ReeprovClient(url='http://127.0.0.1:3000', ingest_key='test')
           print('Python SDK successfully verified from built wheel')
           "
 
@@ -94,7 +94,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: typescript-sdk-tarball
-          path: packages/client-typescript/agentpulse-client-*.tgz
+          path: packages/client-typescript/reeprov-client-*.tgz
           if-no-files-found: error
 
       - name: Upload Python SDK Dist
@@ -140,7 +140,7 @@ jobs:
 
       - name: Promote & Publish TypeScript SDK
         run: |
-          TARBALL=$(ls packages/client-typescript/agentpulse-client-*.tgz)
+          TARBALL=$(ls packages/client-typescript/reeprov-client-*.tgz)
           echo "Promoting pre-built verified tarball: $TARBALL"
           if [ "${{ inputs.dry_run }}" = "false" ]; then
             npm publish "$TARBALL" --access public --provenance
@@ -175,9 +175,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ inputs.version }}
-          name: AgentPulse v${{ inputs.version }}
+          name: Reeprov v${{ inputs.version }}
           body_path: CHANGELOG.md
           prerelease: true
           files: |
-            packages/client-typescript/agentpulse-client-*.tgz
+            packages/client-typescript/reeprov-client-*.tgz
             packages/client-python/dist/*

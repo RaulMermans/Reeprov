@@ -2,7 +2,7 @@
  * File-backed integration registry store.
  *
  * Layout:
- *   .agentpulse/integrations/
+ *   .reeprov/integrations/
  *     index.json            — array of ProjectIntegration, newest first
  *     {integrationId}.json  — full ProjectIntegration
  *
@@ -24,13 +24,16 @@ import {
   type UpdateIntegrationInput,
 } from "./integrationTypes";
 
+import { getReeprovEnv } from "@/lib/config/env";
+import { getReeprovHome } from "@/lib/storage/dataPath";
+
 // ── Store directory ───────────────────────────────────────────────────────────
 
 function storeDir(): string {
   const base =
-    process.env["AGENTPULSE_STORE_DIR"] ??
-    process.env["AGENTPULSE_HOME"] ??
-    join(process.cwd(), ".agentpulse");
+    getReeprovEnv("REEPROV_STORE_DIR") ??
+    getReeprovEnv("REEPROV_HOME") ??
+    getReeprovHome();
   return join(base, "integrations");
 }
 

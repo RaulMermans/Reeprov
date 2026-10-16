@@ -1,12 +1,13 @@
 /**
- * @agentpulse/client
+ * @reeprov/client
  *
- * Official TypeScript client SDK for AgentPulse — local-first debugging
+ * Official TypeScript client SDK for Reeprov — local-first debugging
  * and reproducibility for AI agents.
  */
 
-export { AgentPulseClient, AgentPulseError } from "./client.js";
+export { ReeprovClient, ReeprovError, AgentPulseClient, AgentPulseError } from "./client.js";
 export type {
+  ReeprovClientOptions,
   AgentPulseClientOptions,
   ArtifactCreatedInput,
   BoundaryCaptureInput,

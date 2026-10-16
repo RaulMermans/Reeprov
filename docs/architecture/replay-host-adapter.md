@@ -2,7 +2,7 @@
 
 ## 1. Motivation and Principles
 
-AgentPulse does not magically execute arbitrary black-box code from JSON files. A faithful reproduction requires:
+Reeprov does not magically execute arbitrary black-box code from JSON files. A faithful reproduction requires:
 1. The captured `RunArtifact` with replay-grade evidence.
 2. The executable host application code (agent graph, workflow engine, or script).
 3. A framework-neutral seam connecting recorded nondeterministic boundaries to the application's runtime dependencies.

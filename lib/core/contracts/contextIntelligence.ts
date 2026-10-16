@@ -18,7 +18,8 @@ import {
 } from "./context";
 
 export const CONTEXT_INTELLIGENCE_SCHEMA_VERSION = "1.0.0-alpha";
-export const DEFAULT_CONTEXT_ANALYZER_NAME = "AgentPulseContextAnalyzer";
+export const DEFAULT_CONTEXT_ANALYZER_NAME = "ReeprovContextAnalyzer";
+export const LEGACY_DEFAULT_CONTEXT_ANALYZER_NAME = "AgentPulseContextAnalyzer";
 export const DEFAULT_CONTEXT_ANALYZER_VERSION = "1.0.0";
 export const DEFAULT_CONTEXT_RULESET_VERSION = "2026.10";
 

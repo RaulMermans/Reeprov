@@ -8,10 +8,10 @@
  * - RegressionReport (immutable release evidence)
  *
  * Directory layout:
- * .agentpulse/regressions/baselines/
- * .agentpulse/regressions/policies/
- * .agentpulse/regressions/gates/
- * .agentpulse/regressions/reports/
+ * .reeprov/regressions/baselines/
+ * .reeprov/regressions/policies/
+ * .reeprov/regressions/gates/
+ * .reeprov/regressions/reports/
  */
 
 import { access, mkdir, readFile, writeFile, readdir } from "node:fs/promises";
@@ -29,8 +29,14 @@ import {
 import { getDb, hasDatabaseUrl } from "../../db/client";
 import { ensureSchema } from "../../db/migrate";
 
+import { getReeprovEnv } from "@/lib/config/env";
+import { getReeprovHome } from "@/lib/storage/dataPath";
+
 function baseRegressionDir(): string {
-  const base = process.env["AGENTPULSE_STORE_DIR"] ?? join(process.cwd(), ".agentpulse");
+  const base =
+    getReeprovEnv("REEPROV_STORE_DIR") ??
+    getReeprovEnv("REEPROV_HOME") ??
+    getReeprovHome();
   return join(base, "regressions");
 }
 

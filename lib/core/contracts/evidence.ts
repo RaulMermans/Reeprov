@@ -1,7 +1,7 @@
 /**
  * Canonical Run Evidence Contracts.
  *
- * Provides the first-class PROOF layer for AgentPulse execution intelligence:
+ * Provides the first-class PROOF layer for Reeprov execution intelligence:
  * 1. Explicit structured PlanEvidence (private chain-of-thought strictly prohibited).
  * 2. Append-only VerificationEvents (chronological verification lifecycle).
  * 3. Typed TestResults (artifact-referenced logs).

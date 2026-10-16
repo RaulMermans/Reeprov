@@ -1,12 +1,12 @@
 # Product Direction
 
-## What AgentPulse Is
+## What Reeprov Is
 
-AgentPulse is a **black-box recorder and proof layer for agentic AI workflows**.
+Reeprov is a **black-box recorder and proof layer for agentic AI workflows**.
 
 It accepts trace events from external AI projects, validates them, stores them, and presents them as inspectable run timelines. It answers: what happened, why, how much did it cost, and did it pass?
 
-AgentPulse is **not**:
+Reeprov is **not**:
 - A workflow runtime
 - A no-code agent builder
 - A marketplace
@@ -24,7 +24,7 @@ Each run is:
 
 ## Secondary Surface: Repository Scanner
 
-The repository scanner at `/dashboard/scanner` is a supporting tool that audits GitHub repos for AI system structure, secret exposure, and documentation quality. It is useful for onboarding new projects to AgentPulse.
+The repository scanner at `/dashboard/scanner` is a supporting tool that audits GitHub repos for AI system structure, secret exposure, and documentation quality. It is useful for onboarding new projects to Reeprov.
 
 The scanner is **not** the primary product. It does not execute workflows and does not produce trace data. It produces static health reports.
 
@@ -40,7 +40,7 @@ The scanner is **not** the primary product. It does not execute workflows and do
 /dashboard/reports/:reportId/reconstruction   — Static Proof Reconstruction for a saved scan report
 ```
 
-## Core Questions AgentPulse Answers
+## Core Questions Reeprov Answers
 
 - What workflow ran, and which version?
 - Which nodes executed and in what order?
@@ -62,7 +62,7 @@ Real trace ingestion from connected AI projects.
 
 - External projects emit `TraceEvent` objects via `POST /api/traces/events`
 - Events are validated with Zod schemas before storage
-- Runs are persisted in a file-backed run store (`.agentpulse/runs/`)
+- Runs are persisted in a file-backed run store (`.reeprov/runs/`)
 - Run summaries derive cost, latency, model calls, tool calls, eval counts, and status
 - Trace contract validation runs when a run is completed
 - Dashboard shows real runs in a sortable list with detail pages
@@ -74,7 +74,7 @@ Internal static audit runner, access-key gated.
 - Runs static analysis against a GitHub repository or uploaded ZIP file
 - Classifies AI system artifacts (agents, workflows, prompts, tools, evals, models)
 - Detects secrets, scores the repository, produces a structured health report
-- Requires `AGENTPULSE_ACCESS_KEY` set server-side
+- Requires `REEPROV_ACCESS_KEY` set server-side
 - Does **not** execute scanned code, install dependencies, or make live LLM calls
 
 ### Mode 3 — Static Proof Reconstruction (`/dashboard/reports/[reportId]/reconstruction`)
@@ -82,7 +82,7 @@ Internal static audit runner, access-key gated.
 Zero-instrumentation path for connecting a project to the proof layer without code changes.
 
 - Takes a scan report and reconstructs a best-effort WorkflowSpec + AI system graph
-- Generates three suggested files: `agentpulse.workflow.suggested.json`, `ai-system.suggested.yaml`, `instrumentation-plan.suggested.md`
+- Generates three suggested files: `reeprov.workflow.suggested.json`, `ai-system.suggested.yaml`, `instrumentation-plan.suggested.md`
 - Identifies missing links: agents without prompts/models/evals, unmapped prompts, unmapped evals
 - Instrumentation plan explains how to add trace events if desired — always optional, never required
 - Reconstruction confidence is `high` (explicit manifest), `medium` (workflow files or manifest agents), or `low` (scattered artifacts only)
@@ -93,27 +93,27 @@ Zero-instrumentation path for connecting a project to the proof layer without co
 
 | Key                       | Used for                                          |
 |---------------------------|---------------------------------------------------|
-| `AGENTPULSE_ACCESS_KEY`   | Dashboard / scanner access (browser session)      |
-| `AGENTPULSE_INGEST_KEY`   | External trace ingestion (from AI projects)       |
-| Fallback                  | If `AGENTPULSE_INGEST_KEY` is unset, `AGENTPULSE_ACCESS_KEY` is accepted for local/dev simplicity |
+| `REEPROV_ACCESS_KEY`   | Dashboard / scanner access (browser session)      |
+| `REEPROV_INGEST_KEY`   | External trace ingestion (from AI projects)       |
+| Fallback                  | If `REEPROV_INGEST_KEY` is unset, `REEPROV_ACCESS_KEY` is accepted for local/dev simplicity |
 
-This separation means external projects can have their own key without accessing the scanner or scan history. Both keys use the same HTTP header: `x-agentpulse-key`.
+This separation means external projects can have their own key without accessing the scanner or scan history. Both keys use the same HTTP header: `x-reeprov-key`.
 
 ## Why Not a Runtime
 
-AgentPulse records what AI workflows do, not what they should do. Running workflows from within AgentPulse would:
+Reeprov records what AI workflows do, not what they should do. Running workflows from within Reeprov would:
 
 1. Require importing scanned or connected project code — a security boundary violation
 2. Create execution dependencies that are hard to reproduce
 3. Make the tool opinionated about how workflows are built
 
-The correct model: your AI project runs itself and emits traces to AgentPulse. AgentPulse records and validates those traces. The AI project is the runtime; AgentPulse is the observer.
+The correct model: your AI project runs itself and emits traces to Reeprov. Reeprov records and validates those traces. The AI project is the runtime; Reeprov is the observer.
 
 ## Future Framework Path
 
 1. ✅ Static proof UI — example workflows, runs, workflow inspector, trace timeline, eval display (Task 2)
 2. ✅ Durable reports — scanner report persistence, diff, regression candidates (Task 4)
-3. ✅ Real trace ingestion — AgentPulse client, file-backed run store, ingestion API, live dashboard (Task 5)
+3. ✅ Real trace ingestion — Reeprov client, file-backed run store, ingestion API, live dashboard (Task 5)
 4. ✅ Static proof reconstruction — zero-instrumentation path, suggested WorkflowSpec, AI system graph, missing links, optional instrumentation guide (Task 6)
 5. ✅ Global dashboard access gate — DashboardShell replaces isolated scanner gate; NavBar lock button; product mode overview IA (Task 7)
 6. **Next** — Project integrations: Website Auditor, Campaign Sandbox, Content Trend Analyzer, Blog Agent (emit real trace events using the reconstruction plan as the starting point)
@@ -142,7 +142,7 @@ Raul first. The tool exists to make personal AI workflow projects inspectable an
 
 ## Static Proof Reconstruction — Strict Mode (Task 6A)
 
-AgentPulse will not invent a WorkflowSpec for a repository that contains no AI evidence. This is intentional. The product's value depends on being trustworthy enough to say "this repo is not an AI system" without hedging.
+Reeprov will not invent a WorkflowSpec for a repository that contains no AI evidence. This is intentional. The product's value depends on being trustworthy enough to say "this repo is not an AI system" without hedging.
 
 ### What counts as evidence
 
@@ -186,7 +186,7 @@ Static inspection is the entry point. Runtime proof is the upgrade path — it i
 ### Principles
 
 1. **Static reconstruction requires evidence.**
-2. **AgentPulse will not invent WorkflowSpecs for non-AI repos.**
+2. **Reeprov will not invent WorkflowSpecs for non-AI repos.**
 3. **Static proof reconstruction is not runtime proof.**
 4. **Unmapped does not mean broken.**
 5. **Runtime trace proof is optional and requires trace ingestion.**

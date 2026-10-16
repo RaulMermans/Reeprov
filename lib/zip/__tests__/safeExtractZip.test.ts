@@ -154,7 +154,7 @@ describe("safeExtractZip", () => {
     const warning = report.findings.find((finding) => finding.id === "zip-scan-prioritized-subset");
     expect(warning?.title).toBe("ZIP scan analyzed prioritized subset");
     expect(warning?.summary).toBe(
-      "ZIP contained 3 candidate files. AgentPulse scanned the top 2 prioritized files and skipped 1 lower-priority files.",
+      "ZIP contained 3 candidate files. Reeprov scanned the top 2 prioritized files and skipped 1 lower-priority files.",
     );
   });
 

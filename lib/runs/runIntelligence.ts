@@ -521,7 +521,7 @@ export interface InferredWorkflowSummary {
 /**
  * Produces the friendly "workflow inferred from run events" summary shown
  * when no registered WorkflowSpec is available — replacing a scary
- * "missing spec" warning with a description of what AgentPulse derived.
+ * "missing spec" warning with a description of what Reeprov derived.
  */
 export function buildInferredWorkflowSummary(stages: RunStage[]): InferredWorkflowSummary | null {
   if (!stages.length) return null;

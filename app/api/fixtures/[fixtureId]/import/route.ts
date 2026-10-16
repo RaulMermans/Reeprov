@@ -2,11 +2,11 @@
  * POST /api/fixtures/[fixtureId]/import
  *
  * Imports a bundled example fixture as a fresh run, entirely server-side, so
- * AgentPulse can be validated with a non-BlogAgent, non-Website-Auditor
+ * Reeprov can be validated with a non-BlogAgent, non-Website-Auditor
  * project without any external integration. This is a demo/test-data action,
  * clearly separate from production ingestion.
  *
- * Auth:   x-agentpulse-key (AGENTPULSE_ACCESS_KEY — dashboard key, not ingest key)
+ * Auth:   x-reeprov-key (REEPROV_ACCESS_KEY — dashboard key, not ingest key)
  * Body:   none
  * Returns: { ok: true, runId: string, redirectTo: string }
  *

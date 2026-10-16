@@ -73,11 +73,11 @@ jobs:
           mkdir /tmp/fresh-ts-app
           cd /tmp/fresh-ts-app
           npm init -y
-          TARBALL=$(ls $GITHUB_WORKSPACE/packages/client-typescript/agentpulse-client-*.tgz)
+          TARBALL=$(ls $GITHUB_WORKSPACE/packages/client-typescript/reeprov-client-*.tgz)
           npm install "$TARBALL"
           node -e "
-            const { AgentPulseClient } = require('@agentpulse/client');
-            const client = new AgentPulseClient({ endpoint: 'http://127.0.0.1:3000', apiKey: 'test' });
+            const { ReeprovClient } = require('@reeprov/client');
+            const client = new ReeprovClient({ endpoint: 'http://127.0.0.1:3000', apiKey: 'test' });
             console.log('Client successfully instantiated in fresh project');
           "
 
@@ -106,8 +106,8 @@ jobs:
           WHEEL=$(ls $GITHUB_WORKSPACE/packages/client-python/dist/*.whl)
           pip install "$WHEEL"
           python -c "
-          from agentpulse_client import AgentPulseClient
-          client = AgentPulseClient(url='http://127.0.0.1:3000', ingest_key='test')
+          from reeprov_client import ReeprovClient
+          client = ReeprovClient(url='http://127.0.0.1:3000', ingest_key='test')
           print('Python client successfully imported from built wheel')
           "
 
@@ -125,5 +125,6 @@ jobs:
 
       - name: Verify CLI Executable
         run: |
-          chmod +x bin/pulse.mjs
+          chmod +x bin/reeprov.mjs bin/pulse.mjs
+          ./bin/reeprov.mjs --help
           ./bin/pulse.mjs --help

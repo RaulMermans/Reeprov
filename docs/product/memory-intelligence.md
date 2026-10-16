@@ -63,8 +63,8 @@ Memory Intelligence enables developers to:
 
 ## 6. Non-Goals
 
-- **Built-in Memory Database:** AgentPulse does not store, index, or manage long-term agent memory. It is purely an observability layer.
-- **Autonomous Memory Optimization:** AgentPulse does not unilaterally delete or overwrite memories in external memory engines.
+- **Built-in Memory Database:** Reeprov does not store, index, or manage long-term agent memory. It is purely an observability layer.
+- **Autonomous Memory Optimization:** Reeprov does not unilaterally delete or overwrite memories in external memory engines.
 - **Memory Schema Enforcement:** Does not mandate an external memory data model; adapts neutrally to any provider.
 
 ---

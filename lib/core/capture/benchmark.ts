@@ -5,7 +5,7 @@
  * to measure runtime overhead, byte footprint, and deduplication ratios.
  */
 
-import { AgentPulseCaptureService } from "./sdk";
+import { ReeprovCaptureService } from "./sdk";
 import { InMemoryContentStore, setContentStore, _resetContentStore } from "./contentStore";
 
 export interface BenchmarkResult {
@@ -23,7 +23,7 @@ export interface BenchmarkResult {
 
 /**
  * Runs a simulated agent workload (math, string formatting, dictionary lookup)
- * without AgentPulse capture.
+ * without Reeprov capture.
  */
 async function runBaselineWorkload(iterations: number): Promise<void> {
   for (let i = 0; i < iterations; i++) {
@@ -48,10 +48,10 @@ async function runBaselineWorkload(iterations: number): Promise<void> {
 }
 
 /**
- * Runs the exact same workload instrumented with AgentPulse capture.
+ * Runs the exact same workload instrumented with Reeprov capture.
  */
 async function runInstrumentedWorkload(
-  capture: AgentPulseCaptureService,
+  capture: ReeprovCaptureService,
   iterations: number
 ): Promise<{
   boundaries: number;
@@ -84,7 +84,7 @@ async function runInstrumentedWorkload(
     });
 
     const query = `search term ${i}`;
-    const sharedLargeDoc = "Canonical AgentPulse Architecture Manual chunk with guidelines ".repeat(100); // ~6KB > 4KB
+    const sharedLargeDoc = "Canonical Reeprov Architecture Manual chunk with guidelines ".repeat(100); // ~6KB > 4KB
     await session.captureRetrieval({
       serviceName: "mock_vector_db",
       query,
@@ -142,7 +142,7 @@ export async function measureCaptureOverhead(iterations = 20): Promise<Benchmark
   const baselineRuntimeMs = performance.now() - t0;
 
   // Instrumented
-  const capture = new AgentPulseCaptureService();
+  const capture = new ReeprovCaptureService();
   const t1 = performance.now();
   const instStats = await runInstrumentedWorkload(capture, iterations);
   const instrumentedRuntimeMs = performance.now() - t1;

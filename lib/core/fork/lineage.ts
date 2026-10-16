@@ -180,7 +180,13 @@ export async function getChildren(runId: string): Promise<RunArtifact[]> {
   }
 
   // 2. Scan file store
-  const storeDir = process.env["AGENTPULSE_STORE_DIR"] ?? join(process.cwd(), ".agentpulse", "runs");
+  const { getReeprovEnv } = await import("@/lib/config/env");
+  const { getReeprovHome } = await import("@/lib/storage/dataPath");
+  const base =
+    getReeprovEnv("REEPROV_STORE_DIR") ??
+    getReeprovEnv("REEPROV_HOME") ??
+    getReeprovHome();
+  const storeDir = join(base, "runs");
   const children: RunArtifact[] = [];
 
   try {

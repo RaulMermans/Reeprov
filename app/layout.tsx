@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AgentPulse",
-  description: "Private AI-agent repository audit dashboard.",
+  title: "Reeprov",
+  description: "Local-first debugging and reproducibility infrastructure for AI agents.",
 };
 
 export default function RootLayout({

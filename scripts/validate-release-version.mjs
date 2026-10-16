@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * AgentPulse Release Version Consistency Validator.
+ * Reeprov Release Version Consistency Validator.
  *
  * Enforces deterministic version alignment across all release artifacts:
  *   - Release input (CLI argument or env)
@@ -106,7 +106,7 @@ export function validateVersions(options = {}) {
   const tsValid = tsVersion === canonicalSemver;
   if (!tsValid) hasFailure = true;
   checks.push({
-    component: "TypeScript SDK (@agentpulse/client)",
+    component: `TypeScript SDK (${tsPkg.name || "@reeprov/client"})`,
     expected: canonicalSemver,
     actual: tsVersion,
     valid: tsValid,
@@ -146,8 +146,10 @@ export function validateVersions(options = {}) {
     valid: setupPyValid,
   });
 
-  // 5. Python SDK __init__.py
-  const pyInitPath = resolve(rootDir, "packages/client-python/src/agentpulse_client/__init__.py");
+  // 5. Python SDK __init__.py (checks canonical reeprov_client, with fallback to agentpulse_client)
+  const pyInitPath = existsSync(resolve(rootDir, "packages/client-python/src/reeprov_client/__init__.py"))
+    ? resolve(rootDir, "packages/client-python/src/reeprov_client/__init__.py")
+    : resolve(rootDir, "packages/client-python/src/agentpulse_client/__init__.py");
   if (!existsSync(pyInitPath)) {
     throw new Error(`Python SDK __init__.py not found at ${pyInitPath}`);
   }
@@ -209,7 +211,7 @@ if (isDirectExecution) {
   const result = validateVersions({ inputVersion, gitTag });
 
   console.log("\n========================================================");
-  console.log(" AgentPulse Release Version Consistency Check");
+  console.log(" Reeprov Release Version Consistency Check");
   console.log("========================================================");
   console.log(`Target SemVer:     ${result.canonicalSemver}`);
   console.log(`Target PEP 440:    ${result.expectedPep440}`);

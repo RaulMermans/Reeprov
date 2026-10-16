@@ -2,7 +2,7 @@
  * File-backed run store.
  *
  * Layout:
- *   .agentpulse/runs/
+ *   .reeprov/runs/
  *     index.json         — array of RunSummary, newest first
  *     {runId}.json       — full SavedRun
  *
@@ -20,13 +20,16 @@ import type { TraceEvent, ToolCallRecord, EvalResult, RunRecord } from "@/lib/pr
 import type { AppendResult, RunStore, RunSummary, SavedRun, SaveRunResult } from "./runTypes";
 import { buildRunSummary } from "./runSummary";
 
+import { getReeprovEnv } from "@/lib/config/env";
+import { getReeprovHome } from "@/lib/storage/dataPath";
+
 // ── Store directory ───────────────────────────────────────────────────────────
 
 function storeDir(): string {
   const base =
-    process.env["AGENTPULSE_STORE_DIR"] ??
-    process.env["AGENTPULSE_HOME"] ??
-    join(process.cwd(), ".agentpulse");
+    getReeprovEnv("REEPROV_STORE_DIR") ??
+    getReeprovEnv("REEPROV_HOME") ??
+    getReeprovHome();
   return join(base, "runs");
 }
 

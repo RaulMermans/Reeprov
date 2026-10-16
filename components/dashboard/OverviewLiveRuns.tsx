@@ -85,7 +85,7 @@ export function OverviewLiveRuns() {
       <Card className="p-6">
         <p className="text-sm font-medium text-slate-700">No live proof runs yet.</p>
         <p className="mt-2 text-sm text-slate-500">
-          Runtime runs appear here only after a connected project emits AgentPulse trace events.
+          Runtime runs appear here only after a connected project emits Reeprov trace events.
           Use the demo run to explore the runtime proof layer now.
         </p>
         {demoError ? (

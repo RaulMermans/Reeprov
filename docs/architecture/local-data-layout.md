@@ -1,21 +1,21 @@
 # Architecture: Local Data Storage Layout
 
-AgentPulse persists its data locally using structured subdirectories under a dedicated home path, managed by `lib/storage/dataPath.ts`.
+Reeprov persists its data locally using structured subdirectories under a dedicated home path, managed by `lib/storage/dataPath.ts`.
 
 ## Root Path Resolution
 
-The root storage directory is resolved via `getAgentPulseHome()`:
+The root storage directory is resolved via `getReeprovHome()`:
 
-1. `AGENTPULSE_STORE_DIR` environment variable (if specified).
-2. Default fallback: `~/.agentpulse/` in the user's home directory.
+1. `REEPROV_STORE_DIR` environment variable (if specified).
+2. Default fallback: `~/.reeprov/` in the user's home directory.
 
 ## Subdirectory Hierarchy
 
 The storage layout organizes artifacts into specialized directories:
 
 ```text
-~/.agentpulse/
-├── agentpulse.db         # SQLite database storing projects, runs, and metadata
+~/.reeprov/
+├── reeprov.db         # SQLite database storing projects, runs, and metadata
 ├── runs/                 # Canonical run evidence envelopes (*.json)
 ├── comparisons/          # Precomputed run comparisons and semantic diffs
 ├── blobs/                # Compressed binary and state payload blobs
@@ -26,4 +26,4 @@ The storage layout organizes artifacts into specialized directories:
 
 ## Git Safety Guard
 
-All paths under `.agentpulse/`, `*.db`, `*.sqlite`, and credentials files are declared in `.gitignore` to guarantee local data is never committed to version control.
+All paths under `.reeprov/`, `*.db`, `*.sqlite`, and credentials files are declared in `.gitignore` to guarantee local data is never committed to version control.

@@ -2,8 +2,8 @@
 
 ## Overview
 
-AgentPulse captures the **effective execution configuration** that produced an agent run.
-Rather than relying on unverified developer declarations or inferring hidden state, AgentPulse records externally observable configuration parameters, scrubs secrets at ingest, and hashes components deterministically.
+Reeprov captures the **effective execution configuration** that produced an agent run.
+Rather than relying on unverified developer declarations or inferring hidden state, Reeprov records externally observable configuration parameters, scrubs secrets at ingest, and hashes components deterministically.
 
 ---
 
@@ -120,12 +120,12 @@ Redacted values are replaced with `[REDACTED_SECRET]`.
 
 ## 4. Declared vs. Effective Configuration
 
-AgentPulse marks snapshots explicitly:
+Reeprov marks snapshots explicitly:
 - **`DECLARED`:** Configuration specified in source files or static deployment manifests.
 - **`EFFECTIVE`:** Configuration resolved at runtime (e.g., fallback model revisions, dynamically filtered tool sets exposed to a specific step).
 - **`HYBRID`:** Declared base with observed runtime overrides.
 
-AgentPulse records what was externally observable and never hallucinates runtime state. Missing information is explicitly marked `NOT_DECLARED` or `NOT_CAPTURED`.
+Reeprov records what was externally observable and never hallucinates runtime state. Missing information is explicitly marked `NOT_DECLARED` or `NOT_CAPTURED`.
 
 ---
 

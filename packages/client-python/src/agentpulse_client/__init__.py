@@ -1,11 +1,23 @@
 """
-AgentPulse Python Client SDK
+AgentPulse Python Client SDK (Legacy Compatibility Layer)
 
-Official pure-Python client for AgentPulse — local-first debugging
-and reproducibility for AI agents.
+This module re-exports ReeprovClient and ReeprovError for backwards compatibility.
+New code should import from reeprov_client directly:
+  from reeprov_client import ReeprovClient
 """
 
-from .client import AgentPulseClient, AgentPulseError
+from reeprov_client import (
+    ReeprovClient,
+    ReeprovError,
+    AgentPulseClient,
+    AgentPulseError,
+    __version__,
+)
 
-__version__ = "0.1.0b1"
-__all__ = ["AgentPulseClient", "AgentPulseError", "__version__"]
+__all__ = [
+    "ReeprovClient",
+    "ReeprovError",
+    "AgentPulseClient",
+    "AgentPulseError",
+    "__version__",
+]

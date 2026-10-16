@@ -3,18 +3,19 @@
  *
  * A scoped ingest key authenticates trace ingestion for exactly one
  * integration/project, instead of the shared deployment-wide
- * AGENTPULSE_INGEST_KEY. Only a SHA-256 hash and a short non-secret preview
+ * REEPROV_INGEST_KEY (or legacy AGENTPULSE_INGEST_KEY). Only a SHA-256 hash and a short non-secret preview
  * are ever persisted — the raw key is returned to the caller exactly once,
  * at generation time, and never stored or logged in plain text.
  */
 
 import { randomBytes, createHash, timingSafeEqual } from "node:crypto";
 
-const KEY_PREFIX = "ap_live_";
+const CANONICAL_KEY_PREFIX = "ree_live_";
+const LEGACY_KEY_PREFIX = "ap_live_";
 
-/** Generates a new raw scoped ingest key. Format: ap_live_<48 hex chars>. */
+/** Generates a new raw scoped ingest key. Format: ree_live_<48 hex chars>. */
 export function generateRawIngestKey(): string {
-  return `${KEY_PREFIX}${randomBytes(24).toString("hex")}`;
+  return `${CANONICAL_KEY_PREFIX}${randomBytes(24).toString("hex")}`;
 }
 
 /** SHA-256 hex digest of a raw ingest key, for storage and lookup. */
@@ -22,10 +23,11 @@ export function hashIngestKey(rawKey: string): string {
   return createHash("sha256").update(rawKey).digest("hex");
 }
 
-/** Short, non-secret preview for display, e.g. "ap_live_...9f2a1c3b". */
+/** Short, non-secret preview for display, e.g. "ree_live_...9f2a1c3b" or legacy "ap_live_...9f2a1c3b". */
 export function previewIngestKey(rawKey: string): string {
   const suffix = rawKey.slice(-8);
-  return `${KEY_PREFIX}...${suffix}`;
+  const prefix = rawKey.startsWith(LEGACY_KEY_PREFIX) ? LEGACY_KEY_PREFIX : CANONICAL_KEY_PREFIX;
+  return `${prefix}...${suffix}`;
 }
 
 /** Constant-time comparison of two hash strings (defense in depth). */

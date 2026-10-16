@@ -93,4 +93,4 @@ Regression Studio is backed by 8 REST API routes:
 
 ## 4. UI Navigation Integration
 
-Regression Studio is integrated into the AgentPulse navigation header at `/dashboard/regressions`, sitting alongside **Runs**, **Lineage**, **Comparison**, **Context**, **Evals**, and **Experiments**.
+Regression Studio is integrated into the Reeprov navigation header at `/dashboard/regressions`, sitting alongside **Runs**, **Lineage**, **Comparison**, **Context**, **Evals**, and **Experiments**.

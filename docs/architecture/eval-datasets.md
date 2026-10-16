@@ -1,12 +1,12 @@
 # Evaluation Datasets Architecture
 
-> **Canonical Role:** Immutable benchmark test collections and historical failure curation for AgentPulse.
+> **Canonical Role:** Immutable benchmark test collections and historical failure curation for Reeprov.
 
 ---
 
 ## 1. Overview
 
-AgentPulse treats test cases and datasets as versioned, immutable assets. Curation from production failures into regression suites is an explicit user-driven action, not an automatic side effect.
+Reeprov treats test cases and datasets as versioned, immutable assets. Curation from production failures into regression suites is an explicit user-driven action, not an automatic side effect.
 
 ```mermaid
 flowchart LR
@@ -46,7 +46,7 @@ An immutable collection of `EvalCase` items:
 
 ## 3. Curating Production Failures (`saveRunAsEvalCase`)
 
-When an agent fails in production or testing, AgentPulse provides an explicit curation workflow:
+When an agent fails in production or testing, Reeprov provides an explicit curation workflow:
 1. The developer inspects the failure in Run Debugger.
 2. The user initiates `saveRunAsEvalCase(runId, options)` targeting an existing or new dataset.
 3. The engine extracts the initial input, checkpoint reference, artifacts, and failure metadata.

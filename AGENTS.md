@@ -1,8 +1,8 @@
-# AgentPulse Agent Instructions
+# Reeprov Agent Instructions
 
 ## Architecture
 
-AgentPulse is a private single-user Next.js dashboard. The backend fetches repository metadata and file blobs with a server-side read-only GitHub token, runs static scanning and redaction, then passes sanitized evidence to auditor interfaces. The first scaffold uses mock auditor logic only.
+Reeprov is a private single-user Next.js dashboard and agent reproducibility platform. The backend fetches repository metadata and file blobs with a server-side read-only GitHub token, runs static scanning and redaction, then passes sanitized evidence to auditor interfaces. The first scaffold uses mock auditor logic only.
 
 ## Responsibilities
 

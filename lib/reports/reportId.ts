@@ -27,4 +27,4 @@ export function deriveProjectId(repoName: string): string {
  * Current scanner version string, bumped when the scanner logic changes
  * in a backward-incompatible way.
  */
-export const SCANNER_VERSION = "agentpulse-static-scanner-v2";
+export const SCANNER_VERSION = "reeprov-static-scanner-v2";

@@ -1,5 +1,5 @@
 /**
- * Deterministic Demo Project for AgentPulse Studio.
+ * Deterministic Demo Project for Reeprov Studio.
  *
  * Provides a self-contained, labeled "Demo Support Agent" with pre-populated:
  *   - Success run with full evidence
@@ -422,7 +422,7 @@ export class DemoProjectManager {
       evalSuiteId: suite.suite_id,
       evalSuiteVersion: suite.version,
       label: "Production Gold Standard Baseline",
-      approvedBy: "AgentPulse Studio Operator",
+      approvedBy: "Reeprov Studio Operator",
       releaseVersion: "1.0.0",
     });
 

@@ -1,10 +1,10 @@
-# AgentPulse Regression Model
+# Reeprov Regression Model
 
 ## Continuous Evidence Across Agent Versions
 
 ### 1. Architectural Mission & Core Definition
 
-In AgentPulse, **Regression** has a strict, unambiguous definition:
+In Reeprov, **Regression** has a strict, unambiguous definition:
 
 > **Regression** means: *"A candidate performs materially worse than an explicitly selected baseline under comparable evaluation conditions."*
 
@@ -18,7 +18,7 @@ Crucially, **Regression does NOT mean:**
 
 ### 2. Regression vs Divergence vs Failure
 
-AgentPulse maintains clear boundaries across the diagnostic and evaluative pipeline:
+Reeprov maintains clear boundaries across the diagnostic and evaluative pipeline:
 
 | Concept | Definition | Scope | Gate Impact |
 | :--- | :--- | :--- | :--- |
@@ -32,7 +32,7 @@ AgentPulse maintains clear boundaries across the diagnostic and evaluative pipel
 
 ### 3. Regression Taxonomy
 
-AgentPulse categorizes regression into deterministic, auditable categories:
+Reeprov categorizes regression into deterministic, auditable categories:
 
 ```mermaid
 graph TD
@@ -73,7 +73,7 @@ graph TD
 
 ### 4. Paired Case Transition Matrix
 
-When evaluating a candidate against a shared `EvalDataset`, AgentPulse indexes cases by their canonical `eval_case_id`:
+When evaluating a candidate against a shared `EvalDataset`, Reeprov indexes cases by their canonical `eval_case_id`:
 
 ```
 Case State Matrix:
@@ -94,7 +94,7 @@ Only `NEW_REGRESSION` increments the regression count. `EXISTING_FAILURE` is sur
 
 ### 5. Threshold-Based Score Degradation
 
-To prevent flagging microscopic floating-point movement as regressions, AgentPulse enforces explicit tolerances:
+To prevent flagging microscopic floating-point movement as regressions, Reeprov enforces explicit tolerances:
 
 - **Absolute Drop**: $\Delta = \text{Score}_{\text{baseline}} - \text{Score}_{\text{candidate}} > \text{max\_absolute\_drop}$
 - **Relative Drop**: $\frac{\text{Score}_{\text{baseline}} - \text{Score}_{\text{candidate}}}{\text{Score}_{\text{baseline}}} > \text{max\_relative\_drop}$
@@ -107,7 +107,7 @@ Default degradation allowance is strictly `0.00` unless explicitly relaxed by a 
 
 A non-deterministic LLM agent cannot be fairly judged by comparing one baseline trial to one candidate trial.
 
-AgentPulse integrates Sprint 8 repetition evidence:
+Reeprov integrates Sprint 8 repetition evidence:
 - **`minimum_trials` Enforcement**: Strong regression claims require $N \ge \text{minimum\_trials}$ (e.g. 3 or 5).
 - **Statistical Aggregation**: Mean, median, standard deviation, and pass rate are computed across arms.
 - **Honest Causal Attribution**:

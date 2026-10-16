@@ -1,5 +1,5 @@
 /**
- * Deterministic Route Security Inventory for AgentPulse.
+ * Deterministic Route Security Inventory for Reeprov.
  *
  * Declares the capability, nature, mode policy, project scope,
  * and sensitive payload behavior for every API route.

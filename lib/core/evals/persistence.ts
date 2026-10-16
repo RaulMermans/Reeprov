@@ -8,10 +8,10 @@
  * - EvaluationRuns (immutable once completed)
  *
  * Directory layout:
- * .agentpulse/evals/definitions/
- * .agentpulse/evals/suites/
- * .agentpulse/evals/datasets/
- * .agentpulse/evals/runs/
+ * .reeprov/evals/definitions/
+ * .reeprov/evals/suites/
+ * .reeprov/evals/datasets/
+ * .reeprov/evals/runs/
  */
 
 import { access, mkdir, readFile, writeFile, readdir } from "node:fs/promises";
@@ -32,8 +32,14 @@ import { getDb, hasDatabaseUrl } from "../../db/client";
 import { ensureSchema } from "../../db/migrate";
 import { getCanonicalRun } from "../capture/persistence";
 
+import { getReeprovEnv } from "@/lib/config/env";
+import { getReeprovHome } from "@/lib/storage/dataPath";
+
 function baseEvalsDir(): string {
-  const base = process.env["AGENTPULSE_STORE_DIR"] ?? join(process.cwd(), ".agentpulse");
+  const base =
+    getReeprovEnv("REEPROV_STORE_DIR") ??
+    getReeprovEnv("REEPROV_HOME") ??
+    getReeprovHome();
   return join(base, "evals");
 }
 

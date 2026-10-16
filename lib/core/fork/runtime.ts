@@ -760,7 +760,7 @@ export class ForkRuntime {
       provenance: {
         capture_method: "sdk_trace",
         adapter_version: "1.0.0-fork",
-        captured_by: "AgentPulseForkRuntime",
+        captured_by: "ReeprovForkRuntime",
         redaction_verified: true,
       },
       safety: this.sourceRun.safety,

@@ -1,4 +1,4 @@
-# AgentPulse Semantic Comparison (Layer 2)
+# Reeprov Semantic Comparison (Layer 2)
 
 ## 1. Role in the Comparison Pipeline
 

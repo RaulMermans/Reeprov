@@ -14,7 +14,7 @@ The user opens a private dashboard, selects or enters a GitHub repository or upl
 
 ## Supported Project Types
 
-AgentPulse supports both agent-based and workflow-based AI project layouts:
+Reeprov supports both agent-based and workflow-based AI project layouts:
 
 - **Agent systems**: organized around explicit agent configs (`agents.yaml`, `agents.json`), prompt files, tools, and evals.
 - **Workflow systems**: organized around workflow manifests (`workflow.yaml`, `workflows.yaml`, `workflow.json`, `pipeline.yaml`) with defined stages, tools, and safety properties.

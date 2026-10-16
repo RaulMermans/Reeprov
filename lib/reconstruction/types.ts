@@ -3,12 +3,12 @@
  *
  * Types for Static-to-Proof Reconstruction.
  *
- * AgentPulse reconstructs a best-effort proof-layer architecture from a static
+ * Reeprov reconstructs a best-effort proof-layer architecture from a static
  * ScanReport — no code execution, no external API calls, no repo changes required.
  *
  * Two levels of proof:
  *   1. Static reconstruction  — inferred from repo files; always available
- *   2. Runtime proof          — optional; requires AgentPulseClient instrumentation
+ *   2. Runtime proof          — optional; requires ReeprovClient instrumentation
  */
 
 import type { WorkflowSpec } from "@/lib/proof-layer/schemas";
@@ -126,9 +126,9 @@ export interface InstrumentationPlanEvent {
 }
 
 export interface InstrumentationPlan {
-  /** Instrumentation is never required — AgentPulse works without it. */
+  /** Instrumentation is never required — Reeprov works without it. */
   required: false;
-  /** The AgentPulseClient is available if the project wants runtime proof. */
+  /** The ReeprovClient is available if the project wants runtime proof. */
   available: true;
   summary: string;
   recommendedEnvVars: string[];

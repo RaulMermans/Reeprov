@@ -1,13 +1,13 @@
-# Campaign Sandbox — AgentPulse Integration
+# Campaign Sandbox — Reeprov Integration
 
-This directory contains the copy-paste integration layer for connecting Campaign Sandbox to AgentPulse.
+This directory contains the copy-paste integration layer for connecting Campaign Sandbox to Reeprov.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `agentpulse-client.ts` | Minimal HTTP client. Copy into Campaign Sandbox. No AgentPulse dependency at runtime. |
-| `instrumentation.ts` | Stage-specific helpers — one function per Campaign Sandbox stage. Import from `agentpulse-client.ts`. |
+| `reeprov-client.ts` | Minimal HTTP client. Copy into Campaign Sandbox. No Reeprov dependency at runtime. |
+| `instrumentation.ts` | Stage-specific helpers — one function per Campaign Sandbox stage. Import from `reeprov-client.ts`. |
 | `README.md` | This file. |
 
 ## Quick Start
@@ -15,26 +15,26 @@ This directory contains the copy-paste integration layer for connecting Campaign
 ### 1. Copy both files into Campaign Sandbox
 
 ```bash
-cp examples/integrations/campaign-sandbox/agentpulse-client.ts  <campaign-sandbox>/lib/observability/
+cp examples/integrations/campaign-sandbox/reeprov-client.ts  <campaign-sandbox>/lib/observability/
 cp examples/integrations/campaign-sandbox/instrumentation.ts     <campaign-sandbox>/lib/observability/
 ```
 
 ### 2. Set environment variables in Campaign Sandbox
 
 ```env
-AGENTPULSE_URL=http://localhost:3000
-AGENTPULSE_INGEST_KEY=your-ingest-key-here
-AGENTPULSE_PROJECT_ID=campaign-sandbox
-AGENTPULSE_PROJECT_NAME=Campaign Sandbox
-AGENTPULSE_WORKFLOW_ID=campaign-sandbox-v1
+REEPROV_URL=http://localhost:3000
+REEPROV_INGEST_KEY=your-ingest-key-here
+REEPROV_PROJECT_ID=campaign-sandbox
+REEPROV_PROJECT_NAME="Campaign Sandbox"
+REEPROV_WORKFLOW_ID=campaign-sandbox-v1
 # Optional: set to "false" to disable without removing code
-AGENTPULSE_ENABLED=true
+REEPROV_ENABLED=true
 ```
 
 ### 3. Instrument the workflow
 
 ```typescript
-import { createCampaignSandboxPulseClient } from "./agentpulse-client";
+import { createCampaignSandboxPulseClient } from "./reeprov-client";
 import {
   startCampaignRun,
   emitNormalizeBrief,
@@ -117,11 +117,11 @@ async function runCampaignWorkflow(rawBrief: string) {
 
 ## Disabling Observability
 
-Set `AGENTPULSE_ENABLED=false` in Campaign Sandbox's env to disable all emissions. The client no-ops all calls when disabled — no network requests are made, runs return fake IDs.
+Set `REEPROV_ENABLED=false` in Campaign Sandbox's env to disable all emissions. The client no-ops all calls when disabled — no network requests are made, runs return fake IDs.
 
 ## Verifying
 
-1. Start AgentPulse: `npm run dev`
+1. Start Reeprov: `npm run dev`
 2. Run a Campaign Sandbox workflow (or run the seed script: `npm run seed:traces`)
 3. Visit `http://localhost:3000/dashboard/runs`
 4. Open the run detail — trace timeline, model calls, evals, and artifact should all be visible

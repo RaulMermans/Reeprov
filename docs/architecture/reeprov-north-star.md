@@ -1,4 +1,4 @@
-# AgentPulse: Canonical North Star Architecture
+# Reeprov: Canonical North Star Architecture
 
 > **Definition:** Open-source debugging and optimization infrastructure for AI agents.
 
@@ -6,7 +6,7 @@
 
 ## 1. The Core Loop
 
-AgentPulse exists to make AI agent execution intelligible, reproducible, and optimizable. It is structured around the closed-loop developer workflow:
+Reeprov exists to make AI agent execution intelligible, reproducible, and optimizable. It is structured around the closed-loop developer workflow:
 
 ```mermaid
 flowchart LR
@@ -33,7 +33,7 @@ flowchart LR
 
 ## 2. The 10 Primary Jobs
 
-AgentPulse is engineered to fulfill ten specific technical jobs:
+Reeprov is engineered to fulfill ten specific technical jobs:
 
 1. **Capture an execution:** Collect structured, versioned runtime envelopes containing immutable evidence of the agent's complete trajectory.
 2. **Reconstruct what happened:** Assemble raw trace events into a clean causal execution graph displaying stages, parallel branches, and attached evidence.
@@ -48,13 +48,13 @@ AgentPulse is engineered to fulfill ten specific technical jobs:
 
 ---
 
-## 3. What AgentPulse Is NOT (System Boundaries)
+## 3. What Reeprov Is NOT (System Boundaries)
 
-AgentPulse occupies a distinct architectural layer. It connects to and audits external systems; it does not replace them.
+Reeprov occupies a distinct architectural layer. It connects to and audits external systems; it does not replace them.
 
 ```mermaid
 classDiagram
-    class AgentPulse {
+    class Reeprov {
         <<Debugging & Optimization Workbench>>
         +Capture RunArtifact
         +Inspect Context & Memory
@@ -98,32 +98,32 @@ classDiagram
         +Auto-deploy Untested Code
     }
 
-    AgentPulse ..> OrchestrationFrameworks : Intercepts & reconstructs
-    AgentPulse ..> MemoryFrameworks : Observes reads/writes
-    AgentPulse ..> VectorDatabases : Audits retrieval operations
-    AgentPulse ..> MCPServers : Records tool boundaries
-    AgentPulse ..> ModelGateways : Captures invocations & tokens
-    AgentPulse ..> GenericObservability : Complements with agent causality
-    AgentPulse --|> AutonomousSelfImprovers : Rejects autonomous mutations
+    Reeprov ..> OrchestrationFrameworks : Intercepts & reconstructs
+    Reeprov ..> MemoryFrameworks : Observes reads/writes
+    Reeprov ..> VectorDatabases : Audits retrieval operations
+    Reeprov ..> MCPServers : Records tool boundaries
+    Reeprov ..> ModelGateways : Captures invocations & tokens
+    Reeprov ..> GenericObservability : Complements with agent causality
+    Reeprov --|> AutonomousSelfImprovers : Rejects autonomous mutations
 ```
 
-| Category | Representative Examples | AgentPulse Boundary |
+| Category | Representative Examples | Reeprov Boundary |
 |---|---|---|
-| **Agent Orchestration Frameworks** | LangGraph, CrewAI, AutoGen, LlamaIndex Workflows, Semantic Kernel | **Does NOT orchestrate.** AgentPulse does not run agent execution loops or schedule agent tasks. It intercepts and visualizes what orchestration engines do. |
-| **Memory Frameworks** | Mem0, Letta (MemGPT), Zep, Cognee | **Does NOT store or manage memory.** AgentPulse provides neutral memory observability: it records what was queried, written, or consolidated. |
-| **Vector Databases** | Pinecone, Qdrant, Chroma, Weaviate, Milvus | **Does NOT index or store vectors.** AgentPulse captures retrieval queries, chunk IDs, rankings, and scores to measure retrieval quality. |
-| **Tool / MCP Servers** | Model Context Protocol servers, OpenAPI tool bridges | **Does NOT host tools.** AgentPulse records tool schemas, input arguments, execution outputs, and side-effect classes. |
-| **Model Gateways & Proxies** | LiteLLM, Portkey, OpenRouter, Cloudflare AI Gateway | **Does NOT route or balance model calls.** AgentPulse ingests model invocation records (tokens, latency, provider, cost) linked to context. |
-| **Generic Observability & APM** | Datadog, Grafana, OpenTelemetry, New Relic | **Does NOT replace APM.** APM tracks system spans and infrastructure health. AgentPulse tracks semantic agent causality, context provenance, and decision trees. |
-| **Generic BI Tools** | Metabase, Tableau, Looker | **Does NOT do ad-hoc generic BI.** AgentPulse provides agent-native eval dashboards, token attribution, and trajectory divergence analytics. |
-| **Autonomous Self-Improvement** | DSPy auto-optimizers, self-rewriting agent loops | **Does NOT autonomously alter production.** AgentPulse produces evidence-backed diagnostic recommendations. Code promotion remains human-gated. |
+| **Agent Orchestration Frameworks** | LangGraph, CrewAI, AutoGen, LlamaIndex Workflows, Semantic Kernel | **Does NOT orchestrate.** Reeprov does not run agent execution loops or schedule agent tasks. It intercepts and visualizes what orchestration engines do. |
+| **Memory Frameworks** | Mem0, Letta (MemGPT), Zep, Cognee | **Does NOT store or manage memory.** Reeprov provides neutral memory observability: it records what was queried, written, or consolidated. |
+| **Vector Databases** | Pinecone, Qdrant, Chroma, Weaviate, Milvus | **Does NOT index or store vectors.** Reeprov captures retrieval queries, chunk IDs, rankings, and scores to measure retrieval quality. |
+| **Tool / MCP Servers** | Model Context Protocol servers, OpenAPI tool bridges | **Does NOT host tools.** Reeprov records tool schemas, input arguments, execution outputs, and side-effect classes. |
+| **Model Gateways & Proxies** | LiteLLM, Portkey, OpenRouter, Cloudflare AI Gateway | **Does NOT route or balance model calls.** Reeprov ingests model invocation records (tokens, latency, provider, cost) linked to context. |
+| **Generic Observability & APM** | Datadog, Grafana, OpenTelemetry, New Relic | **Does NOT replace APM.** APM tracks system spans and infrastructure health. Reeprov tracks semantic agent causality, context provenance, and decision trees. |
+| **Generic BI Tools** | Metabase, Tableau, Looker | **Does NOT do ad-hoc generic BI.** Reeprov provides agent-native eval dashboards, token attribution, and trajectory divergence analytics. |
+| **Autonomous Self-Improvement** | DSPy auto-optimizers, self-rewriting agent loops | **Does NOT autonomously alter production.** Reeprov produces evidence-backed diagnostic recommendations. Code promotion remains human-gated. |
 
 ---
 
 ## 4. Architectural Pillars
 
 ### Pillar I: Causal Ground Truth Over Loose Telemetry
-A flat list of OpenTelemetry spans cannot answer *why* an agent decided to execute a destructive SQL query instead of querying documentation. AgentPulse anchors every decision to a causal chain:
+A flat list of OpenTelemetry spans cannot answer *why* an agent decided to execute a destructive SQL query instead of querying documentation. Reeprov anchors every decision to a causal chain:
 $$\text{Memory / State} \longrightarrow \text{Context Snapshot} \longrightarrow \text{Model Invocations} \longrightarrow \text{Tool / Action Boundary} \longrightarrow \text{State Transition}$$
 
 ### Pillar II: First-Class Context & Provenance
@@ -152,7 +152,7 @@ Evaluations are not floating metrics in a separate spreadsheet. An `EvalResult` 
 ## 5. Security & Isolation Invariants
 
 1. **Server-Side Security:** Scanned or audited repository tokens (`GITHUB_TOKEN`, integration keys) must never reach the client browser.
-2. **Zero Code Execution of Audited Repositories:** AgentPulse does not execute code or install dependencies from scanned repositories.
+2. **Zero Code Execution of Audited Repositories:** Reeprov does not execute code or install dependencies from scanned repositories.
 3. **Data Redaction & Sanitization:** All credentials, private keys, API secrets, and sensitive tokens are redacted before storage or display.
 4. **Untrusted Evidence:** Traces, prompts, and agent outputs are treated as untrusted data. The workbench never obeys prompt injection instructions embedded in captured agent traces.
-5. **Human-in-the-Loop Optimization:** Optimization suggestions are emitted as structured candidate diffs or test cases. AgentPulse never unilaterally alters production prompts, memory, or runtime configurations.
+5. **Human-in-the-Loop Optimization:** Optimization suggestions are emitted as structured candidate diffs or test cases. Reeprov never unilaterally alters production prompts, memory, or runtime configurations.

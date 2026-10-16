@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for AgentPulse Self-Hosted Studio
+# Multi-stage Dockerfile for Reeprov Self-Hosted Studio
 FROM node:22-alpine AS base
 
 # Stage 1: Dependencies
@@ -25,9 +25,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV AGENTPULSE_MODE=self_hosted
-ENV AGENTPULSE_HOME=/home/nextjs/.agentpulse
-ENV AGENTPULSE_STORE_DIR=/home/nextjs/.agentpulse
+ENV REEPROV_MODE=self_hosted
+ENV REEPROV_HOME=/home/nextjs/.reeprov
+ENV REEPROV_STORE_DIR=/home/nextjs/.reeprov
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
@@ -36,8 +36,8 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
 # Set up local store directory with proper ownership
-RUN mkdir -p /home/nextjs/.agentpulse && chown -R nextjs:nodejs /home/nextjs/.agentpulse
-VOLUME ["/home/nextjs/.agentpulse"]
+RUN mkdir -p /home/nextjs/.reeprov && chown -R nextjs:nodejs /home/nextjs/.reeprov
+VOLUME ["/home/nextjs/.reeprov"]
 
 # Copy Next.js standalone compiled output and static assets
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

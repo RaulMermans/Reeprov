@@ -52,11 +52,11 @@ export function FirstLaunchOnboarding({ onDemoLoaded, onProjectCreated }: FirstL
         </div>
 
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-950">
-          Welcome to AgentPulse
+          Welcome to Reeprov
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-base text-slate-600 leading-relaxed">
-          The local-first debugging and reproducibility layer for AI agents.
-          Observe execution, reproduce memory divergence, replay tool boundaries, and prevent behavioral regressions.
+          Local-first debugging and reproducibility infrastructure for AI agents.
+          Capture execution evidence, reproduce failures, fork from checkpoints, compare behavior, evaluate candidate fixes, and turn failures into regression tests.
         </p>
 
         {error && (
@@ -114,7 +114,7 @@ export function FirstLaunchOnboarding({ onDemoLoaded, onProjectCreated }: FirstL
           </div>
           <h2 className="text-sm font-bold text-slate-950">Regression CI Gates</h2>
           <p className="mt-2 text-xs text-slate-600 leading-relaxed">
-            Freeze golden baselines, curate test cases from real failures, and enforce automated CI gates with <code>pulse regression-check</code>.
+            Freeze golden baselines, curate test cases from real failures, and enforce automated CI gates with <code>reeprov regression check</code>.
           </p>
         </div>
       </div>

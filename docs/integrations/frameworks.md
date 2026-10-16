@@ -2,13 +2,13 @@
 
 ## Current Status: Generic SDKs Work with Any Framework
 
-AgentPulse provides official client SDKs for TypeScript and Python, along with an open REST API:
+Reeprov provides official client SDKs for TypeScript and Python, along with an open REST API:
 
-- **TypeScript SDK:** [`@agentpulse/client`](../../packages/client-typescript/README.md)
-- **Python SDK:** [`agentpulse-client`](../../packages/client-python/README.md)
+- **TypeScript SDK:** [`@reeprov/client`](../../packages/client-typescript/README.md)
+- **Python SDK:** [`reeprov-client`](../../packages/client-python/README.md)
 - **Direct HTTP:** [`POST /api/traces/events`, `POST /api/traces/boundaries`](../trace_schema.md)
 
-Because the client SDKs communicate over standard HTTP contracts and operate independently of runtime heaps, **AgentPulse can be used today with any external agent framework**, including:
+Because the client SDKs communicate over standard HTTP contracts and operate independently of runtime heaps, **Reeprov can be used today with any external agent framework**, including:
 - LangChain / LangGraph
 - LlamaIndex
 - CrewAI
@@ -42,7 +42,7 @@ Agent Run Completion
 
 ## Framework-Specific Adapters (Community Contribution Opportunity)
 
-Framework-specific middleware or callbacks (e.g. `AgentPulseCallbackHandler` for LangChain, or event listeners for CrewAI) are **future community contributor opportunities**.
+Framework-specific middleware or callbacks (e.g. `ReeprovCallbackHandler` for LangChain, or event listeners for CrewAI) are **future community contributor opportunities**.
 
 We explicitly chose not to bloat the core beta repository with unstable upstream framework dependencies.
 
@@ -51,7 +51,7 @@ We explicitly chose not to bloat the core beta repository with unstable upstream
 If you wish to contribute an adapter for a specific framework, the integration must adhere to these requirements:
 
 1. **Failure Isolation:** Any telemetry failure must fail-open and never crash the host agent's core loop.
-2. **Side-Effect Classification:** Tool calls must map to AgentPulse permission tiers (`read_only`, `write_draft`, `external_side_effect`, `destructive`, `sensitive_data`).
+2. **Side-Effect Classification:** Tool calls must map to Reeprov permission tiers (`read_only`, `write_draft`, `external_side_effect`, `destructive`, `sensitive_data`).
 3. **Project-Scoped Authentication:** Ingest requests must be signed with project-scoped keys (`ap_live_...`).
 4. **Offline Tests:** The adapter test suite must include mock provider tests verifying that trace events and boundaries are correctly shaped without requiring live LLM API keys.
 5. **No Framework Dependencies in Core:** Framework adapters must live either in separate community packages or as optional peer extensions.

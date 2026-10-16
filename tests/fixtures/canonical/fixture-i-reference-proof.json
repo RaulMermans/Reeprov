@@ -5,13 +5,13 @@
     "project_id": "customer-support-agent",
     "project_name": "customer-support-agent",
     "workflow_id": "refund-pipeline",
-    "created_at": "2026-10-15T18:28:02.169Z"
+    "created_at": "2026-10-16T09:07:34.628Z"
   },
   "execution": {
     "status": "completed",
-    "started_at": "2026-10-15T18:28:02.169Z",
-    "completed_at": "2026-10-15T18:28:02.170Z",
-    "duration_ms": 1,
+    "started_at": "2026-10-16T09:07:34.628Z",
+    "completed_at": "2026-10-16T09:07:34.628Z",
+    "duration_ms": 0,
     "summary": "Executed workflow refund-pipeline"
   },
   "environment": {
@@ -25,7 +25,7 @@
       "step_index": 0,
       "step_type": "retrieval",
       "name": "step_1",
-      "started_at": "2026-10-15T18:28:02.170Z",
+      "started_at": "2026-10-16T09:07:34.628Z",
       "status": "completed",
       "boundary_ids": [],
       "tool_invocation_ids": [],
@@ -34,7 +34,7 @@
       "retrieval_operation_ids": [],
       "eval_result_ids": [],
       "artifact_ids": [],
-      "completed_at": "2026-10-15T18:28:02.170Z",
+      "completed_at": "2026-10-16T09:07:34.628Z",
       "duration_ms": 0
     },
     {
@@ -42,7 +42,7 @@
       "step_index": 1,
       "step_type": "eval",
       "name": "step_2",
-      "started_at": "2026-10-15T18:28:02.170Z",
+      "started_at": "2026-10-16T09:07:34.628Z",
       "status": "completed",
       "boundary_ids": [],
       "tool_invocation_ids": [],
@@ -51,7 +51,7 @@
       "retrieval_operation_ids": [],
       "eval_result_ids": [],
       "artifact_ids": [],
-      "completed_at": "2026-10-15T18:28:02.170Z",
+      "completed_at": "2026-10-16T09:07:34.628Z",
       "duration_ms": 0
     },
     {
@@ -59,7 +59,7 @@
       "step_index": 2,
       "step_type": "tool_call",
       "name": "step_3",
-      "started_at": "2026-10-15T18:28:02.170Z",
+      "started_at": "2026-10-16T09:07:34.628Z",
       "status": "completed",
       "boundary_ids": [],
       "tool_invocation_ids": [],
@@ -68,7 +68,7 @@
       "retrieval_operation_ids": [],
       "eval_result_ids": [],
       "artifact_ids": [],
-      "completed_at": "2026-10-15T18:28:02.170Z",
+      "completed_at": "2026-10-16T09:07:34.628Z",
       "duration_ms": 0
     }
   ],
@@ -92,7 +92,7 @@
   "provenance": {
     "capture_method": "sdk_trace",
     "adapter_version": "1.0.0-canonical",
-    "captured_by": "AgentPulseCaptureSDK",
+    "captured_by": "ReeprovCaptureSDK",
     "redaction_verified": true
   },
   "safety": {
@@ -105,7 +105,7 @@
     }
   },
   "observability": {
-    "total_duration_ms": 1,
+    "total_duration_ms": 0,
     "total_cost_usd": 0,
     "model_calls_count": 0,
     "tool_calls_count": 0,
@@ -129,7 +129,7 @@
   "configuration_snapshot": {
     "snapshot_id": "cfg_run_proof_reference_001_9a8aedbc525c",
     "run_id": "run_proof_reference_001",
-    "captured_at": "2026-10-15T18:28:02.169Z",
+    "captured_at": "2026-10-16T09:07:34.628Z",
     "declaration_type": "EFFECTIVE",
     "agent": {
       "id": "support-agent",
@@ -246,7 +246,7 @@
           ]
         }
       ],
-      "created_at": "2026-10-15T18:28:02.170Z",
+      "created_at": "2026-10-16T09:07:34.628Z",
       "producer": "support-agent",
       "status": "COMPLETED"
     },
@@ -260,7 +260,7 @@
         "target_id": "test_run_proof_reference_001_0",
         "status": "STARTED",
         "actor": "test_runner",
-        "started_at": "2026-10-15T18:28:02.170Z",
+        "started_at": "2026-10-16T09:07:34.628Z",
         "evidence_refs": [],
         "artifact_refs": [],
         "sequence_index": 0
@@ -274,8 +274,8 @@
         "target_id": "test_run_proof_reference_001_0",
         "status": "PASSED",
         "actor": "test_runner",
-        "started_at": "2026-10-15T18:28:02.170Z",
-        "completed_at": "2026-10-15T18:28:02.170Z",
+        "started_at": "2026-10-16T09:07:34.628Z",
+        "completed_at": "2026-10-16T09:07:34.628Z",
         "duration_ms": 14,
         "evidence_refs": [
           "test_run_proof_reference_001_0"
@@ -292,7 +292,7 @@
         "target_id": "rev_run_proof_reference_001_0",
         "status": "STARTED",
         "actor": "compliance_guard",
-        "started_at": "2026-10-15T18:28:02.170Z",
+        "started_at": "2026-10-16T09:07:34.628Z",
         "evidence_refs": [],
         "artifact_refs": [],
         "sequence_index": 2
@@ -324,8 +324,8 @@
         "duration_ms": 14,
         "attempt": 1,
         "artifact_refs": [],
-        "started_at": "2026-10-15T18:28:02.170Z",
-        "completed_at": "2026-10-15T18:28:02.170Z"
+        "started_at": "2026-10-16T09:07:34.628Z",
+        "completed_at": "2026-10-16T09:07:34.628Z"
       }
     ],
     "review_results": [
@@ -339,7 +339,7 @@
         "findings": [],
         "evidence_refs": [],
         "artifact_refs": [],
-        "created_at": "2026-10-15T18:28:02.170Z"
+        "created_at": "2026-10-16T09:07:34.628Z"
       }
     ],
     "approval_events": [
@@ -348,7 +348,7 @@
         "action_id": "act_refund_001",
         "requested_by": "support-agent",
         "required_permission_class": "PRIVILEGED_FINANCIAL",
-        "requested_at": "2026-10-15T18:28:02.170Z",
+        "requested_at": "2026-10-16T09:07:34.628Z",
         "resolved_by": "supervisor_role",
         "decision": "GRANTED",
         "evidence_refs": []
@@ -365,7 +365,7 @@
         "permission_class": "READ",
         "event_type": "action.requested",
         "decision": "UNKNOWN",
-        "timestamp": "2026-10-15T18:28:02.170Z"
+        "timestamp": "2026-10-16T09:07:34.628Z"
       },
       {
         "event_id": "sec_002",
@@ -377,7 +377,7 @@
         "permission_class": "READ",
         "event_type": "permission.checked",
         "decision": "ALLOW",
-        "timestamp": "2026-10-15T18:28:02.170Z"
+        "timestamp": "2026-10-16T09:07:34.628Z"
       },
       {
         "event_id": "sec_003",
@@ -389,7 +389,7 @@
         "permission_class": "READ",
         "event_type": "permission.granted",
         "decision": "ALLOW",
-        "timestamp": "2026-10-15T18:28:02.170Z"
+        "timestamp": "2026-10-16T09:07:34.628Z"
       },
       {
         "event_id": "sec_004",
@@ -401,7 +401,7 @@
         "permission_class": "PRIVILEGED_FINANCIAL",
         "event_type": "action.requested",
         "decision": "REQUIRE_APPROVAL",
-        "timestamp": "2026-10-15T18:28:02.170Z"
+        "timestamp": "2026-10-16T09:07:34.628Z"
       },
       {
         "event_id": "sec_005",
@@ -413,7 +413,7 @@
         "permission_class": "PRIVILEGED_FINANCIAL",
         "event_type": "permission.checked",
         "decision": "REQUIRE_APPROVAL",
-        "timestamp": "2026-10-15T18:28:02.170Z"
+        "timestamp": "2026-10-16T09:07:34.628Z"
       },
       {
         "event_id": "sec_006",
@@ -426,7 +426,7 @@
         "event_type": "permission.granted",
         "decision": "ALLOW",
         "approval_id": "appr_refund_001",
-        "timestamp": "2026-10-15T18:28:02.170Z"
+        "timestamp": "2026-10-16T09:07:34.628Z"
       }
     ],
     "final_outcome": {
@@ -436,7 +436,7 @@
       "tests_status": "PASS",
       "review_status": "PASS",
       "security_status": "PASS",
-      "completed_at": "2026-10-15T18:28:02.170Z"
+      "completed_at": "2026-10-16T09:07:34.628Z"
     }
   }
 }

@@ -1,5 +1,5 @@
 /**
- * AgentPulse Policy Drift Engine Entry Point.
+ * Reeprov Policy Drift Engine Entry Point.
  */
 
 export * from "./snapshot";

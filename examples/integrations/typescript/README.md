@@ -1,34 +1,34 @@
-# AgentPulse TypeScript Integration
+# Reeprov TypeScript Integration
 
-Copy `agentpulseClient.ts` into your project and wrap your AI workflow.
+Install `@reeprov/client` (or copy `reeprovClient.ts` into your project) and wrap your AI workflow.
 
 ## Setup
 
-1. Copy `agentpulseClient.ts` into your project.
+1. Install `@reeprov/client` or copy `reeprovClient.ts` into your project.
 2. Set environment variables:
 
 ```env
-AGENTPULSE_URL=https://<your-agentpulse-url>
-AGENTPULSE_INGEST_KEY=<your-ingest-key>
-AGENTPULSE_PROJECT_ID=my-project
-AGENTPULSE_PROJECT_NAME="My Project"
-AGENTPULSE_WORKFLOW_ID=my-workflow-v1
-AGENTPULSE_ENABLED=true
+REEPROV_URL=http://127.0.0.1:3000
+REEPROV_INGEST_KEY=<your-ingest-key>
+REEPROV_PROJECT_ID=my-project
+REEPROV_PROJECT_NAME="My Project"
+REEPROV_WORKFLOW_ID=my-workflow-v1
+REEPROV_ENABLED=true
 ```
 
 3. Wrap your workflow:
 
 ```typescript
-import { AgentPulseClient } from "./agentpulseClient";
+import { ReeprovClient } from "@reeprov/client";
 
-const pulse = new AgentPulseClient();
+const reeprov = new ReeprovClient();
 
 async function runMyWorkflow() {
-  const runId = await pulse.startRun({ summary: "Starting my workflow" });
+  const runId = await reeprov.startRun({ summary: "Starting my workflow" });
 
   // ... do work ...
 
-  await pulse.modelCallCompleted(runId, {
+  await reeprov.modelCallCompleted(runId, {
     nodeId: "my-agent",
     modelProvider: "anthropic",
     modelName: "claude-sonnet-4-6",
@@ -38,12 +38,13 @@ async function runMyWorkflow() {
     outputSummary: "Agent completed analysis",
   });
 
-  await pulse.completeRun(runId, { summary: "Workflow complete" });
+  await reeprov.completeRun(runId, { summary: "Workflow complete" });
 }
 ```
 
 ## Notes
 
-- Setting `AGENTPULSE_ENABLED=false` (or omitting it) makes all methods no-ops — safe for local dev.
-- `AGENTPULSE_INGEST_KEY` is the ingest key, not the dashboard access key.
-- No external npm packages required.
+- Setting `REEPROV_ENABLED=false` (or omitting it) makes all methods no-ops — safe for local dev.
+- `REEPROV_INGEST_KEY` is the ingest key, not the dashboard access key.
+- `@reeprov/client` has zero external runtime dependencies.
+- Legacy `REEPROV_*` environment variables remain supported with deprecation warnings.

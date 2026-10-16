@@ -1,22 +1,22 @@
 /**
- * AgentPulseClient — minimal TypeScript client for emitting trace events.
+ * ReeprovClient — minimal TypeScript client for emitting trace events.
  *
- * External AI projects can import or copy this file to send traces to an
- * AgentPulse instance.
+ * External AI projects can import or copy this file to send traces to a
+ * Reeprov instance.
  *
  * Usage:
  *
- *   const pulse = new AgentPulseClient({
- *     endpoint: process.env.AGENTPULSE_URL!,
- *     apiKey:   process.env.AGENTPULSE_INGEST_KEY!,
+ *   const client = new ReeprovClient({
+ *     endpoint: process.env.REEPROV_URL!,
+ *     apiKey:   process.env.REEPROV_INGEST_KEY!,
  *     projectId: "campaign-sandbox",
  *     projectName: "Campaign Sandbox",
  *     workflowId: "campaign-recommendation-v1",
  *   });
  *
- *   const run = await pulse.startRun({ summary: "Generate campaign recommendation." });
+ *   const run = await client.startRun({ summary: "Generate campaign recommendation." });
  *
- *   await pulse.emitTraceEvent({
+ *   await client.emitTraceEvent({
  *     event_id:   crypto.randomUUID(),
  *     run_id:     run.run_id,
  *     workflow_id: "campaign-recommendation-v1",
@@ -26,11 +26,11 @@
  *     status:     "running",
  *   });
  *
- *   await pulse.completeRun({ run_id: run.run_id, summary: "Done." });
+ *   await client.completeRun({ run_id: run.run_id, summary: "Done." });
  *
  * Auth:
- *   All requests include the apiKey as x-agentpulse-key.
- *   The key is matched against AGENTPULSE_INGEST_KEY (or AGENTPULSE_ACCESS_KEY
+ *   All requests include the apiKey as x-reeprov-key (or legacy x-agentpulse-key).
+ *   The key is matched against REEPROV_INGEST_KEY (or REEPROV_ACCESS_KEY
  *   as fallback) on the server.
  */
 
@@ -38,10 +38,10 @@ import type { TraceEvent } from "./schemas";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface AgentPulseClientOptions {
-  /** Base URL of the AgentPulse instance, e.g. "http://localhost:3000" */
+export interface ReeprovClientOptions {
+  /** Base URL of the Reeprov instance, e.g. "http://localhost:3000" */
   endpoint: string;
-  /** API key — sent as x-agentpulse-key header */
+  /** API key — sent as x-reeprov-key header */
   apiKey: string;
   /** Optional project ID; overridden per-call if provided there */
   projectId?: string;
@@ -50,6 +50,9 @@ export interface AgentPulseClientOptions {
   /** Optional workflow ID */
   workflowId?: string;
 }
+
+/** Legacy alias during AgentPulse -> Reeprov migration */
+export type AgentPulseClientOptions = ReeprovClientOptions;
 
 export interface StartRunInput {
   /** Summary of what this run is doing */
@@ -97,14 +100,14 @@ export interface EmitEventsResult {
 
 // ── Client ────────────────────────────────────────────────────────────────────
 
-export class AgentPulseClient {
+export class ReeprovClient {
   private readonly endpoint: string;
   private readonly apiKey: string;
   private readonly defaultProjectId: string;
   private readonly defaultProjectName: string;
   private readonly defaultWorkflowId: string;
 
-  constructor(options: AgentPulseClientOptions) {
+  constructor(options: ReeprovClientOptions) {
     this.endpoint = options.endpoint.replace(/\/$/, "");
     this.apiKey = options.apiKey;
     this.defaultProjectId = options.projectId ?? "unknown-project";
@@ -147,7 +150,7 @@ export class AgentPulseClient {
   // ── Trace events ─────────────────────────────────────────────────────────────
 
   /**
-   * Emits a single trace event to AgentPulse.
+   * Emits a single trace event to Reeprov.
    */
   async emitTraceEvent(event: TraceEvent): Promise<EmitEventsResult> {
     return this.emitTraceEvents([event]);
@@ -171,34 +174,42 @@ export class AgentPulseClient {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-reeprov-key": this.apiKey,
         "x-agentpulse-key": this.apiKey,
       },
       body: JSON.stringify(body),
     });
 
     if (!response.ok) {
-      let message = `AgentPulse API error: ${response.status} ${response.statusText}`;
+      let message = `Reeprov API error: ${response.status} ${response.statusText}`;
       try {
         const data = await response.json() as { message?: string };
-        if (data.message) message = `AgentPulse API error (${response.status}): ${data.message}`;
+        if (data.message) message = `Reeprov API error (${response.status}): ${data.message}`;
       } catch {
         // ignore parse errors
       }
-      throw new AgentPulseError(message, response.status);
+      throw new ReeprovError(message, response.status);
     }
 
     return response.json();
   }
 }
 
+/** Legacy alias during AgentPulse -> Reeprov migration */
+export const AgentPulseClient = ReeprovClient;
+
 // ── Error ─────────────────────────────────────────────────────────────────────
 
-export class AgentPulseError extends Error {
+export class ReeprovError extends Error {
   constructor(
     message: string,
     public readonly status: number,
   ) {
     super(message);
-    this.name = "AgentPulseError";
+    this.name = "ReeprovError";
   }
 }
+
+/** Legacy alias during AgentPulse -> Reeprov migration */
+export const AgentPulseError = ReeprovError;
+

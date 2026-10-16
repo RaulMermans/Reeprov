@@ -273,9 +273,9 @@ describe("fileIntegrationStore", () => {
       const result = await fileIntegrationStore.generateIngestKey(created.integrationId);
 
       expect(result).not.toBeNull();
-      expect(result!.rawKey).toMatch(/^ap_live_/);
+      expect(result!.rawKey).toMatch(/^ree_live_/);
       expect(result!.integration.ingestKeyHash).toBeTruthy();
-      expect(result!.integration.ingestKeyPreview).toContain("ap_live_...");
+      expect(result!.integration.ingestKeyPreview).toContain("ree_live_...");
       // The raw key itself must never appear in the persisted record.
       expect(JSON.stringify(result!.integration)).not.toContain(result!.rawKey);
     });

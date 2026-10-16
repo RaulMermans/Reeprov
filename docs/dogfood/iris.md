@@ -1,6 +1,6 @@
 # IRIS External Dogfood & DX Hardening Report
 
-**Project:** AgentPulse  
+**Project:** Reeprov  
 **External Agent Target:** IRIS Autonomous Executive Agent  
 **Sprint:** 10.2 — Real External Dogfood & DX Hardening  
 **Date:** 2026-10-15  
@@ -22,9 +22,9 @@
 ## 2. Integration Method
 
 - **External Integration Boundary:**
-  - Zero imports from AgentPulse private internals (`lib/core/*`, `lib/db/*`, `lib/fork/*`, `lib/evals/*`, etc.).
-  - Integrated strictly via standard HTTP REST endpoints using the documented copy-in TypeScript client (`AgentPulseClient`).
-  - Implemented an observational `TodayTraceSink` adapter in IRIS that translates IRIS today trace events into AgentPulse canonical events (`toolCallCompleted`, `captureBoundary`, `checkpointSaved`, `modelCallCompleted`, `evalCompleted`, `artifactCreated`, `completeRun`, `failRun`).
+  - Zero imports from Reeprov private internals (`lib/core/*`, `lib/db/*`, `lib/fork/*`, `lib/evals/*`, etc.).
+  - Integrated strictly via standard HTTP REST endpoints using the documented copy-in TypeScript client (`ReeprovClient`).
+  - Implemented an observational `TodayTraceSink` adapter in IRIS that translates IRIS today trace events into Reeprov canonical events (`toolCallCompleted`, `captureBoundary`, `checkpointSaved`, `modelCallCompleted`, `evalCompleted`, `artifactCreated`, `completeRun`, `failRun`).
   - Zero modifications to IRIS domain schemas, agent routing, tool selection, memory behavior, or prompt text.
 
 ---
@@ -117,7 +117,7 @@ Executed `iris-morning-brief-suite` (version 3):
 
 ---
 
-## 10. Summary of AgentPulse Hardening Fixes Made
+## 10. Summary of Reeprov Hardening Fixes Made
 
 1. **Bidirectional Route Security Contract:** Extended route verification to dynamically assert all 66 route files and 88 method handlers match inventory and runtime capabilities bidirectionally.
 2. **One Authorization Policy Engine:** Unified `requireIngestAuth` to delegate directly to `authorizeRequest`, strictly enforcing project scoping and credential isolation.
@@ -130,5 +130,5 @@ Executed `iris-morning-brief-suite` (version 3):
 
 ## 11. Known Limitations
 
-- **Process Memory Snapshots:** AgentPulse does not attempt live process heap serialization; forking relies on application-level state snapshots.
-- **Copy-In Client:** External agents vendor `agentpulseClient.ts` as a single file; official NPM/PyPI packages are deferred to Sprint 11.
+- **Process Memory Snapshots:** Reeprov does not attempt live process heap serialization; forking relies on application-level state snapshots.
+- **Copy-In Client:** External agents vendor `reeprovClient.ts` as a single file; official NPM/PyPI packages are deferred to Sprint 11.

@@ -1,6 +1,6 @@
-# AgentPulse Integration Guide
+# Reeprov Integration Guide
 
-AgentPulse observes workflows that run elsewhere. An integration is the stable project identity and telemetry connection used to group runs, events, and optional WorkflowSpecs. AgentPulse does not execute or edit the connected workflow.
+Reeprov observes workflows that run elsewhere. An integration is the stable project identity and telemetry connection used to group runs, events, and optional WorkflowSpecs. Reeprov does not execute or edit the connected workflow.
 
 ## Quickstart
 
@@ -8,17 +8,17 @@ AgentPulse observes workflows that run elsewhere. An integration is the stable p
 2. Set these values only in the external project's server environment:
 
 ```dotenv
-AGENTPULSE_URL=https://agentpulse.example.com
-AGENTPULSE_INGEST_KEY=<secret-from-your-agentpulse-deployment>
-AGENTPULSE_PROJECT_ID=customer-support-triage
-AGENTPULSE_PROJECT_NAME="Customer Support Triage"
-AGENTPULSE_WORKFLOW_ID=support-triage-v2
-AGENTPULSE_ENABLED=true
+REEPROV_URL=http://127.0.0.1:3000
+REEPROV_INGEST_KEY=<secret-from-your-reeprov-deployment>
+REEPROV_PROJECT_ID=customer-support-triage
+REEPROV_PROJECT_NAME="Customer Support Triage"
+REEPROV_WORKFLOW_ID=support-triage-v2
+REEPROV_ENABLED=true
 ```
 
 The ingest key is a server secret. Do not place it in `NEXT_PUBLIC_*`, browser code, logs, source control, screenshots, or event metadata. The UI deliberately shows placeholders rather than the key.
 
-All ingest calls use `Content-Type: application/json` and `x-agentpulse-key: $AGENTPULSE_INGEST_KEY`.
+All ingest calls use `Content-Type: application/json` and `x-reeprov-key: $REEPROV_INGEST_KEY` (with legacy `x-agentpulse-key` supported).
 
 ## Send a minimal run
 
@@ -26,19 +26,19 @@ All ingest calls use `Content-Type: application/json` and `x-agentpulse-key: $AG
 RUN_ID="quickstart-$(date +%s)"
 NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-curl --fail-with-body -X POST "$AGENTPULSE_URL/api/runs/start" \
+curl --fail-with-body -X POST "$REEPROV_URL/api/runs/start" \
   -H "Content-Type: application/json" \
-  -H "x-agentpulse-key: $AGENTPULSE_INGEST_KEY" \
+  -H "x-reeprov-key: $REEPROV_INGEST_KEY" \
   -d "{\"run_id\":\"$RUN_ID\",\"project_id\":\"customer-support-triage\",\"project_name\":\"Customer Support Triage\",\"workflow_id\":\"support-triage-v2\",\"summary\":\"Safe integration smoke test\"}"
 
-curl --fail-with-body -X POST "$AGENTPULSE_URL/api/traces/events" \
+curl --fail-with-body -X POST "$REEPROV_URL/api/traces/events" \
   -H "Content-Type: application/json" \
-  -H "x-agentpulse-key: $AGENTPULSE_INGEST_KEY" \
+  -H "x-reeprov-key: $REEPROV_INGEST_KEY" \
   -d "{\"events\":[{\"event_id\":\"$RUN_ID::triage::completed\",\"run_id\":\"$RUN_ID\",\"workflow_id\":\"support-triage-v2\",\"node_id\":\"triage\",\"timestamp\":\"$NOW\",\"event_type\":\"node_completed\",\"status\":\"completed\",\"output_summary\":\"Synthetic ticket classified\"}]}"
 
-curl --fail-with-body -X POST "$AGENTPULSE_URL/api/runs/complete" \
+curl --fail-with-body -X POST "$REEPROV_URL/api/runs/complete" \
   -H "Content-Type: application/json" \
-  -H "x-agentpulse-key: $AGENTPULSE_INGEST_KEY" \
+  -H "x-reeprov-key: $REEPROV_INGEST_KEY" \
   -d "{\"run_id\":\"$RUN_ID\",\"summary\":\"Smoke test completed\"}"
 ```
 
@@ -46,8 +46,9 @@ Open `/dashboard/runs`, locate `$RUN_ID`, and open it. The Visual Execution Canv
 
 ## Full example and clients
 
+- `packages/client-typescript` contains the official `@reeprov/client` SDK.
+- `packages/client-python` contains the official `reeprov-client` SDK.
 - `examples/integrations/fixtures/customer-support-triage-run.json` is a complete, schema-validated inferred-mode run with six observed stages, a model call, read-only tool failure, recovery, eval, artifact, and warning.
-- `examples/integrations/typescript/agentpulseClient.ts` and `examples/integrations/python/agentpulse_client.py` are zero-dependency copy-in clients.
 - `examples/integrations/rest/README.md` contains endpoint-by-endpoint curl examples.
 
 Start the run before sending its events. Send one or more trace events in an `events` array, then complete or fail the run. `event_id` is the idempotency key within a run; re-sending the same ID is safe.
@@ -64,13 +65,13 @@ For model events, useful metadata includes `model_provider`, `model_name`, `inpu
 
 A registered WorkflowSpec is a declared contract: it supplies semantic node types, expected order, edges, tools, evals, and gates. Promote or register a spec whose `workflow_id` matches the run. See `docs/workflow_spec.md` for the current schema.
 
-Without a matching registered spec, AgentPulse uses inferred mode. It groups events by `node_id`, orders stages from observed timestamps, and infers lanes from metadata such as `lane`, `agent`, `role`, `stage_group`, or `owner`. Inferred runs are fully inspectable; they simply cannot show declared-but-unobserved nodes.
+Without a matching registered spec, Reeprov uses inferred mode. It groups events by `node_id`, orders stages from observed timestamps, and infers lanes from metadata such as `lane`, `agent`, `role`, `stage_group`, or `owner`. Inferred runs are fully inspectable; they simply cannot show declared-but-unobserved nodes.
 
 ## Common errors
 
 | Symptom | Meaning and fix |
 | --- | --- |
-| `401 unauthorized` | Header missing or ingest key invalid. Send `x-agentpulse-key`; do not use a client-exposed value. |
+| `401 unauthorized` | Header missing or ingest key invalid. Send `x-reeprov-key`; do not use a client-exposed value. |
 | `project_id is required` | The start-run body is missing the stable project ID. |
 | `run_id is required` | Complete/fail request is missing the ID returned or supplied at start. |
 | `Run ... not found` | Events arrived before `POST /api/runs/start`, or the ID differs. |

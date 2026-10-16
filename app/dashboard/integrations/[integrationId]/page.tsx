@@ -28,27 +28,27 @@ interface IntegrationReadiness {
 
 function tsSnippet(p: ProjectIntegration): string {
   const wfId = p.defaultWorkflowId ?? `${p.projectId}-workflow`;
-  return `// 1. Copy agentpulseClient.ts from examples/integrations/typescript/
+  return `// 1. Install @reeprov/client or copy client from examples/integrations/typescript/
 // 2. Set environment variables in your project:
 //
-//   AGENTPULSE_URL=https://<your-agentpulse-url>
-//   AGENTPULSE_INGEST_KEY=<your-ingest-key>
-//   AGENTPULSE_PROJECT_ID=${p.projectId}
-//   AGENTPULSE_PROJECT_NAME="${p.projectName}"
-//   AGENTPULSE_WORKFLOW_ID=${wfId}
-//   AGENTPULSE_ENABLED=true
+//   REEPROV_URL=https://<your-reeprov-url>
+//   REEPROV_INGEST_KEY=<your-ingest-key>
+//   REEPROV_PROJECT_ID=${p.projectId}
+//   REEPROV_PROJECT_NAME="${p.projectName}"
+//   REEPROV_WORKFLOW_ID=${wfId}
+//   REEPROV_ENABLED=true
 //
 // 3. Wrap your workflow:
 
-import { AgentPulseClient } from "./agentpulseClient";
+import { ReeprovClient } from "@reeprov/client";
 
-const pulse = new AgentPulseClient();
+const reeprov = new ReeprovClient();
 
-const runId = await pulse.startRun({
+const runId = await reeprov.startRun({
   summary: "Starting ${p.projectName} run",
 });
 
-await pulse.modelCallCompleted(runId, {
+await reeprov.modelCallCompleted(runId, {
   nodeId: "my-agent",
   modelProvider: "anthropic",
   modelName: "claude-sonnet-4-6",
@@ -58,32 +58,32 @@ await pulse.modelCallCompleted(runId, {
   outputSummary: "Agent output here",
 });
 
-await pulse.completeRun(runId, {
+await reeprov.completeRun(runId, {
   summary: "Run completed successfully",
 });`;
 }
 
 function pythonSnippet(p: ProjectIntegration): string {
   const wfId = p.defaultWorkflowId ?? `${p.projectId}-workflow`;
-  return `# 1. Copy agentpulse_client.py from examples/integrations/python/
+  return `# 1. Install reeprov-client or copy client from examples/integrations/python/
 # 2. Set environment variables in your project:
 #
-#   AGENTPULSE_URL=https://<your-agentpulse-url>
-#   AGENTPULSE_INGEST_KEY=<your-ingest-key>
-#   AGENTPULSE_PROJECT_ID=${p.projectId}
-#   AGENTPULSE_PROJECT_NAME="${p.projectName}"
-#   AGENTPULSE_WORKFLOW_ID=${wfId}
-#   AGENTPULSE_ENABLED=true
+#   REEPROV_URL=https://<your-reeprov-url>
+#   REEPROV_INGEST_KEY=<your-ingest-key>
+#   REEPROV_PROJECT_ID=${p.projectId}
+#   REEPROV_PROJECT_NAME="${p.projectName}"
+#   REEPROV_WORKFLOW_ID=${wfId}
+#   REEPROV_ENABLED=true
 #
 # 3. Wrap your workflow:
 
-from agentpulse_client import AgentPulseClient
+from reeprov_client import ReeprovClient
 
-pulse = AgentPulseClient()
+reeprov = ReeprovClient()
 
-run_id = pulse.start_run(summary="Starting ${p.projectName} run")
+run_id = reeprov.start_run(summary="Starting ${p.projectName} run")
 
-pulse.model_call_completed(
+reeprov.model_call_completed(
     run_id=run_id,
     node_id="my-agent",
     model_provider="anthropic",
@@ -94,43 +94,43 @@ pulse.model_call_completed(
     output_summary="Agent output here",
 )
 
-pulse.complete_run(run_id, summary="Run completed successfully")`;
+reeprov.complete_run(run_id, summary="Run completed successfully")`;
 }
 
 function restSnippet(p: ProjectIntegration): string {
   const wfId = p.defaultWorkflowId ?? `${p.projectId}-workflow`;
   return `# REST API (curl)
 # Set these in your shell or CI environment:
-#   AGENTPULSE_URL=https://<your-agentpulse-url>
-#   AGENTPULSE_INGEST_KEY=<your-ingest-key>
+#   REEPROV_URL=https://<your-reeprov-url>
+#   REEPROV_INGEST_KEY=<your-ingest-key>
 #
 # 1. Start a run
-curl -s -X POST "$AGENTPULSE_URL/api/runs/start" \\
+curl -s -X POST "$REEPROV_URL/api/runs/start" \\
   -H "Content-Type: application/json" \\
-  -H "x-agentpulse-key: $AGENTPULSE_INGEST_KEY" \\
+  -H "x-reeprov-key: $REEPROV_INGEST_KEY" \\
   -d '{"project_id":"${p.projectId}","project_name":"${p.projectName}","workflow_id":"${wfId}","summary":"Test run"}'
 
 # 2. Append trace events
-curl -s -X POST "$AGENTPULSE_URL/api/traces/events" \\
+curl -s -X POST "$REEPROV_URL/api/traces/events" \\
   -H "Content-Type: application/json" \\
-  -H "x-agentpulse-key: $AGENTPULSE_INGEST_KEY" \\
+  -H "x-reeprov-key: $REEPROV_INGEST_KEY" \\
   -d '{"events":[{"event_id":"<run_id>::node::started","run_id":"<run_id>","workflow_id":"${wfId}","timestamp":"<iso>","event_type":"node_started","status":"running","node_id":"my-agent"}]}'
 
 # 3. Complete the run
-curl -s -X POST "$AGENTPULSE_URL/api/runs/complete" \\
+curl -s -X POST "$REEPROV_URL/api/runs/complete" \\
   -H "Content-Type: application/json" \\
-  -H "x-agentpulse-key: $AGENTPULSE_INGEST_KEY" \\
+  -H "x-reeprov-key: $REEPROV_INGEST_KEY" \\
   -d '{"run_id":"<run_id>","summary":"Run completed"}'`;
 }
 
 function envBlock(p: ProjectIntegration): string {
   const wfId = p.defaultWorkflowId ?? `${p.projectId}-workflow`;
-  return `AGENTPULSE_URL=https://<your-agentpulse-deployment-url>
-AGENTPULSE_INGEST_KEY=<use-the-AGENTPULSE_INGEST_KEY-from-your-AgentPulse-deployment>
-AGENTPULSE_PROJECT_ID=${p.projectId}
-AGENTPULSE_PROJECT_NAME="${p.projectName}"
-AGENTPULSE_WORKFLOW_ID=${wfId}
-AGENTPULSE_ENABLED=true`;
+  return `REEPROV_URL=https://<your-reeprov-deployment-url>
+REEPROV_INGEST_KEY=<use-the-REEPROV_INGEST_KEY-from-your-Reeprov-deployment>
+REEPROV_PROJECT_ID=${p.projectId}
+REEPROV_PROJECT_NAME="${p.projectName}"
+REEPROV_WORKFLOW_ID=${wfId}
+REEPROV_ENABLED=true`;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -257,7 +257,7 @@ export default function IntegrationDetailPage() {
       setReadiness(data.readiness);
       void loadBlueprint();
     } catch {
-      setError("Could not connect to AgentPulse. Is the dev server running?");
+      setError("Could not connect to Reeprov. Is the dev server running?");
     } finally {
       setLoading(false);
     }
@@ -337,7 +337,7 @@ export default function IntegrationDetailPage() {
       setIntegration(data.integration);
       setRevealedRawKey(data.rawKey);
     } catch {
-      setKeyError("Could not connect to AgentPulse.");
+      setKeyError("Could not connect to Reeprov.");
     } finally {
       setKeyBusy(false);
     }
@@ -365,7 +365,7 @@ export default function IntegrationDetailPage() {
       setIntegration(data.integration);
       setRevealedRawKey(null);
     } catch {
-      setKeyError("Could not connect to AgentPulse.");
+      setKeyError("Could not connect to Reeprov.");
     } finally {
       setKeyBusy(false);
     }
@@ -569,7 +569,7 @@ export default function IntegrationDetailPage() {
         <h2 className="mb-1 text-sm font-semibold text-slate-800">Scoped Ingest Key</h2>
         <p className="mb-4 text-xs text-slate-500">
           A scoped key authenticates ingestion for this project only, instead of the shared deployment-wide
-          <code className="mx-1 font-mono">AGENTPULSE_INGEST_KEY</code>. The shared key keeps working either way —
+          <code className="mx-1 font-mono">REEPROV_INGEST_KEY</code>. The shared key keeps working either way —
           scoped keys are opt-in per integration.
         </p>
 
@@ -578,7 +578,7 @@ export default function IntegrationDetailPage() {
             <p className="mb-2 text-xs font-medium text-amber-800">
               Copy this key now — it will not be shown again.
             </p>
-            <CodeBlock code={revealedRawKey} lang="AGENTPULSE_INGEST_KEY" />
+            <CodeBlock code={revealedRawKey} lang="REEPROV_INGEST_KEY" />
             <button
               type="button"
               onClick={() => setRevealedRawKey(null)}
@@ -630,11 +630,11 @@ export default function IntegrationDetailPage() {
         <h2 className="mb-1 text-sm font-semibold text-slate-800">Environment Variables</h2>
         <p className="mb-4 text-xs text-slate-500">
           Copy these into your external project&#39;s environment. Setting environment variables alone does not send events
-          — your project must also import and call the AgentPulse client/adapter.
+          — your project must also import and call the Reeprov client/adapter.
         </p>
         <CodeBlock code={envBlock(integration)} lang="env" />
         <p className="mt-3 text-xs text-slate-500">
-          <strong>AGENTPULSE_INGEST_KEY</strong> can be either the shared deployment-wide key or a scoped key generated
+          <strong>REEPROV_INGEST_KEY</strong> can be either the shared deployment-wide key or a scoped key generated
           above for this integration. It is separate from the dashboard access key.
         </p>
       </Card>
@@ -643,7 +643,7 @@ export default function IntegrationDetailPage() {
         <h2 className="mb-2 text-sm font-semibold text-slate-800">How workflow structure is chosen</h2>
         <p className="text-xs leading-5 text-slate-600">
           A registered WorkflowSpec is the declared contract for node types, order, and edges. When no matching spec exists,
-          AgentPulse infers the canvas from observed <code className="font-mono">node_id</code> values and event order. Both modes
+          Reeprov infers the canvas from observed <code className="font-mono">node_id</code> values and event order. Both modes
           use the same generic graph engine; registering a spec adds expected-but-not-observed stages and declared connections.
         </p>
       </Card>
@@ -724,20 +724,20 @@ export default function IntegrationDetailPage() {
         <div className="space-y-3 text-xs text-slate-600">
           <p className="rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-amber-800">
             <strong>Environment variables alone do not send events.</strong> Your project must import and call
-            the AgentPulse client/adapter. Setting <code className="font-mono">AGENTPULSE_ENABLED=true</code> enables
+            the Reeprov client/adapter. Setting <code className="font-mono">REEPROV_ENABLED=true</code> enables
             the adapter; the adapter then calls the ingest API when your workflow runs.
           </p>
           <p><strong>If no runs appear after running your project:</strong></p>
           <ul className="ml-4 list-disc space-y-1">
-            <li>Check that <code className="font-mono">AGENTPULSE_URL</code> points to your running AgentPulse instance.</li>
-            <li>Check that <code className="font-mono">AGENTPULSE_INGEST_KEY</code> matches the value in your AgentPulse deployment.</li>
-            <li>Check that <code className="font-mono">AGENTPULSE_ENABLED=true</code> is set in your project environment.</li>
-            <li>Check your external project logs for <code className="font-mono">401</code>, <code className="font-mono">404</code>, or <code className="font-mono">500</code> errors from AgentPulse.</li>
+            <li>Check that <code className="font-mono">REEPROV_URL</code> points to your running Reeprov instance.</li>
+            <li>Check that <code className="font-mono">REEPROV_INGEST_KEY</code> matches the value in your Reeprov deployment.</li>
+            <li>Check that <code className="font-mono">REEPROV_ENABLED=true</code> is set in your project environment.</li>
+            <li>Check your external project logs for <code className="font-mono">401</code>, <code className="font-mono">404</code>, or <code className="font-mono">500</code> errors from Reeprov.</li>
             <li>Redeploy or restart your external project after setting environment variables.</li>
-            <li>Confirm the AgentPulse client/adapter is imported and <code className="font-mono">startRun()</code> is called before other events.</li>
+            <li>Confirm the Reeprov client/adapter is imported and <code className="font-mono">startRun()</code> is called before other events.</li>
           </ul>
           <p>
-            Use <strong>Send test event</strong> above to confirm the AgentPulse side is working.
+            Use <strong>Send test event</strong> above to confirm the Reeprov side is working.
             That button uses your dashboard key (not the ingest key) and creates a test run server-side.
           </p>
         </div>

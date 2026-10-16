@@ -2,7 +2,7 @@
 
 ## 1. Overview and Invariant Principles
 
-AgentPulse Context Intelligence observes, reconstructs, audits, and analyzes what an agent knew at every individual decision point.
+Reeprov Context Intelligence observes, reconstructs, audits, and analyzes what an agent knew at every individual decision point.
 
 ### Non-Negotiable Invariants
 1. **Decision-Scoped Analysis:** Prompts and context items are evaluated per decision (`step_id`, `model_invocation_id`, `snapshot_id`). Aggregating all run context into a single undifferentiated pool is strictly forbidden; run-level summaries are derived only after decision-scoped analysis.

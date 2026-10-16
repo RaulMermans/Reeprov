@@ -1,5 +1,5 @@
 /**
- * Convenient barrel export for AgentPulse Canonical Contracts.
+ * Convenient barrel export for Reeprov Canonical Contracts.
  */
 
 export * from "@/lib/core/contracts";

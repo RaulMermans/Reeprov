@@ -3,9 +3,9 @@
  *
  * Creates a complete, realistic Website Auditor demo run for product testing.
  * This route exists so the runtime proof layer is explorable from the UI
- * without requiring an external project to integrate AgentPulse first.
+ * without requiring an external project to integrate Reeprov first.
  *
- * Auth:   x-agentpulse-key (AGENTPULSE_ACCESS_KEY — dashboard key, not ingest key)
+ * Auth:   x-reeprov-key (REEPROV_ACCESS_KEY — dashboard key, not ingest key)
  * Body:   none
  * Returns: { ok: true, runId: string, redirectTo: string }
  *

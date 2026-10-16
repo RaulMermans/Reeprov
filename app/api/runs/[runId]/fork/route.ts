@@ -2,7 +2,7 @@
  * POST /api/runs/[runId]/fork
  * Creates a derived run from a specified historical checkpoint.
  *
- * Auth: x-agentpulse-key
+ * Auth: x-reeprov-key
  */
 
 import { NextResponse } from "next/server";

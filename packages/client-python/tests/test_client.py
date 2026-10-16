@@ -3,12 +3,13 @@ Unit tests for agentpulse_client
 """
 
 import unittest
+from reeprov_client import ReeprovClient, ReeprovError
 from agentpulse_client import AgentPulseClient, AgentPulseError
 
 
-class TestAgentPulseClient(unittest.TestCase):
+class TestReeprovClient(unittest.TestCase):
     def test_instantiation_defaults(self):
-        client = AgentPulseClient(
+        client = ReeprovClient(
             url="http://127.0.0.1:3000",
             ingest_key="test_key",
             project_id="test_project",
@@ -16,7 +17,7 @@ class TestAgentPulseClient(unittest.TestCase):
         self.assertTrue(client.is_enabled)
 
     def test_disabled_client_behavior(self):
-        client = AgentPulseClient(enabled=False, project_id="test_project")
+        client = ReeprovClient(enabled=False, project_id="test_project")
         self.assertFalse(client.is_enabled)
 
         # start_run should return a noop id without network calls
@@ -38,10 +39,16 @@ class TestAgentPulseClient(unittest.TestCase):
         client.complete_run(run_id=run_id)
 
     def test_error_instantiation(self):
-        err = AgentPulseError("Unauthorized", status=401, is_retryable=False)
+        err = ReeprovError("Unauthorized", status=401, is_retryable=False)
         self.assertEqual(str(err), "Unauthorized")
         self.assertEqual(err.status, 401)
         self.assertFalse(err.is_retryable)
+
+    def test_legacy_alias(self):
+        self.assertIs(AgentPulseClient, ReeprovClient)
+        self.assertIs(AgentPulseError, ReeprovError)
+        legacy_client = AgentPulseClient(enabled=False, project_id="test_project")
+        self.assertIsInstance(legacy_client, ReeprovClient)
 
 
 if __name__ == "__main__":

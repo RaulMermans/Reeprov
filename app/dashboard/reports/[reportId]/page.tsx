@@ -75,7 +75,7 @@ export default function SavedReportPage() {
   function downloadJson() {
     if (!report) return;
     downloadText(
-      `${safeFilename(report.repoName)}-agentpulse-report.json`,
+      `${safeFilename(report.repoName)}-reeprov-report.json`,
       JSON.stringify(report, null, 2),
       "application/json",
     );
@@ -84,7 +84,7 @@ export default function SavedReportPage() {
   function downloadMarkdown() {
     if (!report) return;
     downloadText(
-      `${safeFilename(report.repoName)}-agentpulse-report.md`,
+      `${safeFilename(report.repoName)}-reeprov-report.md`,
       exportReportMarkdown(report),
       "text/markdown",
     );
@@ -251,7 +251,7 @@ export default function SavedReportPage() {
       </ReportSection>
 
       <footer className="border-t border-slate-100 pt-4 text-center text-xs text-slate-400">
-        AgentPulse · Saved proof report · {report.scannerVersion}
+        Reeprov · Saved proof report · {report.scannerVersion}
       </footer>
     </main>
   );

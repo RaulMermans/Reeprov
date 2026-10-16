@@ -9,7 +9,7 @@
 
 import { randomBytes } from "node:crypto";
 
-export const RUN_STORE_VERSION = "agentpulse-run-store-v1";
+export const RUN_STORE_VERSION = "reeprov-run-store-v1";
 
 export function generateRunId(): string {
   const tsBase36 = Date.now().toString(36);

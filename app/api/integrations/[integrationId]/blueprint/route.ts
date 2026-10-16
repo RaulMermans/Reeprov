@@ -5,7 +5,7 @@
  * window of the integration's most recent runs, plus a registered
  * WorkflowSpec when one exists (registry first, then built-in example specs).
  *
- * Auth: x-agentpulse-key (AGENTPULSE_ACCESS_KEY). Fails closed — unauthorized
+ * Auth: x-reeprov-key (REEPROV_ACCESS_KEY). Fails closed — unauthorized
  * requests never reach the run store. Diagnostics are already redacted by
  * DiagnosticStore; no raw payloads or secrets are ever included here.
  */

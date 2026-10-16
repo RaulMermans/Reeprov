@@ -1,17 +1,17 @@
 /**
  * Ingest key authentication.
  *
- * External projects that emit trace events use AGENTPULSE_INGEST_KEY.
- * If AGENTPULSE_INGEST_KEY is not set, falls back to AGENTPULSE_ACCESS_KEY
+ * External projects that emit trace events use REEPROV_INGEST_KEY.
+ * If REEPROV_INGEST_KEY is not set, falls back to REEPROV_ACCESS_KEY
  * for local/dev simplicity.
  *
- * Header: x-agentpulse-key
+ * Header: x-reeprov-key (with legacy x-agentpulse-key fallback)
  *
  * Auth model:
- *   AGENTPULSE_ACCESS_KEY  — dashboard / internal access (browser session)
- *   AGENTPULSE_INGEST_KEY  — external trace ingestion (from AI projects)
- *   fallback               — if AGENTPULSE_INGEST_KEY is unset, AGENTPULSE_ACCESS_KEY
- *                            is accepted for local development
+ *   REEPROV_ACCESS_KEY  — dashboard / internal access (browser session)
+ *   REEPROV_INGEST_KEY  — external trace ingestion (from AI projects)
+ *   fallback            — if REEPROV_INGEST_KEY is unset, REEPROV_ACCESS_KEY
+ *                         is accepted for local development
  */
 
 import { timingSafeEqual } from "crypto";
@@ -25,17 +25,17 @@ export class IngestKeyError extends AccessKeyError {
 }
 
 /**
- * Validates the x-agentpulse-key header against the ingest key.
+ * Validates the x-reeprov-key header against the ingest key.
  *
  * Throws IngestKeyError (401) if the key is missing or invalid.
  *
- * Fallback: if AGENTPULSE_INGEST_KEY is not configured, accepts
- * AGENTPULSE_ACCESS_KEY instead (local dev / single-key deployments).
+ * Fallback: if REEPROV_INGEST_KEY is not configured, accepts
+ * REEPROV_ACCESS_KEY instead (local dev / single-key deployments).
  */
 export function requireIngestKey(request: Request): void {
-  const ingestKey = process.env["AGENTPULSE_INGEST_KEY"];
-  const accessKey = process.env["AGENTPULSE_ACCESS_KEY"];
-  const provided = request.headers.get("x-agentpulse-key");
+  const ingestKey = process.env["REEPROV_INGEST_KEY"] ?? process.env["AGENTPULSE_INGEST_KEY"];
+  const accessKey = process.env["REEPROV_ACCESS_KEY"] ?? process.env["AGENTPULSE_ACCESS_KEY"];
+  const provided = request.headers.get("x-reeprov-key") ?? request.headers.get("x-agentpulse-key");
 
   // Determine the effective expected key.
   const expected = ingestKey ?? accessKey;

@@ -74,7 +74,7 @@ export default function SettingsPrivacyPage() {
           <h2 className="text-sm font-bold text-teal-950">Zero-Telemetry Privacy Guarantee</h2>
         </div>
         <p className="mt-2 text-xs text-teal-900 leading-relaxed">
-          AgentPulse is self-hostable, local-first software. All execution traces, model prompts, and checkpoints remain exclusively on your local machine or private server.
+          Reeprov is self-hostable, local-first software. All execution traces, model prompts, and checkpoints remain exclusively on your local machine or private server.
         </p>
 
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -111,14 +111,14 @@ export default function SettingsPrivacyPage() {
           </div>
 
           <div>
-            <label className="font-semibold text-slate-700 block">Personal Data Root Directory (AGENTPULSE_HOME)</label>
+            <label className="font-semibold text-slate-700 block">Personal Data Root Directory (REEPROV_HOME)</label>
             <div className="mt-1 flex items-center gap-2">
               <code className="rounded border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-xs text-slate-800">
-                {posture?.dataPath ?? "~/.agentpulse"}
+                {posture?.dataPath ?? "~/.reeprov"}
               </code>
             </div>
             <p className="mt-1 text-[11px] text-slate-500">
-              Inspect in your terminal anytime with: <code className="font-mono">pulse data-path</code>
+              Inspect in your terminal anytime with: <code className="font-mono">reeprov data-path</code>
             </p>
           </div>
 

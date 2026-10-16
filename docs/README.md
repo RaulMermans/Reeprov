@@ -1,11 +1,12 @@
-# AgentPulse Documentation Index
+# Reeprov Documentation Index
 
-Welcome to the AgentPulse documentation. AgentPulse is a local-first debugging, offline replay, and reproducibility layer for external AI agents.
+Welcome to the Reeprov documentation. Reeprov is local-first debugging, offline replay, and reproducibility infrastructure for external AI agents.
 
 ---
 
 ## 1. Getting Started
 - [Quick Start Guide](../README.md#quick-start) — Local clone, installation, and first launch.
+- [Migration Guide](migration/reeprov-to-reeprov.md) — Upgrading from Reeprov to Reeprov.
 - [Connect Your Agent](product/connect-agent.md) — 3-step project onboarding and framework instrumentation.
 - [First Run Experience](product/first-run.md) — Walkthrough of what to expect on initial execution.
 
@@ -26,8 +27,8 @@ Welcome to the AgentPulse documentation. AgentPulse is a local-first debugging, 
 
 ## 4. Integration & SDKs
 - [Integration Overview](INTEGRATION_GUIDE.md) — Broad telemetry and trace ingestion guide.
-- [TypeScript Client SDK (`@agentpulse/client`)](../packages/client-typescript/README.md) — Official Node.js/TypeScript SDK.
-- [Python Client SDK (`agentpulse-client`)](../packages/client-python/README.md) — Official pure-stdlib Python SDK.
+- [TypeScript Client SDK (`@reeprov/client`)](../packages/client-typescript/README.md) — Official Node.js/TypeScript SDK.
+- [Python Client SDK (`reeprov-client`)](../packages/client-python/README.md) — Official pure-stdlib Python SDK.
 - [REST Ingest API](../examples/integrations/rest/README.md) — Direct HTTP endpoints for custom runtimes.
 - [Framework Integration Strategy](integrations/frameworks.md) — Generic SDK status and community adapter contracts.
 
@@ -44,7 +45,7 @@ Welcome to the AgentPulse documentation. AgentPulse is a local-first debugging, 
 - [Regression Gates](architecture/regression-gates.md) — Drift detection and release gate enforcement.
 - [Project Model & Scoping](architecture/project-model.md) — Project-scoped credentials and tenant isolation.
 - [Access Control](architecture/access-control.md) — Authentication, session cookies, and loopback enforcement.
-- [Local Data Layout](architecture/local-data-layout.md) — Directory layout in `~/.agentpulse/`.
+- [Local Data Layout](architecture/local-data-layout.md) — Directory layout in `~/.reeprov/`.
 - [API Stability & Classification](architecture/api-stability.md) — Public, experimental, and internal stability contracts.
 
 ## 6. Security
@@ -69,7 +70,7 @@ Welcome to the AgentPulse documentation. AgentPulse is a local-first debugging, 
 - [Roadmap](ROADMAP.md) — Project roadmap and priorities.
 
 ## 9. Historical & Internal
-- [North Star Vision](architecture/agentpulse-north-star.md) — Initial project vision.
+- [North Star Vision](architecture/reeprov-north-star.md) — Initial project vision.
 - [North Star Reconciliation](architecture/north-star-reconciliation.md) — Milestone reconciliation.
 - [Capability History](architecture/capability-history.md) — Sprint-by-sprint development history.
 - [Release Evidence](architecture/release-evidence.md) — Dogfood verification and test artifacts.

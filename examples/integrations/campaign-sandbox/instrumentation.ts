@@ -11,13 +11,13 @@
  *
  * Usage:
  *
- *   import { createCampaignSandboxPulseClient } from "./agentpulse-client";
+ *   import { createCampaignSandboxClient } from "./reeprov-client";
  *   import { startCampaignRun, emitNormalizeBrief, ... } from "./instrumentation";
  *
- *   const pulse = createCampaignSandboxPulseClient();
- *   const { runId } = await startCampaignRun(pulse, { briefSummary: "..." });
+ *   const client = createCampaignSandboxClient();
+ *   const { runId } = await startCampaignRun(client, { briefSummary: "..." });
  *
- *   await emitNormalizeBrief(pulse, runId, {
+ *   await emitNormalizeBrief(client, runId, {
  *     inputSummary: "Raw brief received.",
  *     outputSummary: "Parsed: region=EMEA, segment=SMB.",
  *     durationMs: 2400,
@@ -29,7 +29,7 @@
  *   });
  */
 
-import type { CampaignSandboxPulseClient, StartRunResult } from "./agentpulse-client";
+import type { CampaignSandboxPulseClient, StartRunResult } from "./reeprov-client";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

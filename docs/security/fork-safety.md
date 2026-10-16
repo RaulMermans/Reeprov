@@ -1,4 +1,4 @@
-# AgentPulse Fork Execution Safety Model
+# Reeprov Fork Execution Safety Model
 
 ## 1. Safety Posture & Threat Model
 
@@ -83,6 +83,6 @@ An operator or automated runner cannot mount state from Run A into the context o
 
 ## 6. Secret Redaction & Credential Containment
 
-- All historical states stored in checkpoints have passed through the AgentPulse secret redaction engine (redacting OpenAI, Anthropic, GitHub, database connection URLs, and bearer tokens).
+- All historical states stored in checkpoints have passed through the Reeprov secret redaction engine (redacting OpenAI, Anthropic, GitHub, database connection URLs, and bearer tokens).
 - Fork plans and results contain no sensitive credentials.
 - The UI `ForkDebuggerPanel` operates exclusively on sanitized payloads and does not accept or persist live credentials.

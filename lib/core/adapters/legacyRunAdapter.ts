@@ -324,7 +324,7 @@ export function adaptLegacyRunToRunArtifact(input: LegacyRunInput | SavedRun): R
     provenance: {
       capture_method: "legacy_adaptation",
       adapter_version: "1.0.0-compat",
-      captured_by: "AgentPulseLegacyRunAdapter",
+      captured_by: "ReeprovLegacyRunAdapter",
       redaction_verified: false,
     },
     safety: {

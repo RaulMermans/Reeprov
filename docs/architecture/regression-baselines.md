@@ -1,4 +1,4 @@
-# AgentPulse Regression Baselines
+# Reeprov Regression Baselines
 
 ## Explicit, Immutable, and Auditable Baselines
 
@@ -6,7 +6,7 @@
 
 A common trap in continuous integration for agents is implicitly treating the "latest passing run" as the baseline. This causes catastrophic regression creep: an agent incrementally degrades by 1% across 10 PRs without failing any single step.
 
-AgentPulse enforces **Explicit Baselines**:
+Reeprov enforces **Explicit Baselines**:
 - Baselines are never automatically updated on test completion.
 - Baselines represent an explicitly qualified, reviewed, and approved agent release standard.
 - Baselines are immutable: historical evaluation evidence is sealed and cannot be overwritten.
@@ -60,7 +60,7 @@ stateDiagram-v2
 
 When an evaluation suite or dataset evolves (e.g. from `release@v2` to `release@v3` or `dataset@v1` to `dataset@v2`), direct comparison against an older baseline would be an **apples-to-oranges violation**.
 
-AgentPulse implements a controlled bridge workflow:
+Reeprov implements a controlled bridge workflow:
 
 ```mermaid
 sequenceDiagram

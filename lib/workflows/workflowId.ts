@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-export const WORKFLOW_REGISTRY_VERSION = "agentpulse-workflow-registry-v1";
+export const WORKFLOW_REGISTRY_VERSION = "reeprov-workflow-registry-v1";
 
 export function generateRegistryId(): string {
   const tsBase36 = Date.now().toString(36);

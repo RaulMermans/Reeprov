@@ -1,15 +1,15 @@
 /**
- * AgentPulse CLI — Replay & Fork Runtime Entry Point.
+ * Reeprov CLI — Replay & Fork Runtime Entry Point.
  *
  * Usage:
- *   pulse replay <run-id|file-path> [--strict] [--validate-only] [--from-start] [--json]
- *   pulse checkpoints <run-id|file-path> [--json]
- *   pulse fork <run-id|file-path> --checkpoint <checkpoint-id> [--mutations <file>] [--json]
+ *   reeprov replay <run-id|file-path> [--strict] [--validate-only] [--from-start] [--json]
+ *   reeprov checkpoints <run-id|file-path> [--json]
+ *   reeprov fork <run-id|file-path> --checkpoint <checkpoint-id> [--mutations <file>] [--json]
  */
 
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { getAgentPulseHome, getPrivacyPosture, getStorageSubdirectories } from "../lib/storage/dataPath";
+import { getReeprovHome, getPrivacyPosture, getStorageSubdirectories } from "../lib/storage/dataPath";
 import { ProjectStore } from "../lib/projects/projectStore";
 import { ProjectExporter } from "../lib/projects/projectExport";
 import { DemoProjectManager } from "../lib/projects/demoProject";
@@ -300,7 +300,16 @@ export type CliCommandOptions =
   | ProjectsListCliOptions
   | ProjectExportCliOptions
   | DemoSetupCliOptions
-  | DemoResetCliOptions;
+  | DemoResetCliOptions
+  | MigrateBrandCliOptions;
+
+export interface MigrateBrandCliOptions {
+  command: "migrate-brand";
+  source?: string;
+  dest?: string;
+  dryRun: boolean;
+  json: boolean;
+}
 
 export function parseArgs(args: string[]): CliCommandOptions | null {
   if (args.length === 0 || args.includes("--help") || args.includes("-h") || args[0] === "help") {
@@ -309,6 +318,23 @@ export function parseArgs(args: string[]): CliCommandOptions | null {
 
   if (args.includes("--version") || args.includes("-v") || args[0] === "version") {
     return { command: "version", json: args.includes("--json") };
+  }
+
+  if (args[0] === "migrate-brand") {
+    let source: string | undefined;
+    let dest: string | undefined;
+    const dryRun = args.includes("--dry-run");
+    const json = args.includes("--json");
+    for (let i = 1; i < args.length; i++) {
+      if (args[i] === "--source" && args[i + 1]) {
+        source = args[i + 1];
+        i++;
+      } else if (args[i] === "--dest" && args[i + 1]) {
+        dest = args[i + 1];
+        i++;
+      }
+    }
+    return { command: "migrate-brand", source, dest, dryRun, json };
   }
 
   if (args[0] === "data-path") {
@@ -690,37 +716,38 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
   const options = parseArgs(argv);
 
   if (!options || options.command === "help") {
-    const helpOutput = `AgentPulse CLI
+    const helpOutput = `Reeprov CLI
 
   Commands:
-    pulse --version                       Show AgentPulse version
-    pulse data-path [--json]              Inspect storage data root and privacy posture
-    pulse projects list [--json]          List configured projects and ingest keys
-    pulse export project <id> [--out <f>] Export complete project bundle
-    pulse demo setup [--json]             Initialize deterministic demo project
-    pulse demo reset [--json]             Reset demo project to clean state
-    pulse diff <run-a> <run-b> [opts]     Side-by-side execution comparison
-    pulse evidence <run-id|file> [opts]   Inspect execution evidence completeness
-    pulse config <run-id|file>            Inspect agent configuration snapshot
-    pulse config-diff <run-a> <run-b>     Diff configuration between two runs
-    pulse context <run-id|file> [opts]    Analyze prompt context provenance
-    pulse memory <run-id|file> [opts]     Analyze agent memory lifecycle
-    pulse ablate <run-id|file> [opts]     Run context/memory ablation test
-    pulse checkpoints <run-id|file>       List execution checkpoints
-    pulse fork <run-id|file> [opts]       Fork execution from checkpoint
-    pulse replay <run-id|file> [options]  Run deterministic offline replay
-    pulse eval list [--json]              List evaluation suites and datasets
-    pulse eval run <run-id|file> [opts]   Execute automated evaluation suite
-    pulse dataset list [--json]           List evaluation test datasets
-    pulse experiment plan <def>           Validate experiment hypothesis plan
-    pulse experiment run <def>            Execute experiment matrix
-    pulse experiment show <id>            Show experiment report
-    pulse baseline list [opts]            List regression baselines
-    pulse baseline set <id> [opts]        Set golden regression baseline
-    pulse regression check <candidate>    Enforce pre-merge release gate
-    pulse capability show <agent-id>      Show capability baseline
-    pulse capability diff <vA> <vB>       Diff capability baselines
-    pulse policy-drift <base> <cand>      Detect execution policy drift
+    reeprov --version                       Show Reeprov version
+    reeprov data-path [--json]              Inspect storage data root and privacy posture
+    reeprov migrate-brand [opts]            Safely migrate ~/.agentpulse data to ~/.reeprov
+    reeprov projects list [--json]          List configured projects and ingest keys
+    reeprov export project <id> [--out <f>] Export complete project bundle
+    reeprov demo setup [--json]             Initialize deterministic demo project
+    reeprov demo reset [--json]             Reset demo project to clean state
+    reeprov diff <run-a> <run-b> [opts]     Side-by-side execution comparison
+    reeprov evidence <run-id|file> [opts]   Inspect execution evidence completeness
+    reeprov config <run-id|file>            Inspect agent configuration snapshot
+    reeprov config-diff <run-a> <run-b>     Diff configuration between two runs
+    reeprov context <run-id|file> [opts]    Analyze prompt context provenance
+    reeprov memory <run-id|file> [opts]     Analyze agent memory lifecycle
+    reeprov ablate <run-id|file> [opts]     Run context/memory ablation test
+    reeprov checkpoints <run-id|file>       List execution checkpoints
+    reeprov fork <run-id|file> [opts]       Fork execution from checkpoint
+    reeprov replay <run-id|file> [options]  Run deterministic offline replay
+    reeprov eval list [--json]              List evaluation suites and datasets
+    reeprov eval run <run-id|file> [opts]   Execute automated evaluation suite
+    reeprov dataset list [--json]           List evaluation test datasets
+    reeprov experiment plan <def>           Validate experiment hypothesis plan
+    reeprov experiment run <def>            Execute experiment matrix
+    reeprov experiment show <id>            Show experiment report
+    reeprov baseline list [opts]            List regression baselines
+    reeprov baseline set <id> [opts]        Set golden regression baseline
+    reeprov regression check <candidate>    Enforce pre-merge release gate
+    reeprov capability show <agent-id>      Show capability baseline
+    reeprov capability diff <vA> <vB>       Diff capability baselines
+    reeprov policy-drift <base> <cand>      Detect execution policy drift
 
   Replay Options:
     --strict          Enforce strict offline execution with 0 network calls (default)
@@ -742,9 +769,31 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
     if (options.json) {
       console.log(JSON.stringify({ version, release: "beta", platform: process.platform, node: process.version }, null, 2));
     } else {
-      console.log(`AgentPulse v${version} (beta)`);
+      console.log(`Reeprov v${version} (beta)`);
     }
     return 0;
+  }
+
+  if (options.command === "migrate-brand") {
+    const { runBrandMigration } = await import("./migrate-brand");
+    const result = await runBrandMigration({
+      source: options.source,
+      dest: options.dest,
+      dryRun: options.dryRun,
+    });
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      if (result.success) {
+        console.log(result.message);
+        if (result.rollbackInstructions) {
+          console.log(`\n${result.rollbackInstructions}`);
+        }
+      } else {
+        console.error(result.message);
+      }
+    }
+    return result.success ? 0 : 1;
   }
 
   try {
@@ -945,7 +994,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
       } else {
         const isSuccess = result.status === "COMPLETED";
         console.log(`\n=================================================`);
-        console.log(` AgentPulse Fork Execution: ${result.fork_id}`);
+        console.log(` Reeprov Fork Execution: ${result.fork_id}`);
         console.log(`=================================================`);
         console.log(`Derived Run ID:      ${result.derived_run_id}`);
         console.log(`Parent Run ID:       ${result.parent_run_id}`);
@@ -980,7 +1029,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
           console.log(JSON.stringify(plan, null, 2));
         } else {
           console.log(`\n========================================`);
-          console.log(` AgentPulse Replay Plan: ${plan.replay_id}`);
+          console.log(` Reeprov Replay Plan: ${plan.replay_id}`);
           console.log(`========================================`);
           console.log(`Source Run ID:          ${plan.source_run_id}`);
           console.log(`Mode:                   ${plan.mode}`);
@@ -1018,7 +1067,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
       } else {
         const isSuccess = result.status === "MATCHED";
         console.log(`\n=================================================`);
-        console.log(` AgentPulse Replay Execution: ${result.replay_id}`);
+        console.log(` Reeprov Replay Execution: ${result.replay_id}`);
         console.log(`=================================================`);
         console.log(`Source Run ID:           ${result.source_run_id}`);
         console.log(`Status:                  ${result.status} ${isSuccess ? "✓" : "✗"}`);
@@ -1119,7 +1168,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         if (options.json) {
           console.log(JSON.stringify({ error: "No configuration snapshot recorded" }));
         } else {
-          console.log(`\n[AgentPulse] No AgentConfigurationSnapshot captured for run "${artifact.identity.run_id}".\n`);
+          console.log(`\n[Reeprov] No AgentConfigurationSnapshot captured for run "${artifact.identity.run_id}".\n`);
         }
         return 1;
       }
@@ -1186,7 +1235,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         );
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Context Intelligence: ${artifact.identity.run_id}`);
+        console.log(` Reeprov Context Intelligence: ${artifact.identity.run_id}`);
         console.log(`========================================================================`);
         console.log(`Decisions Analyzed:        ${report.run_summary.total_decisions}`);
         console.log(`Total Context Tokens:      ${report.run_summary.total_context_tokens.toLocaleString()}`);
@@ -1262,7 +1311,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         );
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Memory Intelligence: ${artifact.identity.run_id}`);
+        console.log(` Reeprov Memory Intelligence: ${artifact.identity.run_id}`);
         console.log(`========================================================================`);
         console.log(`Total Memory Operations:   ${report.operations_summary.total_operations}`);
         console.log(`Unique Memories Seen:      ${report.operations_summary.unique_memories_observed}`);
@@ -1347,7 +1396,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(JSON.stringify(result, null, 2));
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Controlled Ablation Fork: ${result.fork_id}`);
+        console.log(` Reeprov Controlled Ablation Fork: ${result.fork_id}`);
         console.log(`========================================================================`);
         console.log(`Parent Run ID:       ${result.parent_run_id}`);
         console.log(`Checkpoint ID:       ${result.checkpoint_id}`);
@@ -1372,7 +1421,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(JSON.stringify({ definitions, suites }, null, 2));
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Eval Studio: Library & Suites`);
+        console.log(` Reeprov Eval Studio: Library & Suites`);
         console.log(`========================================================================`);
         console.log(`Eval Definitions (${definitions.length}):`);
         for (const d of definitions) {
@@ -1408,7 +1457,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(JSON.stringify(evalRun, null, 2));
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Post-Hoc Evaluation: ${evalRun.evaluation_run_id}`);
+        console.log(` Reeprov Post-Hoc Evaluation: ${evalRun.evaluation_run_id}`);
         console.log(`========================================================================`);
         console.log(`Run ID:              ${artifact.identity.run_id}`);
         console.log(`Eval Suite:          ${evalRun.suite_id}@${evalRun.suite_version}`);
@@ -1434,7 +1483,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(JSON.stringify(datasets, null, 2));
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Eval Datasets (${datasets.length})`);
+        console.log(` Reeprov Eval Datasets (${datasets.length})`);
         console.log(`========================================================================`);
         for (const d of datasets) {
           console.log(`  - ${d.dataset_id}@${d.version}: ${d.name} (${d.cases.length} cases)`);
@@ -1460,7 +1509,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(JSON.stringify(plan, null, 2));
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Experiment Plan: ${def.name}`);
+        console.log(` Reeprov Experiment Plan: ${def.name}`);
         console.log(`========================================================================`);
         console.log(`Valid:               ${plan.valid ? "YES" : "NO"}`);
         console.log(`Total Arms:          ${plan.total_arms}`);
@@ -1499,7 +1548,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(JSON.stringify(result, null, 2));
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Experiment Result: ${result.experiment_id}`);
+        console.log(` Reeprov Experiment Result: ${result.experiment_id}`);
         console.log(`========================================================================`);
         console.log(`Status:              ${result.status}`);
         console.log(`Baseline Arm:        ${result.baseline_arm_id}`);
@@ -1524,7 +1573,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(JSON.stringify(result, null, 2));
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Experiment: ${result.experiment_id}`);
+        console.log(` Reeprov Experiment: ${result.experiment_id}`);
         console.log(`========================================================================`);
         console.log(`Status:              ${result.status}`);
         console.log(`Recommended:         ${result.recommended_candidate ?? "None"}`);
@@ -1542,7 +1591,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(JSON.stringify(baselines, null, 2));
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Regression Baselines (${baselines.length})`);
+        console.log(` Reeprov Regression Baselines (${baselines.length})`);
         console.log(`========================================================================`);
         for (const b of baselines) {
           console.log(`  - [${b.status}] ${b.baseline_id}: agent=${b.agent_id ?? "unknown"} suite=${b.eval_suite_id}@${b.eval_suite_version} dataset=${b.dataset_id ?? "none"} approved=${b.approved_at}`);
@@ -1639,7 +1688,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(JSON.stringify(artifact, null, 2));
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Regression Release Gate: ${gateResult.status}`);
+        console.log(` Reeprov Regression Release Gate: ${gateResult.status}`);
         console.log(`========================================================================`);
         console.log(`Baseline:            ${baseline.baseline_id}`);
         console.log(`Candidate:           ${candidateRun.identity.run_id}`);
@@ -1665,7 +1714,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(JSON.stringify(snapshots, null, 2));
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Capability History: ${options.agentId} (${snapshots.length} snapshots)`);
+        console.log(` Reeprov Capability History: ${options.agentId} (${snapshots.length} snapshots)`);
         console.log(`========================================================================`);
         for (const snap of snapshots) {
           console.log(`\nVersion: ${snap.agent_version} (Captured: ${snap.captured_at}, Status: ${snap.overall_status})`);
@@ -1693,7 +1742,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(JSON.stringify(report, null, 2));
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Capability Drift: ${snapA.agent_version} -> ${snapB.agent_version}`);
+        console.log(` Reeprov Capability Drift: ${snapA.agent_version} -> ${snapB.agent_version}`);
         console.log(`========================================================================`);
         console.log(`Overall Drift:       ${report.overall_drift}`);
         console.log(`Summary:             ${report.drift_summary}`);
@@ -1732,7 +1781,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(JSON.stringify(report, null, 2));
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Policy Drift: ${options.baselineRunId} -> ${options.candidateRunId}`);
+        console.log(` Reeprov Policy Drift: ${options.baselineRunId} -> ${options.candidateRunId}`);
         console.log(`========================================================================`);
         console.log(`Critical Drift:      ${report.has_critical_drift ? "YES ⚠️" : "NO"}`);
         console.log(`Summary:             ${report.summary}`);
@@ -1748,14 +1797,14 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
     }
 
     if (options.command === "data-path") {
-      const dataDir = getAgentPulseHome();
+      const dataDir = getReeprovHome();
       const posture = getPrivacyPosture();
       const subdirs = getStorageSubdirectories(dataDir);
       if (options.json) {
         console.log(JSON.stringify({ data_dir: dataDir, posture, subdirectories: subdirs }, null, 2));
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Personal Data & Storage Posture`);
+        console.log(` Reeprov Personal Data & Storage Posture`);
         console.log(`========================================================================`);
         console.log(`Data Directory:     ${dataDir}`);
         console.log(`Operating Mode:     ${posture.mode}`);
@@ -1779,10 +1828,10 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(JSON.stringify(projects, null, 2));
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Projects (${projects.length})`);
+        console.log(` Reeprov Projects (${projects.length})`);
         console.log(`========================================================================`);
         if (projects.length === 0) {
-          console.log(`No projects found. Create one via Studio or run 'pulse demo setup'.`);
+          console.log(`No projects found. Create one via Studio or run 'reeprov demo setup'.`);
         } else {
           for (const p of projects) {
             console.log(`\n[${p.id}] ${p.name}`);
@@ -1811,7 +1860,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(JSON.stringify(bundle, null, 2));
       } else if (!options.outPath) {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Project Export: ${bundle.project.name} (${bundle.project.id})`);
+        console.log(` Reeprov Project Export: ${bundle.project.name} (${bundle.project.id})`);
         console.log(`========================================================================`);
         console.log(`Exported At:   ${bundle.exportedAt}`);
         console.log(`Format:        v${bundle.version}`);
@@ -1833,7 +1882,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         const projName = res.project?.name ?? "Demo Support Agent";
         const projId = res.project?.id ?? "demo-support-agent";
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Demo Project Setup`);
+        console.log(` Reeprov Demo Project Setup`);
         console.log(`========================================================================`);
         console.log(`Project:       ${projName} (${projId})`);
         console.log(`Success Run:   ${res.successRunId}`);
@@ -1852,7 +1901,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
         console.log(JSON.stringify({ status: "reset", project }, null, 2));
       } else {
         console.log(`\n========================================================================`);
-        console.log(` AgentPulse Demo Project Reset`);
+        console.log(` Reeprov Demo Project Reset`);
         console.log(`========================================================================`);
         console.log(`Project "demo-support-agent" wiped and reset to pristine state.`);
         console.log(`========================================================================\n`);
@@ -1865,13 +1914,13 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
     if (options.json) {
       console.error(JSON.stringify({ error: (err as Error).message }));
     } else {
-      console.error(`\n[AgentPulse Error] ${(err as Error).message}\n`);
+      console.error(`\n[Reeprov Error] ${(err as Error).message}\n`);
     }
     return 1;
   }
 }
 
-// Auto-run if executed directly
+// Auto-run if executed directly via tsx/ts-node, not when imported by bin/ wrappers
 if (process.argv[1]?.endsWith("pulse-cli.ts") || process.argv[1]?.endsWith("pulse.ts")) {
   runCli().then((code) => {
     if (code !== 0) process.exit(code);

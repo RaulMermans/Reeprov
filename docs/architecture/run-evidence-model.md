@@ -1,8 +1,8 @@
-# AgentPulse Run Evidence Model
+# Reeprov Run Evidence Model
 
 ## Overview
 
-AgentPulse captures, inspects, reproduces, forks, and now **proves** agent execution.
+Reeprov captures, inspects, reproduces, forks, and now **proves** agent execution.
 The Run Evidence Model extends `RunArtifact` with a first-class evidence plane that captures the verifiable proof of an agent's execution without creating a disconnected or competing run representation.
 
 ```mermaid
@@ -85,13 +85,13 @@ export interface PlanItem {
 ```
 
 ### Strict Non-CoT Validation
-Attempts to inject fields such as `reasoning`, `thought`, `chain_of_thought`, or `scratchpad` are rejected with explicit schema validation errors. AgentPulse only records declared commitments, not ungrounded chain-of-thought tokens.
+Attempts to inject fields such as `reasoning`, `thought`, `chain_of_thought`, or `scratchpad` are rejected with explicit schema validation errors. Reeprov only records declared commitments, not ungrounded chain-of-thought tokens.
 
 ---
 
 ## 3. Append-Only Verification Chronology & Typed Results
 
-AgentPulse decouples **lifecycle chronology** from **typed result records**:
+Reeprov decouples **lifecycle chronology** from **typed result records**:
 
 1. **`VerificationEvent`:** Append-only timeline entries with strictly monotonic sequence indices (`test.started`, `test.passed`, `review.started`, `eval.passed`, `approval.requested`).
 2. **`TestResult`:** Normalized results containing test suite, name, status (`PASSED`, `FAILED`, `SKIPPED`, `ERROR`), attempt count, execution duration, and content references for unbounded stdout/stderr.

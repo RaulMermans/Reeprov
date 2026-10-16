@@ -4,7 +4,7 @@
  * Generates a StaticProofReconstruction from a saved ScanReport.
  * No code is executed; reconstruction is purely from static scan evidence.
  *
- * Auth: x-agentpulse-key (AGENTPULSE_ACCESS_KEY)
+ * Auth: x-reeprov-key (REEPROV_ACCESS_KEY)
  *
  * Response: StaticProofReconstruction (validated against schema)
  *

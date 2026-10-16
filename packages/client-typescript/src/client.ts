@@ -1,7 +1,7 @@
 /**
- * @agentpulse/client — AgentPulseClient
+ * @reeprov/client — ReeprovClient
  *
- * Standalone TypeScript HTTP client for AgentPulse.
+ * Standalone TypeScript HTTP client for Reeprov.
  * Communicates strictly over standard HTTP APIs.
  */
 
@@ -15,22 +15,26 @@ import type {
   EvalCompletedInput,
   FailRunInput,
   ModelCallInput,
+  ReeprovClientOptions,
   StartRunInput,
   StartRunResult,
   ToolCallInput,
   TraceEvent,
 } from "./types.js";
 
-export class AgentPulseError extends Error {
+export class ReeprovError extends Error {
   constructor(
     message: string,
     public readonly status?: number,
     public readonly isRetryable: boolean = false,
   ) {
     super(message);
-    this.name = "AgentPulseError";
+    this.name = "ReeprovError";
   }
 }
+
+/** Legacy alias */
+export const AgentPulseError = ReeprovError;
 
 declare const process: { env?: Record<string, string | undefined> } | undefined;
 
@@ -41,7 +45,7 @@ function getEnv(key: string): string | undefined {
   return undefined;
 }
 
-export class AgentPulseClient {
+export class ReeprovClient {
   private readonly endpoint: string;
   private readonly apiKey: string;
   private readonly defaultProjectId: string;
@@ -52,21 +56,45 @@ export class AgentPulseClient {
   private readonly failOpen: boolean;
   private readonly enabled: boolean;
 
-  constructor(options: AgentPulseClientOptions = {}) {
-    const rawEndpoint = options.endpoint || getEnv("AGENTPULSE_URL") || "http://127.0.0.1:3000";
+  constructor(options: ReeprovClientOptions = {}) {
+    const rawEndpoint =
+      options.url ||
+      options.endpoint ||
+      getEnv("REEPROV_URL") ||
+      getEnv("AGENTPULSE_URL") ||
+      "http://127.0.0.1:3000";
     this.endpoint = rawEndpoint.replace(/\/+$/, "");
-    this.apiKey = options.apiKey || options.ingestKey || getEnv("AGENTPULSE_INGEST_KEY") || "";
-    this.defaultProjectId = options.projectId || getEnv("AGENTPULSE_PROJECT_ID") || "default-project";
-    this.defaultProjectName = options.projectName || getEnv("AGENTPULSE_PROJECT_NAME") || "Default Project";
-    this.defaultWorkflowId = options.workflowId || getEnv("AGENTPULSE_WORKFLOW_ID") || "default-workflow";
+    this.apiKey =
+      options.ingestKey ||
+      options.apiKey ||
+      getEnv("REEPROV_INGEST_KEY") ||
+      getEnv("AGENTPULSE_INGEST_KEY") ||
+      "";
+    this.defaultProjectId =
+      options.projectId ||
+      getEnv("REEPROV_PROJECT_ID") ||
+      getEnv("AGENTPULSE_PROJECT_ID") ||
+      "default-project";
+    this.defaultProjectName =
+      options.projectName ||
+      getEnv("REEPROV_PROJECT_NAME") ||
+      getEnv("AGENTPULSE_PROJECT_NAME") ||
+      "Default Project";
+    this.defaultWorkflowId =
+      options.workflowId ||
+      getEnv("REEPROV_WORKFLOW_ID") ||
+      getEnv("AGENTPULSE_WORKFLOW_ID") ||
+      "default-workflow";
     this.timeoutMs = options.timeoutMs ?? 10_000;
     this.maxRetries = options.maxRetries ?? 2;
-    this.failOpen = options.failOpen ?? (getEnv("AGENTPULSE_FAIL_OPEN") !== "false");
+    this.failOpen =
+      options.failOpen ??
+      ((getEnv("REEPROV_FAIL_OPEN") ?? getEnv("AGENTPULSE_FAIL_OPEN")) !== "false");
 
     if (options.enabled !== undefined) {
       this.enabled = options.enabled;
     } else {
-      const envEnabled = getEnv("AGENTPULSE_ENABLED");
+      const envEnabled = getEnv("REEPROV_ENABLED") ?? getEnv("AGENTPULSE_ENABLED");
       if (envEnabled !== undefined) {
         this.enabled = envEnabled.toLowerCase() === "true";
       } else {
@@ -286,7 +314,7 @@ export class AgentPulseClient {
       await this.post("/api/traces/boundaries", payload);
     } catch (err) {
       if (this.failOpen) {
-        console.warn(`[AgentPulse] Non-fatal boundary capture error: ${(err as Error).message}`);
+        console.warn(`[Reeprov] Non-fatal boundary capture error: ${(err as Error).message}`);
       } else {
         throw err;
       }
@@ -309,7 +337,7 @@ export class AgentPulseClient {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-agentpulse-key": this.apiKey,
+            "x-reeprov-key": this.apiKey,
           },
           body: payload,
           signal: controller.signal,
@@ -334,19 +362,19 @@ export class AgentPulseClient {
           } catch {
             // ignore json parse error
           }
-          const fastFailErr = new AgentPulseError(`AgentPulse API Error (${response.status}): ${errDetail}`, response.status, false);
+          const fastFailErr = new ReeprovError(`Reeprov API Error (${response.status}): ${errDetail}`, response.status, false);
           if (this.failOpen) {
-            console.warn(`[AgentPulse] Non-retryable error: ${fastFailErr.message}`);
+            console.warn(`[Reeprov] Non-retryable error: ${fastFailErr.message}`);
             return undefined as T;
           }
           throw fastFailErr;
         }
 
         // 5xx transient server error
-        lastError = new AgentPulseError(`AgentPulse API Error: ${response.status} ${response.statusText}`, response.status, true);
+        lastError = new ReeprovError(`Reeprov API Error: ${response.status} ${response.statusText}`, response.status, true);
       } catch (err) {
         clearTimeout(timer);
-        if (err instanceof AgentPulseError && !err.isRetryable) {
+        if (err instanceof ReeprovError && !err.isRetryable) {
           throw err;
         }
         lastError = err as Error;
@@ -359,10 +387,13 @@ export class AgentPulseClient {
     }
 
     if (this.failOpen) {
-      console.warn(`[AgentPulse] Telemetry request to ${path} failed after retries: ${lastError?.message}`);
+      console.warn(`[Reeprov] Telemetry request to ${path} failed after retries: ${lastError?.message}`);
       return undefined as T;
     }
 
-    throw lastError || new AgentPulseError(`AgentPulse request failed: ${path}`);
+    throw lastError || new ReeprovError(`Reeprov request failed: ${path}`);
   }
 }
+
+/** Legacy alias */
+export const AgentPulseClient = ReeprovClient;

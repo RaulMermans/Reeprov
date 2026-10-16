@@ -134,7 +134,7 @@ function AddIntegrationForm({
       const data = await res.json() as ProjectIntegration;
       onCreated(data);
     } catch {
-      setError("Could not connect to AgentPulse. Is the dev server running?");
+      setError("Could not connect to Reeprov. Is the dev server running?");
     } finally {
       setSubmitting(false);
     }
@@ -275,7 +275,7 @@ export default function IntegrationsPage() {
       const data = await res.json() as { integrations: IntegrationListItem[] };
       setIntegrations(data.integrations ?? []);
     } catch {
-      setError("Could not connect to AgentPulse. Is the dev server running?");
+      setError("Could not connect to Reeprov. Is the dev server running?");
     } finally {
       setLoading(false);
     }
@@ -303,7 +303,7 @@ export default function IntegrationsPage() {
             <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Project Integrations</h1>
           </div>
           <p className="mt-2 max-w-2xl text-sm text-slate-500">
-            Connect agentic AI projects so AgentPulse can receive runtime proof runs.
+            Connect agentic AI projects so Reeprov can receive runtime proof runs.
             Each integration provides setup instructions and tracks connection status.
           </p>
         </div>

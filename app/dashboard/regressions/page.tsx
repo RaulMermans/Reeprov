@@ -1,7 +1,7 @@
 import { RegressionStudioView } from "@/components/proof-layer/RegressionStudioView";
 
 export const metadata = {
-  title: "Regression Studio | AgentPulse",
+  title: "Regression Studio | Reeprov",
   description:
     "Continuous evidence gates, case regression detection, capability drift, and policy governance across agent versions.",
 };

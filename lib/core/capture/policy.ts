@@ -35,6 +35,7 @@ export const DEFAULT_CAPTURE_POLICY: CapturePolicy = {
       "cookie",
       "set-cookie",
       "x-api-key",
+      "x-reeprov-key",
       "x-agentpulse-key",
       "api-key",
       "proxy-authorization",

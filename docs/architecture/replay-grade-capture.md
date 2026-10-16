@@ -1,12 +1,12 @@
 # Replay-Grade Boundary Capture Architecture
 
-> **Definition:** The capture subsystem within AgentPulse responsible for intercepting, sanitizing, deduplicating, and recording nondeterministic agent interactions with sufficient fidelity to deterministically substitute their recorded outputs later.
+> **Definition:** The capture subsystem within Reeprov responsible for intercepting, sanitizing, deduplicating, and recording nondeterministic agent interactions with sufficient fidelity to deterministically substitute their recorded outputs later.
 
 ---
 
 ## 1. Executive Summary & Objective
 
-In prior iterations, AgentPulse observed execution telemetry primarily as lightweight trace events (*"an LLM call occurred"*, *"tool `search` ran"*). While sufficient for rendering passive timeline graphs, traces alone cannot support offline replay, deterministic debugging, counterfactual forking, or regression test execution.
+In prior iterations, Reeprov observed execution telemetry primarily as lightweight trace events (*"an LLM call occurred"*, *"tool `search` ran"*). While sufficient for rendering passive timeline graphs, traces alone cannot support offline replay, deterministic debugging, counterfactual forking, or regression test execution.
 
 This architecture establishes **Replay-Grade Boundary Capture**, bridging the gap between:
 
@@ -35,7 +35,7 @@ flowchart TD
     Sanitize --> Hasher["Canonical JSON Stringifier & Hasher (SHA-256)"]
     Hasher --> Sizer["Payload Size Check (Inline vs Blob)"]
     Sizer -->|<= 4KB inline| Inline["Inline Canonical Record"]
-    Sizer -->|> 4KB inline| BlobStore["Content-Addressed Blob Store (.agentpulse/blobs/)"]
+    Sizer -->|> 4KB inline| BlobStore["Content-Addressed Blob Store (.reeprov/blobs/)"]
     Inline --> ReplayEval["Evidence-Based Replayability Evaluation"]
     BlobStore --> ReplayEval
     ReplayEval --> Linkage["RunArtifact Linkage (Boundaries, Models, Tools, Retrieval)"]
@@ -55,7 +55,7 @@ flowchart TD
 9. **[`normalizeBoundary.ts`](../../lib/core/capture/normalizeBoundary.ts):** Core pipeline coordinator synthesizing boundaries according to canonical contracts.
 10. **[`contextSnapshotBuilder.ts`](../../lib/core/capture/contextSnapshotBuilder.ts):** Assembles fine-grained `ContextSnapshot` records linking model inputs to source types and hashes.
 11. **[`sdk.ts`](../../lib/core/capture/sdk.ts):** TypeScript client SDK exposing transparent function wrappers (`wrapTool`, `wrapModel`) and manual boundary capture methods with non-fatal failure isolation.
-12. **[`persistence.ts`](../../lib/core/capture/persistence.ts):** High-reliability persistence supporting both `.agentpulse/runs/{runId}.canonical.json` filesystem store and PostgreSQL (`ap_canonical_runs`).
+12. **[`persistence.ts`](../../lib/core/capture/persistence.ts):** High-reliability persistence supporting both `.reeprov/runs/{runId}.canonical.json` filesystem store and PostgreSQL (`ap_canonical_runs`).
 13. **[`replayHarness.ts`](../../lib/core/capture/replayHarness.ts):** Offline substitution harness validating boundary sequence, side-effect gates, and input hashes without live provider connectivity.
 
 ---
@@ -64,18 +64,18 @@ flowchart TD
 
 In complex multi-turn agent runs, prompts, system instructions, and retrieved context chunks are repeated across consecutive LLM turns. Blindly persisting full context payloads on every step leads to exponential storage bloat.
 
-AgentPulse implements a **content-addressed blob store**:
+Reeprov implements a **content-addressed blob store**:
 - Every payload (input or output) is canonically serialized via recursive key sorting.
 - A cryptographic SHA-256 digest is generated (`sha256:<hex>`).
 - Payloads exceeding `maxInlineBytes` (default: 4,096 bytes) are written to the blob store keyed by their hash:
-  - Local filesystem: `.agentpulse/blobs/<prefix>/<hash>.blob`
+  - Local filesystem: `.reeprov/blobs/<prefix>/<hash>.blob`
   - PostgreSQL: `ap_content_blobs (blob_hash, content, byte_size, mime_type, created_at)`
 - Payloads smaller than `maxInlineBytes` remain inline in the boundary record for zero-latency retrieval.
 - If an identical prompt or retrieved document appears in 50 consecutive steps, it is stored in the blob table **exactly once**.
 
 ### Explicit Payload Availability States
 
-AgentPulse never represents missing payloads as empty objects `{}` or `null`. Boundaries explicitly state their payload status:
+Reeprov never represents missing payloads as empty objects `{}` or `null`. Boundaries explicitly state their payload status:
 
 | State | Definition |
 |---|---|
@@ -95,10 +95,10 @@ The capture subsystem provides multi-language capture support:
 ### TypeScript Capture SDK (`lib/core/capture/sdk.ts`)
 
 ```typescript
-import { agentpulse } from "@/lib/core/capture/sdk";
+import { reeprov } from "@/lib/core/capture/sdk";
 
 // 1. Start run session
-const session = agentpulse.startRun({
+const session = reeprov.startRun({
   projectId: "support-triage",
   workflowId: "triage-v1",
   policy: { mode: "SAFE_CONTENT" },

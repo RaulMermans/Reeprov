@@ -10,7 +10,7 @@ export function exportReportMarkdown(report: ScanReport) {
   const scoreExplanations = buildScoreExplanations(report);
 
   const lines = [
-    `# AgentPulse Report: ${report.repoName}`,
+    `# Reeprov Report: ${report.repoName}`,
     "",
     `- Scan source: ${source ? `${source.type.toUpperCase()} - ${source.label}` : "Unknown"}`,
     `- Scanned at: ${report.scannedAt}`,

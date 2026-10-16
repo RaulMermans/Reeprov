@@ -33,11 +33,14 @@ describe("Git Safety Guard (.gitignore audit)", () => {
     const content = fs.readFileSync(gitignorePath, "utf-8");
 
     // Critical private data paths
+    expect(content).toMatch(/\.reeprov/);
+    expect(content).toMatch(/\*\.reeprov-export\*/);
     expect(content).toMatch(/\.agentpulse/);
     expect(content).toMatch(/\*\.agentpulse-export\*/);
     expect(content).toMatch(/\*\.db/);
     expect(content).toMatch(/\*\.sqlite/);
     expect(content).toMatch(/agentpulse\.db/);
+    expect(content).toMatch(/reeprov\.db/);
     expect(content).toMatch(/\/runs/);
     expect(content).toMatch(/\/comparisons/);
     expect(content).toMatch(/\/blobs/);

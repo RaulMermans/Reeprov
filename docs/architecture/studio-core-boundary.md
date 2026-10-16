@@ -1,6 +1,6 @@
 # Architecture: Studio-Core Boundary
 
-AgentPulse maintains a strict separation between the **Studio Layer** (visual debugging interface) and the **Core Engine** (reproducibility and diagnostic substrate).
+Reeprov maintains a strict separation between the **Studio Layer** (visual debugging interface) and the **Core Engine** (reproducibility and diagnostic substrate).
 
 ## Architectural Boundary
 

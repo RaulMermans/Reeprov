@@ -1,6 +1,6 @@
 # Trace Schema
 
-A `TraceEvent` is the fundamental unit of observability in AgentPulse. Every event a workflow emits becomes a trace event. External AI projects can POST trace events to AgentPulse via the ingestion API.
+A `TraceEvent` is the fundamental unit of observability in Reeprov. Every event a workflow emits becomes a trace event. External AI projects can POST trace events to Reeprov via the ingestion API.
 
 ## Ingestion API
 
@@ -18,11 +18,11 @@ A `TraceEvent` is the fundamental unit of observability in AgentPulse. Every eve
 
 | Key                       | Used for                                          |
 |---------------------------|---------------------------------------------------|
-| `AGENTPULSE_INGEST_KEY`   | External project trace ingestion.                 |
-| `AGENTPULSE_ACCESS_KEY`   | Dashboard / internal access.                      |
-| Fallback                  | If `AGENTPULSE_INGEST_KEY` is unset, `AGENTPULSE_ACCESS_KEY` is accepted for local/dev use. |
+| `REEPROV_INGEST_KEY`   | External project trace ingestion.                 |
+| `REEPROV_ACCESS_KEY`   | Dashboard / internal access.                      |
+| Fallback                  | If `REEPROV_INGEST_KEY` is unset, `REEPROV_ACCESS_KEY` is accepted for local/dev use. |
 
-Header: `x-agentpulse-key: <key>`
+Header: `x-reeprov-key: <key>`
 
 ## Event Types
 

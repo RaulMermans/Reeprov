@@ -1,8 +1,8 @@
-# AgentPulse Divergence Analysis & Causality Attribution
+# Reeprov Divergence Analysis & Causality Attribution
 
 ## 1. Structural vs Meaningful Divergence
 
-AgentPulse distinguishes between mere mechanical variance and divergences that impact behavior or outcomes:
+Reeprov distinguishes between mere mechanical variance and divergences that impact behavior or outcomes:
 
 ### First Structural Divergence
 The earliest chronological point where the execution traces differ in any observable fact:
@@ -23,7 +23,7 @@ Trivial differences (such as latency jitter < 50ms, cosmetic whitespace formatti
 
 ## 2. Causality Attribution Vocabulary
 
-AgentPulse enforces a strict causal language contract:
+Reeprov enforces a strict causal language contract:
 
 | Causal Status | Meaning | Usage Criteria |
 |---|---|---|

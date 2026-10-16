@@ -2,7 +2,7 @@
 
 ## V0 — Static Proof UI
 
-Current focus. AgentPulse proves the inspection layer using local example data only.
+Current focus. Reeprov proves the inspection layer using local example data only.
 
 - Example workflows for Website Auditor, Campaign Sandbox, and Content Trend Analyzer
 - Example runs, traces, and eval results
@@ -19,7 +19,7 @@ V0 intentionally does not add a workflow runtime, no-code builder, marketplace, 
 
 ## Task 4 — Durable Reports, Diff, and Regression Candidates ✓
 
-AgentPulse moves from "scan and display" to "persist, compare, and regression-track."
+Reeprov moves from "scan and display" to "persist, compare, and regression-track."
 
 - Report schema versioning: `reportVersion`, `reportId`, `projectId`, `scanId`, `scannerVersion`, `generatedAt`
 - File-backed report store (`lib/reports/reportStore.ts`) with swappable `ReportStore` interface
@@ -37,7 +37,7 @@ AgentPulse moves from "scan and display" to "persist, compare, and regression-tr
 
 ## Task 5 — Real Trace Ingestion + Proof-Layer Client ✓
 
-AgentPulse moves from "static proof prototype" to "real trace receiver."
+Reeprov moves from "static proof prototype" to "real trace receiver."
 
 - File-backed run store (`lib/runs/runStore.ts`) with swappable `RunStore` interface
 - Run storage: runRecord + traceEvents + toolCalls + evalResults + artifactRefs + timestamps
@@ -49,8 +49,8 @@ AgentPulse moves from "static proof prototype" to "real trace receiver."
 - `GET /api/runs` — list run summaries with filters (projectId, workflowId, status, limit)
 - `GET /api/runs/[runId]` — get full saved run with derived summary
 - `DELETE /api/runs/[runId]` — delete a saved run
-- Dual auth: `AGENTPULSE_INGEST_KEY` for external ingestion, `AGENTPULSE_ACCESS_KEY` for dashboard; fallback to access key when ingest key unset
-- `lib/proof-layer/client.ts` — `AgentPulseClient` for external projects to emit traces
+- Dual auth: `REEPROV_INGEST_KEY` for external ingestion, `REEPROV_ACCESS_KEY` for dashboard; fallback to access key when ingest key unset
+- `lib/proof-layer/client.ts` — `ReeprovClient` for external projects to emit traces
 - `scripts/seed-trace-run.ts` — realistic Campaign Sandbox seed run (`npm run seed:traces`)
 - `/dashboard/runs` — real runs list loaded from the store
 - `/dashboard/runs/[runId]` — real run detail (live badge), falls back to example data
@@ -62,7 +62,7 @@ AgentPulse moves from "static proof prototype" to "real trace receiver."
 
 ## Task 5A + Task 6 — Stabilize Trace Ingestion + Static-to-Proof Reconstruction ✓
 
-AgentPulse adds a zero-instrumentation path: scan any repo and immediately get a suggested WorkflowSpec, AI system graph, mapping summary, and optional instrumentation plan — without requiring code changes in the target project.
+Reeprov adds a zero-instrumentation path: scan any repo and immediately get a suggested WorkflowSpec, AI system graph, mapping summary, and optional instrumentation plan — without requiring code changes in the target project.
 
 ### Task 5A — Trace Ingestion Stability
 
@@ -76,7 +76,7 @@ AgentPulse adds a zero-instrumentation path: scan any repo and immediately get a
 
 - `lib/reconstruction/types.ts` — full TypeScript types: `StaticProofReconstruction`, `SuggestedWorkflowSpec`, `MappingSummary`, `MissingLink`, `InstrumentationPlan`, `ReconstructedSystemGraph`
 - `lib/reconstruction/reconstructWorkflowSpec.ts` — deterministic engine that reads a `ScanReport` and returns a `StaticProofReconstruction`; no external API calls, no code execution
-- `lib/reconstruction/suggestedFiles.ts` — generates 3 suggested output files: `agentpulse.workflow.suggested.json`, `ai-system.suggested.yaml`, `instrumentation-plan.suggested.md`
+- `lib/reconstruction/suggestedFiles.ts` — generates 3 suggested output files: `reeprov.workflow.suggested.json`, `ai-system.suggested.yaml`, `instrumentation-plan.suggested.md`
 - Confidence levels: `high` (explicit manifest), `medium` (workflow files or manifest agents present), `low` (scattered artifacts only)
 - Missing links: `agent_missing_prompt`, `agent_missing_model`, `workflow_missing_stages`, `prompt_unmapped`, `eval_unmapped`, `model_unmapped` — all deduplicated with stable IDs
 - Instrumentation plan: always `required: false`, `available: true`; never implies instrumentation is mandatory
@@ -105,14 +105,14 @@ Task 6A tightens Static Proof Reconstruction to stop overclaiming and adds runti
 ### Static reconstruction principles (clarified in Task 6A)
 
 1. **Static reconstruction requires evidence.** Repos without AI artifacts get no WorkflowSpec.
-2. **Unmapped is not broken.** A missing link only means AgentPulse cannot confirm a relationship from static evidence.
+2. **Unmapped is not broken.** A missing link only means Reeprov cannot confirm a relationship from static evidence.
 3. **Static proof is not runtime proof.** A suggested spec describes intent; only trace events prove execution.
 4. **Suggested manifests are starting points.** They are not verified truth and should be reviewed before adoption.
-5. **AgentPulse never invents structure.** Non-AI repos are reported as "no reconstruction generated" — not as a fake AI workflow.
+5. **Reeprov never invents structure.** Non-AI repos are reported as "no reconstruction generated" — not as a fake AI workflow.
 
 ## Task 7 — Global Dashboard Access + Overview IA Polish ✓
 
-- All `/dashboard/*` routes protected by a global `AGENTPULSE_ACCESS_KEY` gate
+- All `/dashboard/*` routes protected by a global `REEPROV_ACCESS_KEY` gate
 - `DashboardShell` client component manages auth state at layout level
 - `POST /api/auth/validate` — shared key validation endpoint
 - Scanner no longer has an isolated access model; uses global gate
@@ -164,7 +164,7 @@ Task 9 bridges the two previously disconnected product worlds: static scan/recon
 
 ## V1 — Trace SDK
 
-Projects emit AgentPulse-compatible traces without AgentPulse executing the project.
+Projects emit Reeprov-compatible traces without Reeprov executing the project.
 
 - Local/file-based ingestion ✓ (Task 5)
 - Standard event schema ✓ (Task 5)
@@ -230,7 +230,7 @@ Future scanner work can continue after the proof UI is stable:
 
 ## Task 10 — Product Stabilization + UX Polish Sprint ✓
 
-Task 10 makes AgentPulse feel like a coherent, polished internal V0 product before external project integrations are added.
+Task 10 makes Reeprov feel like a coherent, polished internal V0 product before external project integrations are added.
 
 - **Run detail contradiction fixed** — Run detail no longer shows a linked WorkflowSpec and "no linked spec" state simultaneously. Uses `registryWorkflow.spec.nodes` as fallback when no example workflow exists.
 - **Run detail hierarchy** — Critical/failed evals are surfaced near the top. Health summary shows duration, cost, model/tool/eval counts, and artifact count at a glance.
@@ -246,9 +246,9 @@ Task 10 makes AgentPulse feel like a coherent, polished internal V0 product befo
 
 ## Good-to-go V0 Test Path
 
-Before connecting real external projects, verify AgentPulse end-to-end using the following path:
+Before connecting real external projects, verify Reeprov end-to-end using the following path:
 
-1. **Unlock dashboard** — Enter AGENTPULSE_ACCESS_KEY at the access gate.
+1. **Unlock dashboard** — Enter REEPROV_ACCESS_KEY at the access gate.
 2. **Create demo run** — Go to Runs → click "Create demo run". Confirm redirect to the run detail page.
 3. **Inspect run health** — Verify the health summary card shows status, duration, cost, model/tool calls, evals, and artifacts.
 4. **Check failed evals** — Confirm the degraded run shows the eval warning near the top of the page.
@@ -265,11 +265,11 @@ Before connecting real external projects, verify AgentPulse end-to-end using the
 
 ### Current Limitations
 
-- **File-backed storage** is local/demo-grade. Data is stored under `.agentpulse/` (local) or `/tmp/agentpulse` (Vercel). On Vercel, data is wiped on redeployment.
+- **File-backed storage** is local/demo-grade. Data is stored under `.reeprov/` (local) or `/tmp/reeprov` (Vercel). On Vercel, data is wiped on redeployment.
 - **Runtime proof from external projects** requires a trace-emitting bridge. The Integration Kit is not yet built.
 - **Static reconstruction is deterministic and may be incomplete.** It reads file names and manifest fields — it does not execute the project. Unmapped links are gaps in static evidence, not proof of bugs.
 - **Registered specs are contracts/drafts.** A registered WorkflowSpec describes intent. Only linked runtime runs (with trace events) constitute runtime proof.
-- **No authentication or user accounts.** AgentPulse uses a single shared AGENTPULSE_ACCESS_KEY. Not suitable for multi-user deployments yet.
+- **No authentication or user accounts.** Reeprov uses a single shared REEPROV_ACCESS_KEY. Not suitable for multi-user deployments yet.
 - **No durable production storage.** Replace `fileRunStore` / `fileReportStore` / `fileWorkflowStore` with a Postgres, Vercel Blob, or Supabase adapter for persistence across deployments.
 
 ---
@@ -284,7 +284,7 @@ Task 11 makes live-pulse integration repeatable. The goal: connect Blog Agent, W
 - **Ingestion auto-update** — `POST /api/runs/start`, `POST /api/traces/events`, and `POST /api/runs/complete` all call `touchIntegrationForProject(projectId)` non-fatally. If no integration exists for a `project_id`, one is auto-created.
 - **Integrations dashboard page** — `/dashboard/integrations`: list view with status, mode, language, last event, run count. Add integration form (project ID, name, workflow, language, repo URL).
 - **Integration detail / setup page** — `/dashboard/integrations/[integrationId]`: connection status, env block, language snippets (TypeScript / Python / REST tabs), Send test event button, recent runs, troubleshooting.
-- **SDK templates** — `examples/integrations/typescript/agentpulseClient.ts`: zero-dependency TypeScript client. `examples/integrations/python/agentpulse_client.py`: zero-dependency Python client. `examples/integrations/rest/README.md`: curl examples.
+- **SDK templates** — `examples/integrations/typescript/reeprovClient.ts`: zero-dependency TypeScript client. `examples/integrations/python/reeprov_client.py`: zero-dependency Python client. `examples/integrations/rest/README.md`: curl examples.
 - **NavBar updated** — "Integrations" added between Workflows and Repository Scanner.
 - **Runs + Overview updated** — Empty states now link to Integrations as the primary CTA for connecting real projects.
 - **"Env vars alone do not send events"** — Troubleshooting copy is explicit: the adapter must be imported and called.
@@ -292,19 +292,19 @@ Task 11 makes live-pulse integration repeatable. The goal: connect Blog Agent, W
 ### Standard Integration Path
 
 ```
-1. Add integration in AgentPulse.
+1. Add integration in Reeprov.
 2. Copy env block into external project.
-3. Copy agentpulseClient.ts (or agentpulse_client.py) into project.
+3. Copy reeprovClient.ts (or reeprov_client.py) into project.
 4. Wrap the project's main workflow with startRun / completeRun.
 5. Run the external project.
-6. Confirm run appears in AgentPulse → Runs.
+6. Confirm run appears in Reeprov → Runs.
 7. Check integration status in /dashboard/integrations.
 ```
 
 ### Updated Current Limitations
 
 - **File-backed storage** is local/demo-grade.
-- **Shared ingest key** — V0 uses one global `AGENTPULSE_INGEST_KEY` for all projects. Project-specific keys are not yet implemented.
+- **Shared ingest key** — V0 uses one global `REEPROV_INGEST_KEY` for all projects. Project-specific keys are not yet implemented.
 - **No automatic WorkflowSpec linking on ingest** — runs are visible immediately; linking to a registered spec requires the `workflow_id` to match an existing registry entry.
 
 ---
@@ -327,8 +327,8 @@ Task 12 replaces the card-row workflow view with a real, read-only, n8n-style ru
 
 Now that the integration path and Visual Execution Canvas are in place, the next steps are:
 
-- Instrument Blog Agent with `agentpulse_client.py`
-- Instrument Website Auditor with `agentpulseClient.ts`
+- Instrument Blog Agent with `reeprov_client.py`
+- Instrument Website Auditor with `reeprovClient.ts`
 - Instrument Campaign Sandbox
 - Verify live runs appear under their Integration entries, and render correctly in the Visual Execution Canvas
 - Consider project-specific ingest keys for multi-project isolation

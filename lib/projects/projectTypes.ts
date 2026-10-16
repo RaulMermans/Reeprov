@@ -1,5 +1,5 @@
 /**
- * Canonical Project Model for AgentPulse.
+ * Canonical Project Model for Reeprov.
  *
  * "Project" is the top-level product object.
  * An "integration" is how a project sends evidence (TypeScript SDK, Python, REST ingest).
@@ -38,7 +38,7 @@ export interface Project {
   repositoryUrl?: string;
   /** Live connection status */
   status: ProjectStatus;
-  /** Non-secret preview of ingest key (e.g. "ap_live_...9f2a") */
+  /** Non-secret preview of ingest key (e.g. "ree_live_...9f2a" or legacy "ap_live_...9f2a") */
   ingestKeyPreview?: string;
   /** Timestamp when project was created */
   createdAt: string;

@@ -1,4 +1,4 @@
-# AgentPulse Release Evidence Snapshots
+# Reeprov Release Evidence Snapshots
 
 ## Durable, Immutable Governance Records
 
@@ -9,7 +9,7 @@ When an agentic system is promoted to production or released to users, organizat
 
 In traditional CI, test logs are ephemeral, drift occurs undetected, and configurations are decoupled from evaluation datasets.
 
-AgentPulse solves this with **ReleaseEvidenceSnapshot**:
+Reeprov solves this with **ReleaseEvidenceSnapshot**:
 - A durable, immutable historical artifact created upon release gate qualification.
 - Binds configuration, capability profile, security policy, evaluation suite, and regression gate verdict into a single cryptographically sealed record.
 - Preserved forever for governance, incident reconstruction, and compliance audits.
@@ -18,10 +18,10 @@ AgentPulse solves this with **ReleaseEvidenceSnapshot**:
 
 ### 2. Architectural Boundary: No Automated Deployment
 
-AgentPulse strictly observes a separation of concerns:
+Reeprov strictly observes a separation of concerns:
 
 ```
-[AgentPulse]
+[Reeprov]
 CAPTURE → INSPECT → REPRODUCE → FORK → PROVE → COMPARE → DIAGNOSE → EVALUATE → REGRESSION / DRIFT
                                                                                            │
                                                                                            ▼
@@ -35,7 +35,7 @@ CAPTURE → INSPECT → REPRODUCE → FORK → PROVE → COMPARE → DIAGNOSE �
 ArgoCD / GitHub Actions / Kubernetes Controller ───────────────────────────────> Evaluates Evidence & Deploys
 ```
 
-**AgentPulse does NOT deploy containers, update DNS, or restart services.** It produces the authoritative qualification evidence that external CD pipelines inspect before proceeding.
+**Reeprov does NOT deploy containers, update DNS, or restart services.** It produces the authoritative qualification evidence that external CD pipelines inspect before proceeding.
 
 ---
 

@@ -38,7 +38,7 @@ For every `ContextItem`, deterministic classification assigns one of five classe
 
 ## 3. Provenance Coverage Metrics
 
-For each decision snapshot and run summary, AgentPulse reports:
+For each decision snapshot and run summary, Reeprov reports:
 $$\text{Provenance Coverage Ratio} = \frac{N_{\text{complete}}}{N_{\text{total\_items}}}$$
 
 Signals flag provenance gaps (`PROVENANCE_GAP`) when retrieved documents or external memories enter context without traceable operation IDs or chunk metadata.

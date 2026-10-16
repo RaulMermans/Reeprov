@@ -151,7 +151,7 @@ describe("Sprint 8: Reference Proofs (Deterministic, Ablation, Hard Gates, Repea
         expect(res.eval_definition_id).toBeDefined();
         expect(res.eval_suite_id).toBe("support-release");
         expect(res.eval_suite_version).toBe(1);
-        expect(res.evaluator_id).toBe("agentpulse_deterministic_evaluator");
+        expect(res.evaluator_id).toBe("reeprov_deterministic_evaluator");
         expect(res.grader_config_hash).toBeDefined();
         expect(res.timestamp).toBeDefined();
       }

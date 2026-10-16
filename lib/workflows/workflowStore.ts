@@ -2,7 +2,7 @@
  * File-backed workflow registry store.
  *
  * Layout:
- *   .agentpulse/workflows/
+ *   .reeprov/workflows/
  *     index.json            — array of SavedWorkflowSummary, newest first
  *     {registryId}.json     — full SavedWorkflowSpec
  *
@@ -28,13 +28,16 @@ import {
   type WorkflowStore,
 } from "./workflowTypes";
 
+import { getReeprovEnv } from "@/lib/config/env";
+import { getReeprovHome } from "@/lib/storage/dataPath";
+
 // ── Store directory ───────────────────────────────────────────────────────────
 
 function storeDir(): string {
   const base =
-    process.env["AGENTPULSE_STORE_DIR"] ??
-    process.env["AGENTPULSE_HOME"] ??
-    join(process.cwd(), ".agentpulse");
+    getReeprovEnv("REEPROV_STORE_DIR") ??
+    getReeprovEnv("REEPROV_HOME") ??
+    getReeprovHome();
   return join(base, "workflows");
 }
 

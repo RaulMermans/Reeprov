@@ -1,12 +1,12 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="agentpulse-client",
+    name="reeprov-client",
     version="0.1.0b1",
-    description="Python client SDK for AgentPulse — local-first agent debugging and reproducibility.",
+    description="Python client SDK for Reeprov — local-first debugging and reproducibility infrastructure for AI agents.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    author="AgentPulse Contributors",
+    author="Reeprov Contributors",
     license="Apache-2.0",
     package_dir={"": "src"},
     packages=find_packages(where="src"),

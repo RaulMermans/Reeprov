@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-AgentPulse Dogfood: Python Support Agent
+Reeprov Dogfood: Python Support Agent
 
 A standalone AI support agent workflow instrumented using the stdlib-only
-AgentPulse Python client (agentpulse_client.py).
+Reeprov Python client (reeprov_client).
 """
 
 import json
@@ -11,34 +11,34 @@ import os
 import sys
 
 # Provide development defaults if not explicitly set in the environment
-os.environ.setdefault("AGENTPULSE_URL", "http://127.0.0.1:3000")
-os.environ.setdefault("AGENTPULSE_PROJECT_ID", "python-support-agent")
-os.environ.setdefault("AGENTPULSE_PROJECT_NAME", "Python Support Agent")
-os.environ.setdefault("AGENTPULSE_WORKFLOW_ID", "customer-support-v1")
-os.environ.setdefault("AGENTPULSE_ENABLED", "true")
+os.environ.setdefault("REEPROV_URL", os.environ.get("AGENTPULSE_URL", "http://127.0.0.1:3000"))
+os.environ.setdefault("REEPROV_PROJECT_ID", os.environ.get("AGENTPULSE_PROJECT_ID", "python-support-agent"))
+os.environ.setdefault("REEPROV_PROJECT_NAME", os.environ.get("AGENTPULSE_PROJECT_NAME", "Python Support Agent"))
+os.environ.setdefault("REEPROV_WORKFLOW_ID", os.environ.get("AGENTPULSE_WORKFLOW_ID", "customer-support-v1"))
+os.environ.setdefault("REEPROV_ENABLED", os.environ.get("AGENTPULSE_ENABLED", "true"))
 
-ingest_key = os.environ.get("AGENTPULSE_INGEST_KEY")
+ingest_key = os.environ.get("REEPROV_INGEST_KEY") or os.environ.get("AGENTPULSE_INGEST_KEY")
 if not ingest_key:
     print(
-        "No AgentPulse ingest key configured.\n"
-        "Create a project in AgentPulse Studio and copy its generated ingest key.",
+        "No Reeprov ingest key configured.\n"
+        "Create a project in Reeprov Studio and copy its generated ingest key.",
         file=sys.stderr,
     )
     sys.exit(1)
 
-from agentpulse_client import AgentPulseClient
+from reeprov_client import ReeprovClient
 
 
 def run_support_agent() -> None:
-    print("=== AgentPulse Dogfood: Python Support Agent ===")
-    print(f"Endpoint: {os.environ.get('AGENTPULSE_URL')}")
-    print(f"Project:  {os.environ.get('AGENTPULSE_PROJECT_ID')}")
+    print("=== Reeprov Dogfood: Python Support Agent ===")
+    print(f"Endpoint: {os.environ.get('REEPROV_URL')}")
+    print(f"Project:  {os.environ.get('REEPROV_PROJECT_ID')}")
 
-    pulse = AgentPulseClient()
-    print(f"Enabled:  {pulse.is_enabled}")
+    client = ReeprovClient()
+    print(f"Enabled:  {client.is_enabled}")
 
     # 1. Start Run
-    run_id = pulse.start_run(
+    run_id = client.start_run(
         summary="Customer inquiry: Billing invoice dispute #INV-4412"
     )
     print(f"[Run Started] run_id={run_id}")
@@ -46,7 +46,7 @@ def run_support_agent() -> None:
     try:
         # 2. Emit model call evidence: Intent classification
         print("Step 1: Classifying dispute details...")
-        pulse.model_call_completed(
+        client.model_call_completed(
             run_id,
             node_id="billing_classifier",
             model_provider="anthropic",
@@ -70,7 +70,7 @@ def run_support_agent() -> None:
             "refund_eligible": True,
         }
 
-        pulse.tool_call_completed(
+        client.tool_call_completed(
             run_id,
             node_id="billing_db_query",
             tool_name="lookup_invoice",
@@ -83,7 +83,7 @@ def run_support_agent() -> None:
 
         # 4. Emit replay-grade boundary capture
         print("Step 3: Recording execution boundary...")
-        pulse.capture_boundary(
+        client.capture_boundary(
             run_id,
             {
                 "boundaryType": "tool_call",
@@ -98,7 +98,7 @@ def run_support_agent() -> None:
 
         # 5. Emit model call evidence: Response formulation
         print("Step 4: Formulating resolution message...")
-        pulse.model_call_completed(
+        client.model_call_completed(
             run_id,
             node_id="response_composer",
             model_provider="anthropic",
@@ -113,7 +113,7 @@ def run_support_agent() -> None:
 
         # 6. Complete Run
         print("Step 5: Completing run...")
-        pulse.complete_run(
+        client.complete_run(
             run_id,
             summary="Billing inquiry resolved: confirmed duplicate and initiated refund",
             total_cost_usd=0.0037,
@@ -124,7 +124,7 @@ def run_support_agent() -> None:
 
     except Exception as exc:
         print(f"✗ Agent run encountered error: {exc}", file=sys.stderr)
-        pulse.fail_run(run_id, error_summary=str(exc))
+        client.fail_run(run_id, error_summary=str(exc))
         sys.exit(1)
 
 

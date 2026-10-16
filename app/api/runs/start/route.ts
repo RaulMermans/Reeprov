@@ -3,7 +3,7 @@
  *
  * Creates a new run record and optionally emits a run_started trace event.
  *
- * Auth: x-agentpulse-key (AGENTPULSE_INGEST_KEY or AGENTPULSE_ACCESS_KEY)
+ * Auth: x-reeprov-key (REEPROV_INGEST_KEY or REEPROV_ACCESS_KEY)
  *
  * Body:
  *   project_id    string   — stable project identifier

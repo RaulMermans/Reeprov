@@ -32,7 +32,7 @@ flowchart TD
 
 ## 2. Invariants
 
-1. **Reuses ForkRuntime:** AgentPulse does not introduce a duplicate agent runtime; it leverages `ForkRuntime` to fork candidate runs from recorded checkpoints.
+1. **Reuses ForkRuntime:** Reeprov does not introduce a duplicate agent runtime; it leverages `ForkRuntime` to fork candidate runs from recorded checkpoints.
 2. **Never Mutates Historical Baselines:** Baseline artifacts remain strictly immutable.
 3. **Graceful Budget Exceedance:** When budget limits are reached, execution stops cleanly with status `BUDGET_EXCEEDED` while preserving all completed trials.
 4. **Separate Cost Tracking:** Candidate execution cost is tracked independently from evaluator grader cost.

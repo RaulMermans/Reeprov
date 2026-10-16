@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { ProjectStore } from "../projectStore";
 import { ProjectExporter } from "../projectExport";
 import { ProjectDeletionManager } from "../projectDelete";
@@ -6,6 +6,14 @@ import { computeCaptureReadiness } from "../captureReadiness";
 import type { RunArtifact } from "@/lib/core/contracts/runArtifact";
 
 describe("Canonical Project Store & Model", () => {
+  beforeAll(async () => {
+    try {
+      await ProjectDeletionManager.confirmDelete("autonomous-support-bot", "autonomous-support-bot");
+    } catch {
+      // ignore
+    }
+  });
+
   it("creates a new project and generates an ingest key preview", async () => {
     const { project, rawIngestKey } = await ProjectStore.createProject({
       name: "Autonomous Support Bot",
@@ -17,8 +25,8 @@ describe("Canonical Project Store & Model", () => {
     expect(project.id).toBe("autonomous-support-bot");
     expect(project.name).toBe("Autonomous Support Bot");
     expect(project.status).toBe("waiting_for_first_event");
-    expect(rawIngestKey).toMatch(/^ap_live_[0-9a-f]{48}$/);
-    expect(project.ingestKeyPreview).toMatch(/^ap_live_\.\.\.[0-9a-f]{8}$/);
+    expect(rawIngestKey).toMatch(/^ree_live_[0-9a-f]{48}$/);
+    expect(project.ingestKeyPreview).toMatch(/^ree_live_\.\.\.[0-9a-f]{8}$/);
   });
 
   it("lists projects including newly created project", async () => {
@@ -42,7 +50,7 @@ describe("Canonical Project Store & Model", () => {
   it("rotates ingest key and returns new raw key", async () => {
     const res = await ProjectStore.rotateIngestKey("autonomous-support-bot");
     expect(res).not.toBeNull();
-    expect(res?.rawIngestKey).toMatch(/^ap_live_[0-9a-f]{48}$/);
+    expect(res?.rawIngestKey).toMatch(/^ree_live_[0-9a-f]{48}$/);
   });
 });
 

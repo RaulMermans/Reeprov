@@ -2,8 +2,8 @@
 
 ## Overview
 
-Verification in AgentPulse is structured as an **append-only execution evidence stream**.
-Rather than treating verification as an external, unrecorded step or a binary pass/fail flag, AgentPulse records lifecycle events with strict monotonic sequence indexing.
+Verification in Reeprov is structured as an **append-only execution evidence stream**.
+Rather than treating verification as an external, unrecorded step or a binary pass/fail flag, Reeprov records lifecycle events with strict monotonic sequence indexing.
 
 ---
 
@@ -62,7 +62,7 @@ export interface VerificationEvent {
 
 ## 3. Invariants & Sequence Enforcement
 
-AgentPulse enforces the following invariants on verification event streams:
+Reeprov enforces the following invariants on verification event streams:
 1. **Monotonic Sequence Index:** Sequence indices must strictly increase starting from `0`.
 2. **Duplicate Detection:** Duplicate `event_id` or sequence index collisions are rejected.
 3. **Out-of-Order Detection:** Events with decreasing sequence indices or out-of-order timestamps trigger validation warnings or failures.
@@ -74,4 +74,4 @@ AgentPulse enforces the following invariants on verification event streams:
 ## 4. Relationship to EvalResult & Content Store
 
 - **`EvalResult` Preservation:** Existing evaluations are preserved in `RunArtifact.trajectory[*].eval_result_ids`. Verification events reference these evaluations without duplication.
-- **Content Store Referencing:** Large test outputs, terminal streams, and compiler logs are stored in the AgentPulse content store (addressed by content hash) rather than embedding megabytes of raw text into trace events.
+- **Content Store Referencing:** Large test outputs, terminal streams, and compiler logs are stored in the Reeprov content store (addressed by content hash) rather than embedding megabytes of raw text into trace events.

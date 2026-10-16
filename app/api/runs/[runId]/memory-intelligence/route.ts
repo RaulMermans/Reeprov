@@ -3,7 +3,7 @@
  * Returns the derived MemoryIntelligenceReport for a given run.
  * Fetches precomputed report or computes on-the-fly from the canonical run evidence.
  *
- * Auth: x-agentpulse-key (AGENTPULSE_ACCESS_KEY or AGENTPULSE_INGEST_KEY)
+ * Auth: x-reeprov-key (REEPROV_ACCESS_KEY or REEPROV_INGEST_KEY)
  */
 
 import { NextResponse } from "next/server";

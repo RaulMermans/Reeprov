@@ -1,6 +1,6 @@
-# AgentPulse Public API & Contract Stability Classification
+# Reeprov Public API & Contract Stability Classification
 
-This document formally defines the stability taxonomy and compatibility commitments for AgentPulse interfaces as of version `0.1.0-beta.1`.
+This document formally defines the stability taxonomy and compatibility commitments for Reeprov interfaces as of version `0.1.0-beta.1`.
 
 ---
 
@@ -20,8 +20,8 @@ This document formally defines the stability taxonomy and compatibility commitme
 | Interface / Component | Classification | Package / Location | Notes |
 |---|---|---|---|
 | **HTTP Ingest API** | `PUBLIC` | `POST /api/runs/*`, `POST /api/traces/*` | Standard JSON contracts for external agents. |
-| **TypeScript Client SDK** | `PUBLIC` | `@agentpulse/client` | Official npm package. |
-| **Python Client SDK** | `PUBLIC` | `agentpulse-client` | Official PyPI package. |
+| **TypeScript Client SDK** | `PUBLIC` | `@reeprov/client` | Official npm package. |
+| **Python Client SDK** | `PUBLIC` | `reeprov-client` | Official PyPI package. |
 | **CLI (`pulse`)** | `REPO-LOCAL PUBLIC/BETA` | `bin/pulse.mjs` (`npm run pulse -- ...`) | Repo-local developer tool commands (`data-path`, `projects`, `replay`, `diff`, `regression check`). Not registry-distributed; run via `npm run pulse -- <cmd>` within repository. |
 | **RunArtifact Schema** | `PUBLIC` (Beta) | `lib/core/contracts/runArtifact.ts` | Serialized canonical execution evidence envelope (`schemaVersion: 1.0.0-beta`). |
 | **Execution Boundary Schema** | `PUBLIC` (Beta) | `lib/core/contracts/replay.ts` | Model calls, tool invocations, retrieval operations, and checkpoints. |
@@ -45,6 +45,6 @@ This document formally defines the stability taxonomy and compatibility commitme
 
 ## 4. Replay Limitations
 
-AgentPulse provides **deterministic offline boundary substitution**, not process virtualization:
+Reeprov provides **deterministic offline boundary substitution**, not process virtualization:
 - **What is guaranteed:** If an external boundary (LLM call, tool output, retrieval query) was captured with complete input hashes and recorded responses, the replay engine substitutes the recorded response without network access.
 - **What is NOT supported:** Arbitrary OS process snapshots, in-memory heap virtualization, or unrecorded non-deterministic runtime interactions.

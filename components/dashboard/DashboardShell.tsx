@@ -52,7 +52,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         if (stored) {
           const response = await fetch("/api/auth/validate", {
             method: "POST",
-            headers: { "x-agentpulse-key": stored },
+            headers: { "x-reeprov-key": stored },
           });
 
           if (response.ok) {
@@ -103,7 +103,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     const trimmed = keyInput.trim();
 
     if (!trimmed) {
-      setError("Enter your AgentPulse access key.");
+      setError("Enter your Reeprov access key.");
       return;
     }
 
@@ -115,7 +115,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-agentpulse-key": trimmed,
+          "x-reeprov-key": trimmed,
         },
         body: JSON.stringify({ accessKey: trimmed }),
       });
@@ -129,7 +129,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         // Fallback verification via /api/auth/validate
         const valRes = await fetch("/api/auth/validate", {
           method: "POST",
-          headers: { "x-agentpulse-key": trimmed },
+          headers: { "x-reeprov-key": trimmed },
         });
         if (!valRes.ok) {
           setError("Could not validate access key.");
@@ -155,7 +155,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen bg-[#f7f8fb]">
         <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-sm">
           <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
-            <span className="text-sm font-bold tracking-tight text-slate-950">AgentPulse</span>
+            <span className="text-sm font-bold tracking-tight text-slate-950">Reeprov</span>
           </div>
         </div>
         <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-20">
@@ -171,7 +171,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#f7f8fb] px-4">
         <div className="mb-8 text-center">
           <div className="flex items-center justify-center gap-2">
-            <span className="text-2xl font-bold tracking-tight text-slate-950">AgentPulse</span>
+            <span className="text-2xl font-bold tracking-tight text-slate-950">Reeprov</span>
             <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
               {operatingMode === "self_hosted" ? "Private Self-Hosted" : "Protected"}
             </span>
@@ -186,7 +186,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <p className="mt-1 text-sm text-slate-500">
                 Enter your{" "}
                 <code className="rounded bg-slate-100 px-1 font-mono text-xs text-slate-700">
-                  AGENTPULSE_ACCESS_KEY
+                  REEPROV_ACCESS_KEY
                 </code>{" "}
                 to unlock this private instance. An encrypted HttpOnly session cookie will be issued.
               </p>

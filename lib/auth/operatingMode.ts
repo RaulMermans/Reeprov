@@ -1,5 +1,5 @@
 /**
- * AgentPulse Operating Modes & Loopback Privacy Guarantee.
+ * Reeprov Operating Modes & Loopback Privacy Guarantee.
  *
  * Exactly three operating modes:
  *   1. PERSONAL_LOCAL (default)   — Single operator, local data, loopback bound (127.0.0.1 / ::1),
@@ -11,12 +11,14 @@
 
 export type OperatingMode = "personal_local" | "self_hosted" | "headless_ci";
 
+import { getReeprovEnv } from "@/lib/config/env";
+
 /**
  * Resolves the active operating mode from the environment.
  * Defaults to PERSONAL_LOCAL.
  */
 export function getOperatingMode(): OperatingMode {
-  const raw = process.env.AGENTPULSE_MODE?.toLowerCase().trim();
+  const raw = getReeprovEnv("REEPROV_MODE")?.toLowerCase().trim();
   if (raw === "self_hosted" || raw === "private_self_hosted") {
     return "self_hosted";
   }
@@ -114,7 +116,7 @@ export function validateHostBinding(host: string, mode: OperatingMode): { valid:
     if (host === "0.0.0.0" || host === "::" || host === "") {
       return {
         valid: false,
-        reason: "Loopback privacy guarantee: PERSONAL_LOCAL must bind only to loopback (127.0.0.1 or ::1). Exposing 0.0.0.0 requires AGENTPULSE_MODE=self_hosted with authentication.",
+        reason: "Loopback privacy guarantee: PERSONAL_LOCAL must bind only to loopback (127.0.0.1 or ::1). Exposing 0.0.0.0 requires REEPROV_MODE=self_hosted with authentication.",
       };
     }
     if (!isLoopbackAddress(host)) {

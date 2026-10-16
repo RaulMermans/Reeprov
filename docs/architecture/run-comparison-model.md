@@ -1,13 +1,13 @@
-# AgentPulse Run Comparison Model (COMPARE)
+# Reeprov Run Comparison Model (COMPARE)
 
-Sprint 6 introduces the canonical cross-run comparison engine for AgentPulse:
+Sprint 6 introduces the canonical cross-run comparison engine for Reeprov:
 ```
 CAPTURE → INSPECT → REPRODUCE → FORK → PROVE → COMPARE → EVALUATE → REGRESSION
 ```
 
 ## 1. Core Architectural Separation
 
-AgentPulse strictly separates two layers of comparison:
+Reeprov strictly separates two layers of comparison:
 1. **Layer 1 — Deterministic Facts**: Exact structural diffs computed without model assistance.
    - Prompt/skill/model configuration changes
    - Step sequence additions, omissions, and modifications
@@ -27,7 +27,7 @@ AgentPulse strictly separates two layers of comparison:
 
 ## 2. Distinction from Replay Divergence
 
-AgentPulse explicitly distinguishes between:
+Reeprov explicitly distinguishes between:
 - **`ReplayDivergence`**: Answers *"Why did an attempted reproduction fail to match its recorded source execution?"* It detects recording anomalies, non-determinism, or unreplayable boundaries.
 - **`RunComparison`**: Answers *"How do two valid, completed executions differ across their configuration, trajectory, state, and evidence?"*
 
@@ -78,7 +78,7 @@ Comparisons classify the topological relationship between runs before alignment:
 ## 5. Dual-Mode Storage & Persistence
 
 Comparisons are persisted independently of the underlying immutable runs:
-- **File Mode**: Stored under `.agentpulse/comparisons/<comparison_id>.json`.
+- **File Mode**: Stored under `.reeprov/comparisons/<comparison_id>.json`.
 - **Postgres Mode**: Persisted across tables `ap_run_comparisons` and normalized rows in `ap_comparison_divergences`.
 
 Cross-project comparisons are strictly blocked at the comparison engine boundary via `ProjectIsolationError`.

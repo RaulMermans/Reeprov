@@ -2,7 +2,7 @@
  * File-backed report store.
  *
  * Layout:
- *   .agentpulse/reports/
+ *   .reeprov/reports/
  *     index.json         — array of SavedReportSummary, newest first
  *     {reportId}.json    — full SavedReport
  *
@@ -15,18 +15,23 @@ import { join } from "node:path";
 import type { ScanReport } from "@/lib/scanner/types";
 import { buildSavedReportSummary, type ReportStore, type SavedReport, type SavedReportSummary, type SaveResult } from "./reportTypes";
 
+import { getReeprovEnv } from "@/lib/config/env";
+import { getReeprovHome } from "@/lib/storage/dataPath";
+
 // ── Store directory ───────────────────────────────────────────────────────────
 
 function storeDir(): string {
-  if (process.env["AGENTPULSE_STORE_DIR"]) {
-    return process.env["AGENTPULSE_STORE_DIR"].endsWith("reports")
-      ? process.env["AGENTPULSE_STORE_DIR"]
-      : join(process.env["AGENTPULSE_STORE_DIR"], "reports");
+  const storeDirEnv = getReeprovEnv("REEPROV_STORE_DIR");
+  if (storeDirEnv) {
+    return storeDirEnv.endsWith("reports")
+      ? storeDirEnv
+      : join(storeDirEnv, "reports");
   }
-  if (process.env["AGENTPULSE_HOME"]) {
-    return join(process.env["AGENTPULSE_HOME"], "reports");
+  const homeEnv = getReeprovEnv("REEPROV_HOME");
+  if (homeEnv) {
+    return join(homeEnv, "reports");
   }
-  return join(process.cwd(), ".agentpulse", "reports");
+  return join(getReeprovHome(), "reports");
 }
 
 function indexPath(): string {

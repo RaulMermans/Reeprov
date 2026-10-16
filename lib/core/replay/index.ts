@@ -1,5 +1,5 @@
 /**
- * AgentPulse Deterministic Offline Replay Runtime.
+ * Reeprov Deterministic Offline Replay Runtime.
  */
 
 export * from "./contracts";

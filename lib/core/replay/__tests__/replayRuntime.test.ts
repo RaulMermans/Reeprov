@@ -329,13 +329,10 @@ describe("Deterministic Offline Replay Runtime Suite", () => {
     const result = await runtime.replay();
     expect(result.status).toBe("MATCHED");
 
-    // Verify file written to .agentpulse/replays/
-    const replayFile = path.resolve(
-      process.cwd(),
-      ".agentpulse",
-      "replays",
-      `${result.replay_id}.json`
-    );
+    // Verify file written to .reeprov/replays/
+    const replayFileReeprov = path.resolve(process.cwd(), ".reeprov", "replays", `${result.replay_id}.json`);
+    const replayFileAgentpulse = path.resolve(process.cwd(), ".agentpulse", "replays", `${result.replay_id}.json`);
+    const replayFile = fs.existsSync(replayFileReeprov) ? replayFileReeprov : replayFileAgentpulse;
     expect(fs.existsSync(replayFile)).toBe(true);
 
     const raw = fs.readFileSync(replayFile, "utf8");

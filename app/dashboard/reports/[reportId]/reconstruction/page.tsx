@@ -50,7 +50,7 @@ export default function ReportReconstructionPage() {
         const data = await res.json() as ScanReport;
         setReport(data);
       } catch {
-        setError("Could not connect to AgentPulse. Is the dev server running?");
+        setError("Could not connect to Reeprov. Is the dev server running?");
       } finally {
         setLoading(false);
       }

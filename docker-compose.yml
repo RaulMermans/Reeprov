@@ -1,9 +1,9 @@
 services:
-  agentpulse:
+  reeprov:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: agentpulse-studio
+    container_name: reeprov-studio
     restart: unless-stopped
     ports:
       # Bind to loopback interface by default for secure local hosting.
@@ -11,16 +11,16 @@ services:
       - "127.0.0.1:3000:3000"
     environment:
       - NODE_ENV=production
-      - AGENTPULSE_MODE=self_hosted
-      - AGENTPULSE_HOME=/home/nextjs/.agentpulse
-      - AGENTPULSE_STORE_DIR=/home/nextjs/.agentpulse
+      - REEPROV_MODE=self_hosted
+      - REEPROV_HOME=/home/nextjs/.reeprov
+      - REEPROV_STORE_DIR=/home/nextjs/.reeprov
       # Mandatory for self-hosted mode — configure in your environment or .env.local
-      - AGENTPULSE_ACCESS_KEY=${AGENTPULSE_ACCESS_KEY:?AGENTPULSE_ACCESS_KEY must be set}
-      - AGENTPULSE_INGEST_KEY=${AGENTPULSE_INGEST_KEY:?AGENTPULSE_INGEST_KEY must be set}
+      - REEPROV_ACCESS_KEY=${REEPROV_ACCESS_KEY:?REEPROV_ACCESS_KEY must be set}
+      - REEPROV_INGEST_KEY=${REEPROV_INGEST_KEY:?REEPROV_INGEST_KEY must be set}
       # Optional: connect to postgres service if enabled below
-      # - DATABASE_URL=postgresql://agentpulse:agentpulse_secret@postgres:5432/agentpulse?sslmode=disable
+      # - DATABASE_URL=postgresql://reeprov:reeprov_secret@postgres:5432/reeprov?sslmode=disable
     volumes:
-      - agentpulse-data:/home/nextjs/.agentpulse
+      - reeprov-data:/home/nextjs/.reeprov
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/api/health"]
       interval: 30s
@@ -31,19 +31,19 @@ services:
   # Optional PostgreSQL backend (uncomment if you need Postgres persistence)
   # postgres:
   #   image: postgres:16-alpine
-  #   container_name: agentpulse-postgres
+  #   container_name: reeprov-postgres
   #   restart: unless-stopped
   #   environment:
-  #     - POSTGRES_DB=agentpulse
-  #     - POSTGRES_USER=agentpulse
-  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-agentpulse_secret}
+  #     - POSTGRES_DB=reeprov
+  #     - POSTGRES_USER=reeprov
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-reeprov_secret}
   #   volumes:
-  #     - agentpulse-db:/var/lib/postgresql/data
+  #     - reeprov-db:/var/lib/postgresql/data
   #   ports:
   #     - "127.0.0.1:5432:5432"
 
 volumes:
-  agentpulse-data:
-    name: agentpulse-data
-  # agentpulse-db:
-  #   name: agentpulse-db
+  reeprov-data:
+    name: reeprov-data
+  # reeprov-db:
+  #   name: reeprov-db

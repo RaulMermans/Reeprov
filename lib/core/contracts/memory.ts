@@ -6,7 +6,7 @@
  *
  * Core invariant:
  * run state ≠ checkpoint ≠ trace ≠ artifact ≠ memory ≠ eval result.
- * AgentPulse observes memory operations; it does not manage or persist long-term memory.
+ * Reeprov observes memory operations; it does not manage or persist long-term memory.
  */
 
 import { z } from "zod";

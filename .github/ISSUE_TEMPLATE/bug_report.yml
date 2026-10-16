@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug in AgentPulse
+description: Report a bug in Reeprov
 labels: ["bug"]
 body:
   - type: markdown
@@ -12,7 +12,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: AgentPulse Version
+      label: Reeprov Version
       placeholder: "0.1.0-beta.1"
     validations:
       required: true
@@ -41,10 +41,10 @@ body:
     attributes:
       label: Integration Type
       options:
-        - TypeScript SDK (@agentpulse/client)
-        - Python SDK (agentpulse-client)
+        - TypeScript SDK (@reeprov/client)
+        - Python SDK (reeprov-client)
         - REST API
-        - CLI (pulse)
+        - CLI (reeprov)
         - Studio UI
         - Other
     validations:

@@ -1,5 +1,5 @@
 /**
- * Deterministic, bounded command-center aggregation for AgentPulse.
+ * Deterministic, bounded command-center aggregation for Reeprov.
  *
  * The caller supplies already bounded, already stored evidence. This module
  * performs no I/O and deliberately returns only display-safe summaries: it
@@ -21,7 +21,7 @@ export const DISCONNECTED_THRESHOLD_MS = 30 * 24 * 60 * 60 * 1000;
 
 export type DashboardIntegrationStatus = "live" | "stale" | "degraded" | "disconnected" | "waiting";
 
-export interface AgentPulseDashboardPulse {
+export interface ReeprovDashboardPulse {
   generatedAt: string;
   integrationCount: number;
   runWindow: { count: number; from?: string; to?: string };
@@ -85,6 +85,8 @@ export interface AgentPulseDashboardPulse {
     }>;
   };
 }
+
+export type AgentPulseDashboardPulse = ReeprovDashboardPulse;
 
 export interface DashboardPulseIntegrationInput {
   integration: ProjectIntegration;
@@ -170,9 +172,9 @@ function topCounts(values: Map<string, number>, key: "label" | "category") {
  * diagnostic is disconnected; recent failures/diagnostics are degraded; and
  * integrations without an event or run are waiting.
  */
-export function buildDashboardPulse({ integrations, diagnostics, now = new Date() }: BuildDashboardPulseParams): AgentPulseDashboardPulse {
+export function buildDashboardPulse({ integrations, diagnostics, now = new Date() }: BuildDashboardPulseParams): ReeprovDashboardPulse {
   const limitedDiagnostics = diagnostics.slice(0, DASHBOARD_DIAGNOSTIC_WINDOW);
-  const statusCounts: AgentPulseDashboardPulse["integrationStatusCounts"] = {
+  const statusCounts: ReeprovDashboardPulse["integrationStatusCounts"] = {
     live: 0,
     stale: 0,
     degraded: 0,
@@ -181,7 +183,7 @@ export function buildDashboardPulse({ integrations, diagnostics, now = new Date(
   };
   const categoryCounts = new Map<string, number>();
   const failureModes = new Map<string, { label: string; count: number; integrationIds: Set<string>; exampleRunIds: Set<string> }>();
-  const activity: AgentPulseDashboardPulse["recentActivity"] = [];
+  const activity: ReeprovDashboardPulse["recentActivity"] = [];
   const allRuns: SavedRun[] = [];
 
   for (const diagnostic of limitedDiagnostics) {

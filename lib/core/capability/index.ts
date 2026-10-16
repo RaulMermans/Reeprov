@@ -1,5 +1,5 @@
 /**
- * AgentPulse Capability Engine Entry Point.
+ * Reeprov Capability Engine Entry Point.
  */
 
 export * from "./snapshot";

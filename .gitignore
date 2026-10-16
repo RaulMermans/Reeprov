@@ -19,6 +19,11 @@ pnpm-debug.log*
 *.tsbuildinfo
 .vercel
 
+.reeprov
+.reeprov/
+*.reeprov-export*
+*.reeprov-export.json
+reeprov.db*
 .agentpulse
 .agentpulse/
 *.agentpulse-export*

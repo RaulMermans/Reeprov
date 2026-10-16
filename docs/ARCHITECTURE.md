@@ -1,6 +1,6 @@
 # Architecture
 
-AgentPulse is structured in six layers. Each layer has a single responsibility.
+Reeprov is structured in six layers. Each layer has a single responsibility.
 
 ## Layer 1: Workflow Spec
 
@@ -56,7 +56,7 @@ This layer does not add a database, authentication changes, external API calls, 
 ## Global Dashboard Access Gate
 
 All `/dashboard/*` routes are protected by a single client-side access gate backed by
-`AGENTPULSE_ACCESS_KEY`. The gate is implemented in `components/dashboard/DashboardShell.tsx`
+`REEPROV_ACCESS_KEY` (with `REEPROV_ACCESS_KEY` supported as legacy fallback). The gate is implemented in `components/dashboard/DashboardShell.tsx`
 and runs at the dashboard layout level.
 
 **Flow (Task 7A corrected):**
@@ -81,11 +81,11 @@ and runs at the dashboard layout level.
 **Important:** The Repository Scanner no longer owns its own access model.
 The global gate replaces the isolated scanner gate.
 
-`POST /api/auth/validate` accepts `x-agentpulse-key` and returns `{ ok: true, scope: "dashboard" }` on success or `{ ok: false, error: "Invalid access key." }` on failure (401). The expected key is never returned in the response.
+`POST /api/auth/validate` accepts `x-reeprov-key` (and legacy `x-reeprov-key`) and returns `{ ok: true, scope: "dashboard" }` on success or `{ ok: false, error: "Invalid access key." }` on failure (401). The expected key is never returned in the response.
 
 ## Access Model
 
-The scanner and all protected API routes require an `AGENTPULSE_ACCESS_KEY` environment variable set server-side. The HTTP header name is `x-agentpulse-key`. All three protected routes — `/api/repos`, `/api/scan`, and `/api/scan-zip` — call `requireAccessKey(request)` before any other logic.
+The scanner and all protected API routes require a `REEPROV_ACCESS_KEY` environment variable set server-side (legacy fallback: `REEPROV_ACCESS_KEY`). The HTTP header name is `x-reeprov-key` (legacy: `x-reeprov-key`). All three protected routes — `/api/repos`, `/api/scan`, and `/api/scan-zip` — call `requireAccessKey(request)` before any other logic.
 
 Client-side:
 - `DashboardShell` validates the candidate key against `POST /api/auth/validate` before storing it.
@@ -118,7 +118,7 @@ The Workflow Registry is the central store of known WorkflowSpecs. It links stat
 
 ### Storage
 
-`lib/workflows/workflowStore.ts` is file-backed, following the same pattern as `fileReportStore` and `fileRunStore`. Persists under `${AGENTPULSE_STORE_DIR}/workflows/`.
+`lib/workflows/workflowStore.ts` is file-backed, following the same pattern as `fileReportStore` and `fileRunStore`. Persists under `${REEPROV_STORE_DIR}/workflows/`.
 
 Deduplication: if a workflow with the same `workflowId + sourceReportId` already exists, `saveWorkflow()` updates/replaces the existing entry.
 
@@ -132,7 +132,7 @@ Deduplication: if a workflow with the same `workflowId + sourceReportId` already
 | `PATCH` | `/api/workflows/[registryId]` | Update status |
 | `DELETE` | `/api/workflows/[registryId]` | Delete registry entry |
 
-All routes require `x-agentpulse-key` (AGENTPULSE_ACCESS_KEY).
+All routes require `x-reeprov-key` (`REEPROV_ACCESS_KEY` or legacy `REEPROV_ACCESS_KEY`).
 
 ### Promotion flow
 
@@ -155,7 +155,7 @@ All routes require `x-agentpulse-key` (AGENTPULSE_ACCESS_KEY).
 
 `POST /api/runs/demo` creates a complete, self-contained Website Auditor demo run using the existing run store and trace schemas. It is designed so the runtime proof layer is explorable from the dashboard UI without any external project integration.
 
-- Requires `AGENTPULSE_ACCESS_KEY` (dashboard key, not ingest key).
+- Requires `REEPROV_ACCESS_KEY` (dashboard key, not ingest key).
 - Creates 8 workflow nodes, 4 model calls, 3 tool calls, 4 eval results, 1 artifact.
 - Marks the run as `degraded` (a source grounding eval warning is included by design to show the degraded state).
 - All events are validated with Zod schemas before storage.
@@ -167,7 +167,7 @@ The demo run is for product testing only. Real external integrations use the ing
 
 ## How Connected Projects Send Trace Events
 
-Connected projects (Campaign Sandbox, Website Auditor, etc.) emit `TraceEvent` objects to AgentPulse during or after a run. Task 5 introduced a real file-backed ingestion layer. Projects POST events to the AgentPulse ingestion API using the `AGENTPULSE_INGEST_KEY`.
+Connected projects (Campaign Sandbox, Website Auditor, etc.) emit `TraceEvent` objects to Reeprov during or after a run. Projects POST events to the Reeprov ingestion API using the `REEPROV_INGEST_KEY` (with legacy fallback).
 
 Each event includes a `run_id` and `workflow_id` that bind it to a specific run and workflow spec. Events for the same run are collected and then passed to `assertTraceContract` for validation.
 
@@ -177,17 +177,17 @@ See [docs/integrations/campaign_sandbox.md](integrations/campaign_sandbox.md) fo
 
 | Key | Purpose |
 |-----|---------|
-| `AGENTPULSE_INGEST_KEY` | External AI projects use this to POST trace events. Should only be shared with connected projects. |
-| `AGENTPULSE_ACCESS_KEY` | Dashboard and scanner access. Not shared externally. |
+| `REEPROV_INGEST_KEY` | External AI projects use this to POST trace events. Should only be shared with connected projects. (Legacy: `REEPROV_INGEST_KEY`) |
+| `REEPROV_ACCESS_KEY` | Dashboard and scanner access. Not shared externally. (Legacy: `REEPROV_ACCESS_KEY`) |
 
-In local/dev environments, if `AGENTPULSE_INGEST_KEY` is unset, AgentPulse falls back to `AGENTPULSE_ACCESS_KEY` for convenience. In production they must differ.
+In local/dev environments, if `REEPROV_INGEST_KEY` is unset, Reeprov falls back to `REEPROV_ACCESS_KEY` for convenience. In production they must differ.
 
 ### File-Backed Storage Limitations
 
 The default store (`lib/runs/runStore.ts`, `lib/reports/reportStore.ts`) is file-backed:
 
-- **Local/dev**: writes to `.agentpulse/runs/` and `.agentpulse/reports/` in the project root.
-- **Vercel**: set `AGENTPULSE_STORE_DIR=/tmp/agentpulse`. The `/tmp` directory is ephemeral — it is wiped on redeployment and is not shared across serverless function instances. Data loss is expected.
+- **Local/dev**: writes to `.reeprov/runs/` and `.reeprov/reports/` in the project root (or `~/.reeprov/`).
+- **Vercel**: set `REEPROV_STORE_DIR=/tmp/reeprov`. The `/tmp` directory is ephemeral — it is wiped on redeployment and is not shared across serverless function instances. Data loss is expected.
 - **Durable storage**: replace `fileRunStore` / `fileReportStore` with a Postgres, Vercel Blob, Supabase, or Neon adapter behind the same `RunStore` / `ReportStore` interface.
 
 File-backed storage is appropriate for local development, demos, and single-instance private use.
@@ -203,13 +203,13 @@ The proof layer never executes workflow code. It only inspects event records. `e
 
 ## What Is NOT in Scope for v1
 
-- AgentPulse does not run workflows.
-- AgentPulse does not make live model calls.
-- AgentPulse does not install or execute code from connected projects.
-- AgentPulse does not persist run data to a database (in-memory only in v1).
-- AgentPulse does not send trace events to external services.
-- AgentPulse does not execute scanned repositories.
-- AgentPulse does not build or publish workflows from the dashboard.
+- Reeprov does not run workflows.
+- Reeprov does not make live model calls.
+- Reeprov does not install or execute code from connected projects.
+- Reeprov does not persist run data to a database (in-memory/file-backed by default in v1).
+- Reeprov does not send trace events to external services.
+- Reeprov does not execute scanned repositories.
+- Reeprov does not build or publish workflows from the dashboard.
 
 ---
 
@@ -242,7 +242,7 @@ Not classified as prompt assets:
 
 ### Assistant Tooling vs Product Scope
 
-AgentPulse distinguishes **product AI system artifacts** from **developer-assistant tooling**:
+Reeprov distinguishes **product AI system artifacts** from **developer-assistant tooling**:
 
 **Assistant tooling paths** (excluded from product counts):
 - `.claude/**` — Claude Code skills, hooks, settings
@@ -319,7 +319,7 @@ Security scoring uses confidence-aware penalties. Because secret severity is cal
 
 ## AI System Graph
 
-AgentPulse reconstructs a typed AI system graph after detection.
+Reeprov reconstructs a typed AI system graph after detection.
 
 Nodes: `agent`, `workflow`, `workflow_step`, `prompt`, `tool`, `model`, `provider`, `eval`, `data_source`, `approval_gate`, `artifact`, `external_side_effect`, `assistant_tooling`, `unknown`.
 
@@ -348,9 +348,9 @@ Secret values are never exposed in `detectedModels` — only provider names and 
 
 ## Performance Data (optional)
 
-If the repository ships eval/run metrics in well-known files (`eval-results.json`, `runs.json`, `metrics.json`, `traces.json`, `model-comparison.json`, `reports/evals/*.json`, `evals/results/*.json`), AgentPulse parses them into `modelPerformance` entries with `provider`, `model`, `eval_id`, `score`, `latency_ms`, `input_tokens`, `output_tokens`, and `cost_usd`.
+If the repository ships eval/run metrics in well-known files (`eval-results.json`, `runs.json`, `metrics.json`, `traces.json`, `model-comparison.json`, `reports/evals/*.json`, `evals/results/*.json`), Reeprov parses them into `modelPerformance` entries with `provider`, `model`, `eval_id`, `score`, `latency_ms`, `input_tokens`, `output_tokens`, and `cost_usd`.
 
-AgentPulse does not claim one model is better than another unless these metrics exist in the scanned repository.
+Reeprov does not claim one model is better than another unless these metrics exist in the scanned repository.
 
 ## Dashboard
 
@@ -419,7 +419,7 @@ Every scanner report now includes identity and version fields:
 - `reportId` — unique ID per scan (`rpt_<base36-timestamp>_<hex>`).
 - `projectId` — stable per repository (`proj_<reponame>`). Groups history.
 - `scanId` — equals `reportId` for v1.
-- `scannerVersion` — static scanner build version (`agentpulse-static-scanner-v2`).
+- `scannerVersion` — static scanner build version (`reeprov-static-scanner-v2`).
 - `generatedAt` — ISO timestamp when the report was generated.
 
 ### Report Persistence Adapter
@@ -438,12 +438,12 @@ interface ReportStore {
 The default implementation (`fileReportStore`) is file-backed:
 
 ```
-.agentpulse/reports/
+.reeprov/reports/
   index.json           — list of SavedReportSummary[], newest first
   {reportId}.json      — full SavedReport with savedAt timestamp
 ```
 
-Override `AGENTPULSE_STORE_DIR` to change the storage directory.
+Override `REEPROV_STORE_DIR` to change the storage directory.
 Failures are non-fatal: persistence errors are returned as `{ saved: false, warning }` without crashing the scan.
 
 ### Report Diff
@@ -481,9 +481,9 @@ All candidates have stable IDs (`rc_<projectId>::<category>::<title>`) so the sa
 
 | Route | Auth | Description |
 |---|---|---|
-| `GET /api/reports` | `x-agentpulse-key` | List saved report summaries |
-| `GET /api/reports/[reportId]` | `x-agentpulse-key` | Get full saved report |
-| `DELETE /api/reports/[reportId]` | `x-agentpulse-key` | Delete a saved report |
+| `GET /api/reports` | `x-reeprov-key` | List saved report summaries |
+| `GET /api/reports/[reportId]` | `x-reeprov-key` | Get full saved report |
+| `DELETE /api/reports/[reportId]` | `x-reeprov-key` | Delete a saved report |
 
 ### Golden Fixtures
 
@@ -508,7 +508,7 @@ Future path: replace `fileReportStore` with a Vercel Blob or Postgres adapter be
 
 ## Static Proof Reconstruction (Task 6)
 
-Task 6 adds a **zero-instrumentation path**: AgentPulse can scan any repository and immediately produce a suggested WorkflowSpec, AI system graph, mapping summary, missing-link report, and optional instrumentation plan — without requiring any code changes in the target project.
+Task 6 adds a **zero-instrumentation path**: Reeprov can scan any repository and immediately produce a suggested WorkflowSpec, AI system graph, mapping summary, missing-link report, and optional instrumentation plan — without requiring any code changes in the target project.
 
 ### Two Levels of Proof
 
@@ -552,11 +552,11 @@ The function is **deterministic** — it reads only `ScanReport` fields and appl
 
 | File | Description |
 |---|---|
-| `agentpulse.workflow.suggested.json` | WorkflowSpec JSON with `_generated_by`, `_confidence`, and `_note` metadata. Paste into `examples/workflows/` to use with the proof dashboard. |
+| `reeprov.workflow.suggested.json` | WorkflowSpec JSON with `_generated_by`, `_confidence`, and `_note` metadata. Paste into `examples/workflows/` to use with the proof dashboard. |
 | `ai-system.suggested.yaml` | YAML summary of agents, workflows, models, tools, and evals detected in the repo. |
 | `instrumentation-plan.suggested.md` | Markdown guide with env vars, per-stage event suggestions, and a code snippet — clearly marked as optional. |
 
-These files are never written to disk by AgentPulse. They are returned in the API response and rendered in the UI with copy/download controls. The scanned project can choose to adopt them, ignore them, or modify them.
+These files are never written to disk by Reeprov. They are returned in the API response and rendered in the UI with copy/download controls. The scanned project can choose to adopt them, ignore them, or modify them.
 
 ### Missing Links
 
@@ -592,10 +592,10 @@ Missing links have stable IDs (`ml_<type>_<projectId>_<entityId>`) and are dedup
 ### Limitations
 
 1. **Static inference can be wrong.** The reconstruction is a best-effort reading of file names, directory structure, and manifest fields. It does not execute the project.
-2. **Unmapped does not mean broken.** A missing link only means AgentPulse cannot confirm a relationship from static evidence — the relationship may exist at runtime.
+2. **Unmapped does not mean broken.** A missing link only means Reeprov cannot confirm a relationship from static evidence — the relationship may exist at runtime.
 3. **Model/provider is inferred, not verified.** If no manifest declares `model: { provider, name }`, the reconstruction can suggest where to add it but cannot guarantee the suggestion matches runtime behavior.
 4. **Runtime proof requires trace events.** Static reconstruction produces a suggested spec. Runtime proof (real run timelines, eval pass/fail, cost/latency) requires the connected project to emit trace events — which is always optional.
-5. **AgentPulse does not execute scanned repositories.** This is non-negotiable. All reconstruction is based on file evidence only.
+5. **Reeprov does not execute scanned repositories.** This is non-negotiable. All reconstruction is based on file evidence only.
 
 ---
 
@@ -651,7 +651,7 @@ The previous fallback that produced `<projectId>-unknown` with a trigger-only `s
 | `POST` | `/api/reconstruct` | `{ reportId: string }` *or* `{ report: ScanReport }` (validated against `scanReportSchema`) |
 
 Behaviors:
-- Missing `x-agentpulse-key` → `401`
+- Missing `x-reeprov-key` (or `x-reeprov-key`) → `401`
 - Missing `reportId` → `404`
 - Missing body / missing both `reportId` and `report` → `400`
 - Both `reportId` and `report` provided → `400`
@@ -673,7 +673,7 @@ Tests now import the production helper directly instead of duplicating the conve
 
 ## Project Integrations (Task 11)
 
-Task 11 adds a **repeatable live-pulse integration path**: a standard way for any external AI project to connect to AgentPulse and emit runtime trace events.
+Task 11 adds a **repeatable live-pulse integration path**: a standard way for any external AI project to connect to Reeprov and emit runtime trace events.
 
 ### Three Levels of Integration
 
@@ -714,43 +714,42 @@ If no integration exists for an incoming `project_id`, a lightweight integration
 
 | Method | Route | Auth | Description |
 |---|---|---|---|
-| `GET` | `/api/integrations` | `x-agentpulse-key` | List integrations (filters: status, mode, language, projectId) |
-| `POST` | `/api/integrations` | `x-agentpulse-key` | Create a new integration |
-| `GET` | `/api/integrations/[integrationId]` | `x-agentpulse-key` | Get integration + recent runs |
-| `PATCH` | `/api/integrations/[integrationId]` | `x-agentpulse-key` | Update fields |
-| `DELETE` | `/api/integrations/[integrationId]` | `x-agentpulse-key` | Delete integration (not runs) |
-| `POST` | `/api/integrations/[integrationId]/test-event` | `x-agentpulse-key` | Create a server-side test run for this integration |
+| `GET` | `/api/integrations` | `x-reeprov-key` | List integrations (filters: status, mode, language, projectId) |
+| `POST` | `/api/integrations` | `x-reeprov-key` | Create a new integration |
+| `GET` | `/api/integrations/[integrationId]` | `x-reeprov-key` | Get integration + recent runs |
+| `PATCH` | `/api/integrations/[integrationId]` | `x-reeprov-key` | Update fields |
+| `DELETE` | `/api/integrations/[integrationId]` | `x-reeprov-key` | Delete integration (not runs) |
+| `POST` | `/api/integrations/[integrationId]/test-event` | `x-reeprov-key` | Create a server-side test run for this integration |
 
-The test-event route uses the **dashboard key** (not the ingest key) and creates a small run with 1 model call and 1 eval entirely server-side. Purpose: verify the AgentPulse pipeline works for the project identity before the external project is instrumented.
+The test-event route uses the **dashboard key** (not the ingest key) and creates a small run with 1 model call and 1 eval entirely server-side. Purpose: verify the Reeprov pipeline works for the project identity before the external project is instrumented.
 
-### Integration Templates
+### Integration Templates & SDKs
 
-`examples/integrations/` provides copy-pasteable client files:
+The official SDKs are located in:
+- `packages/client-typescript` — `@reeprov/client`
+- `packages/client-python` — `reeprov-client`
+- `examples/integrations/rest/README.md` — curl-based REST examples
 
-- `typescript/agentpulseClient.ts` — zero-dependency TypeScript client using built-in `fetch`
-- `python/agentpulse_client.py` — zero-dependency Python client using stdlib `urllib`
-- `rest/README.md` — curl-based REST examples
-
-Both clients:
-- Read env vars: `AGENTPULSE_URL`, `AGENTPULSE_INGEST_KEY`, `AGENTPULSE_PROJECT_ID`, `AGENTPULSE_PROJECT_NAME`, `AGENTPULSE_WORKFLOW_ID`, `AGENTPULSE_ENABLED`
-- Are complete no-ops when `AGENTPULSE_ENABLED` is not `"true"` — safe for local dev without AgentPulse
+Both SDKs:
+- Read env vars: `REEPROV_URL`, `REEPROV_INGEST_KEY`, `REEPROV_PROJECT_ID`, `REEPROV_PROJECT_NAME`, `REEPROV_WORKFLOW_ID`, `REEPROV_ENABLED` (with automatic fallback to `REEPROV_*`)
+- Are complete no-ops when `REEPROV_ENABLED` is not `"true"` — safe for local dev without Reeprov
 - Never log or expose the ingest key
 
 ### How to Connect a Project
 
-1. Add an integration in AgentPulse (`/dashboard/integrations` → Add integration).
+1. Add an integration in Reeprov (`/dashboard/integrations` → Add integration).
 2. Copy the env block from the integration detail page into the external project.
-3. Copy `agentpulseClient.ts` or `agentpulse_client.py` into the project.
+3. Install `@reeprov/client` or `reeprov-client`.
 4. Wrap the project's main workflow with `startRun()` / `modelCallCompleted()` / `completeRun()`.
 5. Run the external project.
-6. Confirm the run appears in AgentPulse → Runs.
+6. Confirm the run appears in Reeprov → Runs.
 7. Check integration status in `/dashboard/integrations`.
 
 **Environment variables alone do not send events.** The adapter must be imported and called.
 
 ### Security
 
-- Dashboard integration routes require `AGENTPULSE_ACCESS_KEY`.
-- External ingestion routes (`/api/runs/start`, `/api/traces/events`, `/api/runs/complete`, `/api/runs/fail`) require `AGENTPULSE_INGEST_KEY` (falls back to `AGENTPULSE_ACCESS_KEY` in dev).
+- Dashboard integration routes require `REEPROV_ACCESS_KEY` (or legacy `REEPROV_ACCESS_KEY`).
+- External ingestion routes (`/api/runs/start`, `/api/traces/events`, `/api/runs/complete`, `/api/runs/fail`) require `REEPROV_INGEST_KEY` (falls back to `REEPROV_ACCESS_KEY` in dev).
 - The ingest key is never returned in any API response or rendered in the browser.
-- Project-specific ingest keys are not implemented in V0. All projects share the global ingest key.
+- Newly generated keys use the `ree_live_...` prefix; legacy `ap_live_...` keys remain supported.

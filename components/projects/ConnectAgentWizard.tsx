@@ -114,26 +114,26 @@ export function ConnectAgentWizard({ isOpen, onClose, onProjectCreated }: Connec
   }
 
   function getSnippet(): string {
-    const key = rawKey || "ap_live_your_ingest_key_here";
+    const key = rawKey || "ree_live_your_ingest_key_here";
     const pid = projectId || "my-agent-project";
     const endpoint = typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:3000";
 
     if (language === "typescript") {
       return `# Shell / .env configuration:
-export AGENTPULSE_URL="${endpoint}"
-export AGENTPULSE_PROJECT_ID="${pid}"
-export AGENTPULSE_INGEST_KEY="${key}"
+export REEPROV_URL="${endpoint}"
+export REEPROV_PROJECT_ID="${pid}"
+export REEPROV_INGEST_KEY="${key}"
 
 // Application code (using client):
-import { AgentPulseClient } from "./agentpulseClient";
+import { ReeprovClient } from "@reeprov/client";
 
-const pulse = new AgentPulseClient({
-  endpoint: process.env["AGENTPULSE_URL"] || "${endpoint}",
-  ingestKey: process.env["AGENTPULSE_INGEST_KEY"] || "${key}",
+const reeprov = new ReeprovClient({
+  endpoint: process.env["REEPROV_URL"] || "${endpoint}",
+  ingestKey: process.env["REEPROV_INGEST_KEY"] || "${key}",
 });
 
 // Start run
-const runId = await pulse.startRun({
+const runId = await reeprov.startRun({
   projectId: "${pid}",
   workflowId: "main-pipeline",
   summary: "Processing agent task",
@@ -141,7 +141,7 @@ const runId = await pulse.startRun({
 
 try {
   // Record activity
-  await pulse.modelCallCompleted(runId, {
+  await reeprov.modelCallCompleted(runId, {
     model: "gpt-4o",
     inputTokens: 120,
     outputTokens: 60,
@@ -149,33 +149,33 @@ try {
     outputSummary: "Delegated to customer support tool",
   });
 
-  await pulse.toolCallCompleted(runId, {
+  await reeprov.toolCallCompleted(runId, {
     toolName: "database_lookup",
     inputSummary: JSON.stringify({ query: "account_status" }),
     outputSummary: JSON.stringify({ active: true }),
   });
 
-  await pulse.completeRun(runId, { summary: "Task completed successfully" });
+  await reeprov.completeRun(runId, { summary: "Task completed successfully" });
 } catch (err: any) {
-  await pulse.failRun(runId, { error: err.message });
+  await reeprov.failRun(runId, { error: err.message });
 }`;
     }
 
     if (language === "python") {
       return `# Shell / .env configuration:
-export AGENTPULSE_URL="${endpoint}"
-export AGENTPULSE_PROJECT_ID="${pid}"
-export AGENTPULSE_INGEST_KEY="${key}"
+export REEPROV_URL="${endpoint}"
+export REEPROV_PROJECT_ID="${pid}"
+export REEPROV_INGEST_KEY="${key}"
 
 # Python stdlib or requests:
 import os
 import requests
 
-ENDPOINT = os.environ.get("AGENTPULSE_URL", "${endpoint}")
-INGEST_KEY = os.environ.get("AGENTPULSE_INGEST_KEY", "${key}")
-PROJECT_ID = os.environ.get("AGENTPULSE_PROJECT_ID", "${pid}")
+ENDPOINT = os.environ.get("REEPROV_URL", "${endpoint}")
+INGEST_KEY = os.environ.get("REEPROV_INGEST_KEY", "${key}")
+PROJECT_ID = os.environ.get("REEPROV_PROJECT_ID", "${pid}")
 
-headers = {"x-agentpulse-key": INGEST_KEY}
+headers = {"x-reeprov-key": INGEST_KEY}
 
 # 1. Start run
 res = requests.post(
@@ -200,27 +200,27 @@ requests.post(
 
     // REST curl — fully executable copy-paste
     return `# 1. Export configuration
-export AGENTPULSE_URL="${endpoint}"
-export AGENTPULSE_PROJECT_ID="${pid}"
-export AGENTPULSE_INGEST_KEY="${key}"
+export REEPROV_URL="${endpoint}"
+export REEPROV_PROJECT_ID="${pid}"
+export REEPROV_INGEST_KEY="${key}"
 
 # 2. Execute test run immediately
 RUN_ID="${pid}-$(date +%s)"
 
-curl -s -X POST "$AGENTPULSE_URL/api/runs/start" \\
+curl -s -X POST "$REEPROV_URL/api/runs/start" \\
   -H "Content-Type: application/json" \\
-  -H "x-agentpulse-key: $AGENTPULSE_INGEST_KEY" \\
+  -H "x-reeprov-key: $REEPROV_INGEST_KEY" \\
   -d "{
     \\"run_id\\": \\"$RUN_ID\\",
-    \\"project_id\\": \\"$AGENTPULSE_PROJECT_ID\\",
+    \\"project_id\\": \\"$REEPROV_PROJECT_ID\\",
     \\"project_name\\": \\"${projectName || pid}\\",
     \\"workflow_id\\": \\"custom-agent-workflow\\",
     \\"summary\\": \\"First instrumented run\\"
   }"
 
-curl -s -X POST "$AGENTPULSE_URL/api/runs/complete" \\
+curl -s -X POST "$REEPROV_URL/api/runs/complete" \\
   -H "Content-Type: application/json" \\
-  -H "x-agentpulse-key: $AGENTPULSE_INGEST_KEY" \\
+  -H "x-reeprov-key: $REEPROV_INGEST_KEY" \\
   -d "{\\"run_id\\": \\"$RUN_ID\\", \\"summary\\": \\"Completed successfully\\"}"`;
   }
 
@@ -381,7 +381,7 @@ curl -s -X POST "$AGENTPULSE_URL/api/runs/complete" \\
                 <span>⚠️ Important Security Notice</span>
               </div>
               <p className="mt-1 text-xs text-amber-800">
-                This key is <strong>strictly scoped to project &quot;{projectId}&quot; for trace ingestion only</strong>. It cannot access AgentPulse Studio or view other projects.
+                This key is <strong>strictly scoped to project &quot;{projectId}&quot; for trace ingestion only</strong>. It cannot access Reeprov Studio or view other projects.
                 Save this key now — it will not be shown again.
               </p>
             </div>
@@ -474,7 +474,7 @@ curl -s -X POST "$AGENTPULSE_URL/api/runs/complete" \\
                 <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-teal-200 border-t-teal-700" />
                 <h3 className="text-sm font-bold text-slate-900">Waiting for first run...</h3>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  Run your agent code with the snippet. AgentPulse is listening on loopback (<code>http://127.0.0.1:3000</code>).
+                  Run your agent code with the snippet. Reeprov is listening on loopback (<code>http://127.0.0.1:3000</code>).
                 </p>
               </div>
             ) : (
@@ -484,7 +484,7 @@ curl -s -X POST "$AGENTPULSE_URL/api/runs/complete" \\
                 </div>
                 <h3 className="text-base font-bold text-slate-900">First run captured!</h3>
                 <p className="text-xs text-slate-500">
-                  AgentPulse successfully received evidence for <strong>{projectName}</strong>.
+                  Reeprov successfully received evidence for <strong>{projectName}</strong>.
                 </p>
 
                 <div className="flex items-center justify-center gap-3 pt-3">

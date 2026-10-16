@@ -2,7 +2,7 @@
  * File-backed ingest diagnostics store.
  *
  * Layout:
- *   .agentpulse/diagnostics/index.json — array of IngestDiagnostic, newest first
+ *   .reeprov/diagnostics/index.json — array of IngestDiagnostic, newest first
  *
  * Retention: on every write, entries older than DIAGNOSTIC_RETENTION_MS are
  * pruned, and only the MAX_DIAGNOSTICS_PER_PROJECT most recent entries are
@@ -22,11 +22,14 @@ import {
   type RecordDiagnosticInput,
 } from "./diagnosticTypes";
 
+import { getReeprovEnv } from "@/lib/config/env";
+import { getReeprovHome } from "@/lib/storage/dataPath";
+
 function storeDir(): string {
   const base =
-    process.env["AGENTPULSE_STORE_DIR"] ??
-    process.env["AGENTPULSE_HOME"] ??
-    join(process.cwd(), ".agentpulse");
+    getReeprovEnv("REEPROV_STORE_DIR") ??
+    getReeprovEnv("REEPROV_HOME") ??
+    getReeprovHome();
   return join(base, "diagnostics");
 }
 

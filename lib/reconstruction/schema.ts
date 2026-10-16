@@ -3,7 +3,7 @@
  *
  * Runtime Zod schemas for static reconstruction output.
  *
- * AgentPulse must not silently return malformed reconstruction objects. These
+ * Reeprov must not silently return malformed reconstruction objects. These
  * schemas validate every reconstruction returned from the engine, the API
  * routes, and test fixtures. They mirror the TypeScript types in `./types.ts`.
  */

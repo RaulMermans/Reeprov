@@ -792,12 +792,12 @@ function buildInstrumentationPlan(
   }
 
   const codeHints: string[] = [
-    "Install/copy AgentPulse client: lib/proof-layer/client.ts",
-    "Set AGENTPULSE_URL, AGENTPULSE_INGEST_KEY, AGENTPULSE_PROJECT_ID, AGENTPULSE_WORKFLOW_ID",
-    "Call pulse.startRun() at the start of a workflow execution",
-    "Call pulse.emitEvent() with node_started / node_completed around each major stage",
-    "Call pulse.completeRun() or pulse.failRun() when the workflow finishes",
-    "Instrumentation is opt-in — AgentPulse static reconstruction works without it",
+    "Install/copy Reeprov client: @reeprov/client (or lib/proof-layer/client.ts)",
+    "Set REEPROV_URL, REEPROV_INGEST_KEY, REEPROV_PROJECT_ID, REEPROV_WORKFLOW_ID",
+    "Call client.startRun() at the start of a workflow execution",
+    "Call client.emitEvent() with node_started / node_completed around each major stage",
+    "Call client.completeRun() or client.failRun() when the workflow finishes",
+    "Instrumentation is opt-in — Reeprov static reconstruction works without it",
   ];
 
   const hasModels = report.detectedModels && report.detectedModels.length > 0;
@@ -814,15 +814,15 @@ function buildInstrumentationPlan(
     required: false,
     available: true,
     summary:
-      "Runtime trace instrumentation is optional. AgentPulse's static reconstruction already captures architecture, risks, and gaps from your repo files. " +
-      "Add the AgentPulse client to your project if you want real execution traces, cost tracking, and eval assertions.",
+      "Runtime trace instrumentation is optional. Reeprov's static reconstruction already captures architecture, risks, and gaps from your repo files. " +
+      "Add the Reeprov client to your project if you want real execution traces, cost tracking, and eval assertions.",
     recommendedEnvVars: [
-      "AGENTPULSE_URL",
-      "AGENTPULSE_INGEST_KEY",
-      "AGENTPULSE_PROJECT_ID",
-      "AGENTPULSE_PROJECT_NAME",
-      "AGENTPULSE_WORKFLOW_ID",
-      "AGENTPULSE_ENABLED",
+      "REEPROV_URL",
+      "REEPROV_INGEST_KEY",
+      "REEPROV_PROJECT_ID",
+      "REEPROV_PROJECT_NAME",
+      "REEPROV_WORKFLOW_ID",
+      "REEPROV_ENABLED",
     ],
     suggestedEvents: suggestedEvents.slice(0, 20), // cap for large workflows
     codeHints,
@@ -871,7 +871,7 @@ export function reconstructFromScanReport(report: ScanReport): StaticProofRecons
         `**Report ID:** ${report.reportId}`,
         `**Project type:** ${report.projectType}`,
         ``,
-        `AgentPulse did not find enough agent, workflow, prompt, tool, eval, or model evidence`,
+        `Reeprov did not find enough agent, workflow, prompt, tool, eval, or model evidence`,
         `to generate a proof-layer WorkflowSpec for this repository.`,
         ``,
         `Static proof reconstruction is intentionally **not generated** for repositories with`,

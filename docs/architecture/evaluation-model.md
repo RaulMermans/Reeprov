@@ -1,21 +1,21 @@
 # Evaluation Architecture Model
 
-> **Canonical Role:** Authoritative, versioned, run-linked evaluation model for AgentPulse.
+> **Canonical Role:** Authoritative, versioned, run-linked evaluation model for Reeprov.
 
 ---
 
 ## 1. Overview & Architectural Boundaries
 
-AgentPulse evaluates agent runs by turning execution hypotheses into repeatable, verifiable measurements without becoming an arbitrary production agent orchestrator:
+Reeprov evaluates agent runs by turning execution hypotheses into repeatable, verifiable measurements without becoming an arbitrary production agent orchestrator:
 
-- **What AgentPulse Does:**
+- **What Reeprov Does:**
   - Evaluates historical run artifacts, recorded checkpoints, and forked candidate executions.
   - Links evaluation definitions (`EvalDefinition`) and suites (`EvalSuite`) to execution runs.
   - Generates immutable `EvalResult` artifacts with deterministic hashes, rubric/version references, and execution durations.
   - Computes deterministic pass/fail verdicts via strict suite policies (`ALL_REQUIRED_PASS`, `WEIGHTED_SCORE`).
   - Emits `VerificationEvent` lifecycle events onto the evaluated run artifact.
 
-- **What AgentPulse Does NOT Do:**
+- **What Reeprov Does NOT Do:**
   - Own arbitrary production agent workflows.
   - Automatically promote candidate agents to production without explicit human or external CI gate approval.
   - Mutate external memory or database systems.

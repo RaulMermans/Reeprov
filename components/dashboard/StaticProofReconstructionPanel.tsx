@@ -99,7 +99,7 @@ export function StaticProofReconstructionPanel({ report }: Props) {
       // Mark as promoted in session so the button changes state
       setPromotedMap((prev) => ({ ...prev, [workflowId]: redirectTo }));
     } catch {
-      setPromoteError("Could not connect to AgentPulse API.");
+      setPromoteError("Could not connect to Reeprov API.");
     } finally {
       setPromotingId(null);
     }
@@ -130,7 +130,7 @@ export function StaticProofReconstructionPanel({ report }: Props) {
         setActiveFile(data.suggestedFiles[0] ?? null);
       }
     } catch {
-      setError("Could not connect to AgentPulse API.");
+      setError("Could not connect to Reeprov API.");
     } finally {
       setLoading(false);
     }
@@ -154,7 +154,7 @@ export function StaticProofReconstructionPanel({ report }: Props) {
           <div>
             <p className="text-sm font-semibold text-teal-800">Static Proof Reconstruction</p>
             <p className="mt-1 max-w-2xl text-xs text-teal-700">
-              AgentPulse reconstructs a best-effort WorkflowSpec from static scan evidence.{" "}
+              Reeprov reconstructs a best-effort WorkflowSpec from static scan evidence.{" "}
               <strong>No code changes required.</strong> Runtime trace instrumentation is optional.
             </p>
           </div>
@@ -186,7 +186,7 @@ export function StaticProofReconstructionPanel({ report }: Props) {
                 No AI workflow reconstruction generated
               </p>
               <p className="mt-2 max-w-2xl text-sm text-slate-700">
-                AgentPulse did not find enough agent, workflow, prompt, tool, eval, or model
+                Reeprov did not find enough agent, workflow, prompt, tool, eval, or model
                 evidence to generate a proof-layer WorkflowSpec.
               </p>
               <p className="mt-2 text-xs text-slate-500">

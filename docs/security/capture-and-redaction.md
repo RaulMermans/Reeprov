@@ -1,19 +1,19 @@
-# AgentPulse Security: Telemetry Minimization & Secret Redaction
+# Reeprov Security: Telemetry Minimization & Secret Redaction
 
-> **Security Mandate:** Rich execution capture introduces sensitive data risk. AgentPulse enforces a strict, server-side sanitization and telemetry minimization pipeline before any boundary record or payload is persisted or rendered.
+> **Security Mandate:** Rich execution capture introduces sensitive data risk. Reeprov enforces a strict, server-side sanitization and telemetry minimization pipeline before any boundary record or payload is persisted or rendered.
 
 ---
 
 ## 1. Security Architecture & Threat Model
 
-AgentPulse is a private single-user Next.js dashboard. All repository indexing and GitHub API interactions remain server-side using read-only credentials.
+Reeprov is a private single-user Next.js dashboard. All repository indexing and GitHub API interactions remain server-side using read-only credentials.
 
 ### Non-Negotiable Invariants
 
 1. **No Raw Secrets in Storage or Logs:** Secrets are scrubbed in-memory prior to persistence or logging. Even in `FULL_CONTENT` capture mode, mandatory secret patterns are scrubbed.
-2. **Untrusted Evidence Isolation:** All scanned files, agent prompts, and model completions are treated as untrusted data. Instructions discovered inside scanned files or agent contexts are never obeyed by AgentPulse scanners or auditors.
-3. **Prompt Injection Immunity:** Prompt injection attacks targeting scanned repositories cannot manipulate AgentPulse control flow, storage, or telemetry ingestion.
-4. **Zero Client-Side Secret Exposure:** Server tokens (`GITHUB_TOKEN`, `DATABASE_URL`, `AGENTPULSE_INGEST_KEY`) are never prefixed with `NEXT_PUBLIC_` and are never serialized into client responses.
+2. **Untrusted Evidence Isolation:** All scanned files, agent prompts, and model completions are treated as untrusted data. Instructions discovered inside scanned files or agent contexts are never obeyed by Reeprov scanners or auditors.
+3. **Prompt Injection Immunity:** Prompt injection attacks targeting scanned repositories cannot manipulate Reeprov control flow, storage, or telemetry ingestion.
+4. **Zero Client-Side Secret Exposure:** Server tokens (`GITHUB_TOKEN`, `DATABASE_URL`, `REEPROV_INGEST_KEY`) are never prefixed with `NEXT_PUBLIC_` and are never serialized into client responses.
 
 ---
 
@@ -75,7 +75,7 @@ Telemetry minimization is governed by three capture modes defined in [`lib/core/
 
 A common concern in agent debugging is whether scrubbed payloads break replay reproducibility.
 
-AgentPulse resolves this through **cryptographic separation**:
+Reeprov resolves this through **cryptographic separation**:
 1. When a secret is redacted, the boundary stores `redaction_status: "redacted"` along with the names of the redacted fields.
 2. In strict replay mode, the [`BoundaryReplayHarness`](../../lib/core/capture/replayHarness.ts) verifies the **persisted sanitized hash**.
 3. During offline replay, the harness substitutes the recorded output directly without needing the original live API keys.

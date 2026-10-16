@@ -1,6 +1,6 @@
 # Deployment Checklist
 
-AgentPulse is a private personal dashboard. Deploy it only with server-side secrets, read-only GitHub access, and API access-key protection.
+Reeprov is a private personal dashboard. Deploy it only with server-side secrets, read-only GitHub access, and API access-key protection.
 
 ## Local Validation
 
@@ -15,7 +15,7 @@ AgentPulse is a private personal dashboard. Deploy it only with server-side secr
 
 GitHub Actions runs CI on pull requests and pushes to `main`. The workflow installs dependencies with `npm ci`, then runs lint, typecheck, tests, and the production build.
 
-Normal PR CI does not require `GITHUB_TOKEN`, `OPENAI_API_KEY`, or `AGENTPULSE_ACCESS_KEY`. Tests and build steps must use mock or static inputs only. CI must never execute scanned repository code or install scanned repository dependencies.
+Normal PR CI does not require `GITHUB_TOKEN`, `OPENAI_API_KEY`, or `REEPROV_ACCESS_KEY`. Tests and build steps must use mock or static inputs only. CI must never execute scanned repository code or install scanned repository dependencies.
 
 If a future scheduled scan workflow is added, it should use only a server-side read-only GitHub token and must preserve the same scanner constraint: repository contents are fetched as untrusted evidence and never executed.
 
@@ -24,14 +24,14 @@ If a future scheduled scan workflow is added, it should use only a server-side r
 | Variable                | Required          | Notes                                                                                         |
 |-------------------------|-------------------|-----------------------------------------------------------------------------------------------|
 | `DATABASE_URL`          | **Yes**           | Postgres connection string (Neon, Vercel Postgres, etc.). `getStores()` throws on startup in production if this is unset — there is no file-store fallback in production. |
-| `AGENTPULSE_ACCESS_KEY` | **Yes**           | Long random string. Dashboard and scanner gate. Never expose to client.                       |
-| `AGENTPULSE_INGEST_KEY` | **Yes**           | Separate from access key. Used by external AI projects (e.g. BlogAgent) to POST trace events. Must differ from `AGENTPULSE_ACCESS_KEY` in production. |
+| `REEPROV_ACCESS_KEY`    | **Yes**           | Long random string. Dashboard and scanner gate. Never expose to client. (Legacy: `AGENTPULSE_ACCESS_KEY`) |
+| `REEPROV_INGEST_KEY`    | **Yes**           | Separate from access key. Used by external AI projects to POST trace events. Must differ from `REEPROV_ACCESS_KEY` in production. (Legacy: `AGENTPULSE_INGEST_KEY`) |
 | `GITHUB_TOKEN`          | For scanner       | Fine-grained read-only token. `contents: read`, selected repos, 30–90 day expiration.        |
 | `ENABLE_LLM_AUDITORS`   | No                | `false` (default). Do not enable until scanner is confirmed working.                          |
 | `LLM_PROVIDER`          | Conditional       | `openai` or `anthropic`. Required only when LLM auditors enabled.                             |
 | `OPENAI_API_KEY`        | Conditional       | Server-side only. Required when `LLM_PROVIDER=openai` and auditors enabled.                   |
 | `ANTHROPIC_API_KEY`     | Conditional       | Server-side only. Required when `LLM_PROVIDER=anthropic` and auditors enabled.                |
-| `AGENTPULSE_STORE_DIR`  | Local-only        | File-backed store directory for local dev without Postgres. Ignored once `DATABASE_URL` is set. Not valid in production. |
+| `REEPROV_STORE_DIR`     | Local-only        | File-backed store directory for local dev without Postgres. Ignored once `DATABASE_URL` is set. Not valid in production. |
 
 **Never use `NEXT_PUBLIC_` for any token, access key, or provider API key.**
 
@@ -45,19 +45,19 @@ Production persistence uses Postgres via `lib/db/`. `lib/db/getStores.ts` select
 
 **Manual migration:**
 - Local: `npm run db:migrate` (runs `lib/db/migrate.ts#ensureSchema` against `DATABASE_URL`).
-- Deployed: `POST /api/admin/migrate` with header `x-agentpulse-key: $AGENTPULSE_ACCESS_KEY`. Returns `{ ok: true, ...storageHealth }`.
+- Deployed: `POST /api/admin/migrate` with header `x-reeprov-key: $REEPROV_ACCESS_KEY`. Returns `{ ok: true, ...storageHealth }`.
 
 ### Local dev without Postgres
 
-If `DATABASE_URL` is unset locally, AgentPulse falls back to file-backed stores under `AGENTPULSE_STORE_DIR` (default `.agentpulse/` in cwd). This path is for local development and tests only — production always requires `DATABASE_URL`.
+If `DATABASE_URL` is unset locally, Reeprov falls back to file-backed stores under `REEPROV_STORE_DIR` (default `.reeprov/` in cwd, or `~/.reeprov/`). This path is for local development and tests only — production always requires `DATABASE_URL`.
 
 ### Health Checks
 
 | Route | Auth | Purpose |
 |-------|------|---------|
 | `GET /api/health` | None | Lightweight liveness check, no database access. Returns `{ ok, environment, version, time }`. Safe for uptime monitors. |
-| `GET /api/storage/health` | `x-agentpulse-key` | Storage diagnostics: `{ driver, databaseUrlPresent, tablesPresent, missingTables, runCount, environment, version }`. In production this should report `driver: "postgres"`, all 7 `ap_%` tables in `tablesPresent`, and `missingTables: []`. |
-| `POST /api/admin/migrate` | `x-agentpulse-key` | Runs `ensureSchema()` then returns `{ ok: true, ...storageHealth }`. Use after provisioning a new database or to confirm migrations applied. |
+| `GET /api/storage/health` | `x-reeprov-key` | Storage diagnostics: `{ driver, databaseUrlPresent, tablesPresent, missingTables, runCount, environment, version }`. In production this should report `driver: "postgres"`, all 7 `ap_%` tables in `tablesPresent`, and `missingTables: []`. |
+| `POST /api/admin/migrate` | `x-reeprov-key` | Runs `ensureSchema()` then returns `{ ok: true, ...storageHealth }`. Use after provisioning a new database or to confirm migrations applied. |
 
 `environment` is derived from Vercel's `VERCEL_ENV` (`production` / `preview` / `development`), falling back to `NODE_ENV`. `version` is the short Vercel git commit SHA (`VERCEL_GIT_COMMIT_SHA`), falling back to the `package.json` version.
 
@@ -71,16 +71,16 @@ If `DATABASE_URL` is unset locally, AgentPulse falls back to file-backed stores 
 
 ## Access Key Setup
 
-- Generate a long random value for `AGENTPULSE_ACCESS_KEY`.
+- Generate a long random value for `REEPROV_ACCESS_KEY`.
 - Store it only as a server-side Vercel environment variable.
 - Enter it in the dashboard when prompted.
-- Confirm `/api/repos` and `/api/scan` reject requests without `x-agentpulse-key`.
+- Confirm `/api/repos` and `/api/scan` reject requests without `x-reeprov-key`.
 
 ## ZIP Uploads on Vercel
 
 Direct ZIP upload is limited to 4 MB on Vercel so `/api/scan-zip` stays below serverless function request body limits. Use GitHub repository scanning for larger repositories.
 
-Uploaded ZIPs are parsed in memory, never persisted, and treated as untrusted input. AgentPulse never executes uploaded code, never installs uploaded dependencies, and blocks path traversal before scanning entries.
+Uploaded ZIPs are parsed in memory, never persisted, and treated as untrusted input. Reeprov never executes uploaded code, never installs uploaded dependencies, and blocks path traversal before scanning entries.
 
 ZIP extraction has a hard safety limit of 2,000 total entries and 50 MB uncompressed content. Candidate text files are prioritized and capped at 800 scanned files; archives with more candidates still scan, but the report warns that lower-priority files were skipped. GitHub scanning is preferred for complete scans of larger repositories.
 
@@ -138,11 +138,11 @@ Vercel builds run in a clean environment each time, so the cache restore timeout
 19. Call `POST /api/traces/events` with a malformed event body and confirm 400 with an error message.
 20. Call `POST /api/traces/events` with a duplicate `event_id` and confirm 200 with `{ appended: false }`.
 21. Call `GET /api/runs` with the ingest key and confirm runs are listed.
-22. If `AGENTPULSE_STORE_DIR=/tmp/agentpulse` on Vercel, confirm run data appears after ingestion.
+22. If `REEPROV_STORE_DIR=/tmp/reeprov` on Vercel, confirm run data appears after ingestion.
    Note: data will be lost on redeployment or if a different function instance handles the request.
 
 ### Key Separation Check
-23. Confirm `AGENTPULSE_ACCESS_KEY` ≠ `AGENTPULSE_INGEST_KEY` in production.
+23. Confirm `REEPROV_ACCESS_KEY` ≠ `REEPROV_INGEST_KEY` in production.
 24. Call `POST /api/runs/start` with the access key and confirm it is accepted (fallback for local only).
    In production, only the ingest key should be shared with external projects.
 
@@ -150,5 +150,5 @@ Vercel builds run in a clean environment each time, so the cache restore timeout
 
 - First rollback step: set `ENABLE_LLM_AUDITORS=false` and redeploy or restart.
 - If repository access is wrong, rotate or replace `GITHUB_TOKEN`.
-- If access-key exposure is suspected, replace `AGENTPULSE_ACCESS_KEY`.
+- If access-key exposure is suspected, replace `REEPROV_ACCESS_KEY`.
 - If deployment posture is wrong, pause the Vercel deployment or enable Deployment Protection before further scans.

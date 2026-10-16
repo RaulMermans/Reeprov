@@ -1,7 +1,7 @@
 /**
  * Canonical Versioned RunArtifact Contract.
  *
- * The foundational runtime and data contract for AgentPulse execution intelligence.
+ * The foundational runtime and data contract for Reeprov execution intelligence.
  * Encapsulates the complete causal trajectory, context snapshots, memory operations,
  * tool boundaries, evaluations, and lineage of an agent run.
  */

@@ -5,13 +5,13 @@
     "project_id": "customer-support-agent",
     "project_name": "Customer Support Agent",
     "workflow_id": "triage-v1",
-    "created_at": "2026-10-15T18:28:02.881Z"
+    "created_at": "2026-10-16T09:07:35.038Z"
   },
   "execution": {
     "status": "completed",
-    "started_at": "2026-10-15T18:28:02.881Z",
-    "completed_at": "2026-10-15T18:28:02.886Z",
-    "duration_ms": 5,
+    "started_at": "2026-10-16T09:07:35.038Z",
+    "completed_at": "2026-10-16T09:07:35.039Z",
+    "duration_ms": 1,
     "summary": "Successfully triaged refund and balance request"
   },
   "environment": {
@@ -25,9 +25,9 @@
       "step_index": 0,
       "step_type": "model_call",
       "name": "planning",
-      "started_at": "2026-10-15T18:28:02.881Z",
-      "completed_at": "2026-10-15T18:28:02.884Z",
-      "duration_ms": 3,
+      "started_at": "2026-10-16T09:07:35.038Z",
+      "completed_at": "2026-10-16T09:07:35.039Z",
+      "duration_ms": 1,
       "status": "completed",
       "state_snapshot_id": "state_run_vertical_slice_ref_001_0",
       "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_0",
@@ -48,9 +48,9 @@
       "step_index": 1,
       "step_type": "retrieval",
       "name": "policy_retrieval",
-      "started_at": "2026-10-15T18:28:02.884Z",
-      "completed_at": "2026-10-15T18:28:02.885Z",
-      "duration_ms": 1,
+      "started_at": "2026-10-16T09:07:35.039Z",
+      "completed_at": "2026-10-16T09:07:35.039Z",
+      "duration_ms": 0,
       "status": "completed",
       "state_snapshot_id": "state_run_vertical_slice_ref_001_1",
       "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1",
@@ -74,9 +74,9 @@
       "step_index": 2,
       "step_type": "tool_call",
       "name": "account_lookup",
-      "started_at": "2026-10-15T18:28:02.885Z",
-      "completed_at": "2026-10-15T18:28:02.886Z",
-      "duration_ms": 1,
+      "started_at": "2026-10-16T09:07:35.039Z",
+      "completed_at": "2026-10-16T09:07:35.039Z",
+      "duration_ms": 0,
       "status": "completed",
       "state_snapshot_id": "state_run_vertical_slice_ref_001_2",
       "boundary_ids": [
@@ -96,8 +96,8 @@
       "step_index": 3,
       "step_type": "model_call",
       "name": "synthesis",
-      "started_at": "2026-10-15T18:28:02.886Z",
-      "completed_at": "2026-10-15T18:28:02.886Z",
+      "started_at": "2026-10-16T09:07:35.039Z",
+      "completed_at": "2026-10-16T09:07:35.039Z",
       "duration_ms": 0,
       "status": "completed",
       "state_snapshot_id": "state_run_vertical_slice_ref_001_3",
@@ -124,8 +124,8 @@
       "boundary_type": "model_call",
       "name": "anthropic/claude-3-5-sonnet",
       "status": "completed",
-      "started_at": "2026-10-15T18:28:02.881Z",
-      "completed_at": "2026-10-15T18:28:02.881Z",
+      "started_at": "2026-10-16T09:07:35.038Z",
+      "completed_at": "2026-10-16T09:07:35.038Z",
       "input": {
         "captured": true,
         "content": {
@@ -175,7 +175,7 @@
         "output_hash": "sha256:798cf6a455efbc36aaf5c4237ead9e32a9b6fb64d32a33fb60bb13ad051398d4"
       },
       "linked_model_invocation_id": "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_0",
-      "timestamp": "2026-10-15T18:28:02.881Z",
+      "timestamp": "2026-10-16T09:07:35.038Z",
       "duration_ms": 0,
       "metadata": {
         "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_0",
@@ -191,8 +191,8 @@
       "boundary_type": "retrieval_call",
       "name": "pinecone_kb:search",
       "status": "completed",
-      "started_at": "2026-10-15T18:28:02.884Z",
-      "completed_at": "2026-10-15T18:28:02.884Z",
+      "started_at": "2026-10-16T09:07:35.039Z",
+      "completed_at": "2026-10-16T09:07:35.039Z",
       "input": {
         "captured": true,
         "content": {
@@ -248,7 +248,7 @@
         "output_hash": "sha256:30b5788961583e2a68ca017b8b1a064a0022aa780f45588f5a68ba8895fe1c30"
       },
       "linked_retrieval_operation_id": "retrieval_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1",
-      "timestamp": "2026-10-15T18:28:02.884Z",
+      "timestamp": "2026-10-16T09:07:35.039Z",
       "duration_ms": 0,
       "metadata": {
         "results_count": 1,
@@ -263,8 +263,8 @@
       "boundary_type": "model_call",
       "name": "anthropic/claude-3-5-sonnet",
       "status": "completed",
-      "started_at": "2026-10-15T18:28:02.885Z",
-      "completed_at": "2026-10-15T18:28:02.885Z",
+      "started_at": "2026-10-16T09:07:35.039Z",
+      "completed_at": "2026-10-16T09:07:35.039Z",
       "input": {
         "captured": true,
         "content": {
@@ -306,7 +306,7 @@
         "output_hash": "sha256:e684dcf041ad9651d592ff4df0435035e46b432d012e50052218aaef152e50cc"
       },
       "linked_model_invocation_id": "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1",
-      "timestamp": "2026-10-15T18:28:02.885Z",
+      "timestamp": "2026-10-16T09:07:35.039Z",
       "duration_ms": 0,
       "metadata": {
         "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1",
@@ -322,8 +322,8 @@
       "boundary_type": "tool_call",
       "name": "get_customer_account",
       "status": "completed",
-      "started_at": "2026-10-15T18:28:02.885Z",
-      "completed_at": "2026-10-15T18:28:02.885Z",
+      "started_at": "2026-10-16T09:07:35.039Z",
+      "completed_at": "2026-10-16T09:07:35.039Z",
       "input": {
         "captured": true,
         "content": {
@@ -367,7 +367,7 @@
         "output_hash": "sha256:d2daf323ddf0163652113d7057bb8b1878ea8ab29eeb073e43c513017cf98672"
       },
       "linked_tool_invocation_id": "tool_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_2",
-      "timestamp": "2026-10-15T18:28:02.885Z",
+      "timestamp": "2026-10-16T09:07:35.039Z",
       "duration_ms": 0,
       "metadata": {}
     },
@@ -379,8 +379,8 @@
       "boundary_type": "model_call",
       "name": "anthropic/claude-3-5-sonnet",
       "status": "completed",
-      "started_at": "2026-10-15T18:28:02.886Z",
-      "completed_at": "2026-10-15T18:28:02.886Z",
+      "started_at": "2026-10-16T09:07:35.039Z",
+      "completed_at": "2026-10-16T09:07:35.039Z",
       "input": {
         "captured": true,
         "content": {
@@ -422,7 +422,7 @@
         "output_hash": "sha256:def6f8aaca2f2baacc48fcc7f303d77d9d6a9fe6b0048f00380ba2c759c03f9b"
       },
       "linked_model_invocation_id": "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_3",
-      "timestamp": "2026-10-15T18:28:02.886Z",
+      "timestamp": "2026-10-16T09:07:35.039Z",
       "duration_ms": 0,
       "metadata": {
         "context_snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_3",
@@ -437,7 +437,7 @@
       "snapshot_id": "state_run_vertical_slice_ref_001_0",
       "step_id": "step_run_vertical_slice_ref_001_0",
       "snapshot_type": "INITIAL_STATE",
-      "timestamp": "2026-10-15T18:28:02.881Z",
+      "timestamp": "2026-10-16T09:07:35.038Z",
       "state_scope": "workflow",
       "state_data": {
         "phase": "planning",
@@ -450,7 +450,7 @@
       "snapshot_id": "state_run_vertical_slice_ref_001_1",
       "step_id": "step_run_vertical_slice_ref_001_1",
       "snapshot_type": "STEP_STATE",
-      "timestamp": "2026-10-15T18:28:02.885Z",
+      "timestamp": "2026-10-16T09:07:35.039Z",
       "state_scope": "workflow",
       "state_data": {
         "phase": "retrieval",
@@ -463,7 +463,7 @@
       "snapshot_id": "state_run_vertical_slice_ref_001_2",
       "step_id": "step_run_vertical_slice_ref_001_2",
       "snapshot_type": "STEP_STATE",
-      "timestamp": "2026-10-15T18:28:02.886Z",
+      "timestamp": "2026-10-16T09:07:35.039Z",
       "state_scope": "workflow",
       "state_data": {
         "phase": "account_lookup",
@@ -481,7 +481,7 @@
       "snapshot_id": "state_run_vertical_slice_ref_001_3",
       "step_id": "step_run_vertical_slice_ref_001_3",
       "snapshot_type": "FINAL_STATE",
-      "timestamp": "2026-10-15T18:28:02.886Z",
+      "timestamp": "2026-10-16T09:07:35.039Z",
       "state_scope": "workflow",
       "state_data": {
         "phase": "synthesis",
@@ -500,7 +500,7 @@
       "state_snapshot_id": "state_run_vertical_slice_ref_001_0",
       "boundary_cursor": 1,
       "resume_step_index": 1,
-      "created_at": "2026-10-15T18:28:02.884Z",
+      "created_at": "2026-10-16T09:07:35.039Z",
       "schema_version": "1.0.0-alpha",
       "state_hash": "sha256:4db9b69b6036dea4dd53cd1093880b6f871080aff0323cb1753eac3e5d215d35",
       "hash": "sha256:4db9b69b6036dea4dd53cd1093880b6f871080aff0323cb1753eac3e5d215d35",
@@ -514,7 +514,7 @@
       "state_snapshot_id": "state_run_vertical_slice_ref_001_1",
       "boundary_cursor": 3,
       "resume_step_index": 2,
-      "created_at": "2026-10-15T18:28:02.885Z",
+      "created_at": "2026-10-16T09:07:35.039Z",
       "schema_version": "1.0.0-alpha",
       "state_hash": "sha256:97cc84c01826576bf4a8d0c9072f351c741b20bc7f8935f62d194989c923e224",
       "hash": "sha256:97cc84c01826576bf4a8d0c9072f351c741b20bc7f8935f62d194989c923e224",
@@ -528,7 +528,7 @@
       "state_snapshot_id": "state_run_vertical_slice_ref_001_2",
       "boundary_cursor": 4,
       "resume_step_index": 3,
-      "created_at": "2026-10-15T18:28:02.886Z",
+      "created_at": "2026-10-16T09:07:35.039Z",
       "schema_version": "1.0.0-alpha",
       "state_hash": "sha256:d1872496fc61bff5ceceb1694ed7a9474befa1c6f13d22ce20bc1c2ddfe9e7f1",
       "hash": "sha256:d1872496fc61bff5ceceb1694ed7a9474befa1c6f13d22ce20bc1c2ddfe9e7f1",
@@ -540,7 +540,7 @@
       "snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_0",
       "step_id": "step_run_vertical_slice_ref_001_0",
       "model_invocation_id": "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_0",
-      "timestamp": "2026-10-15T18:28:02.881Z",
+      "timestamp": "2026-10-16T09:07:35.038Z",
       "total_token_estimate": 40,
       "total_token_measurement": {
         "value": 40,
@@ -558,7 +558,7 @@
           },
           "position": 0,
           "inclusion_reason": "direct_prompt",
-          "timestamp": "2026-10-15T18:28:02.881Z",
+          "timestamp": "2026-10-16T09:07:35.038Z",
           "sensitivity": "internal",
           "redaction_status": "none",
           "content_captured": true,
@@ -577,7 +577,7 @@
           },
           "position": 1,
           "inclusion_reason": "active_tools_schema",
-          "timestamp": "2026-10-15T18:28:02.881Z",
+          "timestamp": "2026-10-16T09:07:35.038Z",
           "sensitivity": "internal",
           "redaction_status": "none",
           "content_captured": true,
@@ -591,7 +591,7 @@
       "snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1",
       "step_id": "step_run_vertical_slice_ref_001_1",
       "model_invocation_id": "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1",
-      "timestamp": "2026-10-15T18:28:02.885Z",
+      "timestamp": "2026-10-16T09:07:35.039Z",
       "total_token_estimate": 52,
       "total_token_measurement": {
         "value": 52,
@@ -609,7 +609,7 @@
           },
           "position": 0,
           "inclusion_reason": "direct_prompt",
-          "timestamp": "2026-10-15T18:28:02.885Z",
+          "timestamp": "2026-10-16T09:07:35.039Z",
           "sensitivity": "internal",
           "redaction_status": "none",
           "content_captured": true,
@@ -623,7 +623,7 @@
       "snapshot_id": "ctx_model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_3",
       "step_id": "step_run_vertical_slice_ref_001_3",
       "model_invocation_id": "model_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_3",
-      "timestamp": "2026-10-15T18:28:02.886Z",
+      "timestamp": "2026-10-16T09:07:35.039Z",
       "total_token_estimate": 32,
       "total_token_measurement": {
         "value": 32,
@@ -641,7 +641,7 @@
           },
           "position": 0,
           "inclusion_reason": "direct_prompt",
-          "timestamp": "2026-10-15T18:28:02.886Z",
+          "timestamp": "2026-10-16T09:07:35.039Z",
           "sensitivity": "internal",
           "redaction_status": "none",
           "content_captured": true,
@@ -675,8 +675,8 @@
       },
       "output_summary": "{\"customerId\":\"cus_1001\",\"balance\":150,\"currency\":\"USD\",\"status\":\"active\"}",
       "status": "completed",
-      "started_at": "2026-10-15T18:28:02.885Z",
-      "completed_at": "2026-10-15T18:28:02.885Z",
+      "started_at": "2026-10-16T09:07:35.039Z",
+      "completed_at": "2026-10-16T09:07:35.039Z",
       "duration_ms": 0,
       "boundary_id": "bnd_tool_call_run_vertical_slice_ref_001_3",
       "metadata": {}
@@ -706,7 +706,7 @@
         }
       ],
       "duration_ms": 0,
-      "timestamp": "2026-10-15T18:28:02.884Z",
+      "timestamp": "2026-10-16T09:07:35.039Z",
       "context_item_ids": [
         "retrieval_run_vertical_slice_ref_001_step_run_vertical_slice_ref_001_1_item_0"
       ]
@@ -727,8 +727,8 @@
       "response_summary": "Step 1 plan: Search refund policy then fetch balance.",
       "raw_captured": true,
       "response_hash": "sha256:798cf6a455efbc36aaf5c4237ead9e32a9b6fb64d32a33fb60bb13ad051398d4",
-      "started_at": "2026-10-15T18:28:02.881Z",
-      "completed_at": "2026-10-15T18:28:02.881Z",
+      "started_at": "2026-10-16T09:07:35.038Z",
+      "completed_at": "2026-10-16T09:07:35.038Z",
       "metadata": {
         "tools_count": 2
       }
@@ -747,8 +747,8 @@
       "response_summary": "Calling get_customer_account for cus_1001.",
       "raw_captured": true,
       "response_hash": "sha256:e684dcf041ad9651d592ff4df0435035e46b432d012e50052218aaef152e50cc",
-      "started_at": "2026-10-15T18:28:02.885Z",
-      "completed_at": "2026-10-15T18:28:02.885Z",
+      "started_at": "2026-10-16T09:07:35.039Z",
+      "completed_at": "2026-10-16T09:07:35.039Z",
       "metadata": {
         "tools_count": 0
       }
@@ -767,8 +767,8 @@
       "response_summary": "Your account cus_1001 balance is 150 USD. Per company policy, full refunds are eligible within 30 days.",
       "raw_captured": true,
       "response_hash": "sha256:def6f8aaca2f2baacc48fcc7f303d77d9d6a9fe6b0048f00380ba2c759c03f9b",
-      "started_at": "2026-10-15T18:28:02.886Z",
-      "completed_at": "2026-10-15T18:28:02.886Z",
+      "started_at": "2026-10-16T09:07:35.039Z",
+      "completed_at": "2026-10-16T09:07:35.039Z",
       "metadata": {
         "tools_count": 0
       }
@@ -785,7 +785,7 @@
       "state_snapshot_id": "state_run_vertical_slice_ref_001_0",
       "boundary_cursor": 1,
       "resume_step_index": 1,
-      "created_at": "2026-10-15T18:28:02.884Z",
+      "created_at": "2026-10-16T09:07:35.039Z",
       "schema_version": "1.0.0-alpha",
       "state_hash": "sha256:4db9b69b6036dea4dd53cd1093880b6f871080aff0323cb1753eac3e5d215d35",
       "hash": "sha256:4db9b69b6036dea4dd53cd1093880b6f871080aff0323cb1753eac3e5d215d35",
@@ -796,7 +796,7 @@
   "provenance": {
     "capture_method": "sdk_trace",
     "adapter_version": "1.0.0-canonical",
-    "captured_by": "AgentPulseCaptureSDK",
+    "captured_by": "ReeprovCaptureSDK",
     "redaction_verified": true
   },
   "safety": {
@@ -809,7 +809,7 @@
     }
   },
   "observability": {
-    "total_duration_ms": 5,
+    "total_duration_ms": 1,
     "total_cost_usd": 0.006,
     "model_calls_count": 3,
     "tool_calls_count": 1,

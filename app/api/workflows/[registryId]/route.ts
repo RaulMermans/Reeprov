@@ -3,7 +3,7 @@
  * PATCH  /api/workflows/[registryId]  — Update status
  * DELETE /api/workflows/[registryId]  — Delete workflow registry entry
  *
- * All protected by AGENTPULSE_ACCESS_KEY (x-agentpulse-key header).
+ * All protected by REEPROV_ACCESS_KEY (x-reeprov-key header).
  */
 
 import { NextResponse } from "next/server";

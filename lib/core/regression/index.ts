@@ -1,5 +1,5 @@
 /**
- * AgentPulse Regression Engine Entry Point.
+ * Reeprov Regression Engine Entry Point.
  */
 
 export * from "./baseline";

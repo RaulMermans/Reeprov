@@ -2,7 +2,7 @@
 
 ## Project
 
-AgentPulse is a private personal dashboard for auditing AI-agent and AI-workflow repositories.
+Reeprov is local-first debugging and reproducibility infrastructure for AI agents.
 
 ## Current Phase
 
@@ -10,7 +10,7 @@ Stabilization + Production QA, following Task 12 (Visual Execution Canvas). The 
 
 ## Architecture
 
-AgentPulse uses deterministic workflows:
+Reeprov uses deterministic workflows:
 GitHub repo -> file manifest -> RepoFile[] -> ignore rules -> secret redaction -> static detection -> auditors -> score/report -> dashboard.
 ZIP upload -> safe in-memory extraction -> RepoFile[] -> ignore rules -> secret redaction -> static detection -> auditors -> score/report -> dashboard.
 
@@ -23,7 +23,7 @@ Reference:
 
 ## Non-Negotiable Security Rules
 
-- Never expose GITHUB_TOKEN or AGENTPULSE_ACCESS_KEY to the browser.
+- Never expose GITHUB_TOKEN or REEPROV_ACCESS_KEY to the browser.
 - Never prefix secrets with NEXT_PUBLIC_.
 - Never execute scanned repo code.
 - Never install scanned repo dependencies.
@@ -119,7 +119,7 @@ Reference:
 - Detected artifacts are not automatically mapped artifacts. A detected prompt/tool/eval/model is not the same as one mapped to an agent or workflow step.
 - Do not invent graph edges without evidence. Manifest entries are high confidence; file-path matches are medium; prompt-only inference is low.
 - Model/provider mapping must cite manifest/code/env source. Manifest is high, code is medium, env-only and imports are low.
-- Model performance comparison requires explicit eval/run metrics. AgentPulse must not claim model A performs better than model B without performance files.
+- Model performance comparison requires explicit eval/run metrics. Reeprov must not claim model A performs better than model B without performance files.
 - Workflow visualization must degrade gracefully for missing data.
 - Assistant tooling must remain separate from the product graph unless explicitly mapped.
 - Provider env vars (e.g. OPENAI_API_KEY) reveal the provider but never expose the secret value.

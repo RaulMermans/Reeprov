@@ -119,7 +119,7 @@ describe("Mode-Aware Launcher (start-agentpulse)", () => {
       const result = validateLauncherConfig(config, {});
       expect(result.valid).toBe(false);
       expect(result.error).toContain("Loopback privacy guarantee");
-      expect(result.error).toContain("Exposing 0.0.0.0 requires AGENTPULSE_MODE=self_hosted");
+      expect(result.error).toMatch(/Exposing 0\.0\.0\.0 requires (REEPROV|AGENTPULSE)_MODE=self_hosted/);
     });
 
     it("fails before startup when PERSONAL_LOCAL attempts to bind to public IP", () => {
@@ -138,8 +138,8 @@ describe("Mode-Aware Launcher (start-agentpulse)", () => {
       const config = resolveLauncherConfig({ AGENTPULSE_MODE: "self_hosted" }, []);
       const result = validateLauncherConfig(config, {});
       expect(result.valid).toBe(false);
-      expect(result.error).toBe(
-        "PRIVATE_SELF_HOSTED mode requires AGENTPULSE_ACCESS_KEY. Set this environment variable before starting."
+      expect(result.error).toMatch(
+        /PRIVATE_SELF_HOSTED mode requires (REEPROV|AGENTPULSE)_ACCESS_KEY\. Set this environment variable before starting\./
       );
     });
 
@@ -150,8 +150,8 @@ describe("Mode-Aware Launcher (start-agentpulse)", () => {
       );
       const result = validateLauncherConfig(config, { AGENTPULSE_ACCESS_KEY: "   " });
       expect(result.valid).toBe(false);
-      expect(result.error).toBe(
-        "PRIVATE_SELF_HOSTED mode requires AGENTPULSE_ACCESS_KEY. Set this environment variable before starting."
+      expect(result.error).toMatch(
+        /PRIVATE_SELF_HOSTED mode requires (REEPROV|AGENTPULSE)_ACCESS_KEY\. Set this environment variable before starting\./
       );
     });
 
@@ -199,28 +199,29 @@ describe("Mode-Aware Launcher (start-agentpulse)", () => {
 
   describe("instrumentation.ts register hook (Task 2)", () => {
     it("runs register without throwing in personal_local mode", async () => {
-      process.env.AGENTPULSE_MODE = "personal_local";
+      process.env.REEPROV_MODE = "personal_local";
       const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
       const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
       await expect(instrumentationRegister()).resolves.toBeUndefined();
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining("[AgentPulse Instrumentation] Operating mode: personal_local")
+        expect.stringContaining("[Reeprov Instrumentation] Operating mode: personal_local")
       );
 
       consoleLogSpy.mockRestore();
       consoleWarnSpy.mockRestore();
     });
 
-    it("warns when AGENTPULSE_ACCESS_KEY is missing in self_hosted mode without throwing", async () => {
-      process.env.AGENTPULSE_MODE = "self_hosted";
+    it("warns when REEPROV_ACCESS_KEY is missing in self_hosted mode without throwing", async () => {
+      process.env.REEPROV_MODE = "self_hosted";
+      delete process.env.REEPROV_ACCESS_KEY;
       delete process.env.AGENTPULSE_ACCESS_KEY;
       const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
       const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
       await expect(instrumentationRegister()).resolves.toBeUndefined();
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("PRIVATE_SELF_HOSTED mode requires AGENTPULSE_ACCESS_KEY")
+        expect.stringContaining("PRIVATE_SELF_HOSTED mode requires REEPROV_ACCESS_KEY")
       );
 
       consoleLogSpy.mockRestore();
@@ -228,7 +229,7 @@ describe("Mode-Aware Launcher (start-agentpulse)", () => {
     });
 
     it("logs notice in headless_ci mode without throwing", async () => {
-      process.env.AGENTPULSE_MODE = "headless_ci";
+      process.env.REEPROV_MODE = "headless_ci";
       const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
       await expect(instrumentationRegister()).resolves.toBeUndefined();

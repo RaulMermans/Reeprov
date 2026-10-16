@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-export const INTEGRATION_REGISTRY_VERSION = "agentpulse-integration-registry-v1";
+export const INTEGRATION_REGISTRY_VERSION = "reeprov-integration-registry-v1";
 
 export function generateIntegrationId(): string {
   const tsBase36 = Date.now().toString(36);

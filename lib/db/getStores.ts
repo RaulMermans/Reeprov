@@ -32,7 +32,12 @@ import type { ReportStore } from "@/lib/reports/reportTypes";
 import type { WorkflowStore } from "@/lib/workflows/workflowTypes";
 import type { DiagnosticStore, RecordDiagnosticInput } from "@/lib/diagnostics/diagnosticTypes";
 
+import { getReeprovEnv } from "@/lib/config/env";
+
 let loggedPostgresStore = false;
+export function _resetLoggedPostgresStore(): void {
+  loggedPostgresStore = false;
+}
 const postgresStoreWrappers = new WeakMap<object, object>();
 
 function isProduction(): boolean {
@@ -40,25 +45,26 @@ function isProduction(): boolean {
 }
 
 function shouldUseFileStore(): boolean {
-  const mode = process.env["AGENTPULSE_MODE"];
+  const mode = getReeprovEnv("REEPROV_MODE");
   return (
     mode === "self_hosted" ||
     mode === "personal_local" ||
-    Boolean(process.env["AGENTPULSE_HOME"])
+    Boolean(getReeprovEnv("REEPROV_HOME")) ||
+    Boolean(getReeprovEnv("REEPROV_STORE_DIR"))
   );
 }
 
 function assertDatabaseConfigured(): void {
   throw new Error(
-    "[AgentPulse] DATABASE_URL is required in production. " +
+    "[Reeprov] DATABASE_URL is required in production. " +
       "Set DATABASE_URL to a Postgres connection string (Neon, Vercel Postgres, or local). " +
-      "AGENTPULSE_STORE_DIR and file-backed storage are only supported in development.",
+      "REEPROV_STORE_DIR and file-backed storage are only supported in development.",
   );
 }
 
 function usePostgresStore<T extends object>(store: T): T {
   if (!loggedPostgresStore) {
-    console.info("AgentPulse using Postgres store");
+    console.info("Reeprov using Postgres store");
     loggedPostgresStore = true;
   }
 

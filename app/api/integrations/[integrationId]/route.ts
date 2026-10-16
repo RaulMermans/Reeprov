@@ -3,7 +3,7 @@
  * PATCH  /api/integrations/[integrationId]  — update integration fields
  * DELETE /api/integrations/[integrationId]  — delete integration entry
  *
- * All routes protected by AGENTPULSE_ACCESS_KEY.
+ * All routes protected by REEPROV_ACCESS_KEY.
  * Deleting an integration does NOT delete associated runs/reports/workflows.
  */
 

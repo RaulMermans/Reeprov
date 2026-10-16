@@ -1,5 +1,5 @@
 /**
- * Barrel export for AgentPulse Canonical Contracts.
+ * Barrel export for Reeprov Canonical Contracts.
  */
 
 export * from "./artifacts";

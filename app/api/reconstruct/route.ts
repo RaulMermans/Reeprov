@@ -4,7 +4,7 @@
  * Accepts either a saved reportId or an inline ScanReport and returns a
  * StaticProofReconstruction.
  *
- * Auth: x-agentpulse-key (AGENTPULSE_ACCESS_KEY)
+ * Auth: x-reeprov-key (REEPROV_ACCESS_KEY)
  *
  * Body (one of):
  *   { reportId: string }      — loads saved report by ID (404 if not found)

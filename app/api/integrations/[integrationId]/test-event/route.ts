@@ -2,10 +2,10 @@
  * POST /api/integrations/[integrationId]/test-event
  *
  * Creates a small test run for this integration using server-side logic.
- * Purpose: confirm the AgentPulse dashboard/run pipeline works for the
+ * Purpose: confirm the Reeprov dashboard/run pipeline works for the
  * project identity — without requiring the external project to be running.
  *
- * Auth:   x-agentpulse-key (AGENTPULSE_ACCESS_KEY — dashboard key only)
+ * Auth:   x-reeprov-key (REEPROV_ACCESS_KEY — dashboard key only)
  * Body:   none
  * Returns: { ok: true, runId: string, redirectTo: string }
  *
@@ -109,7 +109,7 @@ export async function POST(request: Request, context: RouteContext) {
         timestamp: ts(startTime, 50),
         event_type: "node_started",
         status: "running",
-        input_summary: "AgentPulse connection test node",
+        input_summary: "Reeprov connection test node",
       }),
       traceEventSchema.parse({
         event_id: `${runId}::model::started`,
@@ -133,7 +133,7 @@ export async function POST(request: Request, context: RouteContext) {
         duration_ms: 700,
         cost_usd: 0.0001,
         input_summary: "Test model call (simulated)",
-        output_summary: "AgentPulse connection verified. Integration is active.",
+        output_summary: "Reeprov connection verified. Integration is active.",
         metadata: {
           model_provider: "anthropic",
           model_name: "claude-haiku-4-5",
@@ -229,7 +229,7 @@ export async function POST(request: Request, context: RouteContext) {
       evals_passed: 1,
       evals_failed: 0,
       artifact_refs: [`${runId}-connection-report.json`],
-      summary: `AgentPulse connection test for ${projectName} — all checks passed`,
+      summary: `Reeprov connection test for ${projectName} — all checks passed`,
     } satisfies RunRecord);
 
     const createResult = await getRunStore().createRun(runRecord);

@@ -4,7 +4,7 @@
  * Marks a run as failed. Requires an error_summary message.
  * Emits run_failed and error trace events.
  *
- * Auth: x-agentpulse-key (AGENTPULSE_INGEST_KEY or AGENTPULSE_ACCESS_KEY)
+ * Auth: x-reeprov-key (REEPROV_INGEST_KEY or REEPROV_ACCESS_KEY)
  *
  * Body:
  *   run_id             string   — required

@@ -15,10 +15,14 @@ import {
 import { getDb, hasDatabaseUrl } from "../../db/client";
 import { ensureSchema } from "../../db/migrate";
 
+import { getReeprovEnv } from "@/lib/config/env";
+import { getReeprovHome } from "@/lib/storage/dataPath";
+
 function storeDir(): string {
   const base =
-    process.env["AGENTPULSE_STORE_DIR"] ??
-    join(process.cwd(), ".agentpulse");
+    getReeprovEnv("REEPROV_STORE_DIR") ??
+    getReeprovEnv("REEPROV_HOME") ??
+    getReeprovHome();
   return join(base, "replays");
 }
 
@@ -179,7 +183,7 @@ export async function saveReplayResult(
         );
       }
     } catch (err) {
-      console.warn("[AgentPulse Replay Postgres Warning]", err);
+      console.warn("[Reeprov Replay Postgres Warning]", err);
     }
   }
 }

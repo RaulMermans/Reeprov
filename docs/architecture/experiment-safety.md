@@ -1,6 +1,6 @@
 # Experiment Safety & Winner Policy Architecture
 
-> **Canonical Role:** Safety gates, approval enforcement, and policy-driven winner selection in AgentPulse experiments.
+> **Canonical Role:** Safety gates, approval enforcement, and policy-driven winner selection in Reeprov experiments.
 
 ---
 
@@ -8,7 +8,7 @@
 
 In an AI agent system, an arm with higher output quality but critical safety violations **must never win**.
 
-AgentPulse implements a strict two-stage ranking process:
+Reeprov implements a strict two-stage ranking process:
 
 ```mermaid
 flowchart TD

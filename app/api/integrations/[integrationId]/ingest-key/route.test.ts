@@ -56,7 +56,7 @@ describe("POST /api/integrations/[integrationId]/ingest-key", () => {
     const res = await POST(req({ "x-agentpulse-key": TEST_ACCESS_KEY }), ctx(integration.integrationId));
     expect(res.status).toBe(200);
     const data = await res.json() as { integration: { ingestKeyPreview?: string }; rawKey: string };
-    expect(data.rawKey).toMatch(/^ap_live_/);
+    expect(data.rawKey).toMatch(/^ree_live_/);
     expect(data.integration.ingestKeyPreview).toBeTruthy();
 
     const saved = await fileIntegrationStore.getIntegration(integration.integrationId);

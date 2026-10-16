@@ -48,7 +48,7 @@ export type ModelJudgeFn = (
 ) => Promise<ModelJudgeHandlerOutput>;
 
 export class ModelJudgeEvaluatorAdapter implements EvaluatorAdapter {
-  readonly evaluator_id = "agentpulse_model_judge_evaluator";
+  readonly evaluator_id = "reeprov_model_judge_evaluator";
   readonly evaluator_version = "1.0.0";
   readonly grader_type = "model_based" as const;
   readonly deterministic = false;

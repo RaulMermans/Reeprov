@@ -1,8 +1,8 @@
-# AgentPulse Canonical Checkpoint Model
+# Reeprov Canonical Checkpoint Model
 
 ## 1. Overview and Core Invariants
 
-In AgentPulse, **checkpoints** provide durable, cryptographic recovery points for recorded agent executions. They form the foundation for **Fork from Here** execution branching.
+In Reeprov, **checkpoints** provide durable, cryptographic recovery points for recorded agent executions. They form the foundation for **Fork from Here** execution branching.
 
 > **Core Invariant**: A checkpoint is not a vague bookmark; it is an evidence-based, cryptographically verified anchor binding an immutable state snapshot to an exact boundary cursor and resume step.
 

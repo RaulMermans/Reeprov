@@ -2,7 +2,7 @@
  * POST /api/workflows/promote
  *
  * Promotes a SuggestedWorkflowSpec or inline WorkflowSpec into the Workflow Registry.
- * Protected by AGENTPULSE_ACCESS_KEY (x-agentpulse-key header).
+ * Protected by REEPROV_ACCESS_KEY (x-reeprov-key header).
  *
  * Input options (one of):
  *   A. { reportId, workflowId }                  — load report, reconstruct, find spec by workflowId

@@ -7,7 +7,7 @@
  * Invariants:
  * - Input state is NEVER mutated in place (deep cloned before patch).
  * - Target path existence is strictly validated for "replace" and "remove".
- * - Internal AgentPulse metadata and security keys are protected from mutation.
+ * - Internal Reeprov metadata and security keys are protected from mutation.
  */
 
 export interface JsonPatchOperation {
@@ -27,7 +27,7 @@ export class StatePatchError extends Error {
   }
 }
 
-const PROTECTED_PATH_PREFIXES = ["__agentpulse", "schema_version", "__proto__", "prototype", "constructor"];
+const PROTECTED_PATH_PREFIXES = ["__reeprov", "__agentpulse", "schema_version", "__proto__", "prototype", "constructor"];
 
 function parsePath(rawPath: string): string[] {
   let normalized = rawPath.trim();

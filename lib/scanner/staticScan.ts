@@ -244,7 +244,7 @@ export function staticScanFromFiles(
       "ingestion",
       options.zipStats.skippedByFileLimit > 200 ? "medium" : "low",
       "ZIP scan analyzed prioritized subset",
-      `ZIP contained ${options.zipStats.candidateFiles} candidate files. AgentPulse scanned the top ${options.zipStats.scannedFiles} prioritized files and skipped ${options.zipStats.skippedByFileLimit} lower-priority files.`,
+      `ZIP contained ${options.zipStats.candidateFiles} candidate files. Reeprov scanned the top ${options.zipStats.scannedFiles} prioritized files and skipped ${options.zipStats.skippedByFileLimit} lower-priority files.`,
       [],
       "Use GitHub repository scanning for a complete scan, or reduce the ZIP size.",
       0.95,

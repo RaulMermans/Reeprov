@@ -1,7 +1,7 @@
 import { ExperimentLabView } from "@/components/proof-layer/ExperimentLabView";
 
 export const metadata = {
-  title: "Experiment Lab | AgentPulse",
+  title: "Experiment Lab | Reeprov",
   description: "Controlled agent experiments, repeatability aggregation, and policy-driven candidate ranking.",
 };
 
