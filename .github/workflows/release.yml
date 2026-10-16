@@ -12,6 +12,11 @@ on:
         required: true
         type: boolean
         default: true
+      publish_verified_beta:
+        description: 'Publish the verified v0.1.0-beta.1 GitHub release artifacts to PyPI'
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -19,6 +24,7 @@ permissions:
 
 jobs:
   validate:
+    if: ${{ !inputs.publish_verified_beta }}
     name: Validate Release Candidate & Build Artifacts
     runs-on: ubuntu-latest
     steps:
@@ -105,6 +111,7 @@ jobs:
           if-no-files-found: error
 
   publish-packages:
+    if: ${{ !inputs.publish_verified_beta }}
     name: Publish Packages (Approval Gated)
     needs: validate
     runs-on: ubuntu-latest
@@ -181,3 +188,34 @@ jobs:
           files: |
             packages/client-typescript/reeprov-client-*.tgz
             packages/client-python/dist/*
+
+  publish-verified-beta:
+    if: ${{ inputs.publish_verified_beta && inputs.version == '0.1.0-beta.1' }}
+    name: Publish Verified Beta Artifacts
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download published Python release artifacts
+        run: |
+          mkdir -p release-dist
+          gh release download v0.1.0-beta.1 --repo "$GITHUB_REPOSITORY" --dir release-dist \
+            --pattern 'reeprov_client-0.1.0b1-py3-none-any.whl' \
+            --pattern 'reeprov_client-0.1.0b1.tar.gz'
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Verify exact release artifact hashes
+        run: |
+          printf '%s  %s\n' \
+            '3ce573b0d9de7674cf49e3fdcd4b98b53b0d56dbd535c9f818582df01f401be3' 'release-dist/reeprov_client-0.1.0b1-py3-none-any.whl' \
+            'b6c54503fb0565646ab8c3f3e1e83457b4544e9f642a891dcaf8efd89fc04341' 'release-dist/reeprov_client-0.1.0b1.tar.gz' \
+            | sha256sum --check
+
+      - name: Publish verified files to PyPI
+        if: ${{ inputs.dry_run == false }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: release-dist/
