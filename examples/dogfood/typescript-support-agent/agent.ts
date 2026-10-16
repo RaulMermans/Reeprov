@@ -1,6 +1,6 @@
 import { ReeprovClient } from "./reeprovClient.js";
 
-const ingestKey = process.env["REEPROV_INGEST_KEY"] || process.env["AGENTPULSE_INGEST_KEY"];
+const ingestKey = process.env["REEPROV_INGEST_KEY"];
 if (!ingestKey) {
   console.error(
     "No Reeprov ingest key configured.\n" +
@@ -11,17 +11,17 @@ if (!ingestKey) {
 
 // Read configuration from environment
 const client = new ReeprovClient({
-  endpoint: process.env["REEPROV_URL"] || process.env["AGENTPULSE_URL"] || "http://127.0.0.1:3000",
+  endpoint: process.env["REEPROV_URL"] || "http://127.0.0.1:3000",
   ingestKey,
-  projectId: process.env["REEPROV_PROJECT_ID"] || process.env["AGENTPULSE_PROJECT_ID"] || "support-agent",
-  projectName: process.env["REEPROV_PROJECT_NAME"] || process.env["AGENTPULSE_PROJECT_NAME"] || "Customer Support Agent",
-  workflowId: process.env["REEPROV_WORKFLOW_ID"] || process.env["AGENTPULSE_WORKFLOW_ID"] || "customer-support-v1",
-  enabled: (process.env["REEPROV_ENABLED"] ?? process.env["AGENTPULSE_ENABLED"]) !== "false",
+  projectId: process.env["REEPROV_PROJECT_ID"] || "support-agent",
+  projectName: process.env["REEPROV_PROJECT_NAME"] || "Customer Support Agent",
+  workflowId: process.env["REEPROV_WORKFLOW_ID"] || "customer-support-v1",
+  enabled: process.env["REEPROV_ENABLED"] !== "false",
 });
 
 async function runSupportAgent() {
   console.log("=== Reeprov Dogfood: TypeScript Support Agent ===");
-  console.log(`Endpoint: ${process.env["REEPROV_URL"] || process.env["AGENTPULSE_URL"] || "http://127.0.0.1:3000"}`);
+  console.log(`Endpoint: ${process.env["REEPROV_URL"] || "http://127.0.0.1:3000"}`);
   console.log(`Enabled:  ${client.isEnabled}`);
 
   // 1. Start run

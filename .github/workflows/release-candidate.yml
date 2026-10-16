@@ -29,20 +29,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Core Tests
-        run: npm run test
-
-      - name: Production Build
-        run: npm run build
-
-      - name: Audit Private Paths
-        run: npm run audit:paths
+      - name: Run CI Suite
+        run: npm run ci
 
   typescript-sdk:
     name: TypeScript SDK Validation

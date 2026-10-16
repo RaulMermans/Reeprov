@@ -11,13 +11,13 @@ import os
 import sys
 
 # Provide development defaults if not explicitly set in the environment
-os.environ.setdefault("REEPROV_URL", os.environ.get("AGENTPULSE_URL", "http://127.0.0.1:3000"))
-os.environ.setdefault("REEPROV_PROJECT_ID", os.environ.get("AGENTPULSE_PROJECT_ID", "python-support-agent"))
-os.environ.setdefault("REEPROV_PROJECT_NAME", os.environ.get("AGENTPULSE_PROJECT_NAME", "Python Support Agent"))
-os.environ.setdefault("REEPROV_WORKFLOW_ID", os.environ.get("AGENTPULSE_WORKFLOW_ID", "customer-support-v1"))
-os.environ.setdefault("REEPROV_ENABLED", os.environ.get("AGENTPULSE_ENABLED", "true"))
+os.environ.setdefault("REEPROV_URL", "http://127.0.0.1:3000")
+os.environ.setdefault("REEPROV_PROJECT_ID", "python-support-agent")
+os.environ.setdefault("REEPROV_PROJECT_NAME", "Python Support Agent")
+os.environ.setdefault("REEPROV_WORKFLOW_ID", "customer-support-v1")
+os.environ.setdefault("REEPROV_ENABLED", "true")
 
-ingest_key = os.environ.get("REEPROV_INGEST_KEY") or os.environ.get("AGENTPULSE_INGEST_KEY")
+ingest_key = os.environ.get("REEPROV_INGEST_KEY")
 if not ingest_key:
     print(
         "No Reeprov ingest key configured.\n"

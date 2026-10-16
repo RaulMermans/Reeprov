@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -12,7 +12,7 @@ describe("Sprint 11: Open-Source Beta Release Readiness & Supply Chain Audit", (
     const content = readFileSync(licensePath, "utf8");
     expect(content).toContain("Apache License");
     expect(content).toContain("Version 2.0");
-    expect(content).toContain("Copyright 2024-present AgentPulse Contributors");
+    expect(content).toContain("Copyright 2024-present Reeprov Contributors");
   });
 
   it("Item 3: root package.json has intentional private posture, Apache-2.0, bin mapping, and direct jiti dependency", () => {
@@ -211,4 +211,40 @@ describe("Sprint 11: Open-Source Beta Release Readiness & Supply Chain Audit", (
     expect(content).not.toContain("pull_request:");
     expect(content).toContain("environment: production");
   });
+
+  it("Item 64: Brand rename audit regression test — AgentPulse inserted into shipped LICENSE causes audit:rename to fail", () => {
+    const auditScript = resolve(rootDir, "scripts/audit-rename.mjs");
+    expect(existsSync(auditScript)).toBe(true);
+
+    const shippedLicenses = [
+      resolve(rootDir, "LICENSE"),
+      resolve(rootDir, "packages/client-typescript/LICENSE"),
+      resolve(rootDir, "packages/client-python/LICENSE"),
+    ];
+
+    for (const licPath of shippedLicenses) {
+      expect(existsSync(licPath)).toBe(true);
+      const original = readFileSync(licPath, "utf8");
+      try {
+        writeFileSync(licPath, original + "\nCopyright 2024 AgentPulse Contributors\n", "utf8");
+        let failed = false;
+        try {
+          execFileSync("node", [auditScript], {
+            cwd: rootDir,
+            encoding: "utf8",
+            stdio: "pipe",
+          });
+        } catch (err: any) {
+          failed = true;
+          const output = (err.stdout?.toString() || "") + (err.stderr?.toString() || "");
+          expect(output).toContain("unapproved active product hits");
+          expect(output).toContain("AgentPulse");
+        }
+        expect(failed).toBe(true);
+      } finally {
+        writeFileSync(licPath, original, "utf8");
+      }
+    }
+  });
 });
+

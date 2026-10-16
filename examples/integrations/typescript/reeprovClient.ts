@@ -3,7 +3,7 @@
  *
  * Standalone TypeScript client to emit trace events to Reeprov.
  *
- * Environment variables (canonical REEPROV_*, with legacy AGENTPULSE_* fallbacks):
+ * Environment variables:
  *   REEPROV_URL        — base URL of your Reeprov instance
  *   REEPROV_INGEST_KEY — ingest key (NOT the dashboard access key)
  *   REEPROV_PROJECT_ID — stable project identifier (e.g. "blog-agent")
@@ -18,12 +18,12 @@
 
 function getConfig() {
   return {
-    url: process.env["REEPROV_URL"] ?? process.env["AGENTPULSE_URL"] ?? "",
-    ingestKey: process.env["REEPROV_INGEST_KEY"] ?? process.env["AGENTPULSE_INGEST_KEY"] ?? "",
-    projectId: process.env["REEPROV_PROJECT_ID"] ?? process.env["AGENTPULSE_PROJECT_ID"] ?? "",
-    projectName: process.env["REEPROV_PROJECT_NAME"] ?? process.env["AGENTPULSE_PROJECT_NAME"] ?? "",
-    workflowId: process.env["REEPROV_WORKFLOW_ID"] ?? process.env["AGENTPULSE_WORKFLOW_ID"] ?? "",
-    enabled: (process.env["REEPROV_ENABLED"] ?? process.env["AGENTPULSE_ENABLED"]) === "true",
+    url: process.env["REEPROV_URL"] ?? "",
+    ingestKey: process.env["REEPROV_INGEST_KEY"] ?? "",
+    projectId: process.env["REEPROV_PROJECT_ID"] ?? "",
+    projectName: process.env["REEPROV_PROJECT_NAME"] ?? "",
+    workflowId: process.env["REEPROV_WORKFLOW_ID"] ?? "",
+    enabled: process.env["REEPROV_ENABLED"] === "true",
   };
 }
 
@@ -39,9 +39,6 @@ export interface ReeprovClientOptions {
   maxRetries?: number;
   failOpen?: boolean;
 }
-
-/** Legacy alias during AgentPulse -> Reeprov migration */
-export type AgentPulseClientOptions = ReeprovClientOptions;
 
 function shortId(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -96,7 +93,7 @@ export class ReeprovClient {
           : env.enabled),
       timeoutMs: options?.timeoutMs ?? 10000,
       maxRetries: options?.maxRetries ?? 2,
-      failOpen: options?.failOpen ?? ((process.env["REEPROV_FAIL_OPEN"] ?? process.env["AGENTPULSE_FAIL_OPEN"]) !== "false"),
+      failOpen: options?.failOpen ?? (process.env["REEPROV_FAIL_OPEN"] !== "false"),
     };
   }
 
@@ -433,7 +430,6 @@ export class ReeprovClient {
           headers: {
             "Content-Type": "application/json",
             "x-reeprov-key": this.cfg.ingestKey,
-            "x-agentpulse-key": this.cfg.ingestKey,
           },
           body: JSON.stringify(body),
           signal: controller.signal,
@@ -480,6 +476,3 @@ export class ReeprovClient {
     throw lastError ?? new Error(`Reeprov request failed: ${path}`);
   }
 }
-
-/** Legacy alias during AgentPulse -> Reeprov migration */
-export const AgentPulseClient = ReeprovClient;

@@ -163,7 +163,7 @@ export class CampaignSandboxPulseClient {
 
   // ── Replay-Grade Boundary Capture ──────────────────────────────────────────
 
-  /** Emit a raw execution boundary to AgentPulse. */
+  /** Emit a raw execution boundary to Reeprov. */
   async captureBoundary(runId: string, boundary: Record<string, unknown>): Promise<void> {
     if (!this.enabled) return;
     const payload = {
@@ -293,7 +293,6 @@ export class CampaignSandboxPulseClient {
       headers: {
         "Content-Type": "application/json",
         "x-reeprov-key": this.apiKey,
-        "x-agentpulse-key": this.apiKey,
       },
       body: JSON.stringify(body),
     });
@@ -318,7 +317,7 @@ export class CampaignSandboxPulseClient {
 /**
  * Creates a CampaignSandboxPulseClient from environment variables.
  *
- * Required env vars in Campaign Sandbox (canonical REEPROV_*, legacy AGENTPULSE_* fallbacks):
+ * Required env vars in Campaign Sandbox (canonical REEPROV_*):
  *   REEPROV_URL          — e.g. "http://localhost:3000"
  *   REEPROV_INGEST_KEY   — matches REEPROV_INGEST_KEY in Reeprov
  *   REEPROV_PROJECT_ID   — e.g. "campaign-sandbox"
@@ -329,12 +328,12 @@ export class CampaignSandboxPulseClient {
  *   REEPROV_ENABLED      — set to "false" to disable without removing code
  */
 export function createCampaignSandboxPulseClient(): CampaignSandboxPulseClient {
-  const endpoint = process.env["REEPROV_URL"] ?? process.env["AGENTPULSE_URL"] ?? "http://localhost:3000";
-  const apiKey = process.env["REEPROV_INGEST_KEY"] ?? process.env["AGENTPULSE_INGEST_KEY"] ?? "";
-  const projectId = process.env["REEPROV_PROJECT_ID"] ?? process.env["AGENTPULSE_PROJECT_ID"] ?? "campaign-sandbox";
-  const projectName = process.env["REEPROV_PROJECT_NAME"] ?? process.env["AGENTPULSE_PROJECT_NAME"] ?? "Campaign Sandbox";
-  const workflowId = process.env["REEPROV_WORKFLOW_ID"] ?? process.env["AGENTPULSE_WORKFLOW_ID"] ?? "campaign-sandbox-v1";
-  const enabled = (process.env["REEPROV_ENABLED"] ?? process.env["AGENTPULSE_ENABLED"]) !== "false";
+  const endpoint = process.env["REEPROV_URL"] ?? "http://localhost:3000";
+  const apiKey = process.env["REEPROV_INGEST_KEY"] ?? "";
+  const projectId = process.env["REEPROV_PROJECT_ID"] ?? "campaign-sandbox";
+  const projectName = process.env["REEPROV_PROJECT_NAME"] ?? "Campaign Sandbox";
+  const workflowId = process.env["REEPROV_WORKFLOW_ID"] ?? "campaign-sandbox-v1";
+  const enabled = process.env["REEPROV_ENABLED"] !== "false";
 
   return new CampaignSandboxPulseClient({
     endpoint,
@@ -346,5 +345,8 @@ export function createCampaignSandboxPulseClient(): CampaignSandboxPulseClient {
   });
 }
 
-/** Canonical alias */
+/** Canonical aliases */
+export const CampaignSandboxReeprovClient = CampaignSandboxPulseClient;
+export type CampaignSandboxReeprovClient = CampaignSandboxPulseClient;
 export const createCampaignSandboxClient = createCampaignSandboxPulseClient;
+export const createCampaignSandboxReeprovClient = createCampaignSandboxPulseClient;

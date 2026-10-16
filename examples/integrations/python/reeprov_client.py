@@ -37,9 +37,6 @@ class ReeprovError(Exception):
         self.is_retryable = is_retryable
 
 
-AgentPulseError = ReeprovError
-
-
 class ReeprovClient:
     """Thin, zero-dependency client for emitting Reeprov trace events and execution boundaries."""
 
@@ -61,36 +58,31 @@ class ReeprovClient:
         raw_url = (
             url
             or endpoint
-            or os.environ.get("REEPROV_URL")
-            or os.environ.get("AGENTPULSE_URL", "http://127.0.0.1:3000")
+            or os.environ.get("REEPROV_URL", "http://127.0.0.1:3000")
         )
         self._url = raw_url.rstrip("/")
         self._ingest_key = (
             ingest_key
             or api_key
-            or os.environ.get("REEPROV_INGEST_KEY")
-            or os.environ.get("AGENTPULSE_INGEST_KEY", "")
+            or os.environ.get("REEPROV_INGEST_KEY", "")
         )
         self._project_id = (
             project_id
-            or os.environ.get("REEPROV_PROJECT_ID")
-            or os.environ.get("AGENTPULSE_PROJECT_ID", "default-project")
+            or os.environ.get("REEPROV_PROJECT_ID", "default-project")
         )
         self._project_name = (
             project_name
-            or os.environ.get("REEPROV_PROJECT_NAME")
-            or os.environ.get("AGENTPULSE_PROJECT_NAME", "Default Project")
+            or os.environ.get("REEPROV_PROJECT_NAME", "Default Project")
         )
         self._workflow_id = (
             workflow_id
-            or os.environ.get("REEPROV_WORKFLOW_ID")
-            or os.environ.get("AGENTPULSE_WORKFLOW_ID", "default-workflow")
+            or os.environ.get("REEPROV_WORKFLOW_ID", "default-workflow")
         )
 
         if enabled is not None:
             self._enabled = enabled
         else:
-            env_enabled = os.environ.get("REEPROV_ENABLED") or os.environ.get("AGENTPULSE_ENABLED")
+            env_enabled = os.environ.get("REEPROV_ENABLED")
             if env_enabled is not None:
                 self._enabled = env_enabled.lower() == "true"
             else:
@@ -98,7 +90,7 @@ class ReeprovClient:
 
         self._timeout = timeout
         self._max_retries = max_retries
-        fail_open_env = os.environ.get("REEPROV_FAIL_OPEN") or os.environ.get("AGENTPULSE_FAIL_OPEN")
+        fail_open_env = os.environ.get("REEPROV_FAIL_OPEN")
         self._fail_open = fail_open if fail_open_env != "false" else False
 
     @property
@@ -562,6 +554,3 @@ class ReeprovClient:
             print(f"[Reeprov] Telemetry request to {path} failed: {last_error}", file=sys.stderr)
             return {}
         raise last_error or ReeprovError(f"Reeprov request failed: {path}")
-
-
-AgentPulseClient = ReeprovClient

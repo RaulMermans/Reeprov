@@ -130,8 +130,14 @@ function isApprovedCodeHit(relPath, line) {
     return true;
   }
 
-  // Examples directory: all integration templates and dogfood examples supporting legacy compatibility
-  if (relPath.startsWith("examples/")) {
+  // Explicitly isolated legacy compatibility wrappers in examples
+  if (
+    relPath === "examples/integrations/campaign-sandbox/agentpulse-client.ts" ||
+    relPath === "examples/integrations/python/agentpulse_client.py" ||
+    relPath === "examples/integrations/typescript/agentpulseClient.ts" ||
+    relPath === "examples/dogfood/python-support-agent/agentpulse_client.py" ||
+    relPath === "examples/dogfood/typescript-support-agent/agentpulseClient.ts"
+  ) {
     return true;
   }
 
@@ -260,7 +266,24 @@ function scanDir(dir, results) {
     const ext = extname(entry.name).toLowerCase();
     const basename = entry.name.toLowerCase();
 
-    if (!SCANNED_EXTENSIONS.has(ext) && !basename.startsWith("dockerfile") && !basename.startsWith(".env")) {
+    const isExtensionlessPublicFile =
+      ext === "" && (
+        basename === "license" ||
+        basename.startsWith("license.") ||
+        basename.startsWith("license-") ||
+        basename === "notice" ||
+        basename.startsWith("notice.") ||
+        basename.startsWith("notice-") ||
+        basename === "dockerfile" ||
+        basename.startsWith("dockerfile.")
+      );
+
+    if (
+      !SCANNED_EXTENSIONS.has(ext) &&
+      !basename.startsWith("dockerfile") &&
+      !basename.startsWith(".env") &&
+      !isExtensionlessPublicFile
+    ) {
       continue;
     }
 
