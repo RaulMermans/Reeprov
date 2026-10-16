@@ -1,20 +1,45 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { requireIngestAuth } from "@/lib/db/getStores";
 import { fileIntegrationStore } from "@/lib/integrations/integrationStore";
 import { ReeprovClient, AgentPulseClient } from "@/packages/client-typescript/src/index";
-import { getCanonicalRun } from "@/lib/core/capture/persistence";
+import { getCanonicalRun, saveCanonicalRun } from "@/lib/core/capture/persistence";
 import { runArtifactSchema } from "@/lib/core/contracts/runArtifact";
 import { computeCaptureReadiness } from "@/lib/projects/captureReadiness";
 import { compareRuns } from "@/lib/core/comparison/comparator";
 import { evaluateRun } from "@/lib/core/evals/runner";
-import { getEvalSuite, saveRunAsEvalCase } from "@/lib/core/evals/persistence";
+import { getEvalSuite, saveEvalSuite, saveRunAsEvalCase } from "@/lib/core/evals/persistence";
 import { isRequestHttps, getSessionCookieOptions } from "@/lib/auth/session";
 
 describe("Sprint 10.2: IRIS External Dogfood & DX Hardening", () => {
   const originalEnv = { ...process.env };
   let projectAKey: string;
   let projectBKey: string;
+
+  beforeAll(async () => {
+    const fixtureDir = path.resolve(process.cwd(), "tests/fixtures/dogfood");
+    const baselineFixture = JSON.parse(
+      fs.readFileSync(path.join(fixtureDir, "iris-run-baseline-001.canonical.json"), "utf8")
+    );
+    await saveCanonicalRun(baselineFixture);
+
+    const failureFixture = JSON.parse(
+      fs.readFileSync(path.join(fixtureDir, "iris-run-failure-001.canonical.json"), "utf8")
+    );
+    await saveCanonicalRun(failureFixture);
+
+    const candidateFixture = JSON.parse(
+      fs.readFileSync(path.join(fixtureDir, "iris-run-candidate-001.canonical.json"), "utf8")
+    );
+    await saveCanonicalRun(candidateFixture);
+
+    const suiteFixture = JSON.parse(
+      fs.readFileSync(path.join(fixtureDir, "iris-morning-brief-suite@3.json"), "utf8")
+    );
+    await saveEvalSuite(suiteFixture);
+  });
 
   beforeEach(async () => {
     process.env = { ...originalEnv };

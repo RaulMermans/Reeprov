@@ -1,0 +1,1049 @@
+{
+  "schema_version": "1.0.0-alpha",
+  "identity": {
+    "run_id": "iris-run-baseline-001",
+    "project_id": "project-iris",
+    "project_name": "IRIS Autonomous Agent",
+    "workflow_id": "today-brief-synthesis",
+    "created_at": "2026-10-14T19:01:03.254Z"
+  },
+  "execution": {
+    "status": "completed",
+    "started_at": "2026-10-14T19:01:03.253Z",
+    "completed_at": "2026-10-14T19:28:08.588Z",
+    "duration_ms": 120,
+    "summary": "Successfully generated Morning Command Brief (5 top priorities)"
+  },
+  "environment": {
+    "runtime": "unknown",
+    "framework": "unknown",
+    "env_fingerprint": "not_captured"
+  },
+  "trajectory": [
+    {
+      "step_id": "iris-run-baseline-001::source_calendar::tool::wzol85jd",
+      "step_index": 0,
+      "step_type": "tool_call",
+      "name": "source_calendar: tool_call_completed",
+      "node_id": "source_calendar",
+      "started_at": "2026-10-14T19:01:03.786Z",
+      "completed_at": "2026-10-14T19:01:04.265Z",
+      "duration_ms": 479,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Query attention source: calendar",
+      "output_summary": "Collected 0 items from calendar",
+      "metadata": {
+        "tool_name": "calendar.collect",
+        "tool_call_id": "iris-run-baseline-001::tc::1fpo2yjz",
+        "permission_class": "read_only",
+        "original_event_type": "tool_call_completed"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::source_gmail::tool::0thba8wp",
+      "step_index": 1,
+      "step_type": "tool_call",
+      "name": "source_gmail: tool_call_completed",
+      "node_id": "source_gmail",
+      "started_at": "2026-10-14T19:01:03.823Z",
+      "completed_at": "2026-10-14T19:01:04.344Z",
+      "duration_ms": 521,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Query attention source: gmail",
+      "output_summary": "Collected 0 items from gmail",
+      "metadata": {
+        "tool_name": "gmail.collect",
+        "tool_call_id": "iris-run-baseline-001::tc::3plla646",
+        "permission_class": "read_only",
+        "original_event_type": "tool_call_completed"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::source_relationship::tool::cza1q6sz",
+      "step_index": 2,
+      "step_type": "tool_call",
+      "name": "source_relationship: tool_call_completed",
+      "node_id": "source_relationship",
+      "started_at": "2026-10-14T19:01:03.863Z",
+      "completed_at": "2026-10-14T19:01:04.426Z",
+      "duration_ms": 563,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Query attention source: relationship",
+      "output_summary": "Collected 0 items from relationship",
+      "metadata": {
+        "tool_name": "relationship.collect",
+        "tool_call_id": "iris-run-baseline-001::tc::6pg8z22p",
+        "permission_class": "read_only",
+        "original_event_type": "tool_call_completed"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::source_project::tool::mzgve48g",
+      "step_index": 3,
+      "step_type": "tool_call",
+      "name": "source_project: tool_call_completed",
+      "node_id": "source_project",
+      "started_at": "2026-10-14T19:01:03.914Z",
+      "completed_at": "2026-10-14T19:01:04.511Z",
+      "duration_ms": 597,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Query attention source: project",
+      "output_summary": "Collected 0 items from project",
+      "metadata": {
+        "tool_name": "project.collect",
+        "tool_call_id": "iris-run-baseline-001::tc::ppto22dt",
+        "permission_class": "read_only",
+        "original_event_type": "tool_call_completed"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::source_commitment::tool::t08nt0jy",
+      "step_index": 4,
+      "step_type": "tool_call",
+      "name": "source_commitment: tool_call_completed",
+      "node_id": "source_commitment",
+      "started_at": "2026-10-14T19:01:03.942Z",
+      "completed_at": "2026-10-14T19:01:04.586Z",
+      "duration_ms": 644,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Query attention source: commitment",
+      "output_summary": "Collected 0 items from commitment",
+      "metadata": {
+        "tool_name": "commitment.collect",
+        "tool_call_id": "iris-run-baseline-001::tc::dqegddiy",
+        "permission_class": "read_only",
+        "original_event_type": "tool_call_completed"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::source_memory::tool::b88f8w7a",
+      "step_index": 5,
+      "step_type": "tool_call",
+      "name": "source_memory: tool_call_completed",
+      "node_id": "source_memory",
+      "started_at": "2026-10-14T19:01:03.968Z",
+      "completed_at": "2026-10-14T19:01:04.637Z",
+      "duration_ms": 669,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Query attention source: memory",
+      "output_summary": "Collected 0 items from memory",
+      "metadata": {
+        "tool_name": "memory.recall",
+        "tool_call_id": "iris-run-baseline-001::tc::bxrglc12",
+        "permission_class": "read_only",
+        "original_event_type": "tool_call_completed"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::brief_synthesis::model::43d3es3o",
+      "step_index": 6,
+      "step_type": "model_call",
+      "name": "brief_synthesis: model_call_completed",
+      "node_id": "brief_synthesis",
+      "started_at": "2026-10-14T19:01:04.043Z",
+      "completed_at": "2026-10-14T19:01:04.055Z",
+      "duration_ms": 12,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Input: 0 attention items",
+      "output_summary": "Generated 0 prioritized sections",
+      "metadata": {
+        "model_provider": "custom",
+        "model_name": "iris-brief-synthesizer-v1",
+        "input_tokens": 1200,
+        "output_tokens": 400,
+        "original_event_type": "model_call_completed"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::eval::brief_schema_and_grounding",
+      "step_index": 7,
+      "step_type": "eval",
+      "name": "eval_completed",
+      "started_at": "2026-10-14T19:01:04.056Z",
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "output_summary": "All priorities grounded in verified attention evidence.",
+      "metadata": {
+        "eval_id": "brief_schema_and_grounding",
+        "eval_name": "Brief Schema and Evidence Grounding",
+        "eval_type": "deterministic_invariants",
+        "passed": true,
+        "score": 1,
+        "severity": "info",
+        "findings": [],
+        "original_event_type": "eval_completed"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::artifact::brief://brief-iris-run-baseline-001",
+      "step_index": 8,
+      "step_type": "artifact",
+      "name": "brief_synthesis: artifact_created",
+      "node_id": "brief_synthesis",
+      "started_at": "2026-10-14T19:01:04.069Z",
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "output_summary": "Morning Command Brief created with 5 priorities",
+      "metadata": {
+        "artifact_ref": "brief://brief-iris-run-baseline-001",
+        "artifact_type": "morning_command_brief",
+        "original_event_type": "artifact_created"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::run_completed",
+      "step_index": 9,
+      "step_type": "trigger",
+      "name": "run_completed",
+      "started_at": "2026-10-14T19:01:04.090Z",
+      "completed_at": "2026-10-14T19:01:04.210Z",
+      "duration_ms": 120,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "output_summary": "Successfully generated Morning Command Brief (5 top priorities)",
+      "metadata": {
+        "original_event_type": "run_completed"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::run_started",
+      "step_index": 10,
+      "step_type": "trigger",
+      "name": "run_started",
+      "started_at": "2026-10-14T19:28:07.276Z",
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "metadata": {
+        "original_event_type": "run_started"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::source_calendar::tool::x0wmznk6",
+      "step_index": 11,
+      "step_type": "tool_call",
+      "name": "source_calendar: tool_call_completed",
+      "node_id": "source_calendar",
+      "started_at": "2026-10-14T19:28:08.126Z",
+      "completed_at": "2026-10-14T19:28:08.832Z",
+      "duration_ms": 706,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Query attention source: calendar",
+      "output_summary": "Collected 0 items from calendar",
+      "metadata": {
+        "tool_name": "calendar.collect",
+        "tool_call_id": "iris-run-baseline-001::tc::q1gld7xh",
+        "permission_class": "read_only",
+        "original_event_type": "tool_call_completed"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::source_gmail::tool::luh6phjs",
+      "step_index": 12,
+      "step_type": "tool_call",
+      "name": "source_gmail: tool_call_completed",
+      "node_id": "source_gmail",
+      "started_at": "2026-10-14T19:28:08.190Z",
+      "completed_at": "2026-10-14T19:28:09.013Z",
+      "duration_ms": 823,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Query attention source: gmail",
+      "output_summary": "Collected 0 items from gmail",
+      "metadata": {
+        "tool_name": "gmail.collect",
+        "tool_call_id": "iris-run-baseline-001::tc::0oc4n46a",
+        "permission_class": "read_only",
+        "original_event_type": "tool_call_completed"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::source_relationship::tool::nnnzpg45",
+      "step_index": 13,
+      "step_type": "tool_call",
+      "name": "source_relationship: tool_call_completed",
+      "node_id": "source_relationship",
+      "started_at": "2026-10-14T19:28:08.260Z",
+      "completed_at": "2026-10-14T19:28:09.164Z",
+      "duration_ms": 904,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Query attention source: relationship",
+      "output_summary": "Collected 0 items from relationship",
+      "metadata": {
+        "tool_name": "relationship.collect",
+        "tool_call_id": "iris-run-baseline-001::tc::6w3g6nw4",
+        "permission_class": "read_only",
+        "original_event_type": "tool_call_completed"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::source_project::tool::83uoykd8",
+      "step_index": 14,
+      "step_type": "tool_call",
+      "name": "source_project: tool_call_completed",
+      "node_id": "source_project",
+      "started_at": "2026-10-14T19:28:08.299Z",
+      "completed_at": "2026-10-14T19:28:09.251Z",
+      "duration_ms": 952,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Query attention source: project",
+      "output_summary": "Collected 0 items from project",
+      "metadata": {
+        "tool_name": "project.collect",
+        "tool_call_id": "iris-run-baseline-001::tc::bch3fq3o",
+        "permission_class": "read_only",
+        "original_event_type": "tool_call_completed"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::source_commitment::tool::8lwucpuf",
+      "step_index": 15,
+      "step_type": "tool_call",
+      "name": "source_commitment: tool_call_completed",
+      "node_id": "source_commitment",
+      "started_at": "2026-10-14T19:28:08.351Z",
+      "completed_at": "2026-10-14T19:28:09.353Z",
+      "duration_ms": 1002,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Query attention source: commitment",
+      "output_summary": "Collected 0 items from commitment",
+      "metadata": {
+        "tool_name": "commitment.collect",
+        "tool_call_id": "iris-run-baseline-001::tc::quwzxrwo",
+        "permission_class": "read_only",
+        "original_event_type": "tool_call_completed"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::source_memory::tool::mhk8nvlo",
+      "step_index": 16,
+      "step_type": "tool_call",
+      "name": "source_memory: tool_call_completed",
+      "node_id": "source_memory",
+      "started_at": "2026-10-14T19:28:08.394Z",
+      "completed_at": "2026-10-14T19:28:09.435Z",
+      "duration_ms": 1041,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Query attention source: memory",
+      "output_summary": "Collected 0 items from memory",
+      "metadata": {
+        "tool_name": "memory.recall",
+        "tool_call_id": "iris-run-baseline-001::tc::5gl6hk4g",
+        "permission_class": "read_only",
+        "original_event_type": "tool_call_completed"
+      }
+    },
+    {
+      "step_id": "iris-run-baseline-001::brief_synthesis::model::8hopj8w1",
+      "step_index": 17,
+      "step_type": "model_call",
+      "name": "brief_synthesis: model_call_completed",
+      "node_id": "brief_synthesis",
+      "started_at": "2026-10-14T19:28:08.468Z",
+      "completed_at": "2026-10-14T19:28:08.482Z",
+      "duration_ms": 14,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Input: 0 attention items",
+      "output_summary": "Generated 0 prioritized sections",
+      "metadata": {
+        "model_provider": "custom",
+        "model_name": "iris-brief-synthesizer-v1",
+        "input_tokens": 1200,
+        "output_tokens": 400,
+        "original_event_type": "model_call_completed"
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "boundary_id": "bnd_tool_call_iris-run-baseline-001_0",
+      "run_id": "iris-run-baseline-001",
+      "step_id": "iris-run-baseline-001::source_calendar::tool::8",
+      "node_id": "source_calendar",
+      "sequence_index": 0,
+      "boundary_type": "tool_call",
+      "name": "calendar.collect",
+      "status": "completed",
+      "started_at": "2026-10-14T19:28:08.029Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "source": "calendar",
+          "workspaceId": "22222222-2222-4222-8222-222222222222",
+          "providerMode": "fixture"
+        },
+        "hash": "sha256:38a91df5be442815f3873936b243ef964cab2b0af0a1239eae07dea27c564c05",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 99
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "itemCount": 0,
+          "status": "ok"
+        },
+        "hash": "sha256:ce6782efd486795f61120d9bc8b1abe4d3bc37911c78102aca3a86cfc7cf94e7",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 29
+      },
+      "replayability": "SIDE_EFFECT_GATED",
+      "side_effect_class": "external_side_effect",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "dependency_identity": "tool:calendar.collect",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:38a91df5be442815f3873936b243ef964cab2b0af0a1239eae07dea27c564c05",
+        "output_hash": "sha256:ce6782efd486795f61120d9bc8b1abe4d3bc37911c78102aca3a86cfc7cf94e7"
+      },
+      "timestamp": "2026-10-14T19:28:08.029Z",
+      "duration_ms": 706
+    },
+    {
+      "boundary_id": "bnd_tool_call_iris-run-baseline-001_1",
+      "run_id": "iris-run-baseline-001",
+      "step_id": "iris-run-baseline-001::source_gmail::tool::9",
+      "node_id": "source_gmail",
+      "sequence_index": 1,
+      "boundary_type": "tool_call",
+      "name": "gmail.collect",
+      "status": "completed",
+      "started_at": "2026-10-14T19:28:08.147Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "source": "gmail",
+          "workspaceId": "22222222-2222-4222-8222-222222222222",
+          "providerMode": "fixture"
+        },
+        "hash": "sha256:9a539f3cc610407584908b61250957a136754906bc5849837a8be3e4370d81bd",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 96
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "itemCount": 0,
+          "status": "ok"
+        },
+        "hash": "sha256:ce6782efd486795f61120d9bc8b1abe4d3bc37911c78102aca3a86cfc7cf94e7",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 29
+      },
+      "replayability": "SIDE_EFFECT_GATED",
+      "side_effect_class": "external_side_effect",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "dependency_identity": "tool:gmail.collect",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:9a539f3cc610407584908b61250957a136754906bc5849837a8be3e4370d81bd",
+        "output_hash": "sha256:ce6782efd486795f61120d9bc8b1abe4d3bc37911c78102aca3a86cfc7cf94e7"
+      },
+      "timestamp": "2026-10-14T19:28:08.147Z",
+      "duration_ms": 823
+    },
+    {
+      "boundary_id": "bnd_tool_call_iris-run-baseline-001_2",
+      "run_id": "iris-run-baseline-001",
+      "step_id": "iris-run-baseline-001::source_relationship::tool::10",
+      "node_id": "source_relationship",
+      "sequence_index": 2,
+      "boundary_type": "tool_call",
+      "name": "relationship.collect",
+      "status": "completed",
+      "started_at": "2026-10-14T19:28:08.228Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "source": "relationship",
+          "workspaceId": "22222222-2222-4222-8222-222222222222",
+          "providerMode": "fixture"
+        },
+        "hash": "sha256:b58748a0c40e0e90f0a28f0889e584f7b1a3e14f1f59ff74ee0e4a10d2ac8023",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 103
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "itemCount": 0,
+          "status": "ok"
+        },
+        "hash": "sha256:ce6782efd486795f61120d9bc8b1abe4d3bc37911c78102aca3a86cfc7cf94e7",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 29
+      },
+      "replayability": "SIDE_EFFECT_GATED",
+      "side_effect_class": "external_side_effect",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "dependency_identity": "tool:relationship.collect",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:b58748a0c40e0e90f0a28f0889e584f7b1a3e14f1f59ff74ee0e4a10d2ac8023",
+        "output_hash": "sha256:ce6782efd486795f61120d9bc8b1abe4d3bc37911c78102aca3a86cfc7cf94e7"
+      },
+      "timestamp": "2026-10-14T19:28:08.228Z",
+      "duration_ms": 904
+    },
+    {
+      "boundary_id": "bnd_tool_call_iris-run-baseline-001_3",
+      "run_id": "iris-run-baseline-001",
+      "step_id": "iris-run-baseline-001::source_project::tool::11",
+      "node_id": "source_project",
+      "sequence_index": 3,
+      "boundary_type": "tool_call",
+      "name": "project.collect",
+      "status": "completed",
+      "started_at": "2026-10-14T19:28:08.276Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "source": "project",
+          "workspaceId": "22222222-2222-4222-8222-222222222222",
+          "providerMode": "fixture"
+        },
+        "hash": "sha256:d4412cf779633de51c23afe73d98606da8abbf34f660f08e5f5f67cec1421022",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 98
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "itemCount": 0,
+          "status": "ok"
+        },
+        "hash": "sha256:ce6782efd486795f61120d9bc8b1abe4d3bc37911c78102aca3a86cfc7cf94e7",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 29
+      },
+      "replayability": "SIDE_EFFECT_GATED",
+      "side_effect_class": "external_side_effect",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "dependency_identity": "tool:project.collect",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:d4412cf779633de51c23afe73d98606da8abbf34f660f08e5f5f67cec1421022",
+        "output_hash": "sha256:ce6782efd486795f61120d9bc8b1abe4d3bc37911c78102aca3a86cfc7cf94e7"
+      },
+      "timestamp": "2026-10-14T19:28:08.276Z",
+      "duration_ms": 952
+    },
+    {
+      "boundary_id": "bnd_tool_call_iris-run-baseline-001_4",
+      "run_id": "iris-run-baseline-001",
+      "step_id": "iris-run-baseline-001::source_commitment::tool::12",
+      "node_id": "source_commitment",
+      "sequence_index": 4,
+      "boundary_type": "tool_call",
+      "name": "commitment.collect",
+      "status": "completed",
+      "started_at": "2026-10-14T19:28:08.326Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "source": "commitment",
+          "workspaceId": "22222222-2222-4222-8222-222222222222",
+          "providerMode": "fixture"
+        },
+        "hash": "sha256:862ea970a6336924b50b8b4309507ccf7cd16d31aa3fceb2b2fee264764f5679",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 101
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "itemCount": 0,
+          "status": "ok"
+        },
+        "hash": "sha256:ce6782efd486795f61120d9bc8b1abe4d3bc37911c78102aca3a86cfc7cf94e7",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 29
+      },
+      "replayability": "SIDE_EFFECT_GATED",
+      "side_effect_class": "external_side_effect",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "dependency_identity": "tool:commitment.collect",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:862ea970a6336924b50b8b4309507ccf7cd16d31aa3fceb2b2fee264764f5679",
+        "output_hash": "sha256:ce6782efd486795f61120d9bc8b1abe4d3bc37911c78102aca3a86cfc7cf94e7"
+      },
+      "timestamp": "2026-10-14T19:28:08.326Z",
+      "duration_ms": 1002
+    },
+    {
+      "boundary_id": "bnd_memory_service_iris-run-baseline-001_5",
+      "run_id": "iris-run-baseline-001",
+      "step_id": "iris-run-baseline-001::source_memory::tool::13",
+      "node_id": "source_memory",
+      "sequence_index": 5,
+      "boundary_type": "memory_service",
+      "name": "memory.recall",
+      "status": "completed",
+      "started_at": "2026-10-14T19:28:08.365Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "source": "memory",
+          "workspaceId": "22222222-2222-4222-8222-222222222222",
+          "providerMode": "fixture"
+        },
+        "hash": "sha256:13a46ecabc6244a46e49cd6abc522e75b57c7d7daa61191fc2a7c85e471d2b07",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 97
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "itemCount": 0,
+          "status": "ok"
+        },
+        "hash": "sha256:ce6782efd486795f61120d9bc8b1abe4d3bc37911c78102aca3a86cfc7cf94e7",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 29
+      },
+      "replayability": "SIDE_EFFECT_GATED",
+      "side_effect_class": "external_side_effect",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "dependency_identity": "memory:memory.recall",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:13a46ecabc6244a46e49cd6abc522e75b57c7d7daa61191fc2a7c85e471d2b07",
+        "output_hash": "sha256:ce6782efd486795f61120d9bc8b1abe4d3bc37911c78102aca3a86cfc7cf94e7"
+      },
+      "timestamp": "2026-10-14T19:28:08.365Z",
+      "duration_ms": 1041
+    },
+    {
+      "boundary_id": "bnd_retrieval_call_iris-run-baseline-001_6",
+      "run_id": "iris-run-baseline-001",
+      "step_id": "iris-run-baseline-001::scoring::retrieval::16",
+      "node_id": "attention_scoring",
+      "sequence_index": 6,
+      "boundary_type": "retrieval_call",
+      "name": "attention.scoring_engine",
+      "status": "completed",
+      "started_at": "2026-10-14T19:28:08.419Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "workspaceId": "22222222-2222-4222-8222-222222222222"
+        },
+        "hash": "sha256:2647b1fef0faa3bdc70afa05752c1821458c952f93a2d07eb695491c1da49d65",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 54
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "scoredItemCount": 26
+        },
+        "hash": "sha256:ae4dbb27db3ab318c783cc68367d910c97786bf1d5e90433660b86fbe837b1ca",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 22
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "dependency_identity": "retrieval:attention.scoring_engine",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:2647b1fef0faa3bdc70afa05752c1821458c952f93a2d07eb695491c1da49d65",
+        "output_hash": "sha256:ae4dbb27db3ab318c783cc68367d910c97786bf1d5e90433660b86fbe837b1ca"
+      },
+      "timestamp": "2026-10-14T19:28:08.419Z"
+    },
+    {
+      "boundary_id": "bnd_model_call_iris-run-baseline-001_7",
+      "run_id": "iris-run-baseline-001",
+      "step_id": "iris-run-baseline-001::brief_synthesis::model::18",
+      "node_id": "brief_synthesis",
+      "sequence_index": 7,
+      "boundary_type": "model_call",
+      "name": "brief_synthesis_model",
+      "status": "completed",
+      "started_at": "2026-10-14T19:28:08.453Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "reasoningMode": "fixture"
+        },
+        "hash": "sha256:70917f11e1aa24318319753ef01a6833bc40f8299af169657a116ef372d4d715",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 27
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "attemptNumber": 1
+        },
+        "hash": "sha256:8c3009ce20bbe3822270c78ee2b5762c420372938dec7a60d6c700e9c294bb64",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 19
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "dependency_identity": "model:brief_synthesis_model",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:70917f11e1aa24318319753ef01a6833bc40f8299af169657a116ef372d4d715",
+        "output_hash": "sha256:8c3009ce20bbe3822270c78ee2b5762c420372938dec7a60d6c700e9c294bb64"
+      },
+      "timestamp": "2026-10-14T19:28:08.453Z",
+      "duration_ms": 14
+    }
+  ],
+  "external_calls": [],
+  "state": [
+    {
+      "snapshot_id": "snap_iris-run-baseline-001_attention_collected",
+      "step_id": "iris-run-baseline-001::source_memory::tool::b88f8w7a",
+      "snapshot_type": "STEP_STATE",
+      "timestamp": "2026-10-14T19:28:08.439Z",
+      "state_scope": "workflow",
+      "state_data": {
+        "workspaceId": "22222222-2222-4222-8222-222222222222",
+        "phase": "attention_collected",
+        "promptVersion": "today-v1"
+      },
+      "captured": true,
+      "hash": "sha256:8e1494bf65645eafbf7732aba0a4f6d1742cd7973a015f6b00d62fde676d935a"
+    }
+  ],
+  "checkpoints": [
+    {
+      "checkpoint_id": "chk_iris-run-baseline-001_pre_synthesis",
+      "run_id": "iris-run-baseline-001",
+      "step_id": "iris-run-baseline-001::source_memory::tool::b88f8w7a",
+      "position": "BEFORE_STEP",
+      "state_snapshot_id": "snap_iris-run-baseline-001_attention_collected",
+      "boundary_cursor": 6,
+      "resume_step_index": 6,
+      "resume_step_id": "iris-run-baseline-001::model_call_started::17",
+      "created_at": "2026-10-14T19:28:08.439Z",
+      "schema_version": "1.0.0-alpha",
+      "state_hash": "sha256:8e1494bf65645eafbf7732aba0a4f6d1742cd7973a015f6b00d62fde676d935a",
+      "hash": "sha256:8e1494bf65645eafbf7732aba0a4f6d1742cd7973a015f6b00d62fde676d935a",
+      "restorable": true,
+      "metadata": {
+        "workspaceId": "22222222-2222-4222-8222-222222222222",
+        "promptVersion": "today-v1"
+      }
+    }
+  ],
+  "context": [],
+  "memory": {
+    "operations": [],
+    "references": []
+  },
+  "tools": [],
+  "retrieval": [],
+  "models": [
+    {
+      "invocation_id": "model_iris-run-baseline-001::brief_synthesis::model::43d3es3o",
+      "step_id": "iris-run-baseline-001::brief_synthesis::model::43d3es3o",
+      "node_id": "brief_synthesis",
+      "model_name": "iris-brief-synthesizer-v1",
+      "provider": "custom",
+      "duration_ms": 12,
+      "response_summary": "Generated 0 prioritized sections",
+      "raw_captured": false,
+      "started_at": "2026-10-14T19:01:04.043Z",
+      "metadata": {
+        "model_provider": "custom",
+        "model_name": "iris-brief-synthesizer-v1",
+        "input_tokens": 1200,
+        "output_tokens": 400,
+        "original_event_type": "model_call_completed"
+      }
+    },
+    {
+      "invocation_id": "model_iris-run-baseline-001::brief_synthesis::model::8hopj8w1",
+      "step_id": "iris-run-baseline-001::brief_synthesis::model::8hopj8w1",
+      "node_id": "brief_synthesis",
+      "model_name": "iris-brief-synthesizer-v1",
+      "provider": "custom",
+      "cost_usd": 0,
+      "duration_ms": 14,
+      "response_summary": "Generated 0 prioritized sections",
+      "raw_captured": false,
+      "started_at": "2026-10-14T19:28:08.468Z",
+      "metadata": {
+        "model_provider": "custom",
+        "model_name": "iris-brief-synthesizer-v1",
+        "input_tokens": 1200,
+        "output_tokens": 400
+      }
+    }
+  ],
+  "artifacts": [],
+  "evals": [
+    {
+      "eval_id": "brief_schema_and_grounding",
+      "eval_type": "output_validity",
+      "evaluator_id": "Brief Schema and Evidence Grounding",
+      "target_run_id": "iris-run-baseline-001",
+      "name": "Brief Schema and Evidence Grounding",
+      "score": 1,
+      "passed": true,
+      "severity": "info",
+      "evidence_references": [],
+      "grader_type": "deterministic",
+      "findings": [],
+      "timestamp": "2026-10-14T19:28:08.588Z"
+    }
+  ],
+  "lineage": {
+    "mutations": []
+  },
+  "provenance": {
+    "capture_method": "legacy_adaptation",
+    "adapter_version": "1.0.0-compat",
+    "captured_by": "AgentPulseLegacyRunAdapter",
+    "redaction_verified": false
+  },
+  "safety": {
+    "approval_status": "not_required",
+    "approval_records": [],
+    "redaction_summary": {
+      "total_redactions": 0,
+      "secrets_detected": 0,
+      "fields_redacted": []
+    }
+  },
+  "observability": {
+    "total_duration_ms": 120,
+    "model_calls_count": 2,
+    "tool_calls_count": 12,
+    "evals_passed": 1,
+    "evals_failed": 0,
+    "trace_event_count": 18,
+    "context_snapshot_count": 0,
+    "memory_operations_count": 0,
+    "retrieval_operations_count": 0
+  },
+  "replay": {
+    "overall_replayability": "UNKNOWN",
+    "unsupported_boundaries_count": 0,
+    "side_effect_gated_count": 0,
+    "deterministic": false,
+    "sandboxed_available": false,
+    "missing_recordings": [
+      "context_snapshots",
+      "memory_operations",
+      "exact_inputs"
+    ],
+    "notes": [
+      "Adapted from legacy AgentPulse run format.",
+      "Context and memory operations were not captured in this run."
+    ]
+  }
+}
