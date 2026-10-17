@@ -111,7 +111,7 @@ jobs:
           if-no-files-found: error
 
   publish-packages:
-    if: ${{ !inputs.publish_verified_beta }}
+    if: ${{ !inputs.publish_verified_beta && github.ref == 'refs/heads/main' }}
     name: Publish Packages (Approval Gated)
     needs: validate
     runs-on: ubuntu-latest
@@ -126,7 +126,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11.21.1
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -150,32 +152,21 @@ jobs:
           TARBALL=$(ls packages/client-typescript/reeprov-client-*.tgz)
           echo "Promoting pre-built verified tarball: $TARBALL"
           if [ "${{ inputs.dry_run }}" = "false" ]; then
-            npm publish "$TARBALL" --access public --provenance
+            npm publish "$TARBALL" --access public --provenance --tag latest
           else
             npm publish "$TARBALL" --access public --dry-run
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # NOTE on PyPI Publication:
-      # PyPI publication currently uses standard API-Token authentication (__token__ + PYPI_API_TOKEN secret).
-      # PyPI Trusted Publishing (OIDC) is NOT currently enabled or claimed because it requires pre-configuring
-      # the PyPI project/organization settings to link to this specific GitHub repository and workflow.
-      # If Trusted Publishing is configured in the future, the action 'pypa/gh-action-pypi-publish' can replace twine.
-      - name: Promote & Publish Python SDK
+      - name: Verify Python SDK artifacts
         run: |
           python -m pip install --upgrade twine
-          echo "Checking pre-built dist artifacts..."
           twine check packages/client-python/dist/*
-          if [ "${{ inputs.dry_run }}" = "false" ]; then
-            echo "Uploading artifacts to PyPI..."
-            twine upload packages/client-python/dist/*
-          else
-            echo "Dry run: skipping PyPI upload."
-          fi
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Publish Python SDK through PyPI trusted publisher
+        if: ${{ inputs.dry_run == false }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/client-python/dist/
 
       - name: Create GitHub Release
         if: ${{ inputs.dry_run == false }}
@@ -190,7 +181,7 @@ jobs:
             packages/client-python/dist/*
 
   publish-verified-beta:
-    if: ${{ inputs.publish_verified_beta && inputs.version == '0.1.0-beta.1' }}
+    if: ${{ inputs.publish_verified_beta && inputs.version == '0.1.0-beta.1' && github.ref == 'refs/heads/main' }}
     name: Publish Verified Beta Artifacts
     runs-on: ubuntu-latest
     environment: production
