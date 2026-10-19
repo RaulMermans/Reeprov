@@ -6,7 +6,7 @@
  * 2. Immutable state snapshot restoration via StateRestorer.
  * 3. Deterministic mutation application via MutationApplier.
  * 4. BoundaryResolver initialization starting strictly at boundary_cursor.
- * 5. SAFE_OFFLINE Network Kill Switch enforcement.
+ * 5. SAFE_OFFLINE application-level network guard enforcement.
  * 6. Resumable host execution from resume_step_index.
  * 7. Observable fork event streaming.
  * 8. Canonical child RunArtifact generation (without duplicating historical prefix).

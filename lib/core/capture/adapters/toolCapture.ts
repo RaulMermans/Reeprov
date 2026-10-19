@@ -10,6 +10,7 @@ import { toolInvocationSchema, type ToolInvocation } from "../../contracts/tools
 import { normalizeBoundary } from "../normalizeBoundary";
 import { classifySideEffect } from "../sideEffectClassifier";
 import { resolvePolicy } from "../policy";
+import { sanitizeCanonicalValue } from "../redaction";
 import type { ToolCaptureInput, ToolCaptureResult, CapturePolicy } from "../types";
 
 /**
@@ -33,26 +34,28 @@ export async function captureToolInvocation(
     input.toolName,
     input.declaredPermissionClass
   );
+  const safeArguments = sanitizeCanonicalValue(input.arguments, policy);
+  const safeOutput = sanitizeCanonicalValue(input.output, policy);
 
   // 2. Build ToolInvocation
-  const toolInvocation: ToolInvocation = toolInvocationSchema.parse({
+  const toolInvocation: ToolInvocation = toolInvocationSchema.parse(sanitizeCanonicalValue({
     tool_call_id: toolCallId,
     step_id: input.stepId,
     node_id: input.nodeId,
     tool_name: input.toolName,
     permission_class: sideEffectClass,
     replayability: "UNKNOWN", // normalized boundary computes exact replayability
-    input: input.arguments,
+    input: safeArguments,
     input_summary:
-      typeof input.arguments === "string"
-        ? input.arguments.slice(0, 300)
-        : JSON.stringify(input.arguments).slice(0, 300),
-    output: input.output,
+      typeof safeArguments === "string"
+        ? safeArguments.slice(0, 300)
+        : JSON.stringify(safeArguments).slice(0, 300),
+    output: safeOutput,
     output_summary:
-      typeof input.output === "string"
-        ? input.output.slice(0, 300)
-        : input.output !== undefined
-          ? JSON.stringify(input.output).slice(0, 300)
+      typeof safeOutput === "string"
+        ? safeOutput.slice(0, 300)
+        : safeOutput !== undefined
+          ? JSON.stringify(safeOutput).slice(0, 300)
           : undefined,
     status: input.status || (input.error ? "failed" : "completed"),
     error: input.error?.message,
@@ -66,7 +69,7 @@ export async function captureToolInvocation(
       retry_attempt: input.retryAttempt,
       approval_state: input.approvalState,
     },
-  });
+  }, policy));
 
   // 3. Build ExecutionBoundary
   const boundary = await normalizeBoundary(

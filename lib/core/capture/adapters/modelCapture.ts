@@ -9,7 +9,7 @@ import { modelInvocationSchema, type ModelInvocation } from "../../contracts/mod
 import { normalizeBoundary } from "../normalizeBoundary";
 import { buildContextSnapshot, type ContextItemInput } from "../contextSnapshotBuilder";
 import { hashPayload } from "../hashing";
-import { sanitizePayload } from "../redaction";
+import { sanitizePayload, sanitizeCanonicalValue } from "../redaction";
 import { resolvePolicy } from "../policy";
 import type { ModelCaptureInput, ModelCaptureResult, CapturePolicy } from "../types";
 
@@ -87,13 +87,14 @@ export async function captureModelInvocation(
   }
 
   // ── 3. Sanitize Response & Compute Hash ────────────────────────────────────
-  const responseRedaction = sanitizePayload(input.response, { policy });
+  const safePolicy = { ...policy, redaction: { ...policy.redaction, enabled: true } };
+  const responseRedaction = sanitizePayload(input.response, { policy: safePolicy });
   const responseHash = responseRedaction.persisted_hash;
   const promptTokens = input.inputTokens ?? (contextSnapshot?.total_token_estimate || 0);
   const completionTokens = input.outputTokens ?? 0;
   const totalTokens = promptTokens + completionTokens;
 
-  const modelInvocation: ModelInvocation = modelInvocationSchema.parse({
+  const modelInvocation: ModelInvocation = modelInvocationSchema.parse(sanitizeCanonicalValue({
     invocation_id: invocationId,
     step_id: input.stepId,
     node_id: input.nodeId,
@@ -107,9 +108,9 @@ export async function captureModelInvocation(
     duration_ms: durationMs,
     context_snapshot_id: contextSnapshotId,
     response_summary:
-      typeof input.response === "string"
-        ? input.response.slice(0, 300)
-        : JSON.stringify(input.response).slice(0, 300),
+      typeof responseRedaction.value === "string"
+        ? responseRedaction.value.slice(0, 300)
+        : JSON.stringify(responseRedaction.value).slice(0, 300),
     raw_captured: true,
     response_hash: responseHash,
     finish_reason: input.finishReason,
@@ -122,7 +123,7 @@ export async function captureModelInvocation(
       reasoning_tokens: input.reasoningTokens,
       revision: input.revision,
     },
-  });
+  }, safePolicy));
 
   // ── 4. Build Execution Boundary ───────────────────────────────────────────
   const boundaryInput = {

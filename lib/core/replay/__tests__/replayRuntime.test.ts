@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import net from "node:net";
+import childProcess from "node:child_process";
 import { runArtifactSchema, type RunArtifact } from "../../contracts/runArtifact";
 import { ReplayRuntime } from "../runtime";
 import { buildReplayPlan } from "../planner";
@@ -261,7 +263,7 @@ describe("Deterministic Offline Replay Runtime Suite", () => {
     });
 
     expect(result.status).toBe("BLOCKED");
-    expect(result.live_calls_blocked).toBeGreaterThan(0);
+    expect(result.live_calls_blocked).toBe(1);
     expect(
       result.divergences.some((d) => d.divergence_type === "SIDE_EFFECT_ATTEMPT_BLOCKED")
     ).toBe(true);
@@ -281,10 +283,40 @@ describe("Deterministic Offline Replay Runtime Suite", () => {
     });
 
     expect(result.status).toBe("BLOCKED");
-    expect(result.live_calls_blocked).toBeGreaterThan(0);
+    expect(result.live_calls_blocked).toBe(1);
     expect(
       result.divergences.some((d) => d.divergence_type === "NETWORK_ATTEMPT_BLOCKED")
     ).toBe(true);
+  });
+
+  it("blocks direct TCP and subprocess escape routes without making a network call", async () => {
+    const connectSpy = vi.spyOn(net, "connect").mockImplementation(() => { throw new Error("unguarded TCP"); });
+    const spawnSpy = vi.spyOn(childProcess, "spawn").mockImplementation(() => { throw new Error("unguarded spawn"); });
+    const guard = new NetworkKillSwitch();
+    guard.activate();
+    try {
+      expect(() => net.connect(443, "127.0.0.1")).toThrow(NetworkAccessDeniedError);
+      expect(() => childProcess.spawn("node", ["--version"])).toThrow(NetworkAccessDeniedError);
+      expect(guard.getAttemptCount()).toBe(2);
+    } finally {
+      guard.deactivate();
+      connectSpy.mockRestore();
+      spawnSpy.mockRestore();
+    }
+  });
+
+  it("rejects overlapping guards so one replay cannot restore another's patches", () => {
+    const connectSpy = vi.spyOn(net, "connect").mockImplementation(() => { throw new Error("unguarded TCP"); });
+    const first = new NetworkKillSwitch();
+    const second = new NetworkKillSwitch();
+    first.activate();
+    try {
+      expect(() => second.activate()).toThrow(/already active/);
+      expect(() => net.connect(443, "127.0.0.1")).toThrow(NetworkAccessDeniedError);
+    } finally {
+      first.deactivate();
+      connectSpy.mockRestore();
+    }
   });
 
   // ── 11. Pre-flight ReplayPlan Validation on Corrupted Artifacts ────────────

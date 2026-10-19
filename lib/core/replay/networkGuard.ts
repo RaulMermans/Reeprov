@@ -1,97 +1,98 @@
 /**
- * Deterministic Network Kill Switch for STRICT_OFFLINE Replay.
+ * Application-level interception for offline replay.
  *
- * Intercepts and denies all outbound network traffic (fetch, http, https)
- * during offline replay. Ensures network_attempts === 0.
+ * This is defense in depth for known Node APIs, not an OS network sandbox.
+ * Arbitrary host code must run in a separately network-isolated process if a
+ * comprehensive zero-egress guarantee is required.
  */
 
+import childProcess from "node:child_process";
+import dgram from "node:dgram";
+import dns from "node:dns";
 import http from "node:http";
 import https from "node:https";
+import net from "node:net";
+import tls from "node:tls";
 
 export class NetworkAccessDeniedError extends Error {
   constructor(public readonly target: string) {
-    super(
-      `[STRICT_OFFLINE Network Kill Switch] Outbound network request to '${target}' was blocked. Offline replay forbids all external network calls.`
-    );
+    super(`[STRICT_OFFLINE Network Guard] '${target}' was blocked by the application-level replay guard.`);
     this.name = "NetworkAccessDeniedError";
   }
 }
 
+interface PatchedMethod {
+  target: Record<string, unknown>;
+  name: string;
+  original: unknown;
+}
+
 export class NetworkKillSwitch {
+  private static owner: NetworkKillSwitch | null = null;
   private active = false;
   private attemptCount = 0;
   private blockedTargets: string[] = [];
+  private patches: PatchedMethod[] = [];
 
-  private originalFetch: typeof globalThis.fetch | null = null;
-  private originalHttpRequest: typeof http.request | null = null;
-  private originalHttpGet: typeof http.get | null = null;
-  private originalHttpsRequest: typeof https.request | null = null;
-  private originalHttpsGet: typeof https.get | null = null;
+  private block(target: string): never {
+    this.attemptCount++;
+    // Record the API name, not raw URLs or command arguments that may contain secrets.
+    this.blockedTargets.push(target);
+    throw new NetworkAccessDeniedError(target);
+  }
+
+  private patch(target: object, name: string, label: string): void {
+    const methods = target as Record<string, unknown>;
+    if (typeof methods[name] !== "function") return;
+    const original = methods[name];
+    methods[name] = (..._args: unknown[]) => this.block(label);
+    this.patches.push({ target: methods, name, original });
+  }
 
   activate(): void {
     if (this.active) return;
-    this.active = true;
-
-    // 1. Intercept global fetch
-    if (typeof globalThis.fetch === "function") {
-      this.originalFetch = globalThis.fetch;
-      globalThis.fetch = (input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => {
-        this.attemptCount++;
-        const target = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-        this.blockedTargets.push(target);
-        throw new NetworkAccessDeniedError(target);
-      };
+    if (NetworkKillSwitch.owner) {
+      throw new Error("A process-wide replay network guard is already active");
     }
+    NetworkKillSwitch.owner = this;
+    try {
+      this.patch(globalThis, "fetch", "fetch");
+      for (const name of ["request", "get"]) {
+        this.patch(http, name, `http.${name}`);
+        this.patch(https, name, `https.${name}`);
+      }
+      for (const name of ["connect", "createConnection"]) {
+        this.patch(net, name, `net.${name}`);
+      }
+      this.patch(net.Socket.prototype, "connect", "net.Socket.connect");
+      this.patch(tls, "connect", "tls.connect");
+      this.patch(dgram, "createSocket", "dgram.createSocket");
+      for (const name of ["lookup", "lookupService", "resolve", "resolve4", "resolve6", "resolveAny", "reverse"]) {
+        this.patch(dns, name, `dns.${name}`);
+      }
+      for (const name of ["spawn", "spawnSync", "exec", "execSync", "execFile", "execFileSync", "fork"]) {
+        this.patch(childProcess, name, `child_process.${name}`);
+      }
+      this.active = true;
+    } catch (error) {
+      this.restore();
+      NetworkKillSwitch.owner = null;
+      throw error;
+    }
+  }
 
-    // 2. Intercept http.request and http.get
-    this.originalHttpRequest = http.request;
-    this.originalHttpGet = http.get;
-    const blockedHttp = (urlOrOptions: unknown): never => {
-      this.attemptCount++;
-      const target = typeof urlOrOptions === "string" ? urlOrOptions : JSON.stringify(urlOrOptions);
-      this.blockedTargets.push(target);
-      throw new NetworkAccessDeniedError(target);
-    };
-    (http as unknown as { request: unknown }).request = blockedHttp;
-    (http as unknown as { get: unknown }).get = blockedHttp;
-
-    // 3. Intercept https.request and https.get
-    this.originalHttpsRequest = https.request;
-    this.originalHttpsGet = https.get;
-    const blockedHttps = (urlOrOptions: unknown): never => {
-      this.attemptCount++;
-      const target = typeof urlOrOptions === "string" ? urlOrOptions : JSON.stringify(urlOrOptions);
-      this.blockedTargets.push(target);
-      throw new NetworkAccessDeniedError(target);
-    };
-    (https as unknown as { request: unknown }).request = blockedHttps;
-    (https as unknown as { get: unknown }).get = blockedHttps;
+  private restore(): void {
+    for (const { target, name, original } of this.patches.reverse()) {
+      target[name] = original;
+    }
+    this.patches = [];
   }
 
   deactivate(): void {
     if (!this.active) return;
+    this.restore();
     this.active = false;
-
-    if (this.originalFetch) {
-      globalThis.fetch = this.originalFetch;
-      this.originalFetch = null;
-    }
-    if (this.originalHttpRequest) {
-      http.request = this.originalHttpRequest;
-      this.originalHttpRequest = null;
-    }
-    if (this.originalHttpGet) {
-      http.get = this.originalHttpGet;
-      this.originalHttpGet = null;
-    }
-    if (this.originalHttpsRequest) {
-      https.request = this.originalHttpsRequest;
-      this.originalHttpsRequest = null;
-    }
-    if (this.originalHttpsGet) {
-      https.get = this.originalHttpsGet;
-      this.originalHttpsGet = null;
-    }
+    NetworkKillSwitch.owner = null;
   }
 
   async runWithKillSwitch<T>(fn: () => Promise<T>): Promise<T> {

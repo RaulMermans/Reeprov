@@ -7,11 +7,11 @@ Branching execution from historical agent state introduces significant security 
 - **Uncontrolled Network Access**: Third-party agent dependencies might attempt to communicate with external APIs, telemetry hosts, or production endpoints.
 - **State Tampering & Injection**: An operator might inject arbitrary checkpoints from untrusted runs into a privileged session.
 
-> **Core Security Principle**: All fork operations execute under strict sandboxing where network access is severed, live external side-effects are denied by default, and checkpoint provenance is cryptographically verified.
+> **Current safety boundary**: Fork dependency resolution denies undeclared live side effects, verifies checkpoint provenance, and intercepts known Node network/process APIs. The in-process guard is not a security sandbox. Arbitrary host logic requires a separately network-isolated process or container before claiming zero egress.
 
 ---
 
-## 2. Global Network Kill-Switch
+## 2. Application-Level Network Guard
 
 During fork execution under `SAFE_OFFLINE_FORK` policy, the `NetworkKillSwitch` activates before state restoration and remains active until execution concludes:
 
@@ -25,10 +25,13 @@ try {
 }
 ```
 
-### Protection Seams:
+### Interception Seams:
 1. **Global `fetch`**: Replaced with an interceptor throwing `NetworkAccessDeniedError`.
-2. **Node `http` and `https`**: Intercepts `http.request`, `http.get`, `https.request`, and `https.get` to block OS socket allocation.
-3. **Auditing**: Every intercepted call increments `blocked_actions` in the `ForkResult` and logs a security event.
+2. **Node networking**: Intercepts `http`/`https`, direct `net`/`tls` sockets, UDP socket creation, and DNS calls made through patched module methods.
+3. **Subprocesses**: Intercepts common `child_process` entry points.
+4. **Auditing**: Intercepted calls are counted and reported. Bypasses through retained function references, native code, or unpatched APIs are outside this count.
+
+The patches affect all code in the process while active. Reeprov rejects overlapping guard instances, but this does not isolate concurrent unrelated requests; fork execution with untrusted logic needs a dedicated sandboxed process.
 
 ---
 

@@ -203,7 +203,7 @@ function sanitizeValue(
         const isHeader = isSensitiveHeader(k, policy.redaction.sensitiveHeaders ?? []);
         const isField = isSensitiveKey(k, policy.redaction.sensitiveFieldNames ?? []);
 
-        if (isHeader || isField) {
+        if ((isHeader || isField) && v !== null && v !== undefined && typeof v !== "number" && typeof v !== "boolean") {
           fieldsRedacted.add(k);
           result[k] = "[REDACTED_SECRET]";
           continue;
@@ -324,4 +324,12 @@ export function sanitizePayload<T = unknown>(
     persisted_hash: persistedHash,
     content_status: contentStatus,
   };
+}
+
+/** Scrub a canonical record without applying the caller's content-omission mode. */
+export function sanitizeCanonicalValue<T>(value: T, policy: CapturePolicy): T {
+  return sanitizePayload(value, {
+    policy: { ...policy, redaction: { ...policy.redaction, enabled: true } },
+    modeOverride: "SAFE_CONTENT",
+  }).value;
 }

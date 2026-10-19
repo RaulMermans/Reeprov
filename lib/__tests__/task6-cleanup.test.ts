@@ -100,6 +100,7 @@ describe("eval_completed → EvalResult conversion", () => {
     const event = makeEvent({
       eval_id: "ev_001",
       eval_name: "Custom Eval",
+      passed: true,
       type: "custom_unknown_type",
     });
     const result = tryBuildEvalResultFromTraceEvent(event);
@@ -110,6 +111,7 @@ describe("eval_completed → EvalResult conversion", () => {
     const event = makeEvent({
       eval_id: "ev_001",
       eval_name: "Mixed Eval",
+      passed: true,
       findings: ["string finding", 42, null, "another finding"],
     });
     const result = tryBuildEvalResultFromTraceEvent(event);
@@ -117,12 +119,19 @@ describe("eval_completed → EvalResult conversion", () => {
   });
 
   it("handles missing optional fields gracefully", () => {
-    const event = makeEvent({ eval_id: "ev_001", eval_name: "Bare Eval" });
+    const event = makeEvent({ eval_id: "ev_001", eval_name: "Bare Eval", passed: true });
     const result = tryBuildEvalResultFromTraceEvent(event);
     expect(result).not.toBeNull();
     expect(result!.score).toBeUndefined();
     expect(result!.recommendation).toBeUndefined();
     expect(result!.findings).toEqual([]);
+  });
+
+  it("does not turn a missing or malformed verdict into a passing EvalResult", () => {
+    for (const verdict of [undefined, null, "true", 1]) {
+      const event = makeEvent({ eval_id: "ev_001", eval_name: "Safety Check", passed: verdict });
+      expect(tryBuildEvalResultFromTraceEvent(event)).toBeNull();
+    }
   });
 });
 

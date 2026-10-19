@@ -121,7 +121,7 @@ export async function POST(request: Request) {
           eventType: event.event_type,
           category: "malformed_metadata",
           errorCode: "422",
-          message: "eval_completed event was missing required metadata (eval_id, eval_name) and was not converted to an EvalResult.",
+          message: "eval_completed event requires eval_id, eval_name, and a boolean passed verdict; it was not converted to an EvalResult.",
         });
       }
 

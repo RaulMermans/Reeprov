@@ -15,6 +15,7 @@ import {
 } from "../../contracts/memory";
 import { normalizeBoundary } from "../normalizeBoundary";
 import { resolvePolicy } from "../policy";
+import { sanitizeCanonicalValue } from "../redaction";
 import type { MemoryCaptureInput, MemoryCaptureResult, CapturePolicy } from "../types";
 
 /**
@@ -35,7 +36,7 @@ export async function captureMemoryOperation(
   const sideEffectClass = isReadOp ? "read_only" : "external_side_effect";
 
   // 2. Build MemoryOperation
-  const memoryOperation: MemoryOperation = memoryOperationSchema.parse({
+  const memoryOperation: MemoryOperation = memoryOperationSchema.parse(sanitizeCanonicalValue({
     operation_id: operationId,
     step_id: input.stepId,
     operation_type: input.operationType,
@@ -57,7 +58,7 @@ export async function captureMemoryOperation(
     originating_run_id: input.originatingRunId ?? input.runId,
     originating_step_id: input.originatingStepId ?? input.stepId,
     details: input.details,
-  });
+  }, policy));
 
   // 3. Build ExecutionBoundary
   const boundary = await normalizeBoundary(

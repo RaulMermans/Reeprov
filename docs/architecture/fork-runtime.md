@@ -54,7 +54,7 @@ export const SAFE_OFFLINE_FORK_POLICY: ForkDependencyPolicy = {
   retrieval_mode: "RECORDED",          // Replay recorded embeddings/docs
   tool_mode: "RECORDED",               // Replay recorded tool responses
   side_effect_mode: "DENY",            // Deny live external modifications
-  network_allowed: false,              // Global network kill-switch active
+  network_allowed: false,              // Policy intent; in-process guard is not OS isolation
   allow_tool_overrides: true,          // Controlled overrides permitted
 };
 ```
@@ -141,7 +141,7 @@ const resolver = new BoundaryResolver(parentRun, {
               │     ForkRuntime.fork()     │
               └─────────────┬─────────────┘
                             │
- 1. Guard Activation        ├── NetworkKillSwitch armed (fetch/http/https blocked)
+ 1. Guard Activation        ├── NetworkKillSwitch armed (known Node I/O APIs blocked)
  2. State Restoration       ├── restoreState(checkpoint) + verify SHA-256
  3. Mutation Application    ├── applyMutations() + record before/after hashes
  4. Host Initialization     ├── hostAdapter.initializeFromCheckpoint(...)

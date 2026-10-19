@@ -14,6 +14,7 @@ import { POST } from "./route";
 import { POST as START_RUN } from "@/app/api/runs/start/route";
 import { fileDiagnosticStore } from "@/lib/diagnostics/fileDiagnosticStore";
 import { fileIntegrationStore } from "@/lib/integrations/integrationStore";
+import { fileRunStore } from "@/lib/runs/runStore";
 
 const TEST_INGEST_KEY = "test-ingest-key";
 let tmpDir: string;
@@ -43,6 +44,29 @@ function req(body: unknown, headers: Record<string, string> = {}): Request {
 }
 
 describe("POST /api/traces/events — diagnostics", () => {
+  it("keeps an eval event without a boolean verdict out of stored EvalResults", async () => {
+    const startRes = await START_RUN(new Request("http://localhost/api/runs/start", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-agentpulse-key": TEST_INGEST_KEY },
+      body: JSON.stringify({ project_id: "proj-eval", project_name: "Proj Eval", workflow_id: "wf-eval", summary: "eval test" }),
+    }));
+    expect(startRes.status).toBe(201);
+    const { run_id } = await startRes.json() as { run_id: string };
+    const res = await POST(req({ events: [{
+      event_id: "evt-missing-verdict",
+      run_id,
+      workflow_id: "wf-eval",
+      timestamp: new Date().toISOString(),
+      event_type: "eval_completed",
+      metadata: { eval_id: "eval-safety", eval_name: "Safety" },
+    }] }, { "x-agentpulse-key": TEST_INGEST_KEY }));
+
+    expect(await res.json()).toEqual({ accepted: 1, rejected: 0, errors: [] });
+    expect((await fileRunStore.getRun(run_id))?.evalResults).toHaveLength(0);
+    const diagnostics = await fileDiagnosticStore.listDiagnostics({});
+    expect(diagnostics.some((d) => d.category === "malformed_metadata" && d.runId === run_id)).toBe(true);
+  });
+
   it("records a missing_auth_header diagnostic and returns 401 with no header", async () => {
     const res = await POST(req({ events: [] }));
     expect(res.status).toBe(401);

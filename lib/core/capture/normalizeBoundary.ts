@@ -23,7 +23,13 @@ export async function normalizeBoundary(
   raw: RawBoundaryInput,
   policyOverrides?: Partial<CapturePolicy>
 ): Promise<ExecutionBoundary> {
-  const policy = resolvePolicy(policyOverrides);
+  const resolvedPolicy = resolvePolicy(policyOverrides);
+  // Canonical evidence is persisted and exported. Secret scrubbing is mandatory
+  // even when a caller supplies a relaxed capture policy for local testing.
+  const policy = {
+    ...resolvedPolicy,
+    redaction: { ...resolvedPolicy.redaction, enabled: true },
+  };
   const contentStore = getContentStore();
 
   const rawAny = raw as unknown as Record<string, unknown>;
@@ -63,7 +69,9 @@ export async function normalizeBoundary(
   const inputPayload: BoundaryPayload = {
     captured: raw.input !== undefined,
     content: inputContent,
-    summary: raw.inputSummary || (typeof raw.input === "string" ? raw.input.slice(0, 200) : undefined),
+    summary: policy.contentMode === "STRUCTURE_ONLY"
+      ? undefined
+      : raw.inputSummary || (typeof raw.input === "string" ? raw.input.slice(0, 200) : undefined),
     hash: inputHash,
     redaction_status: inputRedaction.content_status,
     content_ref: inputContentRef,
@@ -109,7 +117,9 @@ export async function normalizeBoundary(
     outputPayload = {
       captured: true,
       content: outputContent,
-      summary: raw.outputSummary || (typeof raw.output === "string" ? raw.output.slice(0, 200) : undefined),
+      summary: policy.contentMode === "STRUCTURE_ONLY"
+        ? undefined
+        : raw.outputSummary || (typeof raw.output === "string" ? raw.output.slice(0, 200) : undefined),
       hash: outputHash,
       redaction_status: outputRedaction.content_status,
       content_ref: outputContentRef,
@@ -121,7 +131,7 @@ export async function normalizeBoundary(
     // Errored without explicit output
     outputPayload = {
       captured: false,
-      summary: raw.error.message,
+      summary: policy.contentMode === "STRUCTURE_ONLY" ? undefined : raw.error.message,
       redaction_status: "none",
       availability: "UNAVAILABLE",
     };
@@ -156,9 +166,6 @@ export async function normalizeBoundary(
     new Set([...inputRedaction.fields_redacted, ...outputFieldsRedacted])
   );
 
-  const overallRedactionStatus =
-    allFieldsRedacted.length > 0 ? "partially_redacted" : "none";
-
   const dependencyIdentity =
     raw.dependencyIdentity || deriveDependencyIdentity(boundaryType, boundaryName);
 
@@ -186,7 +193,7 @@ export async function normalizeBoundary(
     external_dependency: raw.dependencyIdentity,
     dependency_identity: dependencyIdentity,
     captured_content_availability: overallContentAvailability,
-    redaction_status: overallRedactionStatus,
+    redaction_status: allFieldsRedacted.length > 0 ? "partially_redacted" : "none",
     redaction_metadata: {
       fields_redacted: allFieldsRedacted,
       strategy: "mask",
@@ -204,5 +211,26 @@ export async function normalizeBoundary(
     metadata: raw.metadata,
   };
 
-  return executionBoundarySchema.parse(boundaryRecord);
+  // Payload content was scrubbed before hashing or blob storage. Scrub the
+  // assembled record too: summaries, names, errors, identities and metadata
+  // can all contain secrets independently of the payloads.
+  const recordRedaction = sanitizePayload(boundaryRecord, {
+    policy,
+    modeOverride: "SAFE_CONTENT",
+  });
+  const safeBoundary = recordRedaction.value;
+  const fieldsRedacted = Array.from(new Set([
+    ...allFieldsRedacted,
+    ...recordRedaction.fields_redacted,
+  ]));
+  if (safeBoundary.input.summary !== boundaryRecord.input.summary) {
+    safeBoundary.input.redaction_status = "partially_redacted";
+  }
+  if (safeBoundary.output?.summary !== boundaryRecord.output?.summary && safeBoundary.output) {
+    safeBoundary.output.redaction_status = "partially_redacted";
+  }
+  safeBoundary.redaction_status = fieldsRedacted.length > 0 ? "partially_redacted" : "none";
+  safeBoundary.redaction_metadata = { fields_redacted: fieldsRedacted, strategy: "mask" };
+
+  return executionBoundarySchema.parse(safeBoundary);
 }

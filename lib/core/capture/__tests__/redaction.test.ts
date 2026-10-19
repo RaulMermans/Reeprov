@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { sanitizeString, sanitizePayload } from "../redaction";
+import { normalizeBoundary } from "../normalizeBoundary";
+import { captureToolInvocation } from "../adapters/toolCapture";
+import { captureModelInvocation } from "../adapters/modelCapture";
+import { captureRetrievalOperation } from "../adapters/retrievalCapture";
+import { captureMemoryOperation } from "../adapters/memoryCapture";
+import { buildContextSnapshot } from "../contextSnapshotBuilder";
+import { hashPayload } from "../hashing";
 
 describe("Telemetry Minimization & Secret Redaction", () => {
   const originalEnv = process.env;
@@ -85,6 +92,109 @@ describe("Telemetry Minimization & Secret Redaction", () => {
   });
 
   describe("Object & Payload Sanitization Pipeline", () => {
+    it("redacts secrets from the entire canonical boundary, including fallback summaries", async () => {
+      const secret = ["sk", "abcdefghijklmnopqrstuvwxyz0123456789ABCD"].join("-");
+      const boundary = await normalizeBoundary({
+        runId: "run-redaction",
+        boundaryType: "tool_call",
+        name: `lookup ${secret}`,
+        input: `input ${secret}`,
+        inputSummary: `summary ${secret}`,
+        output: `output ${secret}`,
+        outputSummary: `summary ${secret}`,
+        error: { message: `error ${secret}`, details: { api_key: secret } },
+        metadata: { note: secret, authorization: secret },
+        dependencyIdentity: `service:${secret}`,
+      });
+      const fallback = await normalizeBoundary({
+        runId: "run-redaction-fallback",
+        boundaryType: "tool_call",
+        name: "lookup",
+        input: `input ${secret}`,
+        output: `output ${secret}`,
+        error: { message: `error ${secret}` },
+      });
+
+      expect(JSON.stringify(boundary)).not.toContain(secret);
+      expect(JSON.stringify(fallback)).not.toContain(secret);
+      expect(boundary.redaction_status).toBe("partially_redacted");
+      expect(boundary.input.hash).toBeDefined();
+      expect(boundary.content_hashes?.input_hash).toBe(boundary.input.hash);
+    });
+
+    it("does not copy raw summaries into STRUCTURE_ONLY boundaries", async () => {
+      const boundary = await normalizeBoundary({
+        runId: "run-structure-only",
+        boundaryType: "tool_call",
+        name: "lookup",
+        input: "private customer narrative",
+        inputSummary: "private customer narrative",
+        output: "private reply",
+        outputSummary: "private reply",
+      }, { contentMode: "STRUCTURE_ONLY" });
+
+      expect(boundary.input.summary).toBeUndefined();
+      expect(boundary.output?.summary).toBeUndefined();
+      expect(boundary.input.content).toBeUndefined();
+      expect(boundary.output?.content).toBeUndefined();
+    });
+
+    it("redacts model and tool sidecar records before canonical export", async () => {
+      const secret = ["sk", "abcdefghijklmnopqrstuvwxyz0123456789ABCD"].join("-");
+      const tool = await captureToolInvocation({
+        runId: "run-tool-redaction",
+        toolName: "lookup",
+        arguments: { authorization: secret, query: `find ${secret}` },
+        output: { answer: secret },
+        error: { message: `error ${secret}` },
+        startedAt: "2026-01-01T00:00:00.000Z",
+        metadata: { note: secret },
+      });
+      const model = await captureModelInvocation({
+        runId: "run-model-redaction",
+        model: "local-model",
+        provider: "local",
+        prompt: `prompt ${secret}`,
+        response: `response ${secret}`,
+        startedAt: "2026-01-01T00:00:00.000Z",
+        metadata: { note: secret },
+      });
+
+      expect(JSON.stringify(tool)).not.toContain(secret);
+      expect(JSON.stringify(model)).not.toContain(secret);
+      expect(model.modelInvocation.prompt_tokens).toBeTypeOf("number");
+    });
+
+    it("redacts retrieval, memory, and context sidecars without breaking content hashes", async () => {
+      const secret = ["sk", "abcdefghijklmnopqrstuvwxyz0123456789ABCD"].join("-");
+      const retrieval = await captureRetrievalOperation({
+        runId: "run-retrieval-redaction",
+        serviceName: "search",
+        query: `query ${secret}`,
+        results: [{ documentId: "doc-1", content: `content ${secret}`, metadata: { note: secret } }],
+        startedAt: "2026-01-01T00:00:00.000Z",
+      });
+      const memory = await captureMemoryOperation({
+        runId: "run-memory-redaction",
+        provider: "memory",
+        operationType: "read",
+        category: "episodic",
+        query: `query ${secret}`,
+        timestamps: { operationAt: "2026-01-01T00:00:00.000Z" },
+        outcome: "success",
+        details: { note: secret },
+      });
+      const context = await buildContextSnapshot({
+        items: [{ sourceType: "user_input", content: `prompt ${secret}`, metadata: { note: secret } }],
+        metadata: { note: secret },
+      });
+
+      expect(JSON.stringify(retrieval)).not.toContain(secret);
+      expect(JSON.stringify(memory)).not.toContain(secret);
+      expect(JSON.stringify(context)).not.toContain(secret);
+      const item = retrieval.retrievalOperation.results[0]!;
+      expect(item.metadata?.["content_hash"]).toBe(hashPayload(item.content));
+    });
     it("redacts sensitive object keys recursively", () => {
       const payload = {
         user: "alice",

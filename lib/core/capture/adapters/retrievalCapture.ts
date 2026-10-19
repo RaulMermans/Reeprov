@@ -13,6 +13,7 @@ import {
 import { normalizeBoundary } from "../normalizeBoundary";
 import { hashPayload } from "../hashing";
 import { resolvePolicy } from "../policy";
+import { sanitizeCanonicalValue } from "../redaction";
 import type { RetrievalCaptureInput, RetrievalCaptureResult, CapturePolicy } from "../types";
 
 /**
@@ -33,7 +34,8 @@ export async function captureRetrievalOperation(
   // 1. Process Result Items
   const contextItemIds: string[] = [];
   const resultItems: RetrievalResultItem[] = input.results.map((item, idx) => {
-    const contentHash = hashPayload(item.content);
+    const safeContent = sanitizeCanonicalValue(item.content, policy);
+    const contentHash = hashPayload(safeContent);
     const contextItemId = `${operationId}_item_${idx}`;
     if (item.enteredModelContext !== false) {
       contextItemIds.push(contextItemId);
@@ -46,8 +48,8 @@ export async function captureRetrievalOperation(
       uri: item.uri,
       score: item.score,
       rank: item.rank ?? idx + 1,
-      content_preview: item.content ? item.content.slice(0, 250) : undefined,
-      content: item.content,
+      content_preview: safeContent ? safeContent.slice(0, 250) : undefined,
+      content: safeContent,
       metadata: {
         ...(item.metadata ?? {}),
         content_hash: contentHash,
@@ -57,7 +59,7 @@ export async function captureRetrievalOperation(
   });
 
   // 2. Build RetrievalOperation
-  const retrievalOperation: RetrievalOperation = retrievalOperationSchema.parse({
+  const retrievalOperation: RetrievalOperation = retrievalOperationSchema.parse(sanitizeCanonicalValue({
     operation_id: operationId,
     step_id: input.stepId,
     service_name: input.serviceName,
@@ -69,7 +71,7 @@ export async function captureRetrievalOperation(
     duration_ms: durationMs,
     timestamp: startedAt,
     context_item_ids: contextItemIds,
-  });
+  }, policy));
 
   // 3. Build ExecutionBoundary
   const boundary = await normalizeBoundary(
