@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { saveCanonicalRun, getCanonicalRun } from "../persistence";
 import { CANONICAL_RUN_ARTIFACT_SCHEMA_VERSION, type RunArtifact } from "../../contracts/runArtifact";
 import { hasDatabaseUrl } from "@/lib/db/client";
 import { fileRunStore } from "@/lib/runs/runStore";
+import { normalizeBoundary } from "../normalizeBoundary";
 
 describe("Canonical Run & Boundary Persistence", () => {
   const testStoreDir = join(process.cwd(), ".agentpulse-test-runs");
@@ -130,6 +131,22 @@ describe("Canonical Run & Boundary Persistence", () => {
       },
     };
 
+    const secret = ["sk", "abcdefghijklmnopqrstuvwxyz0123456789ABCD"].join("-");
+    artifact.boundaries[0] = await normalizeBoundary({
+      boundaryId: "bnd_0",
+      runId: "run_persist_test_001",
+      stepId: "step_0",
+      sequenceIndex: 0,
+      boundaryType: "model_call",
+      name: "openai/gpt-4o",
+      input: `prompt ${secret}`,
+      inputSummary: `summary ${secret}`,
+      output: `response ${secret}`,
+      outputSummary: `summary ${secret}`,
+      error: { message: `error ${secret}` },
+      metadata: { note: secret },
+    });
+
     const saveRes = await saveCanonicalRun(artifact);
     expect(saveRes.success).toBe(true);
 
@@ -139,6 +156,9 @@ describe("Canonical Run & Boundary Persistence", () => {
     expect(reloaded?.boundaries).toHaveLength(1);
     expect(reloaded?.boundaries[0].name).toBe("openai/gpt-4o");
     expect(reloaded?.models).toHaveLength(1);
+    expect(JSON.stringify(reloaded)).not.toContain(secret);
+    const exportedJson = await readFile(join(testStoreDir, "runs", "run_persist_test_001.canonical.json"), "utf8");
+    expect(exportedJson).not.toContain(secret);
   });
 
   it("transparently adapts legacy runs when no canonical file exists (backward compatibility)", async () => {

@@ -8,7 +8,7 @@
  * Returns null when:
  *   - the event is not of type `eval_completed`
  *   - the event has no `metadata`
- *   - required fields (`eval_id`, `eval_name`) are missing or malformed
+ *   - required fields (`eval_id`, `eval_name`, `passed`) are missing or malformed
  *   - the resulting object fails `evalResultSchema` validation
  *
  * Never throws — malformed metadata simply produces null so ingestion remains
@@ -48,9 +48,9 @@ export function tryBuildEvalResultFromTraceEvent(event: TraceEvent): EvalResult 
 
   const eval_id = typeof meta["eval_id"] === "string" ? meta["eval_id"] : null;
   const name = typeof meta["eval_name"] === "string" ? meta["eval_name"] : null;
-  if (!eval_id || !name) return null;
+  if (!eval_id || !name || typeof meta["passed"] !== "boolean") return null;
 
-  const passed = typeof meta["passed"] === "boolean" ? meta["passed"] : true;
+  const passed = meta["passed"];
   const score = typeof meta["score"] === "number" ? meta["score"] : undefined;
   const rawFindings: unknown[] = Array.isArray(meta["findings"]) ? (meta["findings"] as unknown[]) : [];
   const findings: string[] = rawFindings.filter((f): f is string => typeof f === "string");

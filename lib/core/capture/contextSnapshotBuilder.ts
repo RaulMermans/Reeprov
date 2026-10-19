@@ -15,7 +15,7 @@ import {
   type TokenMeasurement,
   type TokenMeasurementMethod,
 } from "../contracts/context";
-import { sanitizePayload } from "./redaction";
+import { sanitizePayload, sanitizeCanonicalValue } from "./redaction";
 import { hashPayload } from "./hashing";
 import { getContentStore } from "./contentStore";
 import { resolvePolicy } from "./policy";
@@ -106,7 +106,9 @@ export async function buildContextSnapshot(
     }
 
     // Sanitize item content
-    const redaction = sanitizePayload(raw.content, { policy });
+    const redaction = sanitizePayload(raw.content, {
+      policy: { ...policy, redaction: { ...policy.redaction, enabled: true } },
+    });
     const contentHash = redaction.persisted_hash;
     const contentStr = String(redaction.value ?? "");
     const sizeBytes = Buffer.byteLength(contentStr, "utf8");
@@ -135,15 +137,15 @@ export async function buildContextSnapshot(
     const item: ContextItem = {
       item_id: itemId,
       source_type: raw.sourceType,
-      source_reference: raw.sourceReference,
-      provenance: raw.provenance,
+      source_reference: sanitizeCanonicalValue(raw.sourceReference, policy),
+      provenance: sanitizeCanonicalValue(raw.provenance, policy),
       token_estimate: tokenEst,
       token_measurement: tokenMeasurement,
       position: idx,
-      inclusion_reason: raw.inclusionReason,
+      inclusion_reason: sanitizeCanonicalValue(raw.inclusionReason, policy),
       retrieval_score: raw.retrievalScore,
       timestamp,
-      version: raw.version,
+      version: sanitizeCanonicalValue(raw.version, policy),
       sensitivity: raw.sensitivity ?? "internal",
       redaction_status: redaction.content_status,
       content_captured: contentCaptured,
@@ -151,7 +153,7 @@ export async function buildContextSnapshot(
       content_hash: contentHash,
       content_ref: contentRef,
       availability,
-      metadata: raw.metadata,
+      metadata: sanitizeCanonicalValue(raw.metadata, policy),
     };
 
     materializedItems.push(item);
@@ -177,7 +179,7 @@ export async function buildContextSnapshot(
       method: totalMeasurementMethod,
     },
     items: materializedItems,
-    metadata: params.metadata,
+    metadata: sanitizeCanonicalValue(params.metadata, policy),
   };
 
   return contextSnapshotSchema.parse(snapshot);

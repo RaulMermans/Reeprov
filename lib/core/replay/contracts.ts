@@ -12,7 +12,7 @@ export const CANONICAL_REPLAY_SCHEMA_VERSION = "1.0.0-alpha";
 // ── Replay Modes & Statuses ──────────────────────────────────────────────────
 
 export const replayModeSchema = z.enum([
-  "STRICT_OFFLINE",         // Zero network, zero live deps, fail fast on any mismatch
+  "STRICT_OFFLINE",         // Recorded dependencies; known Node I/O blocked; fail fast on mismatch
   "BEST_EFFORT_OFFLINE",    // Record divergences and continue where possible
   "VALIDATION_ONLY",        // Inspect artifact & create ReplayPlan without executing logic
 ]);

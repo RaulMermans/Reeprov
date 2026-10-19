@@ -6,7 +6,7 @@ The **Reeprov Deterministic Offline Replay Runtime** proves the primary mileston
 
 > **"Given a supported captured agent run, Reeprov can reconstruct and validate the execution trajectory offline using the original application logic plus recorded nondeterministic boundaries."**
 
-Unlike naive mocking or static trace viewing, the replay runtime executes authentic host agent code in an isolated execution harness where all non-deterministic external interactions (LLM calls, tool executions, vector searches, database queries, clocks, and pseudo-random generators) are resolved deterministically against recorded execution boundaries without live dependencies or network access.
+Unlike static trace viewing, the replay runtime can execute host logic using recorded execution boundaries. Its in-process network guard intercepts known Node APIs; it does not provide OS-level isolation. Untrusted host code requires a separately network-isolated process or container.
 
 ```
                       RunArtifact (Canonical JSON)
@@ -38,7 +38,7 @@ Unlike naive mocking or static trace viewing, the replay runtime executes authen
 
 ### Replay Modes
 - `STRICT_OFFLINE` (Default):
-  - Zero live network traffic (`fetch`, `http.request`, `https.request` blocked by active kill switch).
+  - Known Node network and subprocess APIs are blocked by the active application-level guard. Zero network egress is not guaranteed for arbitrary host code.
   - Cryptographic input hash verification on every boundary (`sha256`).
   - Monotonic cursor tracking and strict identity matching.
   - Substituted recorded side-effects allowed; live external execution strictly forbidden.
@@ -55,7 +55,7 @@ Unlike naive mocking or static trace viewing, the replay runtime executes authen
 2. **State Restoration**:
    The `StateRestorer` identifies `INITIAL_STATE` or the starting checkpoint, cryptographically verifies state hashes, and mounts state into the host adapter.
 3. **Guard Activation**:
-   In `STRICT_OFFLINE`, the `NetworkKillSwitch` activates to intercept socket and HTTP operations.
+   In `STRICT_OFFLINE`, the `NetworkKillSwitch` activates before host-adapter initialization and intercepts known Node network and subprocess APIs. It is process-global and is not a security sandbox.
 4. **Adapter Ingestion**:
    Host application interacts via `ReplayHostAdapter.getDependencies()`, routing `callModel`, `callTool`, and `callRetrieval` to `BoundaryResolver`.
 5. **Divergence Detection**:

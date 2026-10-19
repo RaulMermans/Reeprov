@@ -299,7 +299,7 @@ If you used previous development builds under the AgentPulse name:
 
 Reeprov provides **deterministic offline boundary substitution**, not full-system virtualization:
 
-- **What Replay Does:** When an agent invokes a recorded model call or tool, the replay harness verifies that the input matches the recorded cryptographic hash and substitutes the recorded response with zero network access.
+- **What Replay Does:** When an agent invokes a recorded model call or tool, the replay harness verifies that the input matches the recorded cryptographic hash and substitutes the recorded response. Its in-process guard blocks known Node network and subprocess APIs; arbitrary host code needs separate process or container isolation for a zero-egress guarantee.
 - **What Replay Does NOT Do:** It does not snapshot arbitrary operating system kernels, process memory heaps, or uncaptured external environments.
 - **Side-Effect Safety:** Tools classified as `external_side_effect` or `destructive` are gated during replay to prevent accidental mutations.
 

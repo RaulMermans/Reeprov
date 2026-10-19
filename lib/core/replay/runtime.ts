@@ -210,8 +210,6 @@ export class ReplayRuntime {
         },
       });
 
-    await adapter.initialize(restoredState.state);
-
     let status: ReplayStatus = "MATCHED";
     let finalOutput: unknown;
     let liveCallsAttempted = 0;
@@ -224,6 +222,8 @@ export class ReplayRuntime {
       if (mode === "STRICT_OFFLINE") {
         this.networkGuard.activate();
       }
+
+      await adapter.initialize(restoredState.state);
 
       const effectiveExecuteLogic = executeLogic ?? (async (hostAdapter: ReplayHostAdapter) => {
         const deps = hostAdapter.getDependencies();
@@ -300,8 +300,7 @@ export class ReplayRuntime {
           status = "DIVERGED";
         }
       } else if (err instanceof NetworkAccessDeniedError) {
-        liveCallsAttempted++;
-        liveCallsBlocked++;
+        // The guard records this call; finally transfers its count once.
         divergenceDetector.recordDivergence({
           type: "NETWORK_ATTEMPT_BLOCKED",
           message: err.message,
