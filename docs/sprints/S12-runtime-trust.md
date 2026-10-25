@@ -16,7 +16,7 @@ Status: **BLOCKED**. Branch `sprint/12-runtime-trust` starts at remote `main` co
 
 ## Dependency review
 
-The resolved application uses Next.js 16.4.1 and Zod 4.6.7. PR #21 (Next) passed its checks; PR #20 (Zod) had a package-install `ECONNRESET`, not a code assertion failure. The branch updates each dependency independently and does not merge either PR. Production npm audit reported zero advisories after the update. Docker build, startup, auth rejection, and persistence across restart passed.
+The resolved application uses Next.js 16.4.1 and Zod 4.6.7. PR #21 (Next) passed its checks; PR #20 (Zod) had a package-install `ECONNRESET`, not a code assertion failure. Both PRs have since merged into `main`. The Sprint 12 merge preserves those versions as exact pins and keeps the Linux lockfile repair. Production npm audit reported zero advisories after the update. Docker build, startup, auth rejection, and persistence across restart passed.
 
 ## Acceptance boundary
 

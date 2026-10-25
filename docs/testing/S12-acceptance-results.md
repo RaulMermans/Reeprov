@@ -19,7 +19,7 @@ Status: **BLOCKED** while required gates remain incomplete.
 
 ## External TypeScript agent
 
-The independent source is under `/private/tmp/reeprov-s12-external` and installs published `@reeprov/client@0.1.0-beta.1` from npm. All incident/customer values are synthetic. It called two read-only functions and a deterministic escalation predicate; the first execution failed its assertion and the corrected execution passed. No model call occurred.
+The independent source is in a temporary project outside the repository and installs published `@reeprov/client@0.1.0-beta.1` from npm. A copy of its script is kept in the local, gitignored Sprint 12 evidence folder. All incident/customer values are synthetic. It called two read-only functions and a deterministic escalation predicate; the first execution failed its assertion and the corrected execution passed. No model call occurred.
 
 | Execution | Run ID | Outcome | Evaluation event |
 | --- | --- | --- | --- |
@@ -41,7 +41,7 @@ The two independent runs were compared as `cmp_8310946074e44a64`; Reeprov return
 
 1. Start the isolated local server with a fresh `REEPROV_HOME` and a synthetic `REEPROV_INGEST_KEY`.
 2. Install published `@reeprov/client@0.1.0-beta.1` in a directory outside this repository.
-3. Run `/private/tmp/reeprov-s12-external/incident-agent.mjs` with `REEPROV_URL` and the synthetic key set in the environment.
+3. Run `incident-agent.mjs` from the temporary external project with `REEPROV_URL` and the synthetic key set in the environment. A copy is in the local `s12-evidence/external/` folder.
 4. Query `/api/runs/<run-id>/canonical` and `/api/runs/<run-id>/checkpoints` with an authorized key. Compare stored boundary and checkpoint counts with the script output.
 
 No raw key is included here or in the evidence folder.
