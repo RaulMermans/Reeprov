@@ -40,6 +40,11 @@ export function RunSummaryView({
   // Find state mutation divergence if present
   const checkpoints = artifact?.checkpoints ?? [];
   const hasCheckpoints = checkpoints.length > 0;
+  const modelCallCount = traceEvents.filter((event) => event.event_type === "model_call_completed").length;
+  const toolCallCount = traceEvents.filter((event) => event.event_type === "tool_call_completed").length;
+  const unmaterializedEvalCount = traceEvents.filter((event) => event.event_type === "eval_completed" &&
+    (typeof event.metadata?.["eval_id"] !== "string" ||
+      !evalResults.some((result) => result.eval_id === event.metadata?.["eval_id"]))).length;
 
   let failureSummary = runRecord.summary;
   let failureLocation = "Run execution";
@@ -132,15 +137,18 @@ export function RunSummaryView({
         <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs">
           <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Model / Tool Calls</span>
           <div className="mt-1 text-sm font-bold text-slate-900">
-            {runRecord.model_calls_count ?? 0} models / {runRecord.tool_calls_count ?? 0} tools
+            {modelCallCount} models / {toolCallCount} tools
           </div>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs">
           <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Eval Assertions</span>
           <div className="mt-1 text-sm font-bold text-slate-900">
-            {(runRecord.evals_passed ?? 0)} / {(runRecord.evals_passed ?? 0) + (runRecord.evals_failed ?? 0)} passed
+            {evalResults.filter((result) => result.passed).length} / {evalResults.length} verified passed
           </div>
+          {unmaterializedEvalCount > 0 && <p className="mt-1 text-xs text-amber-700">
+            {unmaterializedEvalCount} eval event{unmaterializedEvalCount === 1 ? "" : "s"} lack required result evidence.
+          </p>}
         </div>
       </div>
 

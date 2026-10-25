@@ -259,7 +259,7 @@ export function ForkDebuggerPanel({ runId }: { runId: string }) {
                 <code className="font-semibold">{selectedCheckpoint.state_snapshot_id ?? "initial"}</code>
               </p>
             </div>
-            <Badge tone="info">SAFE_OFFLINE_FORK (0 Live Side Effects)</Badge>
+            <Badge tone="info">SAFE_OFFLINE_FORK (recorded substitutions)</Badge>
           </div>
 
           <div className="mt-5 grid gap-4 border-t border-slate-100 pt-4">
@@ -329,7 +329,7 @@ export function ForkDebuggerPanel({ runId }: { runId: string }) {
 
             <div className="flex items-center justify-between gap-4 pt-2">
               <div className="text-xs text-slate-500">
-                Prefix will NOT be re-executed. Checkpoint state is restored and execution continues from resume point.
+                Prefix will not be re-executed. Known Node network and subprocess APIs are blocked; untrusted code needs separate process isolation.
               </div>
               <Button
                 onClick={handleExecuteFork}
@@ -363,7 +363,9 @@ export function ForkDebuggerPanel({ runId }: { runId: string }) {
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 text-xs">
                   <div className="rounded border border-teal-100 bg-white p-3">
                     <p className="font-semibold uppercase text-slate-500 text-[10px]">Original Output (Parent)</p>
-                    <p className="mt-1 font-mono text-slate-700">Your account cus_1001 balance is 150 USD. Per company policy, full refunds are eligible within 30 days.</p>
+                    <Link href={`/dashboard/runs/${encodeURIComponent(runId)}`} className="mt-1 inline-block text-slate-700 underline">
+                      View recorded source output
+                    </Link>
                   </div>
                   <div className="rounded border border-teal-100 bg-white p-3">
                     <p className="font-semibold uppercase text-teal-600 text-[10px]">Fork Output (Derived)</p>

@@ -264,6 +264,13 @@ export default function RunDetailPage() {
   const { run, traceEvents, toolCalls, evalResults, workflow, registryWorkflow, isLive, isSeeded, isDemo } = state;
 
   const modelEvents = traceEvents.filter((e) => e.event_type === "model_call_started" || e.event_type === "model_call_completed");
+  const observedRun = {
+    ...run,
+    model_calls_count: traceEvents.filter((e) => e.event_type === "model_call_completed").length,
+    tool_calls_count: traceEvents.filter((e) => e.event_type === "tool_call_completed").length,
+    evals_passed: evalResults.filter((result) => result.passed).length,
+    evals_failed: evalResults.filter((result) => !result.passed).length,
+  };
   const errorEvents = traceEvents.filter((e) => e.event_type === "error" || e.event_type === "node_failed" || e.event_type === "tool_call_failed");
   const retryEvents = traceEvents.filter((e) => e.event_type === "retry_started");
   const artifactEvents = traceEvents.filter((e) => e.event_type === "artifact_created");
@@ -271,7 +278,11 @@ export default function RunDetailPage() {
     e.event_type === "approval_requested" || e.event_type === "approval_granted" || e.event_type === "approval_rejected"
   );
 
-  const failedEvals = evalResults.filter((e) => !e.passed || e.severity === "critical" || e.severity === "fail");
+  const failedEvals = evalResults.filter((e) => !e.passed);
+  const hasUnverifiedEvalEvents = traceEvents.some((event) =>
+    event.event_type === "eval_completed" &&
+    (typeof event.metadata?.["eval_id"] !== "string" ||
+      !evalResults.some((result) => result.eval_id === event.metadata?.["eval_id"])));
   const hasLinkedSpec = Boolean(workflow);
 
   // Registered templates define the main map. Stage cards still use every
@@ -326,15 +337,12 @@ export default function RunDetailPage() {
     </>
   );
 
-  // ── Critical Findings — failing/critical eval results, pinned near the top
+  // ── Failing evaluations and incomplete evidence, pinned near the top
   // of the Overview tab so they are never buried in the raw trace. ──
-  const criticalFindings = failedEvals.length > 0 ? (
+  const criticalFindings = <>
+    {failedEvals.length > 0 ? (
     <Card className="border-orange-200 bg-orange-50 p-5">
-      <h2 className="text-base font-semibold text-orange-900">
-        {failedEvals.some((e) => !e.passed || e.severity === "critical" || e.severity === "fail")
-          ? "Failed Evals"
-          : "Eval Warnings"}
-      </h2>
+      <h2 className="text-base font-semibold text-orange-900">Failed Evals</h2>
       <p className="mt-1 text-xs text-orange-700">
         {failedEvals.length} eval result{failedEvals.length !== 1 ? "s" : ""} require attention.
       </p>
@@ -363,17 +371,23 @@ export default function RunDetailPage() {
         ))}
       </div>
     </Card>
-  ) : isLive ? (
+  ) : isLive && evalResults.length > 0 && !hasUnverifiedEvalEvents ? (
     <Card className="border-emerald-200 bg-emerald-50 p-4">
       <p className="text-sm font-medium text-emerald-800">No failed evals — all eval results passed.</p>
     </Card>
-  ) : null;
+  ) : null}
+    {isLive && (evalResults.length === 0 || hasUnverifiedEvalEvents) ? (
+    <Card className="border-amber-200 bg-amber-50 p-4">
+      <p className="text-sm font-medium text-amber-900">Evaluation evidence is incomplete; no passing verdict can be claimed.</p>
+    </Card>
+  ) : null}
+  </>;
 
   // ── Tab content ──────────────────────────────────────────────────────────
 
   const overviewTab = (
     <div className="grid gap-6">
-      <RunSummaryHeader run={run} issues={issues} evalResults={evalResults} artifactCount={artifactCount} badges={badges} />
+      <RunSummaryHeader run={observedRun} issues={issues} evalResults={evalResults} artifactCount={artifactCount} badges={badges} />
 
       {criticalFindings}
 

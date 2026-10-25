@@ -16,11 +16,11 @@
     "pulse": "./bin/pulse.mjs"
   },
   "scripts": {
-    "dev": "tsx scripts/start-reeprov.ts --dev",
-    "start": "tsx scripts/start-reeprov.ts",
+    "dev": "node bin/start-reeprov.mjs --dev",
+    "start": "node bin/start-reeprov.mjs",
     "dev:raw": "next dev",
     "start:raw": "next start",
-    "studio": "tsx scripts/start-reeprov.ts",
+    "studio": "node bin/start-reeprov.mjs",
     "build": "next build --webpack",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -53,11 +53,11 @@
     "js-yaml": "^4.3.2",
     "jszip": "^3.10.1",
     "lucide-react": "^1.14.0",
-    "next": "^16.4.1",
+    "next": "16.4.1",
     "postgres": "^3.4.9",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "zod": "^4.6.7"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.4",
@@ -66,7 +66,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.4",
-    "eslint-config-next": "^16.2.4",
+    "eslint-config-next": "16.4.1",
     "postcss": "^8.5.14",
     "tailwindcss": "^4.2.4",
     "tsx": "^4.23.15",

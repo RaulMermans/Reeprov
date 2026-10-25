@@ -2,15 +2,16 @@
 
 > Official Python client SDK for [Reeprov](https://github.com/RaulMermans/Reeprov) — local-first debugging and reproducibility infrastructure for AI agents.
 
-[![PyPI version](https://img.shields.io/pypi/v/reeprov-client.svg)](https://pypi.org/project/reeprov-client/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 ---
 
 ## Installation
 
+The package is not yet available on PyPI. From the Reeprov repository checkout:
+
 ```bash
-pip install reeprov-client
+pip install ./packages/client-python
 ```
 
 Requires Python `>=3.10`. Zero third-party dependencies required (built strictly using standard library `urllib`).

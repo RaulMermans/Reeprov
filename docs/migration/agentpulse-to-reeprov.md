@@ -127,7 +127,7 @@ npm install @reeprov/client
 ### Update Package Dependency
 ```bash
 pip uninstall agentpulse-client
-pip install reeprov-client
+pip install ./packages/client-python  # from a Reeprov repository checkout; PyPI publication pending
 ```
 
 ### Update Code

@@ -19,6 +19,9 @@ import { ensureSchema } from "../../db/migrate";
 import { getRunStore } from "../../db/getStores";
 import { buildRunSummary } from "../../runs/runSummary";
 import { globalCaptureMetrics } from "./metrics";
+import { sanitizeCanonicalRecord } from "./redaction";
+import { DEFAULT_CAPTURE_POLICY } from "./policy";
+import { canonicalJsonStringify } from "./hashing";
 import { traceEventTypeSchema, type TraceEvent } from "../../proof-layer/schemas";
 import type { SavedRun, RunSummary } from "../../runs/runTypes";
 import type { z } from "zod";
@@ -176,6 +179,12 @@ export async function saveCanonicalRun(artifact: RunArtifact): Promise<{ success
   const runId = artifact.identity.run_id;
 
   try {
+    // Validate before either storage backend writes a byte. Existing unsafe
+    // artifacts remain untouched and must be remediated explicitly.
+    if (canonicalJsonStringify(sanitizeCanonicalRecord(artifact, DEFAULT_CAPTURE_POLICY)) !==
+        canonicalJsonStringify(artifact)) {
+      throw new Error("PRIVACY_VALIDATION_FAILED: canonical run contains unsanitized sensitive content; remediate the artifact before persistence.");
+    }
     // 1. Persist to Postgres if configured
     if (hasDatabaseUrl()) {
       await ensureSchema();

@@ -52,6 +52,15 @@ export function ReplayRuntimeBanner({
         </div>
       </div>
 
+      <p className="mt-2 text-xs text-slate-600">
+        Recorded boundaries are substituted. Network blocking covers known Node APIs; untrusted code requires separate process or container isolation.
+      </p>
+      {result.limitations.length > 0 && (
+        <ul className="mt-2 list-disc pl-5 text-xs text-amber-800" data-testid="replay-limitations">
+          {result.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}
+        </ul>
+      )}
+
       {/* Progress Bar */}
       <div className="mt-3">
         <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">

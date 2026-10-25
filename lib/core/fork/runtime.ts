@@ -24,6 +24,9 @@ import {
   buildAgentConfigurationSnapshot,
 } from "../contracts/configuration";
 import { hashPayload } from "../capture/hashing";
+import { normalizeBoundary } from "../capture/normalizeBoundary";
+import { sanitizeCanonicalRecord } from "../capture/redaction";
+import { DEFAULT_CAPTURE_POLICY } from "../capture/policy";
 import { StateRestorer } from "../replay/stateRestorer";
 import { BoundaryResolver } from "../replay/resolver";
 import { NetworkKillSwitch } from "../replay/networkGuard";
@@ -104,7 +107,7 @@ export class ForkRuntime {
         parent_run_id: sourceRunId,
         event_type: eventType,
         timestamp: new Date().toISOString(),
-        data,
+        data: data === undefined ? undefined : sanitizeCanonicalRecord(data, DEFAULT_CAPTURE_POLICY),
       });
     };
 
@@ -232,6 +235,7 @@ export class ForkRuntime {
     // 4. Initialize Boundary Resolver with startCursor
     const resolver = new BoundaryResolver(this.sourceRun, {
       strict: plan.execution_mode === "SAFE_OFFLINE_FORK",
+      requireExactInputVerification: plan.execution_mode === "SAFE_OFFLINE_FORK",
       startCursor: plan.boundary_cursor,
     });
 
@@ -302,15 +306,16 @@ export class ForkRuntime {
     const childSnapshots: StateSnapshot[] = [];
 
     // Snapshot 0 of child run: Restored State (potentially mutated)
+    const safeInitialState = sanitizeCanonicalRecord(appliedMutationResult.mutatedState, DEFAULT_CAPTURE_POLICY);
     const initialChildSnapshot: StateSnapshot = {
       snapshot_id: `state_${forkId}_0`,
       step_id: `step_${forkId}_start`,
       snapshot_type: "INITIAL_STATE",
       timestamp: startedAt,
       state_scope: "workflow",
-      state_data: appliedMutationResult.mutatedState,
+      state_data: safeInitialState,
       captured: true,
-      hash: hashPayload(appliedMutationResult.mutatedState),
+      hash: hashPayload(safeInitialState),
     };
     childSnapshots.push(initialChildSnapshot);
 
@@ -429,29 +434,19 @@ export class ForkRuntime {
               contextSnapshot: latestContext,
             });
 
-            const candidateBoundary: ExecutionBoundary = {
-              boundary_id: `bnd_${forkId}_model_${childBoundaries.length}`,
-              boundary_type: "model_call",
+            const candidateBoundary = await normalizeBoundary({
+              runId: forkId,
+              sequenceIndex: childBoundaries.length,
+              boundaryId: `bnd_${forkId}_model_${childBoundaries.length}`,
+              boundaryType: "model_call",
               name: `${provider}/${input.model}`,
-              dependency_identity: dependencyIdentity,
-              input: {
-                captured: true,
-                redaction_status: "none",
-                content: boundaryInput,
-              },
-              output: {
-                captured: true,
-                redaction_status: "none",
-                content: candidateOutput,
-              },
+              dependencyIdentity,
+              input: boundaryInput,
+              output: candidateOutput,
               status: "completed",
-              timestamp: new Date().toISOString(),
-              replayability: "REPLAYABLE_SANDBOXED",
-              side_effect_class: "read_only",
-              idempotency: { is_idempotent: false },
-              captured_content_availability: "CAPTURED",
-              redaction_status: "none",
-            };
+              declaredReplayability: "REPLAYABLE_SANDBOXED",
+              declaredSideEffectClass: "read_only",
+            });
             childBoundaries.push(candidateBoundary);
             emitEvent("fork.boundary.recorded", { boundaryId: candidateBoundary.boundary_id, name: candidateBoundary.name });
             return candidateOutput as R;
@@ -555,7 +550,8 @@ export class ForkRuntime {
       }
 
       // Record child suffix step
-      const finalState = hostAdapter.getState();
+      finalOutput = sanitizeCanonicalRecord(finalOutput, DEFAULT_CAPTURE_POLICY);
+      const finalState = sanitizeCanonicalRecord(hostAdapter.getState(), DEFAULT_CAPTURE_POLICY);
       const finalStateSnapshot: StateSnapshot = {
         snapshot_id: `state_${forkId}_final`,
         step_id: `step_${forkId}_completed`,
@@ -594,8 +590,9 @@ export class ForkRuntime {
       } else {
         status = "FAILED";
       }
-      errors.push(err.message);
-      emitEvent("fork.fail", { error: err.message, status });
+      const safeError = sanitizeCanonicalRecord(String(err.message), DEFAULT_CAPTURE_POLICY);
+      errors.push(safeError);
+      emitEvent("fork.fail", { error: safeError, status });
     } finally {
       this.networkGuard.deactivate();
     }
@@ -719,7 +716,7 @@ export class ForkRuntime {
     }
 
     // 8. Assemble Canonical Child RunArtifact
-    const childArtifact: RunArtifact = {
+    const childArtifact: RunArtifact = sanitizeCanonicalRecord({
       schema_version: CANONICAL_RUN_ARTIFACT_SCHEMA_VERSION,
       identity: {
         run_id: forkId,
@@ -797,13 +794,13 @@ export class ForkRuntime {
           completed_at: completedAt,
         },
       },
-    };
+    }, DEFAULT_CAPTURE_POLICY);
 
     if (persist && status === "COMPLETED") {
       await saveCanonicalRun(childArtifact);
     }
 
-    return {
+    return sanitizeCanonicalRecord({
       fork_id: forkId,
       derived_run_id: forkId,
       parent_run_id: sourceRunId,
@@ -821,6 +818,6 @@ export class ForkRuntime {
       created_at: startedAt,
       completed_at: completedAt,
       fork_events: events,
-    };
+    }, DEFAULT_CAPTURE_POLICY);
   }
 }

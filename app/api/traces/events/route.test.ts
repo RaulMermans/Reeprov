@@ -44,6 +44,21 @@ function req(body: unknown, headers: Record<string, string> = {}): Request {
 }
 
 describe("POST /api/traces/events — diagnostics", () => {
+  it("scrubs secrets from persisted event summaries and metadata", async () => {
+    const startRes = await START_RUN(req({
+      project_id: "proj-privacy", project_name: "Privacy", workflow_id: "wf", summary: "test",
+    }, { "x-agentpulse-key": TEST_INGEST_KEY }));
+    const { run_id } = await startRes.json() as { run_id: string };
+    const secret = "sk-abcdefghijklmnopqrstuvwxyz0123456789ABCD";
+    const response = await POST(req({ events: [{
+      event_id: "evt-secret", run_id, workflow_id: "wf", timestamp: new Date().toISOString(),
+      event_type: "node_completed", status: "completed", output_summary: secret,
+      metadata: { note: secret },
+    }] }, { "x-agentpulse-key": TEST_INGEST_KEY }));
+    expect((await response.json()).accepted).toBe(1);
+    expect(JSON.stringify(await fileRunStore.getRun(run_id))).not.toContain(secret);
+  });
+
   it("keeps an eval event without a boolean verdict out of stored EvalResults", async () => {
     const startRes = await START_RUN(new Request("http://localhost/api/runs/start", {
       method: "POST",

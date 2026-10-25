@@ -178,7 +178,7 @@ function stageLabelFor(nodeId: string | undefined, specNodes?: WorkflowNode[]): 
 
 /**
  * Extracts a flat, ranked list of run issues from error-shaped trace events
- * and failing/critical eval results — the dedicated "what went wrong" view
+ * and failing eval results — the dedicated "what went wrong" view
  * the issues panel needs instead of burying problems in the raw timeline.
  */
 export function extractRunIssues(
@@ -212,7 +212,7 @@ export function extractRunIssues(
   }
 
   for (const evalResult of evalResults) {
-    if (evalResult.passed && evalResult.severity !== "fail" && evalResult.severity !== "critical") continue;
+    if (evalResult.passed) continue;
 
     issues.push({
       id: evalResult.eval_id,

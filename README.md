@@ -18,7 +18,6 @@ CAPTURE
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/@reeprov/client.svg)](https://www.npmjs.com/package/@reeprov/client)
-[![PyPI version](https://img.shields.io/pypi/v/reeprov-client.svg)](https://pypi.org/project/reeprov-client/)
 [![Status](https://img.shields.io/badge/status-public--beta-orange.svg)](CHANGELOG.md)
 
 Reeprov accepts execution evidence, causal trajectories, and boundary snapshots from external AI agents, validates them against canonical schemas, stores them locally, and provides offline reproducibility, diagnostic comparison, automated evaluations, and regression gates.
@@ -181,8 +180,11 @@ await reeprov.completeRun({
 
 ### Python (`reeprov-client`)
 
+The Python SDK source is included in this repository. The package is not yet
+available on PyPI; install it from a local checkout:
+
 ```bash
-pip install reeprov-client
+pip install ./packages/client-python
 ```
 
 ```python

@@ -176,7 +176,7 @@ class ReeprovClient:
         """Emit multiple trace events in batch."""
         if not self._enabled or not events:
             return
-        self._post("/api/traces/events", {"events": events})
+        self._check_ingest_result("trace events", self._post("/api/traces/events", {"events": events}))
 
     # ── Semantic Helper Methods ────────────────────────────────────────────────
 
@@ -374,7 +374,7 @@ class ReeprovClient:
         step_id: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
     ) -> None:
-        """Capture an execution checkpoint."""
+        """Record a checkpoint event; this does not create a restorable snapshot."""
         if not self._enabled:
             return
         self.capture_boundary(run_id, {
@@ -403,7 +403,7 @@ class ReeprovClient:
             ]
         }
         try:
-            self._post("/api/traces/boundaries", payload)
+            self._check_ingest_result("boundary", self._post("/api/traces/boundaries", payload))
         except Exception as e:
             if self._fail_open:
                 print(f"[Reeprov] Non-fatal boundary capture error: {e}", file=sys.stderr)
@@ -518,6 +518,16 @@ class ReeprovClient:
         })
 
     # ── Internal Transport ─────────────────────────────────────────────────────
+
+    def _check_ingest_result(self, kind: str, result: Any) -> None:
+        if not isinstance(result, dict) or not isinstance(result.get("rejected"), int) or result["rejected"] == 0:
+            return
+        reasons = "; ".join(str(error.get("message", "unknown reason")) for error in result.get("errors", []))
+        error = ReeprovError(f"Reeprov rejected {result['rejected']} {kind} record(s): {reasons or 'unknown reason'}", 422, False)
+        if self._fail_open:
+            print(f"[Reeprov] {error}", file=sys.stderr)
+        else:
+            raise error
 
     def _post(self, path: str, body: dict[str, Any]) -> Any:
         url = f"{self._url}{path}"

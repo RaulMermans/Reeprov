@@ -126,7 +126,9 @@ export function isSensitiveKey(key: string, sensitiveList: string[]): boolean {
   const normalized = key.toLowerCase().replace(/[-_]/g, "");
   return sensitiveList.some((sensitive) => {
     const normSensitive = sensitive.toLowerCase().replace(/[-_]/g, "");
-    return normalized === normSensitive || normalized.includes(normSensitive);
+    // Broad substring matching redacts structural fields such as
+    // token_measurement and breaks canonical schemas during validation.
+    return normalized === normSensitive || normalized.endsWith(normSensitive);
   });
 }
 
@@ -326,8 +328,14 @@ export function sanitizePayload<T = unknown>(
   };
 }
 
-/** Scrub a canonical record without applying the caller's content-omission mode. */
+/** Sanitize an optional content field under the caller's capture policy. */
 export function sanitizeCanonicalValue<T>(value: T, policy: CapturePolicy): T {
+  if (policy.contentMode === "STRUCTURE_ONLY") return undefined as T;
+  return sanitizeCanonicalRecord(value, policy);
+}
+
+/** Scrub structural fields of an assembled record without changing its schema. */
+export function sanitizeCanonicalRecord<T>(value: T, policy: CapturePolicy): T {
   return sanitizePayload(value, {
     policy: { ...policy, redaction: { ...policy.redaction, enabled: true } },
     modeOverride: "SAFE_CONTENT",

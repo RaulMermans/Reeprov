@@ -155,7 +155,8 @@ export class ReeprovClient {
     if (!this.enabled || events.length === 0) {
       return;
     }
-    await this.post("/api/traces/events", { events });
+    const result = await this.post<EmitEventsResult>("/api/traces/events", { events });
+    this.checkIngestResult("trace events", result);
   }
 
   // ── Semantic Helpers ─────────────────────────────────────────────────────────
@@ -249,11 +250,12 @@ export class ReeprovClient {
       status: input.passed ? "completed" : "failed",
       node_id: input.node_id,
       metadata: {
+        ...input.metadata,
+        eval_id: input.eval_id ?? input.eval_name,
         eval_name: input.eval_name,
         passed: input.passed,
         score: input.score,
         reason: input.reason,
-        ...input.metadata,
       },
     };
     await this.emitTraceEvent(event);
@@ -282,6 +284,7 @@ export class ReeprovClient {
 
   public async checkpointSaved(input: CheckpointSavedInput): Promise<void> {
     if (!this.enabled) return;
+    // Trace observation only. This is not a restorable canonical checkpoint.
     await this.captureBoundary(input.run_id, {
       boundaryType: "checkpoint",
       name: `checkpoint:${input.checkpoint_id}`,
@@ -311,7 +314,8 @@ export class ReeprovClient {
     };
 
     try {
-      await this.post("/api/traces/boundaries", payload);
+      const result = await this.post<EmitEventsResult>("/api/traces/boundaries", payload);
+      this.checkIngestResult("boundary", result);
     } catch (err) {
       if (this.failOpen) {
         console.warn(`[Reeprov] Non-fatal boundary capture error: ${(err as Error).message}`);
@@ -322,6 +326,18 @@ export class ReeprovClient {
   }
 
   // ── HTTP Ingest Transport ──────────────────────────────────────────────────
+
+  private checkIngestResult(kind: string, result: EmitEventsResult | undefined): void {
+    // Older compatible gateways may acknowledge without per-record counters.
+    if (!result || typeof result.rejected !== "number" || result.rejected === 0) return;
+    const error = new ReeprovError(
+      `Reeprov rejected ${result.rejected} ${kind} record(s): ${result.errors?.map((item) => item.message).join("; ") || "unknown reason"}`,
+      422,
+      false,
+    );
+    if (this.failOpen) console.warn(`[Reeprov] ${error.message}`);
+    else throw error;
+  }
 
   private async post<T = unknown>(path: string, body: unknown): Promise<T> {
     const url = `${this.endpoint}${path}`;

@@ -41,6 +41,15 @@ function req(body: unknown, key: string): Request {
 }
 
 describe("POST /api/runs/start — auth", () => {
+  it("scrubs sensitive summary content before storing or returning the run", async () => {
+    const secret = "sk-abcdefghijklmnopqrstuvwxyz0123456789ABCD";
+    const res = await POST(req({
+      project_id: "privacy", project_name: "Privacy", workflow_id: "wf", summary: secret,
+    }, TEST_INGEST_KEY));
+    expect(res.status).toBe(201);
+    expect(JSON.stringify(await res.json())).not.toContain(secret);
+  });
+
   it("accepts the shared deployment-wide ingest key for any project (backward compat)", async () => {
     const res = await POST(
       req(

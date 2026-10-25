@@ -44,6 +44,7 @@ const IGNORED_DIRS = new Set([
   "egg-info",
   ".agentpulse",
   ".reeprov",
+  "s12-evidence",
 ]);
 
 // File extensions to scan

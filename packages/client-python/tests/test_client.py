@@ -3,11 +3,19 @@ Unit tests for agentpulse_client
 """
 
 import unittest
+from unittest.mock import patch
 from reeprov_client import ReeprovClient, ReeprovError
 from agentpulse_client import AgentPulseClient, AgentPulseError
 
 
 class TestReeprovClient(unittest.TestCase):
+    def test_rejected_boundary_acknowledgement_is_not_success(self):
+        client = ReeprovClient(ingest_key="synthetic-key", fail_open=False)
+        with patch.object(client, "_post", return_value={"accepted": 0, "rejected": 1,
+                                                       "errors": [{"message": "Evidence unavailable"}]}):
+            with self.assertRaisesRegex(ReeprovError, "Evidence unavailable"):
+                client.capture_boundary("run-1", {"boundaryType": "tool_call", "name": "lookup", "input": {}})
+
     def test_instantiation_defaults(self):
         client = ReeprovClient(
             url="http://127.0.0.1:3000",

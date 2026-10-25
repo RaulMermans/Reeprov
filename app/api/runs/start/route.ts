@@ -19,12 +19,14 @@ import { getRunStore, recordIngestDiagnostic, requireIngestAuth, touchIntegratio
 import { generateRunId } from "@/lib/runs/runId";
 import { runRecordSchema, traceEventSchema } from "@/lib/proof-layer/schemas";
 import type { RunRecord, TraceEvent } from "@/lib/proof-layer/schemas";
+import { sanitizeCanonicalRecord } from "@/lib/core/capture/redaction";
+import { DEFAULT_CAPTURE_POLICY } from "@/lib/core/capture/policy";
 
 export async function POST(request: Request) {
   try {
     const auth = await requireIngestAuth(request, "POST /api/runs/start");
 
-    const body = await request.json() as Record<string, unknown>;
+    const body = sanitizeCanonicalRecord(await request.json() as Record<string, unknown>, DEFAULT_CAPTURE_POLICY);
 
     const project_id = body["project_id"];
     const project_name = body["project_name"];
