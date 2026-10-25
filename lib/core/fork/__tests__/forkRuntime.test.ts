@@ -517,6 +517,7 @@ describe("AgentPulse Checkpoints & Fork From Here Runtime Suite", () => {
 
   // ── 33. Lineage Querying & Materialized View ────────────────────────────────
   it("Requirement 33: queries parent, ancestors, and materializes lineage view", async () => {
+    await saveCanonicalRun(verticalSliceArtifact);
     const runtime = new ForkRuntime(
       verticalSliceArtifact,
       "chk_run_vertical_slice_ref_001_1",
@@ -537,6 +538,23 @@ describe("AgentPulse Checkpoints & Fork From Here Runtime Suite", () => {
     expect(view.steps.some((s) => s.source === "historical_prefix")).toBe(true);
     expect(view.steps.some((s) => s.source === "checkpoint_marker")).toBe(true);
     expect(view.steps.some((s) => s.source === "fork_execution")).toBe(true);
+  });
+
+  it("sanitizes candidate model boundaries, child artifacts, and API-facing fork results", async () => {
+    const credential = "sk-abcdefghijklmnopqrstuvwxyz0123456789ABCD";
+    const runtime = new ForkRuntime(verticalSliceArtifact, "chk_run_vertical_slice_ref_001_1", {
+      persist: false,
+      candidateModelHandler: async () => ({ answer: credential, api_key: credential }),
+      executeLogic: async (_adapter, { dependencies }) => dependencies.callModel({
+        model: "claude-3-5-sonnet", provider: "anthropic", prompt: `prompt ${credential}`,
+      }),
+    });
+
+    const result = await runtime.fork();
+    expect(result.status).toBe("COMPLETED");
+    expect(result.child_artifact?.boundaries).toHaveLength(1);
+    expect(result.child_artifact?.boundaries[0]?.input.redaction_status).toBe("partially_redacted");
+    expect(JSON.stringify(result)).not.toContain(credential);
   });
 
   // ── 34 & 35. CLI Checkpoint Listing & Fork ─────────────────────────────────

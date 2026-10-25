@@ -51,11 +51,23 @@ export async function POST(request: Request) {
       }
 
       try {
-        const canonicalBoundary = await captureBoundary(bInput);
+        // The published SDK omits sequenceIndex and boundaryId. Assign both
+        // from the stored run before normalization so repeated tool calls do
+        // not overwrite the first boundary at sequence zero.
+        const canonicalArtifact = await getCanonicalRun(bInput.runId);
+        if (!canonicalArtifact) {
+          throw new Error("Canonical run evidence is unavailable; boundary was not stored.");
+        }
+        const hasSequence = bInput.sequenceIndex !== undefined || bInput.sequence_index !== undefined;
+        const nextSequence = canonicalArtifact.boundaries.reduce(
+          (next, boundary) => Math.max(next, (boundary.sequence_index ?? 0) + 1), 0
+        );
+        const canonicalBoundary = await captureBoundary({
+          ...bInput,
+          sequenceIndex: hasSequence ? (bInput.sequenceIndex ?? bInput.sequence_index) : nextSequence,
+        });
 
         // Link into canonical run artifact
-        let canonicalArtifact = await getCanonicalRun(bInput.runId);
-        if (canonicalArtifact) {
           const existingIdx = canonicalArtifact.boundaries.findIndex(
             (b) => b.boundary_id === canonicalBoundary.boundary_id
           );
@@ -68,7 +80,6 @@ export async function POST(request: Request) {
             (a, b) => (a.sequence_index ?? 0) - (b.sequence_index ?? 0)
           );
           await saveCanonicalRun(canonicalArtifact);
-        }
 
         accepted++;
       } catch (err) {

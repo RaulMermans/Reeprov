@@ -183,7 +183,9 @@ export async function normalizeBoundary(
     duration_ms: (rawAny.durationMs ?? rawAny.duration_ms) as number | undefined,
     input: inputPayload,
     output: outputPayload,
-    error: raw.error,
+    error: policy.contentMode === "STRUCTURE_ONLY" && raw.error
+      ? { message: "[CONTENT_OMITTED]", code: raw.error.code }
+      : raw.error,
     replayability,
     side_effect_class: sideEffectClass,
     idempotency: {
@@ -208,7 +210,7 @@ export async function normalizeBoundary(
     linked_retrieval_operation_id: raw.linkedRetrievalOperationId,
     linked_memory_operation_id: raw.linkedMemoryOperationId,
     timestamp,
-    metadata: raw.metadata,
+    metadata: policy.contentMode === "STRUCTURE_ONLY" ? undefined : raw.metadata,
   };
 
   // Payload content was scrubbed before hashing or blob storage. Scrub the

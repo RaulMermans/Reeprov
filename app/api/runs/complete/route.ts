@@ -24,12 +24,14 @@ import type { TraceEvent } from "@/lib/proof-layer/schemas";
 import { getRunStore, recordIngestDiagnostic, requireIngestAuth, touchIntegrationForProject } from "@/lib/db/getStores";
 import { getCanonicalRun, saveCanonicalRun } from "@/lib/core/capture/persistence";
 import { adaptLegacyRunToRunArtifact } from "@/lib/core/adapters/legacyRunAdapter";
+import { sanitizeCanonicalRecord } from "@/lib/core/capture/redaction";
+import { DEFAULT_CAPTURE_POLICY } from "@/lib/core/capture/policy";
 
 export async function POST(request: Request) {
   try {
     const auth = await requireIngestAuth(request, "POST /api/runs/complete");
 
-    const body = await request.json() as Record<string, unknown>;
+    const body = sanitizeCanonicalRecord(await request.json() as Record<string, unknown>, DEFAULT_CAPTURE_POLICY);
 
     const run_id = body["run_id"];
     if (!run_id || typeof run_id !== "string") {

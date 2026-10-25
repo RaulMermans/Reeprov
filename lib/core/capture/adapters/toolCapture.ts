@@ -10,7 +10,7 @@ import { toolInvocationSchema, type ToolInvocation } from "../../contracts/tools
 import { normalizeBoundary } from "../normalizeBoundary";
 import { classifySideEffect } from "../sideEffectClassifier";
 import { resolvePolicy } from "../policy";
-import { sanitizeCanonicalValue } from "../redaction";
+import { sanitizeCanonicalValue, sanitizeCanonicalRecord } from "../redaction";
 import type { ToolCaptureInput, ToolCaptureResult, CapturePolicy } from "../types";
 
 /**
@@ -38,7 +38,7 @@ export async function captureToolInvocation(
   const safeOutput = sanitizeCanonicalValue(input.output, policy);
 
   // 2. Build ToolInvocation
-  const toolInvocation: ToolInvocation = toolInvocationSchema.parse(sanitizeCanonicalValue({
+  const toolInvocation: ToolInvocation = toolInvocationSchema.parse(sanitizeCanonicalRecord({
     tool_call_id: toolCallId,
     step_id: input.stepId,
     node_id: input.nodeId,
@@ -47,7 +47,7 @@ export async function captureToolInvocation(
     replayability: "UNKNOWN", // normalized boundary computes exact replayability
     input: safeArguments,
     input_summary:
-      typeof safeArguments === "string"
+      safeArguments === undefined ? undefined : typeof safeArguments === "string"
         ? safeArguments.slice(0, 300)
         : JSON.stringify(safeArguments).slice(0, 300),
     output: safeOutput,
@@ -58,11 +58,11 @@ export async function captureToolInvocation(
           ? JSON.stringify(safeOutput).slice(0, 300)
           : undefined,
     status: input.status || (input.error ? "failed" : "completed"),
-    error: input.error?.message,
+    error: policy.contentMode === "STRUCTURE_ONLY" ? undefined : input.error?.message,
     started_at: startedAt,
     completed_at: completedAt,
     duration_ms: durationMs,
-    metadata: {
+    metadata: policy.contentMode === "STRUCTURE_ONLY" ? undefined : {
       ...(input.metadata ?? {}),
       tool_version: input.toolVersion,
       tool_provider: input.toolProvider,

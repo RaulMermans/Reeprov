@@ -5,6 +5,18 @@ All notable changes to Reeprov will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased — Sprint 12 hardening
+
+- Patched the resolved Next.js and Zod versions and repaired the Linux npm lockfile for Docker builds.
+- Made replay input verification distinguish exact from redacted evidence; strict replay rejects unverifiable and partially replayable runs.
+- Applied capture redaction to sidecars, HTTP trace records, fork artifacts, and pre-persistence validation.
+- Preserved distinct boundary records from the published SDK and detected rejected records in the SDK source.
+- Made missing evaluation evidence fail closed and marked incomplete live results in Studio.
+- Clarified that SDK checkpoint events are not restorable checkpoints. A full external replay and fork remains unverified.
+- Added mobile navigation and corrected the connection wizard's SDK examples.
+
+These changes are unreleased. No new beta package or GitHub release has been published.
+
 ## [0.1.0-beta.1] - 2026-10-15
 
 Initial open-source public beta release of Reeprov (formerly AgentPulse).

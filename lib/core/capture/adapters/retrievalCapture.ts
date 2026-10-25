@@ -13,7 +13,7 @@ import {
 import { normalizeBoundary } from "../normalizeBoundary";
 import { hashPayload } from "../hashing";
 import { resolvePolicy } from "../policy";
-import { sanitizeCanonicalValue } from "../redaction";
+import { sanitizeCanonicalValue, sanitizeCanonicalRecord } from "../redaction";
 import type { RetrievalCaptureInput, RetrievalCaptureResult, CapturePolicy } from "../types";
 
 /**
@@ -50,7 +50,7 @@ export async function captureRetrievalOperation(
       rank: item.rank ?? idx + 1,
       content_preview: safeContent ? safeContent.slice(0, 250) : undefined,
       content: safeContent,
-      metadata: {
+      metadata: policy.contentMode === "STRUCTURE_ONLY" ? undefined : {
         ...(item.metadata ?? {}),
         content_hash: contentHash,
         entered_model_context: item.enteredModelContext ?? true,
@@ -59,12 +59,12 @@ export async function captureRetrievalOperation(
   });
 
   // 2. Build RetrievalOperation
-  const retrievalOperation: RetrievalOperation = retrievalOperationSchema.parse(sanitizeCanonicalValue({
+  const retrievalOperation: RetrievalOperation = retrievalOperationSchema.parse(sanitizeCanonicalRecord({
     operation_id: operationId,
     step_id: input.stepId,
     service_name: input.serviceName,
-    query: input.query,
-    filters: input.filters,
+    query: policy.contentMode === "STRUCTURE_ONLY" ? "" : input.query,
+    filters: sanitizeCanonicalValue(input.filters, policy),
     top_k: input.topK ?? input.results.length,
     results_count: input.results.length,
     results: resultItems,

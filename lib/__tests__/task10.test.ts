@@ -73,15 +73,16 @@ describe("Run detail — linked WorkflowSpec contract (Phase 1+2)", () => {
     expect(src).toContain("templateName:");
   });
 
-  it("surfaces failed evals near the top using passed/severity fields (Phase 2)", () => {
+  it("surfaces failed evals near the top based on verdict, independently from severity", () => {
     expect(src).toContain("failedEvals");
     expect(src).toContain("!e.passed");
     expect(src).toContain("Failed Evals");
-    expect(src).toContain("Eval Warnings");
+    expect(src).toContain("const failedEvals = evalResults.filter((e) => !e.passed)");
   });
 
-  it("shows 'No failed evals' success state for live runs", () => {
-    expect(src).toContain("No failed evals — all eval results passed.");
+  it("does not claim passing evaluations when a live run has no verified results", () => {
+    expect(src).toContain("isLive && evalResults.length > 0");
+    expect(src).toContain("Evaluation evidence is incomplete; no passing verdict can be claimed.");
   });
 
   it("health summary shows artifact count", () => {

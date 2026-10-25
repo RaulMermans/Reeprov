@@ -1,0 +1,11 @@
+# Sprint 12 visual demo readiness
+
+Status: **BLOCKED**.
+
+The local Studio rendered a first-time dashboard, created a synthetic project, and presented an integration key and SDK snippet. A screenshot of the first-launch state is in the gitignored `s12-evidence/screenshots/01-first-launch.png` folder. The first connection wizard exposed an SDK snippet with incorrect method signatures; source has been corrected. The secret-bearing key step was not saved as demo evidence.
+
+The fork panel previously showed hardcoded fixture output under a live-looking label and claimed zero live side effects from an application-level guard. It now links to source evidence and describes the actual guard scope. The replay banner also names partial verification and isolation limits.
+
+Chromium loaded Projects, Runs, the live run, Compare, Evaluate, Regressions, and Settings; it also visited Evidence, Context, Memory, and Checkpoints & Forks tabs. The small-screen check found clipped navigation, so a mobile menu was added and its Settings link verified. The live run exposed a false "all eval results passed" empty state and contradictory call counts; the final build shows incomplete evaluation evidence and counts the observed tool events. Final screenshots are `07-corrected-eval-state.png` and `08-mobile-menu.png`. Earlier screenshots show the defects as found. The unaltered walkthrough video is `03-live-run-tabs.webm` in the gitignored evidence folder.
+
+The post hoc passing critical eval initially appeared as a failed eval because the page interpreted critical severity as a failed verdict. The corrected view shows the passing post hoc result and still warns that the published SDK's earlier eval event lacks linked result evidence; `09-posthoc-eval-gap.png` and `reports/posthoc-eval-browser.json` record the final Chromium proof. The video records the earlier observed UI; the final screenshots show the corrected state. The corrected independent external run is not a fork. No model provider was available, the Python package is not on PyPI, and the published TypeScript SDK's checkpoint event cannot resume an agent. Do not use these captures as public demo proof until the external replay/fork gaps are resolved.

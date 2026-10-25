@@ -202,7 +202,7 @@ describe("extractRunIssues", () => {
     expect(issues[0].stageLabel).toBe("Draft Writing");
   });
 
-  it("includes failing and critical eval results as issues with recommendations", () => {
+  it("includes failing eval results as issues with recommendations", () => {
     const evalResults: EvalResult[] = [
       evalResult({
         eval_id: "ev1",
@@ -224,6 +224,13 @@ describe("extractRunIssues", () => {
   it("excludes passing, non-critical eval results", () => {
     const evalResults: EvalResult[] = [
       evalResult({ eval_id: "ev1", name: "Schema validity", type: "schema_validity", passed: true, severity: "info" }),
+    ];
+    expect(extractRunIssues([], evalResults)).toHaveLength(0);
+  });
+
+  it("excludes a passing critical eval from run issues", () => {
+    const evalResults: EvalResult[] = [
+      evalResult({ eval_id: "ev-critical", name: "Run completed", type: "outcome_status", passed: true, severity: "critical" }),
     ];
     expect(extractRunIssues([], evalResults)).toHaveLength(0);
   });

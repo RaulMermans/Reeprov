@@ -43,6 +43,8 @@ Reeprov enforces local-first security boundaries:
 - **`PRIVATE_SELF_HOSTED` mode:** Requires session authentication via `REEPROV_ACCESS_KEY` (or legacy `AGENTPULSE_ACCESS_KEY`) generating HttpOnly, SameSite=Lax signed cookies.
 - **Redaction Engine:** Server-side secret scrubbing engine masks OpenAI, Anthropic, GitHub, database connection strings, bearer tokens, and private keys before persistence or export.
 
+Offline replay intercepts known Node network and subprocess APIs within its process. It does not provide operating-system isolation or a comprehensive zero-egress guarantee for untrusted host code. See [Sprint 12 privacy and replay review](docs/security/S12-privacy-and-replay-review.md) for the current verification limits.
+
 ---
 
 ## Security Architecture & References

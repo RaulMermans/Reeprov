@@ -128,36 +128,30 @@ export REEPROV_INGEST_KEY="${key}"
 import { ReeprovClient } from "@reeprov/client";
 
 const reeprov = new ReeprovClient({
-  endpoint: process.env["REEPROV_URL"] || "${endpoint}",
-  ingestKey: process.env["REEPROV_INGEST_KEY"] || "${key}",
+  url: process.env["REEPROV_URL"],
+  ingestKey: process.env["REEPROV_INGEST_KEY"],
+  projectId: "${pid}",
+  projectName: "${projectName || pid}",
+  workflowId: "main-pipeline",
+  failOpen: false,
 });
 
 // Start run
-const runId = await reeprov.startRun({
-  projectId: "${pid}",
-  workflowId: "main-pipeline",
-  summary: "Processing agent task",
-});
+const run = await reeprov.startRun({ summary: "Processing agent task" });
 
 try {
-  // Record activity
-  await reeprov.modelCallCompleted(runId, {
-    model: "gpt-4o",
-    inputTokens: 120,
-    outputTokens: 60,
-    inputSummary: "Classified incoming user request",
-    outputSummary: "Delegated to customer support tool",
+  // Record the actual tool result. Add modelCallCompleted only after a real provider call.
+  await reeprov.toolCallCompleted({
+    run_id: run.run_id,
+    tool_name: "local_account_lookup",
+    arguments: { account: "synthetic-account" },
+    output: { active: true },
+    permission_class: "read_only",
   });
 
-  await reeprov.toolCallCompleted(runId, {
-    toolName: "database_lookup",
-    inputSummary: JSON.stringify({ query: "account_status" }),
-    outputSummary: JSON.stringify({ active: true }),
-  });
-
-  await reeprov.completeRun(runId, { summary: "Task completed successfully" });
+  await reeprov.completeRun({ run_id: run.run_id, summary: "Task completed successfully" });
 } catch (err: any) {
-  await reeprov.failRun(runId, { error: err.message });
+  await reeprov.failRun({ run_id: run.run_id, error_summary: String(err) });
 }`;
     }
 
@@ -167,35 +161,30 @@ export REEPROV_URL="${endpoint}"
 export REEPROV_PROJECT_ID="${pid}"
 export REEPROV_INGEST_KEY="${key}"
 
-# Python stdlib or requests:
+# Python SDK source is available in this repository; PyPI distribution is pending.
+# Until it is published, this standard-library HTTP example works without installation.
 import os
-import requests
+import json
+from urllib.request import Request, urlopen
 
-ENDPOINT = os.environ.get("REEPROV_URL", "${endpoint}")
-INGEST_KEY = os.environ.get("REEPROV_INGEST_KEY", "${key}")
-PROJECT_ID = os.environ.get("REEPROV_PROJECT_ID", "${pid}")
+def post(path, body):
+    request = Request(
+        os.environ["REEPROV_URL"] + path,
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json", "x-reeprov-key": os.environ["REEPROV_INGEST_KEY"]},
+    )
+    with urlopen(request) as response:
+        result = json.load(response)
+    if result.get("rejected", 0):
+        raise RuntimeError("Reeprov rejected telemetry: " + str(result.get("errors", [])))
+    return result
 
-headers = {"x-reeprov-key": INGEST_KEY}
-
-# 1. Start run
-res = requests.post(
-    f"{ENDPOINT}/api/runs/start",
-    headers=headers,
-    json={
-        "project_id": PROJECT_ID,
-        "project_name": "${projectName || pid}",
-        "workflow_id": "main-pipeline",
-        "summary": "Processing agent task",
-    },
-)
-run_id = res.json()["run_id"]
-
-# 2. Complete run
-requests.post(
-    f"{ENDPOINT}/api/runs/complete",
-    headers=headers,
-    json={"run_id": run_id, "summary": "Task completed successfully"},
-)`;
+run = post("/api/runs/start", {"project_id": "${pid}", "project_name": "${projectName || pid}",
+    "workflow_id": "main-pipeline", "summary": "Processing synthetic agent task"})
+post("/api/traces/boundaries", {"boundaries": [{"runId": run["run_id"],
+    "boundaryType": "tool_call", "name": "local_account_lookup", "input": {"account": "synthetic-account"},
+    "output": {"active": True}, "declaredSideEffectClass": "read_only"}]})
+post("/api/runs/complete", {"run_id": run["run_id"], "summary": "Task completed successfully"})`;
     }
 
     // REST curl — fully executable copy-paste

@@ -127,9 +127,9 @@ export class ReplayRuntime {
       missing: plan.missing_evidence,
     });
 
-    if (mode === "STRICT_OFFLINE" && plan.replayability_verdict === "NOT_REPLAYABLE") {
+    if (mode === "STRICT_OFFLINE" && plan.replayability_verdict !== "REPLAYABLE") {
       const completedAt = new Date().toISOString();
-      emitEvent("replay.fail", { reason: "Plan marked NOT_REPLAYABLE" });
+      emitEvent("replay.fail", { reason: `Plan marked ${plan.replayability_verdict}` });
 
       const detector = new DivergenceDetector(replayId, sourceRunId);
       for (const missing of plan.missing_evidence) {
@@ -181,6 +181,7 @@ export class ReplayRuntime {
 
     const resolver = new BoundaryResolver(source, {
       strict: mode === "STRICT_OFFLINE",
+      requireExactInputVerification: mode === "STRICT_OFFLINE",
     });
     const divergenceDetector = new DivergenceDetector(replayId, sourceRunId);
 
@@ -297,7 +298,7 @@ export class ReplayRuntime {
           emitEvent("replay.live_side_effect_blocked", err.details);
           status = "BLOCKED";
         } else {
-          status = "DIVERGED";
+          status = err.divergenceType === "INPUT_UNVERIFIABLE" ? "UNSUPPORTED" : "DIVERGED";
         }
       } else if (err instanceof NetworkAccessDeniedError) {
         // The guard records this call; finally transfers its count once.
@@ -363,8 +364,16 @@ export class ReplayRuntime {
       divergences,
       final_output: finalOutput,
       final_output_hash: finalOutputHash,
-      deterministic_match: status === "MATCHED",
-      limitations: [...plan.unsupported_features],
+      deterministic_match: status === "MATCHED" && resolver.getPartiallyVerifiedCount() === 0,
+      limitations: [
+        ...plan.unsupported_features,
+        ...(mode === "STRICT_OFFLINE"
+          ? ["Network and subprocess interception is application-level; process or container isolation is required for untrusted host code and a zero-egress guarantee."]
+          : []),
+        ...(resolver.getPartiallyVerifiedCount() > 0
+          ? [`${resolver.getPartiallyVerifiedCount()} input(s) matched only after redaction; exact equality is unverified.`]
+          : []),
+      ],
       replay_events: events,
       last_successful_step_id: lastSuccessfulStepId,
       last_substituted_boundary_id: lastSubstitutedBoundaryId,

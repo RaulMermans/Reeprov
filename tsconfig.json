@@ -37,6 +37,7 @@
   ],
   "exclude": [
     "node_modules",
+    "s12-evidence",
     ".claude",
     ".cursor",
     "**/__tests__/**",

@@ -51,6 +51,7 @@ import { captureHttpCall } from "./adapters/httpCapture";
 import { saveCanonicalRun, getCanonicalRun } from "./persistence";
 import { resolvePolicy } from "./policy";
 import { hashPayload } from "./hashing";
+import { sanitizeCanonicalRecord } from "./redaction";
 import { validateExecutionIntegrity, ExecutionIntegrityError } from "./integrity";
 import {
   type ReplayMode,
@@ -241,7 +242,9 @@ export class CaptureSession {
       `step_${this.runId}_0`;
 
     const snapshotId = `state_${this.runId}_${this.stateSnapshots.length}`;
-    const clonedState = structuredClone(stateData);
+    const clonedState = this.policy.contentMode === "STRUCTURE_ONLY"
+      ? {}
+      : sanitizeCanonicalRecord(structuredClone(stateData), this.policy);
     const hash = hashPayload(clonedState);
     const snapshotType =
       options?.type ??
@@ -254,9 +257,10 @@ export class CaptureSession {
       timestamp: new Date().toISOString(),
       state_scope: options?.scope ?? "workflow",
       state_data: clonedState,
-      captured: true,
+      captured: this.policy.contentMode !== "STRUCTURE_ONLY",
       hash,
-      metadata: options?.metadata,
+      metadata: this.policy.contentMode === "STRUCTURE_ONLY"
+        ? undefined : sanitizeCanonicalRecord(options?.metadata, this.policy),
     };
 
     this.stateSnapshots.push(snapshot);
@@ -308,6 +312,7 @@ export class CaptureSession {
     const computedHash = hashPayload(targetSnapshot.state_data);
     const isRestorable =
       !!targetSnapshot &&
+      targetSnapshot.captured &&
       !!targetSnapshot.state_data &&
       (targetSnapshot.hash ? targetSnapshot.hash === computedHash : true);
     const checkpointHash = targetSnapshot.hash ?? computedHash;
@@ -356,7 +361,8 @@ export class CaptureSession {
       state_hash: checkpointHash,
       hash: checkpointHash,
       restorable: isRestorable,
-      metadata: options?.metadata,
+      metadata: this.policy.contentMode === "STRUCTURE_ONLY"
+        ? undefined : sanitizeCanonicalRecord(options?.metadata, this.policy),
     };
 
     this.checkpoints.push(checkpoint);
@@ -1136,8 +1142,25 @@ export class CaptureSession {
           : undefined,
     };
 
+    // Apply capture policy to assembled sidecars and run-level evidence before
+    // either returning the artifact or sending it to persistence.
+    if (this.policy.contentMode === "STRUCTURE_ONLY") {
+      artifact.execution.summary = "[CONTENT_OMITTED]";
+      artifact.execution.error = undefined;
+      artifact.trajectory = artifact.trajectory.map((step) => ({
+        ...step, name: "[CONTENT_OMITTED]", input_summary: undefined,
+        output_summary: undefined, error: undefined, metadata: undefined,
+      }));
+      artifact.configuration_snapshot = undefined;
+      artifact.evidence = undefined;
+      artifact.checkpoints = artifact.checkpoints.map((checkpoint) => ({
+        ...checkpoint, restorable: false, metadata: undefined,
+      }));
+    }
+    const safeArtifact = sanitizeCanonicalRecord(artifact, this.policy);
+
     // Integrity validation
-    const integrityReport = validateExecutionIntegrity(artifact);
+    const integrityReport = validateExecutionIntegrity(safeArtifact);
     if (!integrityReport.valid) {
       if (this.strict) {
         throw new ExecutionIntegrityError(integrityReport.errors);
@@ -1146,8 +1169,8 @@ export class CaptureSession {
     }
 
     // Persist
-    await saveCanonicalRun(artifact);
-    return artifact;
+    await saveCanonicalRun(safeArtifact);
+    return safeArtifact;
   }
 
   private handleCaptureError(source: string, err: unknown): void {

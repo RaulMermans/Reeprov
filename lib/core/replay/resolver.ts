@@ -13,6 +13,7 @@
 import type { ExecutionBoundary, BoundaryType } from "../contracts/replay";
 import type { RunArtifact } from "../contracts/runArtifact";
 import { hashPayload } from "../capture/hashing";
+import { sanitizePayload } from "../capture/redaction";
 import { getContentStore } from "../capture/contentStore";
 import { type ReplayDivergence, type DivergenceType } from "./contracts";
 
@@ -40,6 +41,7 @@ export interface ResolveBoundaryResponse {
   boundary: ExecutionBoundary;
   sideEffectSubstituted: boolean;
   liveSideEffectBlocked: boolean;
+  inputVerification: "FULL" | "PARTIAL";
 }
 
 function isEquivalentType(expected: BoundaryType, actual: BoundaryType): boolean {
@@ -56,6 +58,7 @@ function isEquivalentType(expected: BoundaryType, actual: BoundaryType): boolean
 export interface BoundaryResolverOptions {
   strict?: boolean;
   startCursor?: number;
+  requireExactInputVerification?: boolean;
 }
 
 export class BoundaryResolver {
@@ -65,11 +68,14 @@ export class BoundaryResolver {
   private substitutedCount = 0;
   private forkSubstitutedCount = 0;
   private readonly strict: boolean;
+  private readonly requireExactInputVerification: boolean;
+  private partiallyVerifiedCount = 0;
 
   constructor(source: RunArtifact | ExecutionBoundary[], options: BoundaryResolverOptions = {}) {
     this.boundaries = Array.isArray(source) ? [...source] : [...source.boundaries];
     this.boundaries.sort((a, b) => (a.sequence_index ?? 0) - (b.sequence_index ?? 0));
     this.strict = options.strict !== false;
+    this.requireExactInputVerification = options.requireExactInputVerification === true;
 
     const start = options.startCursor ?? 0;
     if (start < 0 || start > this.boundaries.length) {
@@ -154,7 +160,13 @@ export class BoundaryResolver {
     }
 
     // 4. Input Hash Verification
-    const incomingHash = hashPayload(request.input);
+    const inputWasRedacted = recorded.input.redaction_status !== "none" ||
+      recorded.input.availability === "HASH_ONLY";
+    const incomingHash = inputWasRedacted
+      ? sanitizePayload(request.input, {
+          modeOverride: recorded.input.availability === "HASH_ONLY" ? "STRUCTURE_ONLY" : "SAFE_CONTENT",
+        }).persisted_hash
+      : hashPayload(request.input);
     const expectedHash = recorded.content_hashes?.input_hash ?? recorded.input.hash;
 
     if (this.strict && expectedHash && incomingHash !== expectedHash) {
@@ -166,6 +178,17 @@ export class BoundaryResolver {
           expectedHash,
           actualHash: incomingHash,
         }
+      );
+    }
+
+    if (this.strict && !expectedHash) {
+      throw new BoundaryResolutionError("INPUT_UNVERIFIABLE", `Recorded input hash is missing for boundary '${recorded.name}'.`);
+    }
+    if (this.strict && inputWasRedacted && this.requireExactInputVerification) {
+      throw new BoundaryResolutionError(
+        "INPUT_UNVERIFIABLE",
+        `Sensitive input was removed for boundary '${recorded.name}'. Exact equality cannot be proven; use partial verification or recapture without sensitive input.`,
+        { boundaryId: recorded.boundary_id }
       );
     }
 
@@ -210,7 +233,15 @@ export class BoundaryResolver {
       );
     }
 
+    const expectedOutputHash = recorded.content_hashes?.output_hash ?? recorded.output.hash;
+    if (expectedOutputHash && hashPayload(outputContent) !== expectedOutputHash) {
+      throw new BoundaryResolutionError("OUTPUT_MISMATCH", `Captured output evidence is corrupt for boundary '${recorded.name}'.`, {
+        boundaryId: recorded.boundary_id,
+      });
+    }
+
     this.cursor++;
+    if (inputWasRedacted) this.partiallyVerifiedCount++;
     this.substitutedCount++;
     this.forkSubstitutedCount++;
 
@@ -219,10 +250,13 @@ export class BoundaryResolver {
       boundary: recorded,
       sideEffectSubstituted,
       liveSideEffectBlocked,
+      inputVerification: inputWasRedacted ? "PARTIAL" : "FULL",
     };
   }
 
   private matchesIdentity(request: ResolveBoundaryRequest, recorded: ExecutionBoundary): boolean {
+    if (request.dependencyIdentity && recorded.dependency_identity &&
+      request.dependencyIdentity !== recorded.dependency_identity) return false;
     if (
       request.dependencyIdentity &&
       recorded.dependency_identity &&
@@ -255,6 +289,10 @@ export class BoundaryResolver {
 
   getCursor(): number {
     return this.cursor;
+  }
+
+  getPartiallyVerifiedCount(): number {
+    return this.partiallyVerifiedCount;
   }
 
   getStartCursor(): number {

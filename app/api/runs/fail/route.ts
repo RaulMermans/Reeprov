@@ -19,14 +19,16 @@ import { getRunStore, recordIngestDiagnostic, requireIngestAuth } from "@/lib/db
 import { getCanonicalRun, saveCanonicalRun } from "@/lib/core/capture/persistence";
 import { adaptLegacyRunToRunArtifact } from "@/lib/core/adapters/legacyRunAdapter";
 import { traceEventSchema } from "@/lib/proof-layer/schemas";
-import { assertTraceContract } from "@/lib/proof-layer/index";
+import { assertTraceContract, summarizeRun } from "@/lib/proof-layer/index";
 import type { TraceEvent, RunRecord } from "@/lib/proof-layer/schemas";
+import { sanitizeCanonicalRecord } from "@/lib/core/capture/redaction";
+import { DEFAULT_CAPTURE_POLICY } from "@/lib/core/capture/policy";
 
 export async function POST(request: Request) {
   try {
     const auth = await requireIngestAuth(request, "POST /api/runs/fail");
 
-    const body = await request.json() as Record<string, unknown>;
+    const body = sanitizeCanonicalRecord(await request.json() as Record<string, unknown>, DEFAULT_CAPTURE_POLICY);
 
     const run_id = body["run_id"];
     if (!run_id || typeof run_id !== "string") {
@@ -85,9 +87,15 @@ export async function POST(request: Request) {
     });
     await getRunStore().appendTraceEvent(run_id, failedEvent);
 
+    const savedAfterEvents = await getRunStore().getRun(run_id);
+    const summary = summarizeRun(savedAfterEvents?.traceEvents ?? [], savedAfterEvents?.evalResults ?? []);
     const patch: Partial<RunRecord> = {
       completed_at: failedAt,
       summary: error_summary,
+      model_calls_count: summary.modelCallsCount,
+      tool_calls_count: summary.toolCallsCount,
+      evals_passed: summary.evalsPassedCount,
+      evals_failed: summary.evalsFailedCount,
       ...(typeof body["total_cost_usd"] === "number" ? { total_cost_usd: body["total_cost_usd"] as number } : {}),
       ...(typeof body["total_duration_ms"] === "number" ? { total_duration_ms: body["total_duration_ms"] as number } : {}),
     };

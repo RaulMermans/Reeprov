@@ -148,6 +148,7 @@ export interface ToolCallInput {
 
 export interface EvalCompletedInput {
   run_id: string;
+  eval_id?: string;
   eval_name: string;
   passed: boolean;
   score?: number;

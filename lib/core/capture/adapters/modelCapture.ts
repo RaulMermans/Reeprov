@@ -9,7 +9,7 @@ import { modelInvocationSchema, type ModelInvocation } from "../../contracts/mod
 import { normalizeBoundary } from "../normalizeBoundary";
 import { buildContextSnapshot, type ContextItemInput } from "../contextSnapshotBuilder";
 import { hashPayload } from "../hashing";
-import { sanitizePayload, sanitizeCanonicalValue } from "../redaction";
+import { sanitizePayload, sanitizeCanonicalRecord } from "../redaction";
 import { resolvePolicy } from "../policy";
 import type { ModelCaptureInput, ModelCaptureResult, CapturePolicy } from "../types";
 
@@ -94,29 +94,29 @@ export async function captureModelInvocation(
   const completionTokens = input.outputTokens ?? 0;
   const totalTokens = promptTokens + completionTokens;
 
-  const modelInvocation: ModelInvocation = modelInvocationSchema.parse(sanitizeCanonicalValue({
+  const modelInvocation: ModelInvocation = modelInvocationSchema.parse(sanitizeCanonicalRecord({
     invocation_id: invocationId,
     step_id: input.stepId,
     node_id: input.nodeId,
     model_name: input.model,
     provider: input.provider,
-    parameters: input.parameters,
+    parameters: policy.contentMode === "STRUCTURE_ONLY" ? undefined : input.parameters,
     prompt_tokens: promptTokens,
     completion_tokens: completionTokens,
     total_tokens: totalTokens,
     cost_usd: input.costUsd,
     duration_ms: durationMs,
     context_snapshot_id: contextSnapshotId,
-    response_summary:
+    response_summary: policy.contentMode === "STRUCTURE_ONLY" ? undefined :
       typeof responseRedaction.value === "string"
         ? responseRedaction.value.slice(0, 300)
         : JSON.stringify(responseRedaction.value).slice(0, 300),
-    raw_captured: true,
+    raw_captured: policy.contentMode !== "STRUCTURE_ONLY",
     response_hash: responseHash,
     finish_reason: input.finishReason,
     started_at: startedAt,
     completed_at: completedAt,
-    metadata: {
+    metadata: policy.contentMode === "STRUCTURE_ONLY" ? undefined : {
       ...(input.metadata ?? {}),
       tools_count: input.toolsExposed?.length ?? 0,
       cached_tokens: input.cachedTokens,

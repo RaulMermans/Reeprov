@@ -248,7 +248,10 @@ export async function runLauncher(options?: {
   }
 
   const standaloneServer = resolve(process.cwd(), ".next/standalone/server.js");
-  if (!config.isDev && existsSync(standaloneServer)) {
+  // A local `next build` does not copy public/ and .next/static into the
+  // standalone directory. Docker does that explicitly; local npm start uses
+  // next start unless a packaged standalone runtime is requested.
+  if (!config.isDev && env.REEPROV_USE_STANDALONE === "true" && existsSync(standaloneServer)) {
     console.log(`[Reeprov] Launching standalone server: ${process.execPath} ${standaloneServer}`);
     const child = spawn(process.execPath, [standaloneServer], {
       stdio: "inherit",

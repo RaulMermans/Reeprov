@@ -40,6 +40,7 @@ const EXCLUDED_DIRS = new Set([
   "__pycache__",
   ".venv",
   ".turbo",
+  "s12-evidence",
 ]);
 
 const EXCLUDED_FILES = new Set([

@@ -15,7 +15,7 @@ import {
 } from "../../contracts/memory";
 import { normalizeBoundary } from "../normalizeBoundary";
 import { resolvePolicy } from "../policy";
-import { sanitizeCanonicalValue } from "../redaction";
+import { sanitizeCanonicalValue, sanitizeCanonicalRecord } from "../redaction";
 import type { MemoryCaptureInput, MemoryCaptureResult, CapturePolicy } from "../types";
 
 /**
@@ -36,17 +36,17 @@ export async function captureMemoryOperation(
   const sideEffectClass = isReadOp ? "read_only" : "external_side_effect";
 
   // 2. Build MemoryOperation
-  const memoryOperation: MemoryOperation = memoryOperationSchema.parse(sanitizeCanonicalValue({
+  const memoryOperation: MemoryOperation = memoryOperationSchema.parse(sanitizeCanonicalRecord({
     operation_id: operationId,
     step_id: input.stepId,
     operation_type: input.operationType,
     memory_id: input.memoryId,
     memory_type: input.category,
     provider: input.provider,
-    query: input.query,
+    query: sanitizeCanonicalValue(input.query, policy),
     score: input.score,
     rank: input.rank,
-    source_provenance: input.sourceProvenance,
+    source_provenance: sanitizeCanonicalValue(input.sourceProvenance, policy),
     version: input.version,
     timestamps: {
       operation_at: input.timestamps.operationAt,
@@ -57,7 +57,7 @@ export async function captureMemoryOperation(
     context_injection_linkage: input.contextInjectionLinkage,
     originating_run_id: input.originatingRunId ?? input.runId,
     originating_step_id: input.originatingStepId ?? input.stepId,
-    details: input.details,
+    details: sanitizeCanonicalValue(input.details, policy),
   }, policy));
 
   // 3. Build ExecutionBoundary

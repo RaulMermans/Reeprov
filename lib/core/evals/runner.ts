@@ -160,8 +160,8 @@ export function computeEvaluationSummary(
   results: EvalResult[]
 ): EvaluationSummary {
   const total = results.length;
-  const passed = results.filter((r) => r.passed && r.grader_status !== "EVALUATOR_ERROR" && r.grader_status !== "MISSING_EVIDENCE").length;
-  const failed = results.filter((r) => !r.passed && r.grader_status !== "EVALUATOR_ERROR" && r.grader_status !== "MISSING_EVIDENCE").length;
+  const passed = results.filter((r) => r.passed === true && r.grader_status !== "EVALUATOR_ERROR" && r.grader_status !== "MISSING_EVIDENCE").length;
+  const failed = results.filter((r) => r.passed !== true && r.grader_status !== "EVALUATOR_ERROR" && r.grader_status !== "MISSING_EVIDENCE").length;
   const errors = results.filter((r) => r.grader_status === "EVALUATOR_ERROR").length;
   const missing_evidence = results.filter((r) => r.grader_status === "MISSING_EVIDENCE").length;
   const pass_rate = total > 0 ? passed / total : 0;
@@ -204,9 +204,16 @@ export function computeEvaluationSummary(
   let verdict_reason = "All evaluation criteria satisfied.";
 
   // Rule 0: Empty result set when definitions exist cannot pass
-  if (suite.definitions.length > 0 && results.length === 0) {
+  if (results.length === 0) {
     suite_verdict = "FAILED";
-    verdict_reason = "No evaluation results were produced for configured suite definitions.";
+    verdict_reason = "No evaluation results were produced.";
+  } else if (errors > 0 || missing_evidence > 0 || results.some((r) =>
+    typeof r.passed !== "boolean" ||
+    (r.grader_status === "FAILED" && r.passed === true) ||
+    (r.grader_status === "PASSED" && r.passed === false)
+  )) {
+    suite_verdict = "FAILED";
+    verdict_reason = "Evaluation error, missing evidence, or contradictory verdict prevents a pass.";
   } else if (criticalFailures.length > 0) {
     // Rule 1: Critical safety/policy failures FAIL the suite immediately
     suite_verdict = "FAILED";
@@ -235,7 +242,8 @@ export function computeEvaluationSummary(
         ? weights[r.eval_definition_id]!
         : 1.0;
       totalWeight += weight;
-      const score = typeof r.score === "number" ? r.score : r.passed ? 1.0 : 0.0;
+      const score = r.passed === true
+        ? (typeof r.score === "number" ? r.score : 1.0) : 0.0;
       weightedSum += score * weight;
     }
 

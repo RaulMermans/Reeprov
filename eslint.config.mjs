@@ -9,6 +9,7 @@ const eslintConfig = [
       "node_modules/**",
       "packages/**/dist/**",
       "dist/**",
+      "s12-evidence/**",
       "next-env.d.ts",
       "**/*.ts",
       "**/*.tsx",

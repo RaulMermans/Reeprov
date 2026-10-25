@@ -7,6 +7,10 @@ import { captureRetrievalOperation } from "../adapters/retrievalCapture";
 import { captureMemoryOperation } from "../adapters/memoryCapture";
 import { buildContextSnapshot } from "../contextSnapshotBuilder";
 import { hashPayload } from "../hashing";
+import { saveCanonicalRun } from "../persistence";
+import { runArtifactSchema } from "../../contracts/runArtifact";
+import fs from "node:fs";
+import path from "node:path";
 
 describe("Telemetry Minimization & Secret Redaction", () => {
   const originalEnv = process.env;
@@ -17,6 +21,53 @@ describe("Telemetry Minimization & Secret Redaction", () => {
 
   afterEach(() => {
     process.env = originalEnv;
+  });
+
+  it("omits narrative content from every STRUCTURE_ONLY sidecar", async () => {
+    const narrative = "private customer narrative for case C-42";
+    const policy = { contentMode: "STRUCTURE_ONLY" as const };
+    const tool = await captureToolInvocation({
+      runId: "s12-tool", toolName: "lookup", arguments: { query: narrative },
+      output: { answer: narrative }, startedAt: "2026-01-01T00:00:00.000Z",
+      metadata: { note: narrative },
+    }, policy);
+    const model = await captureModelInvocation({
+      runId: "s12-model", model: "local", provider: "local", prompt: narrative,
+      response: narrative, startedAt: "2026-01-01T00:00:00.000Z",
+      metadata: { note: narrative },
+    }, policy);
+    const retrieval = await captureRetrievalOperation({
+      runId: "s12-retrieval", serviceName: "search", query: narrative,
+      results: [{ documentId: "doc-1", content: narrative, metadata: { note: narrative } }],
+      startedAt: "2026-01-01T00:00:00.000Z",
+    }, policy);
+    const memory = await captureMemoryOperation({
+      runId: "s12-memory", provider: "memory", operationType: "read",
+      category: "episodic", query: narrative,
+      timestamps: { operationAt: "2026-01-01T00:00:00.000Z" },
+      outcome: "success", details: { note: narrative },
+    }, policy);
+    const context = await buildContextSnapshot({
+      items: [{ sourceType: "user_input", content: narrative, metadata: { note: narrative } }],
+      metadata: { note: narrative }, policyOverrides: policy,
+    });
+    for (const record of [tool, model, retrieval, memory, context]) {
+      expect(JSON.stringify(record)).not.toContain(narrative);
+    }
+    expect(tool.toolInvocation.input).toBeUndefined();
+    expect(model.modelInvocation.response_summary).toBeUndefined();
+    expect(retrieval.retrievalOperation.query).toBe("");
+    expect(memory.memoryOperation.details).toBeUndefined();
+    expect(context.items[0]?.content).toBeUndefined();
+  });
+
+  it("rejects an unsafe canonical run before either persistence backend writes", async () => {
+    const fixture = JSON.parse(fs.readFileSync(path.resolve(process.cwd(),
+      "tests/fixtures/canonical/fixture-h-vertical-slice.json"), "utf8"));
+    const artifact = runArtifactSchema.parse(fixture);
+    artifact.identity.run_id = "s12-unsafe-persistence";
+    artifact.execution.summary = "credential sk-abcdefghijklmnopqrstuvwxyz0123456789ABCD";
+    await expect(saveCanonicalRun(artifact)).rejects.toThrow("PRIVACY_VALIDATION_FAILED");
   });
 
   describe("Secret Patterns Detection", () => {

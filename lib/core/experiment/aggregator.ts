@@ -190,6 +190,10 @@ export class ExperimentAggregator {
 
       for (const evalId of requiredNonReg) {
         const base = baselineEvals.get(evalId);
+        if (!base) {
+          armFailures.push(`NON_REGRESSION_GATE_FAILED: Required baseline eval '${evalId}' is missing or incomparable`);
+          continue;
+        }
         // Candidate results for this evalId across all trials
         const candResults = armTrials.flatMap((t) =>
           (t.evalRun?.results ?? []).filter((r) => r.eval_definition_id === evalId)
@@ -325,9 +329,8 @@ export class ExperimentAggregator {
           }
         }
       } else {
-        scores.push(trial.status === "COMPLETED" ? 1 : 0);
-        if (trial.status === "COMPLETED") passedCount++;
-        if (requiredIds.size > 0) requiredGatesPassedAll = false;
+        scores.push(0);
+        requiredGatesPassedAll = false;
       }
     }
 

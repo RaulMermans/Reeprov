@@ -24,6 +24,8 @@ import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
 import { getRunStore, recordIngestDiagnostic, requireIngestAuth, touchIntegrationForProject } from "@/lib/db/getStores";
 import { traceEventSchema } from "@/lib/proof-layer/schemas";
 import type { TraceEvent } from "@/lib/proof-layer/schemas";
+import { sanitizeCanonicalRecord } from "@/lib/core/capture/redaction";
+import { DEFAULT_CAPTURE_POLICY } from "@/lib/core/capture/policy";
 import { tryBuildEvalResultFromTraceEvent } from "@/lib/proof-layer/evalFromTrace";
 import { classifyZodIssues } from "@/lib/diagnostics/classifyIngestError";
 
@@ -83,7 +85,7 @@ export async function POST(request: Request) {
         continue;
       }
 
-      const event: TraceEvent = parseResult.data;
+      const event: TraceEvent = sanitizeCanonicalRecord(parseResult.data, DEFAULT_CAPTURE_POLICY);
 
       const run = await getRunStore().getRun(event.run_id);
       // A scoped ingest key may only append events to runs it owns. Treat a

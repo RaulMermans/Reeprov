@@ -27,6 +27,7 @@ const DEVELOPER_TOOLS_ITEMS = [
 export function NavBar({ onLock }: { onLock?: () => void }) {
   const pathname = usePathname();
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   function isActive(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -37,7 +38,7 @@ export function NavBar({ onLock }: { onLock?: () => void }) {
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:gap-6 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-4">
           <Link href="/dashboard" className="flex shrink-0 items-center gap-2">
             <span className="text-sm font-bold tracking-tight text-slate-950">Reeprov</span>
@@ -47,7 +48,11 @@ export function NavBar({ onLock }: { onLock?: () => void }) {
           </Link>
 
           {/* Primary Navigation */}
-          <nav aria-label="Main navigation" className="flex min-w-0 items-center gap-1 overflow-x-auto">
+          <button type="button" className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium sm:hidden"
+            aria-expanded={mobileOpen} aria-controls="mobile-main-navigation" onClick={() => setMobileOpen(!mobileOpen)}>
+            Menu
+          </button>
+          <nav aria-label="Main navigation" className="hidden min-w-0 items-center gap-1 overflow-x-auto sm:flex">
             {PRIMARY_NAV_ITEMS.map(({ label, href }) => (
               <Link
                 key={href}
@@ -112,6 +117,14 @@ export function NavBar({ onLock }: { onLock?: () => void }) {
             </div>
           </nav>
         </div>
+        {mobileOpen && <nav id="mobile-main-navigation" aria-label="Mobile navigation"
+          className="absolute left-4 right-4 top-full z-50 grid gap-1 rounded-lg border border-slate-200 bg-white p-2 shadow-lg sm:hidden">
+          {[...PRIMARY_NAV_ITEMS, ...DEVELOPER_TOOLS_ITEMS].map(({ label, href }) => (
+            <Link key={href} href={href} onClick={() => setMobileOpen(false)}
+              className="rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              aria-current={isActive(href) ? "page" : undefined}>{label}</Link>
+          ))}
+        </nav>}
 
         <div className="flex shrink-0 items-center gap-3">
           <div className="hidden items-center gap-1.5 text-xs text-slate-500 sm:flex" title="Dashboard is unlocked">
