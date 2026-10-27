@@ -76,7 +76,9 @@ describe("POST /api/traces/events — diagnostics", () => {
       metadata: { eval_id: "eval-safety", eval_name: "Safety" },
     }] }, { "x-agentpulse-key": TEST_INGEST_KEY }));
 
-    expect(await res.json()).toEqual({ accepted: 1, rejected: 0, errors: [] });
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: true, accepted: 1, rejected: 0, errors: [] });
+    expect(body.results[0].warnings[0]).toMatch(/^EVAL_NOT_RECORDED/);
     expect((await fileRunStore.getRun(run_id))?.evalResults).toHaveLength(0);
     const diagnostics = await fileDiagnosticStore.listDiagnostics({});
     expect(diagnostics.some((d) => d.category === "malformed_metadata" && d.runId === run_id)).toBe(true);

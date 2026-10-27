@@ -50,17 +50,17 @@ describe("Authoritative Route Security Contract Test (Sprint 10.2 Section 3)", (
   const apiRoot = path.resolve(process.cwd(), "app/api");
   const routeFiles = findRouteFiles(apiRoot);
 
-  it("dynamically generates and validates exact route file count (66)", () => {
-    expect(routeFiles.length).toBe(66);
+  it("dynamically generates and validates exact route file count (68)", () => {
+    expect(routeFiles.length).toBe(68);
   });
 
-  it("dynamically generates and validates exact HTTP method handler count (88)", () => {
+  it("dynamically generates and validates exact HTTP method handler count (92)", () => {
     let totalHandlers = 0;
     for (const file of routeFiles) {
       const content = fs.readFileSync(file, "utf8");
       totalHandlers += extractExportedMethods(content).length;
     }
-    expect(totalHandlers).toBe(88);
+    expect(totalHandlers).toBe(92);
   });
 
   it("validates that every inventory declaration corresponds to a real code handler (no stale declarations)", () => {

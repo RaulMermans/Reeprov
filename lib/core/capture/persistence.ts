@@ -8,7 +8,7 @@
  * Legacy runs that lack canonical records are seamlessly adapted via adaptLegacyRunToRunArtifact.
  */
 
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { runArtifactSchema, type RunArtifact } from "../contracts/runArtifact";
 import { executionBoundarySchema, type ExecutionBoundary } from "../contracts/replay";
@@ -30,6 +30,11 @@ type TraceEventType = z.infer<typeof traceEventTypeSchema>;
 
 import { getReeprovEnv } from "@/lib/config/env";
 import { getReeprovHome } from "@/lib/storage/dataPath";
+import { writeFileAtomic } from "@/lib/storage/runLock";
+import { withRunWriteLock, upsertIndex } from "../../runs/runStore";
+import type postgres from "postgres";
+
+type SqlHandle = postgres.Sql | postgres.TransactionSql;
 
 // ── File Path Helpers ───────────────────────────────────────────────────────
 
@@ -153,28 +158,31 @@ function projectToSavedRun(artifact: RunArtifact, existingSaved?: SavedRun | nul
   };
 }
 
-async function upsertFileIndex(summary: RunSummary): Promise<void> {
-  try {
-    let existing: RunSummary[] = [];
-    try {
-      const raw = await readFile(indexPath(), "utf8");
-      existing = JSON.parse(raw) as RunSummary[];
-    } catch {
-      existing = [];
-    }
-    const filtered = existing.filter((e) => e.run_id !== summary.run_id);
-    await writeFile(indexPath(), JSON.stringify([summary, ...filtered], null, 2), "utf8");
-  } catch {
-    // Non-fatal
-  }
-}
-
 // ── Public Persistence API ──────────────────────────────────────────────────
 
 /**
  * Persists a canonical RunArtifact into active storage (File and/or Postgres).
  */
 export async function saveCanonicalRun(artifact: RunArtifact): Promise<{ success: boolean; runId: string }> {
+  const runId = artifact.identity.run_id;
+  if (hasDatabaseUrl()) {
+    await ensureSchema();
+    return getDb().begin(async (tx) => {
+      await lockCanonicalRow(tx, runId);
+      return withRunWriteLock(runId, () => persistCanonicalRun(artifact, tx));
+    }) as Promise<{ success: boolean; runId: string }>;
+  }
+  return withRunWriteLock(runId, () => persistCanonicalRun(artifact));
+}
+
+async function lockCanonicalRow(sql: SqlHandle, runId: string): Promise<void> {
+  await sql`SELECT pg_advisory_xact_lock(hashtext(${`reeprov:run:${runId}`}))`;
+}
+
+async function persistCanonicalRun(
+  artifact: RunArtifact,
+  tx?: SqlHandle,
+): Promise<{ success: boolean; runId: string }> {
   const startMs = Date.now();
   const runId = artifact.identity.run_id;
 
@@ -186,9 +194,8 @@ export async function saveCanonicalRun(artifact: RunArtifact): Promise<{ success
       throw new Error("PRIVACY_VALIDATION_FAILED: canonical run contains unsanitized sensitive content; remediate the artifact before persistence.");
     }
     // 1. Persist to Postgres if configured
-    if (hasDatabaseUrl()) {
-      await ensureSchema();
-      const sql = getDb();
+    if (tx) {
+      const sql = tx;
       const now = new Date().toISOString();
 
       const artifactRefs: string[] = artifact.artifacts
@@ -472,7 +479,7 @@ export async function saveCanonicalRun(artifact: RunArtifact): Promise<{ success
 
     // 2. Persist to file store
     await ensureStoreDir();
-    await writeFile(canonicalPath(runId), JSON.stringify(artifact, null, 2), "utf8");
+    await writeFileAtomic(canonicalPath(runId), JSON.stringify(artifact, null, 2));
 
     let existingSaved: SavedRun | null = null;
     try {
@@ -482,8 +489,8 @@ export async function saveCanonicalRun(artifact: RunArtifact): Promise<{ success
       // No existing legacy file
     }
     const saved = projectToSavedRun(artifact, existingSaved);
-    await writeFile(legacyPath(runId), JSON.stringify(saved, null, 2), "utf8");
-    await upsertFileIndex(buildRunSummary(saved));
+    await writeFileAtomic(legacyPath(runId), JSON.stringify(saved, null, 2));
+    await upsertIndex(buildRunSummary(saved));
 
     const latencyMs = Date.now() - startMs;
     globalCaptureMetrics.recordPersistenceLatency(latencyMs);
@@ -500,11 +507,15 @@ export async function saveCanonicalRun(artifact: RunArtifact): Promise<{ success
  * Falls back to adapting legacy runs if no canonical record exists.
  */
 export async function getCanonicalRun(runId: string): Promise<RunArtifact | null> {
+  return readCanonicalRun(runId);
+}
+
+async function readCanonicalRun(runId: string, tx?: SqlHandle): Promise<RunArtifact | null> {
   // 1. Try Postgres canonical table if configured
   if (hasDatabaseUrl()) {
     try {
       await ensureSchema();
-      const sql = getDb();
+      const sql = tx ?? getDb();
       const rows = await sql`
         SELECT artifact_data
         FROM ap_canonical_runs
@@ -541,4 +552,40 @@ export async function getCanonicalRun(runId: string): Promise<RunArtifact | null
   }
 
   return null;
+}
+
+export interface CanonicalMutation<T> {
+  /** The artifact to persist; omit to leave storage unchanged. */
+  artifact?: RunArtifact;
+  value: T;
+}
+
+/**
+ * Authoritative read-modify-write for one canonical run.
+ *
+ * The mutator sees the latest persisted artifact (or the legacy adaptation)
+ * while holding the run's write lock: an in-process mutex plus lock file for
+ * the file store, and additionally a transaction-scoped advisory lock with
+ * the Postgres store. Concurrent ingestion therefore cannot lose updates.
+ */
+export async function mutateCanonicalRun<T>(
+  runId: string,
+  mutator: (current: RunArtifact | null) => Promise<CanonicalMutation<T>> | CanonicalMutation<T>,
+): Promise<T> {
+  if (hasDatabaseUrl()) {
+    await ensureSchema();
+    return getDb().begin(async (tx) => {
+      await lockCanonicalRow(tx, runId);
+      return withRunWriteLock(runId, async () => {
+        const result = await mutator(await readCanonicalRun(runId, tx));
+        if (result.artifact) await persistCanonicalRun(result.artifact, tx);
+        return result.value;
+      });
+    }) as Promise<T>;
+  }
+  return withRunWriteLock(runId, async () => {
+    const result = await mutator(await readCanonicalRun(runId));
+    if (result.artifact) await persistCanonicalRun(result.artifact);
+    return result.value;
+  });
 }

@@ -6,10 +6,14 @@
  */
 
 import type {
-  AgentPulseClientOptions,
   ArtifactCreatedInput,
   BoundaryCaptureInput,
+  CheckpointAck,
+  CheckpointObservedInput,
   CheckpointSavedInput,
+  IngestAck,
+  RecordResult,
+  RegisterCheckpointInput,
   CompleteRunInput,
   EmitEventsResult,
   EvalCompletedInput,
@@ -21,6 +25,10 @@ import type {
   ToolCallInput,
   TraceEvent,
 } from "./types.js";
+import { canonicalSha256 } from "./hash.js";
+
+export const SDK_NAME = "@reeprov/client";
+export const SDK_VERSION = "0.2.0-beta.1";
 
 export class ReeprovError extends Error {
   constructor(
@@ -35,6 +43,23 @@ export class ReeprovError extends Error {
 
 /** Legacy alias */
 export const AgentPulseError = ReeprovError;
+
+/** Thrown (when failOpen is false) if Reeprov did not confirm every record. */
+export class ReeprovIngestError extends ReeprovError {
+  constructor(message: string, public readonly ack: IngestAck | CheckpointAck) {
+    super(message, ack.httpStatus, false);
+    this.name = "ReeprovIngestError";
+  }
+}
+
+interface HttpResult {
+  status: number;
+  body: unknown;
+}
+
+function randomId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
 
 declare const process: { env?: Record<string, string | undefined> } | undefined;
 
@@ -55,6 +80,10 @@ export class ReeprovClient {
   private readonly maxRetries: number;
   private readonly failOpen: boolean;
   private readonly enabled: boolean;
+  /** Next client-assigned boundary sequence per run. */
+  private readonly nextSequence = new Map<string, number>();
+  /** Sequences the server confirmed per run (stored or duplicate). */
+  private readonly confirmedSequences = new Map<string, Set<number>>();
 
   constructor(options: ReeprovClientOptions = {}) {
     const rawEndpoint =
@@ -110,59 +139,86 @@ export class ReeprovClient {
   // ── Run Lifecycle ────────────────────────────────────────────────────────────
 
   public async startRun(input: StartRunInput): Promise<StartRunResult> {
+    const runId = input.run_id || `${this.defaultProjectId}-${randomId()}`;
+    const local: StartRunResult = {
+      run_id: runId,
+      workflow_id: input.workflowId ?? this.defaultWorkflowId,
+      project_id: input.projectId ?? this.defaultProjectId,
+      project_name: input.projectName ?? this.defaultProjectName,
+      status: "running",
+      started_at: new Date().toISOString(),
+      summary: input.summary,
+    };
     if (!this.enabled) {
-      const noopId = input.run_id || `noop-${Math.random().toString(36).slice(2, 10)}`;
-      return {
-        run_id: noopId,
-        workflow_id: input.workflowId ?? this.defaultWorkflowId,
-        project_id: input.projectId ?? this.defaultProjectId,
-        project_name: input.projectName ?? this.defaultProjectName,
-        status: "running",
-        started_at: new Date().toISOString(),
-        summary: input.summary,
-      };
+      return { ...local, run_id: input.run_id || `noop-${Math.random().toString(36).slice(2, 10)}` };
     }
 
     const payload = {
-      project_id: input.projectId ?? this.defaultProjectId,
-      project_name: input.projectName ?? this.defaultProjectName,
-      workflow_id: input.workflowId ?? this.defaultWorkflowId,
+      project_id: local.project_id,
+      project_name: local.project_name,
+      workflow_id: local.workflow_id,
       summary: input.summary,
-      ...(input.run_id ? { run_id: input.run_id } : {}),
+      run_id: runId,
+      sdk: { name: SDK_NAME, version: SDK_VERSION },
+      ...(input.contentMode ? { capture_policy: { content_mode: input.contentMode } } : {}),
       ...(input.metadata ? { metadata: input.metadata } : {}),
     };
 
-    return this.post<StartRunResult>("/api/runs/start", payload);
+    // run_id is client-assigned, so a retried start is idempotent server-side.
+    const res = await this.post("/api/runs/start", payload);
+    if (res && res.status >= 200 && res.status < 300) return res.body as StartRunResult;
+    const error = new ReeprovError(
+      `Reeprov did not confirm run start (${res ? `HTTP ${res.status}: ${describeBody(res.body)}` : "unreachable"}).`,
+      res?.status,
+      !res,
+    );
+    if (this.failOpen) {
+      console.warn(`[Reeprov] ${error.message} Evidence for run ${runId} may be incomplete.`);
+      return { ...local, status: "unconfirmed" };
+    }
+    throw error;
   }
 
-  public async completeRun(input: CompleteRunInput): Promise<void> {
-    if (!this.enabled) return;
-    await this.post("/api/runs/complete", input);
+  public async completeRun(input: CompleteRunInput): Promise<IngestAck> {
+    return this.lifecycle("/api/runs/complete", input, "run completion");
   }
 
-  public async failRun(input: FailRunInput): Promise<void> {
-    if (!this.enabled) return;
-    await this.post("/api/runs/fail", input);
+  public async failRun(input: FailRunInput): Promise<IngestAck> {
+    return this.lifecycle("/api/runs/fail", input, "run failure");
+  }
+
+  private async lifecycle(path: string, body: unknown, kind: string): Promise<IngestAck> {
+    if (!this.enabled) return disabledAck();
+    const res = await this.post(path, body);
+    const ok = Boolean(res && res.status >= 200 && res.status < 300);
+    const ack: IngestAck = {
+      ok,
+      delivery: res ? "acknowledged" : "unreachable",
+      httpStatus: res?.status,
+      accepted: ok ? 1 : 0,
+      duplicates: 0,
+      rejected: ok ? 0 : 1,
+      results: [],
+      errors: ok ? [] : [res ? `HTTP ${res.status}: ${describeBody(res.body)}` : "unreachable"],
+    };
+    return this.settle(kind, ack);
   }
 
   // ── Trace Events ─────────────────────────────────────────────────────────────
 
-  public async emitTraceEvent(event: TraceEvent): Promise<void> {
-    await this.emitTraceEvents([event]);
+  public async emitTraceEvent(event: TraceEvent): Promise<IngestAck> {
+    return this.emitTraceEvents([event]);
   }
 
-  public async emitTraceEvents(events: TraceEvent[]): Promise<void> {
-    if (!this.enabled || events.length === 0) {
-      return;
-    }
-    const result = await this.post<EmitEventsResult>("/api/traces/events", { events });
-    this.checkIngestResult("trace events", result);
+  public async emitTraceEvents(events: TraceEvent[]): Promise<IngestAck> {
+    if (!this.enabled || events.length === 0) return disabledAck();
+    return this.settle("trace event", toAck(await this.post("/api/traces/events", { events }), events.length));
   }
 
   // ── Semantic Helpers ─────────────────────────────────────────────────────────
 
-  public async modelCallCompleted(input: ModelCallInput): Promise<void> {
-    if (!this.enabled) return;
+  public async modelCallCompleted(input: ModelCallInput): Promise<IngestAck> {
+    if (!this.enabled) return disabledAck();
     const now = new Date().toISOString();
     const event: TraceEvent = {
       event_id: `evt-${Math.random().toString(36).slice(2, 10)}`,
@@ -183,9 +239,9 @@ export class ReeprovClient {
         ...input.metadata,
       },
     };
-    await this.emitTraceEvent(event);
+    const eventAck = await this.emitTraceEvent(event);
 
-    await this.captureBoundary(input.run_id, {
+    const boundaryAck = await this.captureBoundary(input.run_id, {
       boundaryType: "model_call",
       name: `${input.provider}/${input.model}`,
       nodeId: input.node_id,
@@ -201,10 +257,11 @@ export class ReeprovClient {
       declaredSideEffectClass: "read_only",
       metadata: input.metadata,
     });
+    return mergeAcks(eventAck, boundaryAck);
   }
 
-  public async toolCallCompleted(input: ToolCallInput): Promise<void> {
-    if (!this.enabled) return;
+  public async toolCallCompleted(input: ToolCallInput): Promise<IngestAck> {
+    if (!this.enabled) return disabledAck();
     const now = new Date().toISOString();
     const event: TraceEvent = {
       event_id: `evt-${Math.random().toString(36).slice(2, 10)}`,
@@ -222,9 +279,9 @@ export class ReeprovClient {
         ...input.metadata,
       },
     };
-    await this.emitTraceEvent(event);
+    const eventAck = await this.emitTraceEvent(event);
 
-    await this.captureBoundary(input.run_id, {
+    const boundaryAck = await this.captureBoundary(input.run_id, {
       boundaryType: "tool_call",
       name: input.tool_name,
       nodeId: input.node_id,
@@ -236,13 +293,14 @@ export class ReeprovClient {
       declaredSideEffectClass: input.permission_class ?? "read_only",
       metadata: input.metadata,
     });
+    return mergeAcks(eventAck, boundaryAck);
   }
 
-  public async evalCompleted(input: EvalCompletedInput): Promise<void> {
-    if (!this.enabled) return;
+  public async evalCompleted(input: EvalCompletedInput): Promise<IngestAck> {
+    if (!this.enabled) return disabledAck();
     const now = new Date().toISOString();
     const event: TraceEvent = {
-      event_id: `evt-${Math.random().toString(36).slice(2, 10)}`,
+      event_id: `${input.run_id}::eval::${input.eval_id ?? input.eval_name}`,
       run_id: input.run_id,
       workflow_id: this.defaultWorkflowId,
       timestamp: now,
@@ -258,11 +316,11 @@ export class ReeprovClient {
         reason: input.reason,
       },
     };
-    await this.emitTraceEvent(event);
+    return this.emitTraceEvent(event);
   }
 
-  public async artifactCreated(input: ArtifactCreatedInput): Promise<void> {
-    if (!this.enabled) return;
+  public async artifactCreated(input: ArtifactCreatedInput): Promise<IngestAck> {
+    if (!this.enabled) return disabledAck();
     const now = new Date().toISOString();
     const event: TraceEvent = {
       event_id: `evt-${Math.random().toString(36).slice(2, 10)}`,
@@ -279,67 +337,141 @@ export class ReeprovClient {
         ...input.metadata,
       },
     };
-    await this.emitTraceEvent(event);
+    return this.emitTraceEvent(event);
   }
 
-  public async checkpointSaved(input: CheckpointSavedInput): Promise<void> {
-    if (!this.enabled) return;
-    // Trace observation only. This is not a restorable canonical checkpoint.
-    await this.captureBoundary(input.run_id, {
-      boundaryType: "checkpoint",
-      name: `checkpoint:${input.checkpoint_id}`,
-      nodeId: input.node_id,
-      stepId: input.step_id,
-      output: input.state,
-      declaredSideEffectClass: "read_only",
-      metadata: {
-        checkpoint_id: input.checkpoint_id,
-        ...input.metadata,
-      },
+  // ── Checkpoints ──────────────────────────────────────────────────────────────
+
+  /**
+   * Checkpoint observation: records that the agent reached a checkpoint.
+   * It is never restorable and never becomes an execution boundary.
+   */
+  public async checkpointObserved(input: CheckpointObservedInput): Promise<CheckpointAck> {
+    if (!this.enabled) return { ok: true, delivery: "disabled", status: "NOT_SENT" };
+    return this.checkpointRequest(input.run_id, {
+      kind: "observe",
+      checkpoint_id: input.checkpoint_id,
+      step_id: input.step_id,
+      node_id: input.node_id,
+      state: input.state,
+      metadata: input.metadata,
     });
+  }
+
+  /** @deprecated Records an observation only. Use checkpointObserved() or registerCheckpoint(). */
+  public async checkpointSaved(input: CheckpointSavedInput): Promise<CheckpointAck> {
+    return this.checkpointObserved(input);
+  }
+
+  /**
+   * Restorable-checkpoint capture. Sends the state snapshot with its
+   * canonical hash, the boundary cursor and the resume adapter identity.
+   * Reeprov validates the snapshot; it advertises the checkpoint as
+   * restorable only after a compatible host resume is verified.
+   */
+  public async registerCheckpoint(input: RegisterCheckpointInput): Promise<CheckpointAck> {
+    if (!this.enabled) return { ok: true, delivery: "disabled", status: "NOT_SENT" };
+    return this.checkpointRequest(input.run_id, {
+      kind: "register",
+      checkpoint_id: input.checkpoint_id,
+      step_id: input.step_id,
+      step_index: input.step_index,
+      position: input.position ?? "AFTER_STEP",
+      resume_step_index: input.resume_step_index,
+      resume_step_id: input.resume_step_id,
+      boundary_cursor: input.boundary_cursor ?? this.confirmedBoundaryCursor(input.run_id),
+      state: input.state,
+      state_hash: await canonicalSha256(input.state),
+      adapter: input.adapter,
+      metadata: input.metadata,
+    });
+  }
+
+  /** Number of contiguous boundaries (from sequence 0) the server confirmed for a run. */
+  public confirmedBoundaryCursor(runId: string): number {
+    const confirmed = this.confirmedSequences.get(runId) ?? new Set<number>();
+    let cursor = 0;
+    while (confirmed.has(cursor)) cursor++;
+    return cursor;
+  }
+
+  private async checkpointRequest(runId: string, body: Record<string, unknown>): Promise<CheckpointAck> {
+    const res = await this.post(`/api/runs/${encodeURIComponent(runId)}/checkpoints`, body);
+    const data = (res?.body ?? {}) as Partial<CheckpointAck>;
+    const status = (data.status ?? "REJECTED") as CheckpointAck["status"];
+    const ack: CheckpointAck = {
+      ok: Boolean(res) && status !== "REJECTED",
+      delivery: res ? "acknowledged" : "unreachable",
+      httpStatus: res?.status,
+      status,
+      code: data.code ?? (res ? undefined : "UNREACHABLE"),
+      message: data.message,
+      assessment: data.assessment,
+    };
+    if (!ack.ok) {
+      const error = new ReeprovIngestError(
+        `Reeprov rejected checkpoint ${String(body["checkpoint_id"])}: ${ack.code ?? "REJECTED"} ${ack.message ?? ""}`.trim(),
+        ack,
+      );
+      if (this.failOpen) console.warn(`[Reeprov] ${error.message}`);
+      else throw error;
+    }
+    return ack;
   }
 
   // ── Replay-Grade Boundary Capture ──────────────────────────────────────────
 
-  public async captureBoundary(runId: string, boundary: BoundaryCaptureInput): Promise<void> {
-    if (!this.enabled) return;
-    const payload = {
-      boundaries: [
-        {
-          runId,
-          startedAt: new Date().toISOString(),
-          ...boundary,
-        },
-      ],
+  /**
+   * Records one boundary with a stable client id and per-run sequence, so a
+   * retry is idempotent and two calls can never overwrite each other.
+   */
+  public async captureBoundary(runId: string, boundary: BoundaryCaptureInput): Promise<IngestAck> {
+    if (!this.enabled) return disabledAck();
+    let sequenceIndex = boundary.sequenceIndex;
+    if (sequenceIndex === undefined) {
+      sequenceIndex = this.nextSequence.get(runId) ?? 0;
+      this.nextSequence.set(runId, sequenceIndex + 1);
+    } else {
+      this.nextSequence.set(runId, Math.max(this.nextSequence.get(runId) ?? 0, sequenceIndex + 1));
+    }
+    const record = {
+      runId,
+      startedAt: new Date().toISOString(),
+      ...boundary,
+      sequenceIndex,
+      boundaryId: boundary.boundaryId ?? `bnd:${runId}:${sequenceIndex}`,
     };
 
-    try {
-      const result = await this.post<EmitEventsResult>("/api/traces/boundaries", payload);
-      this.checkIngestResult("boundary", result);
-    } catch (err) {
-      if (this.failOpen) {
-        console.warn(`[Reeprov] Non-fatal boundary capture error: ${(err as Error).message}`);
-      } else {
-        throw err;
+    const ack = toAck(await this.post("/api/traces/boundaries", { boundaries: [record] }), 1);
+    const confirmed = this.confirmedSequences.get(runId) ?? new Set<number>();
+    for (const result of ack.results) {
+      if ((result.status === "ACCEPTED" || result.status === "DUPLICATE") && result.sequence_index !== undefined) {
+        confirmed.add(result.sequence_index);
       }
     }
+    this.confirmedSequences.set(runId, confirmed);
+    return this.settle("boundary", ack);
   }
 
   // ── HTTP Ingest Transport ──────────────────────────────────────────────────
 
-  private checkIngestResult(kind: string, result: EmitEventsResult | undefined): void {
-    // Older compatible gateways may acknowledge without per-record counters.
-    if (!result || typeof result.rejected !== "number" || result.rejected === 0) return;
-    const error = new ReeprovError(
-      `Reeprov rejected ${result.rejected} ${kind} record(s): ${result.errors?.map((item) => item.message).join("; ") || "unknown reason"}`,
-      422,
-      false,
+  private settle(kind: string, ack: IngestAck): IngestAck {
+    if (ack.ok) return ack;
+    const error = new ReeprovIngestError(
+      `Reeprov did not confirm ${ack.rejected} ${kind} record(s): ${ack.errors.join("; ") || "unknown reason"}`,
+      ack,
     );
     if (this.failOpen) console.warn(`[Reeprov] ${error.message}`);
     else throw error;
+    return ack;
   }
 
-  private async post<T = unknown>(path: string, body: unknown): Promise<T> {
+  /**
+   * POSTs JSON. Returns the status and parsed body for any HTTP response
+   * (2xx and 4xx bodies carry per-record results), retries network errors
+   * and 5xx (safe: records are keyed), and returns undefined if unreachable.
+   */
+  private async post(path: string, body: unknown): Promise<HttpResult | undefined> {
     const url = `${this.endpoint}${path}`;
     const payload = JSON.stringify(body);
     let lastError: Error | null = null;
@@ -358,41 +490,23 @@ export class ReeprovClient {
           body: payload,
           signal: controller.signal,
         });
-
         clearTimeout(timer);
 
-        if (response.ok) {
-          const contentType = response.headers.get("content-type");
-          if (contentType && contentType.includes("application/json")) {
-            return (await response.json()) as T;
+        if (response.status < 500) {
+          const contentType = response.headers.get("content-type") ?? "";
+          let parsed: unknown = {};
+          if (contentType.includes("application/json")) {
+            try {
+              parsed = await response.json();
+            } catch {
+              parsed = {};
+            }
           }
-          return {} as T;
+          return { status: response.status, body: parsed };
         }
-
-        // Fast-fail non-retryable 4xx errors
-        if (response.status === 401 || response.status === 403 || (response.status >= 400 && response.status < 500)) {
-          let errDetail = `${response.status} ${response.statusText}`;
-          try {
-            const errData = (await response.json()) as { message?: string };
-            if (errData?.message) errDetail = errData.message;
-          } catch {
-            // ignore json parse error
-          }
-          const fastFailErr = new ReeprovError(`Reeprov API Error (${response.status}): ${errDetail}`, response.status, false);
-          if (this.failOpen) {
-            console.warn(`[Reeprov] Non-retryable error: ${fastFailErr.message}`);
-            return undefined as T;
-          }
-          throw fastFailErr;
-        }
-
-        // 5xx transient server error
         lastError = new ReeprovError(`Reeprov API Error: ${response.status} ${response.statusText}`, response.status, true);
       } catch (err) {
         clearTimeout(timer);
-        if (err instanceof ReeprovError && !err.isRetryable) {
-          throw err;
-        }
         lastError = err as Error;
       }
 
@@ -402,13 +516,65 @@ export class ReeprovClient {
       }
     }
 
-    if (this.failOpen) {
-      console.warn(`[Reeprov] Telemetry request to ${path} failed after retries: ${lastError?.message}`);
-      return undefined as T;
-    }
-
-    throw lastError || new ReeprovError(`Reeprov request failed: ${path}`);
+    console.warn(`[Reeprov] Request to ${path} failed after retries: ${lastError?.message}`);
+    return undefined;
   }
+}
+
+function disabledAck(): IngestAck {
+  return { ok: true, delivery: "disabled", accepted: 0, duplicates: 0, rejected: 0, results: [], errors: [] };
+}
+
+function describeBody(body: unknown): string {
+  const b = (body ?? {}) as { message?: string; code?: string };
+  return b.message ?? b.code ?? "no detail";
+}
+
+function toAck(res: HttpResult | undefined, recordCount: number): IngestAck {
+  if (!res) {
+    return {
+      ok: false, delivery: "unreachable", accepted: 0, duplicates: 0, rejected: recordCount,
+      results: [], errors: ["Reeprov unreachable; records were not confirmed."],
+    };
+  }
+  const body = (res.body ?? {}) as EmitEventsResult;
+  if (res.status === 401 || res.status === 403 || typeof body.rejected !== "number") {
+    return {
+      ok: false, delivery: "acknowledged", httpStatus: res.status, accepted: 0, duplicates: 0, rejected: recordCount,
+      results: [], errors: [`HTTP ${res.status}: ${describeBody(res.body)}`],
+    };
+  }
+  const results: RecordResult[] = body.results ?? [];
+  const confirmed = (body.accepted ?? 0) + (body.duplicates ?? 0) + (body.observations ?? 0);
+  // Older servers omit per-record results; never treat missing records as stored.
+  const unaccounted = Math.max(0, recordCount - confirmed - body.rejected);
+  const rejected = body.rejected + unaccounted;
+  return {
+    ok: rejected === 0,
+    delivery: "acknowledged",
+    httpStatus: res.status,
+    accepted: body.accepted ?? 0,
+    duplicates: body.duplicates ?? 0,
+    rejected,
+    results,
+    errors: [
+      ...(body.errors ?? []).map((e) => e.message),
+      ...(unaccounted > 0 ? [`${unaccounted} record(s) were not acknowledged by the server.`] : []),
+    ],
+  };
+}
+
+function mergeAcks(a: IngestAck, b: IngestAck): IngestAck {
+  return {
+    ok: a.ok && b.ok,
+    delivery: a.delivery === "acknowledged" && b.delivery === "acknowledged" ? "acknowledged" : a.delivery === "acknowledged" ? b.delivery : a.delivery,
+    httpStatus: b.httpStatus ?? a.httpStatus,
+    accepted: a.accepted + b.accepted,
+    duplicates: a.duplicates + b.duplicates,
+    rejected: a.rejected + b.rejected,
+    results: [...a.results, ...b.results],
+    errors: [...a.errors, ...b.errors],
+  };
 }
 
 /** Legacy alias */

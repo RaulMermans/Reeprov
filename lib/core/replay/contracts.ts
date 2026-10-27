@@ -5,7 +5,7 @@
  */
 
 import { z } from "zod";
-import { checkpointReferenceSchema } from "../contracts/lineage";
+import { checkpointReferenceSchema, resumeAdapterIdentitySchema } from "../contracts/lineage";
 
 export const CANONICAL_REPLAY_SCHEMA_VERSION = "1.0.0-alpha";
 
@@ -157,6 +157,46 @@ export const replayPlanSchema = z.object({
 
 export type ReplayPlan = z.infer<typeof replayPlanSchema>;
 
+// ── Host Execution Evidence ──────────────────────────────────────────────────
+
+/**
+ * What actually executed during a replay.
+ * - HOST_REEXECUTED: the host's own step logic ran again (developer-side
+ *   runner) and every nondeterministic call was resolved from evidence.
+ * - RECORDED_SELF_CHECK: no host logic ran; recorded inputs were fed back to
+ *   the resolver. This checks evidence self-consistency only and must never
+ *   be presented as replaying application behavior.
+ */
+export const replayExecutionKindSchema = z.enum(["HOST_REEXECUTED", "RECORDED_SELF_CHECK"]);
+
+export const replayVerificationSchema = z.enum(["VERIFIED", "PARTIALLY_VERIFIED", "UNVERIFIED"]);
+
+export type ReplayVerification = z.infer<typeof replayVerificationSchema>;
+
+export const boundaryMatchSchema = z.object({
+  sequence_index: z.number().int().nonnegative(),
+  boundary_id: z.string(),
+  name: z.string(),
+  boundary_type: z.string(),
+  input_verification: z.enum(["FULL", "PARTIAL"]),
+  side_effect_substituted: z.boolean().default(false),
+});
+
+export const replayOutputCheckSchema = z.object({
+  status: z.enum(["MATCHED", "MISMATCHED", "UNVERIFIABLE"]),
+  recorded_hash: z.string().optional(),
+  replayed_hash: z.string().optional(),
+  reason: z.string().optional(),
+});
+
+export const replayStateCheckSchema = z.object({
+  checkpoint_id: z.string(),
+  step_index: z.number().int().nonnegative(),
+  status: z.enum(["MATCHED", "MISMATCHED"]),
+  expected_hash: z.string(),
+  actual_hash: z.string(),
+});
+
 // ── ReplayResult ─────────────────────────────────────────────────────────────
 
 export const replayResultSchema = z.object({
@@ -181,6 +221,19 @@ export const replayResultSchema = z.object({
   replay_events: z.array(replayEventSchema).default([]),
   last_successful_step_id: z.string().optional(),
   last_substituted_boundary_id: z.string().optional(),
+  host_execution: z
+    .object({
+      kind: replayExecutionKindSchema,
+      runner: z.string(),
+      adapter: resumeAdapterIdentitySchema.optional(),
+      checkpoint_id: z.string().optional(),
+      input_mutations: z.array(z.string()).default([]),
+    })
+    .optional(),
+  verification: replayVerificationSchema.optional(),
+  boundary_matches: z.array(boundaryMatchSchema).optional(),
+  output_check: replayOutputCheckSchema.optional(),
+  state_checks: z.array(replayStateCheckSchema).optional(),
 });
 
 export type ReplayResult = z.infer<typeof replayResultSchema>;

@@ -31,7 +31,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           setOperatingMode(sessionData.mode);
 
           // In PERSONAL_LOCAL mode, never show a lock screen
-          if (sessionData.mode === "personal_local" || !sessionData.requiresAuth) {
+          if (!sessionData.requiresAuth) {
             setIsUnlocked(true);
             setMounted(true);
             setRevalidating(false);

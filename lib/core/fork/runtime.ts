@@ -47,8 +47,9 @@ import { MutationApplier } from "./mutationApplier";
 import {
   type ResumableHostAdapter,
   CustomerSupportResumableHostAdapter,
-  GenericResumableHostAdapter,
+  CUSTOMER_SUPPORT_REFERENCE_ADAPTER,
 } from "./hostAdapter";
+import { sameAdapter } from "./restorability";
 import type { ExecutionStep, StateSnapshot } from "../contracts/execution";
 import type { ExecutionBoundary } from "../contracts/replay";
 import type { ContextSnapshot, ContextItem } from "../contracts/context";
@@ -239,21 +240,25 @@ export class ForkRuntime {
       startCursor: plan.boundary_cursor,
     });
 
-    // 5. Mount Resumable Host Adapter
+    // 5. Mount Resumable Host Adapter. Only real host code may resume a
+    // checkpoint: an explicitly supplied adapter, or the built-in reference
+    // adapter when the checkpoint names it (or, for legacy reference-fixture
+    // checkpoints without an adapter identity, the reference workflow).
+    // There is no generic fallback that fabricates a resumed execution.
+    const checkpointRef = (this.sourceRun.checkpoints?.find((c) => c.checkpoint_id === this.checkpointId) ??
+      this.sourceRun.lineage?.checkpoint_reference) as CheckpointReference;
     const workflowId = this.sourceRun.identity.workflow_id ?? "";
-    const isCustomerSupport =
-      workflowId === "customer_support_triage" ||
-      workflowId === "default_workflow" ||
-      workflowId.includes("triage");
-    const hostAdapter: ResumableHostAdapter =
+    const isLegacyReferenceWorkflow =
+      !checkpointRef.resume_adapter &&
+      (workflowId === "customer_support_triage" || workflowId === "default_workflow" || workflowId.includes("triage"));
+    const hostAdapter: ResumableHostAdapter | undefined =
       this.options.hostAdapter ??
-      (isCustomerSupport
+      (this.options.executeLogic ? new ExplicitLogicStateHolder() : undefined) ??
+      (sameAdapter(checkpointRef.resume_adapter, CUSTOMER_SUPPORT_REFERENCE_ADAPTER) || isLegacyReferenceWorkflow
         ? new CustomerSupportResumableHostAdapter()
-        : new GenericResumableHostAdapter());
+        : undefined);
 
-    if (!hostAdapter.supportsResume(plan.resume_step_index)) {
-      const completedAt = new Date().toISOString();
-      const errMsg = `HOST_NOT_RESUMABLE: Host does not support resuming at step index ${plan.resume_step_index}.`;
+    const unsupported = (errMsg: string): ForkResult => {
       emitEvent("fork.fail", { error: errMsg });
       return {
         fork_id: forkId,
@@ -269,25 +274,27 @@ export class ForkRuntime {
         blocked_actions: 0,
         errors: [errMsg],
         created_at: startedAt,
-        completed_at: completedAt,
+        completed_at: new Date().toISOString(),
         fork_events: events,
       };
-    }
-
-    const fallbackCheckpoint: CheckpointReference = {
-      checkpoint_id: this.checkpointId,
-      step_id: plan.fork_step_id,
-      position: "AFTER_STEP",
-      boundary_cursor: plan.boundary_cursor,
-      schema_version: "1.0.0-alpha",
-      restorable: true,
-      created_at: startedAt,
     };
 
-    const checkpointRef: CheckpointReference =
-      this.sourceRun.checkpoints?.find((c) => c.checkpoint_id === this.checkpointId) ??
-      (this.sourceRun.lineage?.checkpoint_reference as CheckpointReference | undefined) ??
-      fallbackCheckpoint;
+    if (!hostAdapter) {
+      const required = checkpointRef.resume_adapter
+        ? `${checkpointRef.resume_adapter.adapter_id}@${checkpointRef.resume_adapter.adapter_version}`
+        : "an adapter identity (none recorded)";
+      return unsupported(
+        `HOST_ADAPTER_REQUIRED: checkpoint '${this.checkpointId}' must be resumed by its host adapter ${required}. Reeprov does not execute agent code in the server; run the developer-side runner (reeprov host-fork).`,
+      );
+    }
+    if (checkpointRef.resume_adapter && hostAdapter.identity && !sameAdapter(checkpointRef.resume_adapter, hostAdapter.identity)) {
+      return unsupported(
+        `INCOMPATIBLE_HOST_ADAPTER: checkpoint requires ${checkpointRef.resume_adapter.adapter_id}@${checkpointRef.resume_adapter.adapter_version}, host provides ${hostAdapter.identity.adapter_id}@${hostAdapter.identity.adapter_version}.`,
+      );
+    }
+    if (!hostAdapter.supportsResume(plan.resume_step_index)) {
+      return unsupported(`HOST_NOT_RESUMABLE: Host does not support resuming at step index ${plan.resume_step_index}.`);
+    }
 
     await hostAdapter.initializeFromCheckpoint({
       state: appliedMutationResult.mutatedState,
@@ -741,6 +748,7 @@ export class ForkRuntime {
       memory: { operations: childMemoryOps, references: childMemoryRefs },
       tools: [],
       checkpoints: this.sourceRun.checkpoints ?? [],
+      checkpoint_observations: [],
       retrieval: childRetrieval,
       models: [],
       artifacts: [],
@@ -819,5 +827,33 @@ export class ForkRuntime {
       completed_at: completedAt,
       fork_events: events,
     }, DEFAULT_CAPTURE_POLICY);
+  }
+}
+
+/**
+ * State holder for callers that pass their own resume logic (`executeLogic`).
+ * It never produces output itself: the supplied logic is the host.
+ */
+class ExplicitLogicStateHolder implements ResumableHostAdapter {
+  private state: Record<string, unknown> = {};
+  private output: unknown;
+
+  async initializeFromCheckpoint(params: { state: Record<string, unknown> }): Promise<void> {
+    this.state = structuredClone(params.state);
+  }
+  supportsResume(): boolean {
+    return true;
+  }
+  getState(): Record<string, unknown> {
+    return structuredClone(this.state);
+  }
+  getFinalOutput(): unknown {
+    return this.output;
+  }
+  async finalize(output: unknown): Promise<void> {
+    this.output = output;
+  }
+  async executeFrom(): Promise<unknown> {
+    throw new Error("HOST_LOGIC_REQUIRED: ExplicitLogicStateHolder only runs with caller-supplied executeLogic.");
   }
 }

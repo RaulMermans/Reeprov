@@ -13,8 +13,11 @@ function constantTimeEqual(left: string, right: string): boolean {
 export async function POST(request: Request): Promise<NextResponse> {
   const mode = getOperatingMode();
 
-  // In PERSONAL_LOCAL mode, unlock is a no-op that always succeeds
-  if (mode === "personal_local") {
+  // In PERSONAL_LOCAL mode without an access key, unlock is a no-op. When an
+  // access key is configured, dashboard APIs require it (or a session), so
+  // unlock must verify the key and issue the session cookie like self_hosted.
+  const configuredKey = process.env.REEPROV_ACCESS_KEY ?? process.env.AGENTPULSE_ACCESS_KEY;
+  if (mode === "personal_local" && !configuredKey) {
     return NextResponse.json({
       ok: true,
       mode: "personal_local",

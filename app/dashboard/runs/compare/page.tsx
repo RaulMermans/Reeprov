@@ -11,6 +11,7 @@ import { useDashboardAuth } from "@/lib/auth/dashboardAuthContext";
 import { RunCompareView } from "@/components/proof-layer/RunCompareView";
 import { buildRunGraph, type RunGraph } from "@/lib/runs/runGraph";
 import type { RunComparison } from "@/lib/core/contracts/comparison";
+import type { ImprovementClaim } from "@/lib/core/comparison/improvementClaim";
 import type { RunRecord, TraceEvent, ToolCallRecord, EvalResult } from "@/lib/proof-layer/schemas";
 
 function ComparePageContent() {
@@ -21,6 +22,12 @@ function ComparePageContent() {
   const baselineParam = searchParams.get("baseline") ?? "";
   const candidateParam = searchParams.get("candidate") ?? "";
   const comparisonIdParam = searchParams.get("comparisonId") ?? "";
+  // Optional evidence for the improvement-claim gate.
+  const claimEvidence = {
+    baseline_evaluation_run_id: searchParams.get("baselineEval") ?? undefined,
+    candidate_evaluation_run_id: searchParams.get("candidateEval") ?? undefined,
+    baseline_replay_id: searchParams.get("baselineReplay") ?? undefined,
+  };
 
   const [baselineInput, setBaselineInput] = useState(baselineParam);
   const [candidateInput, setCandidateInput] = useState(candidateParam);
@@ -30,6 +37,7 @@ function ComparePageContent() {
   const [error, setError] = useState<string | null>(null);
 
   const [comparison, setComparison] = useState<RunComparison | null>(null);
+  const [claim, setClaim] = useState<ImprovementClaim | null>(null);
   const [baselineRun, setBaselineRun] = useState<RunRecord | undefined>();
   const [candidateRun, setCandidateRun] = useState<RunRecord | undefined>();
   const [baselineGraph, setBaselineGraph] = useState<RunGraph | undefined>();
@@ -106,6 +114,7 @@ function ComparePageContent() {
           baseline_run_id: baselineId,
           candidate_run_id: candidateId,
           enable_semantic: enableSemantic,
+          ...claimEvidence,
         }),
       });
 
@@ -119,6 +128,7 @@ function ComparePageContent() {
       }
       const data = await res.json();
       setComparison(data.comparison);
+      setClaim(data.improvement_claim ?? null);
       void loadRunsForCanvas(baselineId, candidateId);
     } catch (err) {
       setError((err as Error).message);
@@ -260,6 +270,35 @@ function ComparePageContent() {
             <span className="font-bold text-sm">Comparison Error:</span>
             <span className="text-sm">{error}</span>
           </div>
+        </Card>
+      )}
+
+      {claim && !loading && (
+        <Card className="p-5" data-testid="improvement-claim">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-semibold text-slate-950">Improvement claim</h2>
+            <Badge tone={claim.verdict === "IMPROVEMENT_VERIFIED" ? "success" : "warning"} data-testid="improvement-claim-verdict">
+              {claim.verdict}
+            </Badge>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Claimed only when the baseline fails and the candidate passes the same eval suite, the comparison cites run evidence,
+            the candidate is a resumed fork with no live side effects, and the baseline replay is verified.
+          </p>
+          {claim.fixed_eval_ids.length > 0 ? (
+            <p className="mt-2 text-xs text-slate-700">Fixed evals: <span className="font-mono">{claim.fixed_eval_ids.join(", ")}</span></p>
+          ) : null}
+          {claim.evidence_divergence ? (
+            <p className="mt-1 text-xs text-slate-700" data-testid="improvement-claim-divergence">
+              Evidence: {claim.evidence_divergence.description}{" "}
+              <span className="font-mono text-slate-500">{claim.evidence_divergence.candidate_boundary_id ?? claim.evidence_divergence.boundary_id ?? claim.evidence_divergence.step_id}</span>
+            </p>
+          ) : null}
+          {claim.failed_conditions.length > 0 ? (
+            <ul className="mt-2 list-disc pl-5 text-xs text-amber-800">
+              {claim.failed_conditions.map((c) => <li key={c}>{c}</li>)}
+            </ul>
+          ) : null}
         </Card>
       )}
 

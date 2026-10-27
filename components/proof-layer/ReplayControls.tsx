@@ -36,6 +36,9 @@ export function ReplayControls({
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white px-3 py-2" data-testid="replay-controls">
+      <p className="mb-1.5 text-[11px] text-slate-500" data-testid="timeline-playback-note">
+        Timeline playback of recorded events. No application code runs; see the Replays tab for host re-execution.
+      </p>
       <div className="flex flex-wrap items-center gap-2">
         {playing ? (
           <button type="button" className="rounded-md bg-slate-900 px-2.5 py-1 text-xs font-medium text-white" onClick={onPause}>
@@ -88,12 +91,12 @@ export function ReplayControls({
           max={max}
           value={Math.min(currentIndex, max)}
           onChange={(event) => onScrub(Number(event.target.value))}
-          aria-label="Replay timeline"
+          aria-label="Timeline playback position"
           data-testid="replay-scrubber"
         />
         <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
           <span className="min-w-0 truncate" data-testid="replay-current-event">
-            {currentEvent?.label ?? "Replay reset"}
+            {currentEvent?.label ?? "Playback reset"}
           </span>
           <span className="shrink-0 tabular-nums">
             {Math.max(0, currentIndex + 1)} / {events.length}

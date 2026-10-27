@@ -9,6 +9,7 @@ dist
 build
 coverage
 s12-evidence
+s13-evidence
 *.log
 .DS_Store
 .env*

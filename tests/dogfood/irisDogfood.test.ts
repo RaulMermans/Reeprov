@@ -170,7 +170,7 @@ describe("Sprint 10.2: IRIS External Dogfood & DX Hardening", () => {
           setTimeout(
             () =>
               resolve(
-                new Response(JSON.stringify({ ok: true }), {
+                new Response(JSON.stringify({ ok: true, accepted: 1, rejected: 0, results: [] }), {
                   status: 200,
                   headers: { "Content-Type": "application/json" },
                 })
@@ -260,7 +260,7 @@ describe("Sprint 10.2: IRIS External Dogfood & DX Hardening", () => {
         event_type: "node_completed",
         status: "completed",
       })
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({ ok: false, delivery: "unreachable" });
   });
 
   // 5. Real / Sanitized Dogfood Run Validation

@@ -95,10 +95,7 @@ export async function compareRuns(
 
   // 5. State Diffs
   const stateDiffs = [];
-  const maxStates = Math.max(baseline.state?.length ?? 0, candidate.state?.length ?? 0);
-  for (let i = 0; i < maxStates; i++) {
-    const bState = baseline.state?.[i];
-    const cState = candidate.state?.[i];
+  for (const [bState, cState] of comparableStatePairs(baseline, candidate)) {
     const sDiff = diffStateSnapshots(bState, cState);
     if (sDiff.changes.length > 0) {
       stateDiffs.push(sDiff);
@@ -115,18 +112,21 @@ export async function compareRuns(
     candidate.memory?.references
   );
 
-  // 7. Tools & Models Diffs
+  // 7. Tools & Models Diffs. A resumed fork records only its suffix; compare
+  // it as parent prefix (up to the checkpoint cursor) + child suffix so the
+  // divergence is located where execution actually branched.
+  const candidateBoundaries = forkComparableBoundaries(baseline, candidate);
   const toolChanges = diffToolInvocations(
     baseline.tools,
     candidate.tools,
     baseline.boundaries,
-    candidate.boundaries
+    candidateBoundaries
   );
   const modelChanges = diffModelInvocations(
     baseline.models,
     candidate.models,
     baseline.boundaries,
-    candidate.boundaries
+    candidateBoundaries
   );
 
   // 8. Evidence & Outcome Diffs
@@ -250,4 +250,45 @@ export async function compareRuns(
   };
 
   return runComparisonSchema.parse(comparison);
+}
+
+/**
+ * For a resumed fork of `baseline`, returns the parent's boundaries before the
+ * checkpoint cursor followed by the child's boundaries (re-sequenced). Other
+ * candidates are returned unchanged. Nothing is persisted.
+ */
+export function forkComparableBoundaries(baseline: RunArtifact, candidate: RunArtifact): RunArtifact["boundaries"] {
+  const checkpointId = candidate.lineage?.fork_checkpoint_id;
+  if (candidate.lineage?.parent_run_id !== baseline.identity.run_id || !checkpointId) return candidate.boundaries;
+  const checkpoint = baseline.checkpoints.find((c) => c.checkpoint_id === checkpointId);
+  const cursor = checkpoint?.boundary_cursor ?? 0;
+  if (cursor === 0) return candidate.boundaries;
+  const prefix = [...baseline.boundaries]
+    .sort((a, b) => (a.sequence_index ?? 0) - (b.sequence_index ?? 0))
+    .slice(0, cursor);
+  const suffix = [...candidate.boundaries]
+    .sort((a, b) => (a.sequence_index ?? 0) - (b.sequence_index ?? 0))
+    .map((b, i) => ({ ...b, sequence_index: cursor + i }));
+  return [...prefix, ...suffix];
+}
+
+/**
+ * State snapshot pairs to diff. Runs are paired by index, except a resumed
+ * fork: its restored state is compared with the parent's checkpoint snapshot
+ * (showing exactly the controlled mutations). Index pairing would compare
+ * unrelated snapshots and report changes that never happened.
+ */
+export function comparableStatePairs(
+  baseline: RunArtifact,
+  candidate: RunArtifact,
+): Array<[RunArtifact["state"][number] | undefined, RunArtifact["state"][number] | undefined]> {
+  const checkpointId = candidate.lineage?.fork_checkpoint_id;
+  if (candidate.lineage?.parent_run_id === baseline.identity.run_id && checkpointId) {
+    const checkpoint = baseline.checkpoints.find((c) => c.checkpoint_id === checkpointId);
+    const parentSnapshot = baseline.state.find((s) => s.snapshot_id === checkpoint?.state_snapshot_id);
+    const restored = candidate.state.find((s) => s.snapshot_type === "INITIAL_STATE");
+    return parentSnapshot && restored ? [[parentSnapshot, restored]] : [];
+  }
+  const max = Math.max(baseline.state?.length ?? 0, candidate.state?.length ?? 0);
+  return Array.from({ length: max }, (_, i) => [baseline.state?.[i], candidate.state?.[i]]);
 }

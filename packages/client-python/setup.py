@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="reeprov-client",
-    version="0.1.0b1",
+    version="0.2.0b1",
     description="Python client SDK for Reeprov — local-first debugging and reproducibility infrastructure for AI agents.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",

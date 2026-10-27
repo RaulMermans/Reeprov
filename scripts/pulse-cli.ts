@@ -19,6 +19,7 @@ import { buildReplayPlan } from "../lib/core/replay/planner";
 import { ReplayRuntime } from "../lib/core/replay/runtime";
 import type { ReplayMode } from "../lib/core/replay/contracts";
 import { ForkRuntime } from "../lib/core/fork/runtime";
+import { HOST_RUNNER_COMMANDS, runHostRunnerCli } from "./host-runner-cli";
 import type { ExperimentMutation } from "../lib/core/contracts/lineage";
 import { computeEvidenceCompleteness, type EvidencePolicy } from "../lib/core/contracts/evidence";
 import { diffConfiguration } from "../lib/core/contracts/configuration";
@@ -713,6 +714,14 @@ export async function loadArtifact(idOrPath: string): Promise<RunArtifact> {
 }
 
 export async function runCli(argv: string[] = process.argv.slice(2)): Promise<number> {
+  if ((HOST_RUNNER_COMMANDS as readonly string[]).includes(argv[0] ?? "")) {
+    try {
+      return await runHostRunnerCli(argv);
+    } catch (err) {
+      console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      return 1;
+    }
+  }
   const options = parseArgs(argv);
 
   if (!options || options.command === "help") {
@@ -720,6 +729,10 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
 
   Commands:
     reeprov --version                       Show Reeprov version
+    reeprov host-replay --run <id> --adapter <module> [--server <url>] [--upload]
+                                            Re-execute host code offline against recorded evidence
+    reeprov host-fork --run <id> --checkpoint <id> --adapter <module> --mutations <file>
+                                            Resume host code after a registered checkpoint
     reeprov data-path [--json]              Inspect storage data root and privacy posture
     reeprov migrate-brand [opts]            Safely migrate ~/.agentpulse data to ~/.reeprov
     reeprov projects list [--json]          List configured projects and ingest keys
@@ -765,7 +778,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
   }
 
   if (options.command === "version") {
-    const version = "0.1.0-beta.1";
+    const version = "0.2.0-beta.1";
     if (options.json) {
       console.log(JSON.stringify({ version, release: "beta", platform: process.platform, node: process.version }, null, 2));
     } else {

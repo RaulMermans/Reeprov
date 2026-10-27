@@ -1,20 +1,27 @@
 /**
  * POST /api/traces/boundaries
  *
- * Ingests replay-grade execution boundaries for a run.
+ * Ingests replay-grade execution boundaries for one or more runs.
  *
  * Auth: x-reeprov-key (REEPROV_INGEST_KEY or REEPROV_ACCESS_KEY)
  *
  * Body:
  *   boundaries: RawBoundaryInput[]
+ *
+ * Response: per-record accounting (see lib/core/capture/ingestBoundaries.ts).
+ *   200 all records succeeded · 207 some rejected · 422 all rejected.
+ * Clients must check `rejected` / `results`, never the HTTP status alone.
  */
 
 import { NextResponse } from "next/server";
 import { apiErrorResponse, invalidRequest } from "@/lib/api/errors";
 import { requireIngestAuth, getRunStore } from "@/lib/db/getStores";
-import { captureBoundary } from "@/lib/core/capture/captureBoundary";
-import { getCanonicalRun, saveCanonicalRun } from "@/lib/core/capture/persistence";
-import type { RawBoundaryInput } from "@/lib/core/capture/types";
+import {
+  ingestBoundariesForRun,
+  ingestHttpStatus,
+  summarizeIngest,
+  type BoundaryIngestResult,
+} from "@/lib/core/capture/ingestBoundaries";
 
 export async function POST(request: Request) {
   try {
@@ -26,72 +33,45 @@ export async function POST(request: Request) {
       throw invalidRequest('Body must include a "boundaries" array.');
     }
 
-    let accepted = 0;
-    let rejected = 0;
-    const errors: Array<{ boundary_id?: string; message: string }> = [];
-
-    for (const raw of rawBoundaries) {
-      const bInput = raw as RawBoundaryInput;
-      if (!bInput.runId) {
-        rejected++;
-        errors.push({ message: 'Missing required "runId" on boundary.' });
-        continue;
+    const results: BoundaryIngestResult[] = [];
+    const byRun = new Map<string, Array<{ index: number; raw: Record<string, unknown> }>>();
+    rawBoundaries.forEach((item, index) => {
+      const raw = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
+      const runId = raw["runId"] ?? raw["run_id"];
+      if (typeof runId !== "string" || runId.length === 0) {
+        results.push({ index, status: "REJECTED", code: "MISSING_RUN_ID", message: 'Missing required "runId" on boundary.' });
+        return;
       }
+      byRun.set(runId, [...(byRun.get(runId) ?? []), { index, raw }]);
+    });
 
-      // Check run ownership / existence
-      const run = await getRunStore().getRun(bInput.runId);
+    for (const [runId, records] of byRun) {
+      const run = await getRunStore().getRun(runId);
       const ownedByScope = !auth.integration || run?.runRecord.project_id === auth.integration.projectId;
       if (!run || !ownedByScope) {
-        rejected++;
-        errors.push({
-          boundary_id: bInput.boundaryId,
-          message: `Run "${bInput.runId}" not found or not owned by integration scope.`,
-        });
+        for (const { index, raw } of records) {
+          results.push({
+            index, run_id: runId, boundary_id: (raw["boundaryId"] ?? raw["boundary_id"]) as string | undefined,
+            status: "REJECTED", code: "RUN_NOT_FOUND",
+            message: `Run "${runId}" not found or not owned by integration scope.`,
+          });
+        }
         continue;
       }
-
       try {
-        // The published SDK omits sequenceIndex and boundaryId. Assign both
-        // from the stored run before normalization so repeated tool calls do
-        // not overwrite the first boundary at sequence zero.
-        const canonicalArtifact = await getCanonicalRun(bInput.runId);
-        if (!canonicalArtifact) {
-          throw new Error("Canonical run evidence is unavailable; boundary was not stored.");
-        }
-        const hasSequence = bInput.sequenceIndex !== undefined || bInput.sequence_index !== undefined;
-        const nextSequence = canonicalArtifact.boundaries.reduce(
-          (next, boundary) => Math.max(next, (boundary.sequence_index ?? 0) + 1), 0
-        );
-        const canonicalBoundary = await captureBoundary({
-          ...bInput,
-          sequenceIndex: hasSequence ? (bInput.sequenceIndex ?? bInput.sequence_index) : nextSequence,
-        });
-
-        // Link into canonical run artifact
-          const existingIdx = canonicalArtifact.boundaries.findIndex(
-            (b) => b.boundary_id === canonicalBoundary.boundary_id
-          );
-          if (existingIdx >= 0) {
-            canonicalArtifact.boundaries[existingIdx] = canonicalBoundary;
-          } else {
-            canonicalArtifact.boundaries.push(canonicalBoundary);
-          }
-          canonicalArtifact.boundaries.sort(
-            (a, b) => (a.sequence_index ?? 0) - (b.sequence_index ?? 0)
-          );
-          await saveCanonicalRun(canonicalArtifact);
-
-        accepted++;
+        results.push(...(await ingestBoundariesForRun(runId, records, { legacyRun: run })));
       } catch (err) {
-        rejected++;
-        errors.push({
-          boundary_id: bInput.boundaryId,
-          message: err instanceof Error ? err.message : String(err),
-        });
+        for (const { index } of records) {
+          results.push({
+            index, run_id: runId, status: "REJECTED", code: "PERSISTENCE_FAILED",
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
     }
 
-    return NextResponse.json({ accepted, rejected, errors });
+    const summary = summarizeIngest(results);
+    return NextResponse.json(summary, { status: ingestHttpStatus(summary) });
   } catch (error) {
     return apiErrorResponse(error);
   }

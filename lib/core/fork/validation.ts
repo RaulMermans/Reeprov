@@ -16,6 +16,9 @@ export interface CheckpointValidationError {
     | "INVALID_CURSOR"
     | "CROSS_RUN_CHECKPOINT_REJECTED"
     | "CHECKPOINT_NOT_RESTORABLE"
+    | "MISSING_SNAPSHOT"
+    | "MISSING_STATE_HASH"
+    | "MISSING_RESUME_ADAPTER"
     | "SCHEMA_UNSUPPORTED";
   message: string;
   details?: Record<string, unknown>;
@@ -81,6 +84,29 @@ export function validateCheckpoint(
     });
   }
 
+  // Registered checkpoints must carry their own evidence; legacy fallbacks
+  // (first snapshot, snapshot hash) are not accepted for them.
+  const registered = checkpoint.capture_kind === "REGISTERED";
+  if (registered && !checkpoint.state_snapshot_id) {
+    errors.push({
+      code: "MISSING_SNAPSHOT",
+      message: `Registered checkpoint '${checkpointId}' has no state snapshot reference.`,
+    });
+    return { valid: false, checkpoint, errors };
+  }
+  if (registered && !checkpoint.state_hash) {
+    errors.push({
+      code: "MISSING_STATE_HASH",
+      message: `Registered checkpoint '${checkpointId}' has no state hash; integrity cannot be verified.`,
+    });
+  }
+  if (registered && !checkpoint.resume_adapter) {
+    errors.push({
+      code: "MISSING_RESUME_ADAPTER",
+      message: `Registered checkpoint '${checkpointId}' does not declare a resume adapter identity.`,
+    });
+  }
+
   // 4. Snapshot existence in state
   const snapshotId = checkpoint.state_snapshot_id;
   const snapshot = snapshotId
@@ -89,7 +115,7 @@ export function validateCheckpoint(
 
   if (!snapshot) {
     errors.push({
-      code: "INVALID_CHECKPOINT",
+      code: registered ? "MISSING_SNAPSHOT" : "INVALID_CHECKPOINT",
       message: `State snapshot '${snapshotId}' referenced by checkpoint '${checkpointId}' is missing from source artifact.`,
       details: { snapshotId },
     });

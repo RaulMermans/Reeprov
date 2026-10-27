@@ -11,6 +11,12 @@
  *   workflow_id   string   — workflow being run
  *   summary       string   — human-readable description of this run
  *   run_id?       string   — client-provided; generated if omitted
+ *   capture_policy? { content_mode: "STRUCTURE_ONLY" | "SAFE_CONTENT" | "FULL_CONTENT" }
+ *                          — applied to all later evidence for this run (default SAFE_CONTENT)
+ *   sdk?          { name, version } — reported client identity
+ *
+ * Idempotency: starting an existing run_id for the same project returns the
+ * existing run (200) without resetting it; a different project gets 409.
  */
 
 import { NextResponse } from "next/server";
@@ -21,6 +27,9 @@ import { runRecordSchema, traceEventSchema } from "@/lib/proof-layer/schemas";
 import type { RunRecord, TraceEvent } from "@/lib/proof-layer/schemas";
 import { sanitizeCanonicalRecord } from "@/lib/core/capture/redaction";
 import { DEFAULT_CAPTURE_POLICY } from "@/lib/core/capture/policy";
+import { mutateCanonicalRun } from "@/lib/core/capture/persistence";
+import { parseContentMode, refreshCanonicalFromLegacy } from "@/lib/core/capture/runPolicy";
+import { withRunWriteLock } from "@/lib/runs/runStore";
 
 export async function POST(request: Request) {
   try {
@@ -68,6 +77,22 @@ export async function POST(request: Request) {
       typeof body["run_id"] === "string" && body["run_id"].length > 0
         ? body["run_id"]
         : generateRunId();
+
+    const rawPolicy = body["capture_policy"] as { content_mode?: unknown } | undefined;
+    const contentMode = rawPolicy === undefined ? DEFAULT_CAPTURE_POLICY.contentMode : parseContentMode(rawPolicy?.content_mode);
+    if (!contentMode) {
+      throw invalidRequest('capture_policy.content_mode must be one of "STRUCTURE_ONLY", "SAFE_CONTENT", "FULL_CONTENT".');
+    }
+    const sdk = body["sdk"] && typeof body["sdk"] === "object" ? body["sdk"] as Record<string, unknown> : undefined;
+
+    return await withRunWriteLock(run_id, async () => {
+    const existing = await getRunStore().getRun(run_id);
+    if (existing) {
+      if (existing.runRecord.project_id !== project_id) {
+        throw new ApiError(409, "run_id_conflict", `run_id "${run_id}" already exists for a different project.`, true);
+      }
+      return NextResponse.json({ ...existing.runRecord, idempotent_replay: true }, { status: 200 });
+    }
 
     const started_at = new Date().toISOString();
 
@@ -117,10 +142,26 @@ export async function POST(request: Request) {
     });
     await getRunStore().appendTraceEvent(run_id, startedEvent);
 
+    const savedRun = await getRunStore().getRun(run_id);
+    if (savedRun) {
+      await mutateCanonicalRun(run_id, (current) => {
+        const artifact = refreshCanonicalFromLegacy(current, savedRun);
+        artifact.provenance = {
+          capture_method: "http_api",
+          adapter_version: typeof sdk?.["version"] === "string" ? sdk["version"] : undefined,
+          captured_by: typeof sdk?.["name"] === "string" ? sdk["name"] : "ReeprovHTTPIngest",
+          redaction_verified: true,
+          metadata: { capture_policy: { content_mode: contentMode } },
+        };
+        return { artifact, value: undefined };
+      });
+    }
+
     // Mark integration as receiving events (non-fatal).
     void touchIntegrationForProject(project_id, { runId: run_id });
 
-    return NextResponse.json(runRecord, { status: 201 });
+    return NextResponse.json({ ...runRecord, capture_policy: { content_mode: contentMode } }, { status: 201 });
+    });
   } catch (error) {
     return apiErrorResponse(error);
   }

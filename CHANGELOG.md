@@ -5,8 +5,27 @@ All notable changes to Reeprov will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased — Sprint 12 hardening
+## [0.2.0-beta.1] - 2026-10-27
 
+External replay, checkpoint integrity and SDK contract (Sprints 12–13).
+
+> [!IMPORTANT]
+> SDK behavior changes: every ingest call returns an acknowledgement (`ok` is false if any record was not confirmed); boundaries carry client-assigned ids and sequences; `checkpointSaved` / `checkpoint_saved` now records a non-restorable observation. Use `registerCheckpoint` / `register_checkpoint` for restorable checkpoints.
+
+### Added
+- Restorable-checkpoint registration (state snapshot, canonical hash, boundary cursor, resume adapter identity) separate from checkpoint observation; restorability is advertised only after a compatible host resume is verified.
+- Developer-side `reeprov host-replay` and `reeprov host-fork`: re-execute an agent's own host code offline against recorded evidence, and resume from a registered checkpoint with controlled mutations. Results upload to Studio; the server never executes agent code.
+- `ReeprovHostAdapter` contract and `createCapturingDependencies` in `@reeprov/client`.
+- Per-run capture policy (`STRUCTURE_ONLY`, `SAFE_CONTENT`, `FULL_CONTENT`) selectable at run start.
+- Evidence-gated improvement claim on `POST /api/runs/compare`; fork-aware comparison.
+- Studio execution states (LIVE, RECORDED, FORKED, REPLAYED, PARTIALLY VERIFIED, UNSUPPORTED) and a Replays tab.
+- Reference incident-triage agent and domain eval suite in `examples/external-agents/incident-triage`.
+
+### Fixed
+- Concurrent ingestion lost records; retries duplicated boundaries; a reused boundary id overwrote different content. Ingestion now reports per-record outcomes and serializes writes per run.
+- Trace-event persistence failures were reported as accepted.
+- A fork without a host adapter returned fabricated output.
+- Studio could not be unlocked in `personal_local` mode with `REEPROV_ACCESS_KEY` set.
 - Patched the resolved Next.js and Zod versions and repaired the Linux npm lockfile for Docker builds.
 - Made replay input verification distinguish exact from redacted evidence; strict replay rejects unverifiable and partially replayable runs.
 - Applied capture redaction to sidecars, HTTP trace records, fork artifacts, and pre-persistence validation.
@@ -15,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clarified that SDK checkpoint events are not restorable checkpoints. A full external replay and fork remains unverified.
 - Added mobile navigation and corrected the connection wizard's SDK examples.
 
-These changes are unreleased. No new beta package or GitHub release has been published.
+Limitations: Python host replay is unsupported; replay network blocking is application-level, not OS isolation.
 
 ## [0.1.0-beta.1] - 2026-10-15
 

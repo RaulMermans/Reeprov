@@ -45,6 +45,7 @@ const IGNORED_DIRS = new Set([
   ".agentpulse",
   ".reeprov",
   "s12-evidence",
+  "s13-evidence",
 ]);
 
 // File extensions to scan
