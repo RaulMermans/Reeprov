@@ -10,7 +10,7 @@ All values are synthetic. Raw artifacts (screenshots, video, replay/fork JSON, l
 | S13 acceptance matrix `tests/s13/externalReplayFork.test.ts` | 23 passed (hermetic; SDK → real route handlers via in-process fetch) |
 | SDK parity `tests/s13/sdkParity.test.ts` | server ≡ TypeScript ≡ Python canonical hashes; SDK version constants ≡ manifests |
 | Python SDK unit tests | 10 passed |
-| TypeScript SDK package | `tsc` build + `npm pack` (13 files, 15.9 kB); installed offline into a fresh external project |
+| TypeScript SDK package | (pre-bump build tested as `0.2.0-dev`) `tsc` build + `npm pack` (13 files, 15.9 kB); installed offline into a fresh external project |
 | Python SDK package | `python -m build` wheel + sdist; installed into a fresh venv; live run `s13-python-compat-002` (2 checkpoints `REGISTERED`, 1 observation, all acks `ok`) |
 | Concurrent ingestion over HTTP | 80 concurrent records from 2 clients → 80 acked, **80 stored**, 80 unique sequences; 10-record retry storm → 10 `DUPLICATE`, 0 stored |
 | Local production server (`next start`, `personal_local`) | external capture, replay, fork, evals, compare, regression; restart persistence verified |

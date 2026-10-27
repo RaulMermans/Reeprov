@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reeprov-client"
-version = "0.1.0b1"
+version = "0.2.0b1"
 description = "Python client SDK for Reeprov — local-first debugging and reproducibility infrastructure for AI agents."
 readme = "README.md"
 requires-python = ">=3.10"

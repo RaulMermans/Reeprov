@@ -45,19 +45,19 @@ describe("Release Version Consistency & Deterministic Alignment", () => {
 
   describe("validateVersions on repository", () => {
     it("passes cleanly when all repo manifests match", () => {
-      const result = validateVersions({ rootDir, inputVersion: "0.1.0-beta.1", gitTag: "v0.1.0-beta.1" });
+      const result = validateVersions({ rootDir, inputVersion: "0.2.0-beta.1", gitTag: "v0.2.0-beta.1" });
       expect(result.valid).toBe(true);
-      expect(result.canonicalSemver).toBe("0.1.0-beta.1");
-      expect(result.expectedPep440).toBe("0.1.0b1");
+      expect(result.canonicalSemver).toBe("0.2.0-beta.1");
+      expect(result.expectedPep440).toBe("0.2.0b1");
       expect(result.checks.every((c) => c.valid)).toBe(true);
     });
 
     it("aborts when git tag does not match artifacts", () => {
-      const result = validateVersions({ rootDir, inputVersion: "0.1.0-beta.1", gitTag: "v0.9.9" });
+      const result = validateVersions({ rootDir, inputVersion: "0.2.0-beta.1", gitTag: "v0.9.9" });
       expect(result.valid).toBe(false);
       const tagCheck = result.checks.find((c) => c.component === "Git Tag");
       expect(tagCheck?.valid).toBe(false);
-      expect(tagCheck?.expected).toBe("0.1.0-beta.1");
+      expect(tagCheck?.expected).toBe("0.2.0-beta.1");
       expect(tagCheck?.actual).toBe("0.9.9");
     });
 
@@ -73,7 +73,7 @@ describe("Release Version Consistency & Deterministic Alignment", () => {
     it("exits 0 with matching versions", () => {
       const rawOut = execFileSync(
         "node",
-        [validatorScript, "--version", "0.1.0-beta.1", "--tag", "v0.1.0-beta.1"],
+        [validatorScript, "--version", "0.2.0-beta.1", "--tag", "v0.2.0-beta.1"],
         { cwd: rootDir, encoding: "utf8" }
       );
       const out = stripAnsi(rawOut);
@@ -91,7 +91,7 @@ describe("Release Version Consistency & Deterministic Alignment", () => {
       try {
         execFileSync(
           "node",
-          [validatorScript, "--version", "0.1.0-beta.1", "--tag", "v0.9.0"],
+          [validatorScript, "--version", "0.2.0-beta.1", "--tag", "v0.9.0"],
           { cwd: rootDir, encoding: "utf8", stdio: "pipe" }
         );
       } catch (err: any) {

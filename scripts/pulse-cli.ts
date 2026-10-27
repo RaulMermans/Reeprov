@@ -778,7 +778,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
   }
 
   if (options.command === "version") {
-    const version = "0.1.0-beta.1";
+    const version = "0.2.0-beta.1";
     if (options.json) {
       console.log(JSON.stringify({ version, release: "beta", platform: process.platform, node: process.version }, null, 2));
     } else {

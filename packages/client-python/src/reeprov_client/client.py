@@ -22,7 +22,7 @@ from typing import Any, Optional
 from .canonical import canonical_sha256
 
 SDK_NAME = "reeprov-client"
-SDK_VERSION = "0.1.0b1"  # keep equal to __version__ / pyproject
+SDK_VERSION = "0.2.0b1"  # keep equal to __version__ / pyproject
 
 
 def _short_id() -> str:

@@ -16,7 +16,7 @@ from .client import (
 )
 from .canonical import canonical_json, canonical_sha256
 
-__version__ = "0.1.0b1"
+__version__ = "0.2.0b1"
 __all__ = [
     "ReeprovClient",
     "ReeprovError",

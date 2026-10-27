@@ -22,7 +22,7 @@ describe("Sprint 11: Open-Source Beta Release Readiness & Supply Chain Audit", (
 
     expect(pkg.name).toBe("reeprov");
     expect(pkg.license).toBe("Apache-2.0");
-    expect(pkg.version).toBe("0.1.0-beta.1");
+    expect(pkg.version).toBe("0.2.0-beta.1");
     expect(pkg.private).toBe(true);
     expect(pkg.author).toBe("Reeprov Contributors");
     expect(pkg.engines?.node).toBeDefined();
@@ -43,7 +43,7 @@ describe("Sprint 11: Open-Source Beta Release Readiness & Supply Chain Audit", (
 
     const tsPkg = JSON.parse(readFileSync(resolve(tsPkgDir, "package.json"), "utf8"));
     expect(tsPkg.name).toBe("@reeprov/client");
-    expect(tsPkg.version).toBe("0.1.0-beta.1");
+    expect(tsPkg.version).toBe("0.2.0-beta.1");
     expect(tsPkg.license).toBe("Apache-2.0");
     expect(tsPkg.main).toBe("dist/index.js");
     expect(tsPkg.types).toBe("dist/index.d.ts");
@@ -63,7 +63,7 @@ describe("Sprint 11: Open-Source Beta Release Readiness & Supply Chain Audit", (
 
     const pyProject = readFileSync(resolve(pyPkgDir, "pyproject.toml"), "utf8");
     expect(pyProject).toContain('name = "reeprov-client"');
-    expect(pyProject).toContain('version = "0.1.0b1"');
+    expect(pyProject).toContain('version = "0.2.0b1"');
     expect(pyProject).toContain('license = {text = "Apache-2.0"}');
   });
 
@@ -72,7 +72,7 @@ describe("Sprint 11: Open-Source Beta Release Readiness & Supply Chain Audit", (
     expect(existsSync(cliPath)).toBe(true);
 
     const versionOut = execFileSync("node", [cliPath, "--version"], { encoding: "utf8" }).trim();
-    expect(versionOut).toContain("Reeprov v0.1.0-beta.1 (beta)");
+    expect(versionOut).toContain("Reeprov v0.2.0-beta.1 (beta)");
 
     const helpOut = execFileSync("node", [cliPath, "--help"], { encoding: "utf8" }).trim();
     expect(helpOut).toContain("Reeprov CLI");
@@ -84,7 +84,7 @@ describe("Sprint 11: Open-Source Beta Release Readiness & Supply Chain Audit", (
     const legacyCliPath = resolve(rootDir, "bin/pulse.mjs");
     expect(existsSync(legacyCliPath)).toBe(true);
     const legacyVersionOut = execFileSync("node", [legacyCliPath, "--version"], { encoding: "utf8" }).trim();
-    expect(legacyVersionOut).toContain("Reeprov v0.1.0-beta.1 (beta)");
+    expect(legacyVersionOut).toContain("Reeprov v0.2.0-beta.1 (beta)");
   });
 
   it("Item 17 & 18: Docker self-host configuration exists and enforces non-root and mandatory secrets", () => {

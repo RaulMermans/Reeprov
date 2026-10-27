@@ -90,7 +90,7 @@ The host replay/fork runner executes JavaScript/TypeScript host adapters only. P
 - **The reference agent was written in this sprint** by the same author as the Reeprov changes. It ran as an independent process using only the public SDK, but it is not third-party code.
 - **Network guard is application-level** interception of known Node APIs. It is not OS or container isolation.
 - **Python host replay/fork is unsupported** (explicit error).
-- **No registry release.** The packages were built from source and tested as `0.2.0-dev` / `0.2.0.dev0` in the evidence folder. Manifests remain `0.1.0-beta.1` / `0.1.0b1` because the release gates require aligned versions; a version decision is needed before publishing. The published beta SDK still has the old behavior: its checkpoint events become observations and its unkeyed retries are not deduplicated.
+- **Release:** the owner approved releasing this work as `0.2.0-beta.1` (npm) / `0.2.0b1` (PyPI), through the gated release workflow from `main`. The earlier `0.1.0-beta.1` / `0.1.0b1` packages keep the old behavior: their checkpoint events become observations, and their unkeyed retries are not deduplicated.
 - **The comparison `verdict` field stays `NEUTRAL`** for this pair, because it does not consume eval evidence. The improvement claim is the authoritative signal.
 - **Regressions → Curated Tests** is static text and does not list saved cases. Curated cases are visible under Evaluate → Datasets.
 - **Postgres advisory locking** typechecks and follows the existing persistence path, but it was not exercised against a live Postgres in this sprint. Concurrency was proven on the file store, both in-process and over HTTP.

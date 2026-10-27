@@ -1,6 +1,6 @@
 {
   "name": "reeprov",
-  "version": "0.1.0-beta.1",
+  "version": "0.2.0-beta.1",
   "description": "Local-first debugging and reproducibility infrastructure for AI agents.",
   "author": "Reeprov Contributors",
   "license": "Apache-2.0",
