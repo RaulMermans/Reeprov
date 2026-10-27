@@ -753,3 +753,20 @@ Both SDKs:
 - External ingestion routes (`/api/runs/start`, `/api/traces/events`, `/api/runs/complete`, `/api/runs/fail`) require `REEPROV_INGEST_KEY` (falls back to `REEPROV_ACCESS_KEY` in dev).
 - The ingest key is never returned in any API response or rendered in the browser.
 - Newly generated keys use the `ree_live_...` prefix; legacy `ap_live_...` keys remain supported.
+
+---
+
+## External Replay & Checkpoint Contract (Sprint 13)
+
+**Ingestion.** `lib/core/capture/ingestBoundaries.ts` is the only boundary ingest path. Every record gets one outcome: `ACCEPTED`, `DUPLICATE`, `OBSERVATION_RECORDED` or `REJECTED` (with a code). HTTP status is 200 / 207 / 422. Clients assign `boundary_id` and per-run `sequence_index`; an id or sequence conflict is rejected, never overwritten. All read-modify-write of run files goes through `withRunWriteLock` (`lib/storage/runLock.ts`: in-process mutex, cross-process lock file, atomic writes) and `mutateCanonicalRun`, which adds `pg_advisory_xact_lock` in Postgres mode. The capture policy is chosen at run start (`capture_policy.content_mode`) and applied to every later record (`lib/core/capture/runPolicy.ts`).
+
+**Checkpoints.**
+- *Observations* (`checkpoint_observations`) record that a checkpoint was reached; they are never restorable and never boundaries.
+- *Registered* checkpoints (`capture_kind: REGISTERED`, `lib/core/capture/checkpointRegistration.ts`) carry a snapshot, a state hash checked against the client's canonical hash, a cursor validated against acknowledged boundaries, host step identity and `resume_adapter`.
+- `assessCheckpoint` (`lib/core/fork/restorability.ts`) advertises `RESTORABLE` only with valid state plus verified host resume (host probe or stored resumed fork).
+
+**Developer-side runner.** `lib/core/external/hostRunner.ts` (CLI `reeprov host-replay | host-fork`) loads the agent's `ReeprovHostAdapter` on the developer's machine. It re-executes host steps with dependencies resolved by `BoundaryResolver`, verifies intermediate state and final output, and for forks emits a child artifact with lineage and a resume proof. The server stores runner output via `POST /api/runs/{id}/replays` and `/forks` after validation and never executes host code. `ReplayResult.host_execution.kind` separates `HOST_REEXECUTED` from `RECORDED_SELF_CHECK`.
+
+**Comparison and claims.** Comparing a fork with its parent aligns boundaries from the checkpoint cursor and diffs the restored state against the parent's checkpoint snapshot. `assessImprovementClaim` (`lib/core/comparison/improvementClaim.ts`) is the only way to claim an improvement.
+
+**Studio states.** LIVE, RECORDED, FORKED, REPLAYED, PARTIALLY VERIFIED and UNSUPPORTED are derived from evidence (`lib/dashboard/executionState.ts`). Canvas timeline playback is labelled as playback and is not replay.

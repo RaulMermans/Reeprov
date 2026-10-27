@@ -19,6 +19,11 @@ import urllib.request
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from .canonical import canonical_sha256
+
+SDK_NAME = "reeprov-client"
+SDK_VERSION = "0.1.0b1"  # keep equal to __version__ / pyproject
+
 
 def _short_id() -> str:
     return "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
@@ -38,6 +43,47 @@ class ReeprovError(Exception):
 
 
 AgentPulseError = ReeprovError
+
+
+class ReeprovIngestError(ReeprovError):
+    """Raised (when fail_open is False) if Reeprov did not confirm every record."""
+
+    def __init__(self, message: str, ack: dict[str, Any]):
+        super().__init__(message, ack.get("http_status"), False)
+        self.ack = ack
+
+
+def _disabled_ack() -> dict[str, Any]:
+    return {"ok": True, "delivery": "disabled", "accepted": 0, "duplicates": 0,
+            "rejected": 0, "results": [], "errors": []}
+
+
+def _describe(body: Any) -> str:
+    if isinstance(body, dict):
+        return str(body.get("message") or body.get("code") or "no detail")
+    return "no detail"
+
+
+def _to_ack(res: Optional[tuple[int, Any]], record_count: int) -> dict[str, Any]:
+    """Converts an HTTP response into an acknowledgement. Missing records are never treated as stored."""
+    if res is None:
+        return {"ok": False, "delivery": "unreachable", "accepted": 0, "duplicates": 0,
+                "rejected": record_count, "results": [],
+                "errors": ["Reeprov unreachable; records were not confirmed."]}
+    status, body = res
+    if status in (401, 403) or not isinstance(body, dict) or not isinstance(body.get("rejected"), int):
+        return {"ok": False, "delivery": "acknowledged", "http_status": status, "accepted": 0,
+                "duplicates": 0, "rejected": record_count, "results": [],
+                "errors": [f"HTTP {status}: {_describe(body)}"]}
+    confirmed = int(body.get("accepted", 0)) + int(body.get("duplicates", 0)) + int(body.get("observations", 0))
+    unaccounted = max(0, record_count - confirmed - body["rejected"])
+    rejected = body["rejected"] + unaccounted
+    errors = [str(e.get("message", "unknown reason")) for e in body.get("errors", []) if isinstance(e, dict)]
+    if unaccounted:
+        errors.append(f"{unaccounted} record(s) were not acknowledged by the server.")
+    return {"ok": rejected == 0, "delivery": "acknowledged", "http_status": status,
+            "accepted": int(body.get("accepted", 0)), "duplicates": int(body.get("duplicates", 0)),
+            "rejected": rejected, "results": list(body.get("results", [])), "errors": errors}
 
 
 class ReeprovClient:
@@ -100,6 +146,9 @@ class ReeprovClient:
         self._max_retries = max_retries
         fail_open_env = os.environ.get("REEPROV_FAIL_OPEN") or os.environ.get("AGENTPULSE_FAIL_OPEN")
         self._fail_open = fail_open if fail_open_env != "false" else False
+        # Client-assigned boundary sequences and server-confirmed sequences per run.
+        self._next_sequence: dict[str, int] = {}
+        self._confirmed: dict[str, set[int]] = {}
 
     @property
     def is_enabled(self) -> bool:
@@ -116,8 +165,12 @@ class ReeprovClient:
         project_name: Optional[str] = None,
         workflow_id: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
+        content_mode: Optional[str] = None,
     ) -> str:
-        """Start a new run. Returns the generated or confirmed run_id."""
+        """Start a run (idempotent for a client-supplied run_id). Returns the run_id.
+
+        content_mode: "STRUCTURE_ONLY" | "SAFE_CONTENT" | "FULL_CONTENT" (default SAFE_CONTENT).
+        """
         if not self._enabled:
             return run_id or f"noop-{_short_id()}"
 
@@ -128,14 +181,22 @@ class ReeprovClient:
             "project_name": project_name or self._project_name,
             "workflow_id": workflow_id or self._workflow_id,
             "summary": summary,
+            "sdk": {"name": SDK_NAME, "version": SDK_VERSION},
         }
+        if content_mode:
+            body["capture_policy"] = {"content_mode": content_mode}
         if metadata:
             body["metadata"] = metadata
 
         res = self._post("/api/runs/start", body)
-        if isinstance(res, dict) and "run_id" in res:
-            return str(res["run_id"])
-        return active_run_id
+        if res is not None and 200 <= res[0] < 300 and isinstance(res[1], dict):
+            return str(res[1].get("run_id", active_run_id))
+        message = (f"Reeprov did not confirm run start "
+                   f"({'unreachable' if res is None else f'HTTP {res[0]}: {_describe(res[1])}'}).")
+        if self._fail_open:
+            print(f"[Reeprov] {message} Evidence for run {active_run_id} may be incomplete.", file=sys.stderr)
+            return active_run_id
+        raise ReeprovError(message, None if res is None else res[0], res is None)
 
     def complete_run(
         self,
@@ -145,10 +206,11 @@ class ReeprovClient:
         total_cost_usd: Optional[float] = None,
         total_duration_ms: Optional[int] = None,
         artifact_refs: Optional[list[str]] = None,
-    ) -> None:
-        """Mark a run as completed."""
+        output: Any = None,
+    ) -> dict[str, Any]:
+        """Mark a run as completed. `output` is stored as outcome evidence under the run's content mode."""
         if not self._enabled:
-            return
+            return _disabled_ack()
         body: dict[str, Any] = {"run_id": run_id}
         if summary:
             body["summary"] = summary
@@ -158,25 +220,36 @@ class ReeprovClient:
             body["total_duration_ms"] = total_duration_ms
         if artifact_refs:
             body["artifact_refs"] = artifact_refs
-        self._post("/api/runs/complete", body)
+        if output is not None:
+            body["output"] = output
+        return self._lifecycle("/api/runs/complete", body, "run completion")
 
-    def fail_run(self, run_id: str, *, error_summary: str) -> None:
+    def fail_run(self, run_id: str, *, error_summary: str) -> dict[str, Any]:
         """Mark a run as failed."""
         if not self._enabled:
-            return
-        self._post("/api/runs/fail", {"run_id": run_id, "error_summary": error_summary})
+            return _disabled_ack()
+        return self._lifecycle("/api/runs/fail", {"run_id": run_id, "error_summary": error_summary}, "run failure")
+
+    def _lifecycle(self, path: str, body: dict[str, Any], kind: str) -> dict[str, Any]:
+        res = self._post(path, body)
+        ok = res is not None and 200 <= res[0] < 300
+        ack = {"ok": ok, "delivery": "unreachable" if res is None else "acknowledged",
+               "http_status": None if res is None else res[0], "accepted": 1 if ok else 0,
+               "duplicates": 0, "rejected": 0 if ok else 1, "results": [],
+               "errors": [] if ok else ["unreachable" if res is None else f"HTTP {res[0]}: {_describe(res[1])}"]}
+        return self._settle(kind, ack)
 
     # ── Trace Events ───────────────────────────────────────────────────────────
 
-    def emit_trace_event(self, event: dict[str, Any]) -> None:
-        """Emit a single trace event."""
-        self.emit_trace_events([event])
+    def emit_trace_event(self, event: dict[str, Any]) -> dict[str, Any]:
+        """Emit a single trace event. Returns the acknowledgement."""
+        return self.emit_trace_events([event])
 
-    def emit_trace_events(self, events: list[dict[str, Any]]) -> None:
-        """Emit multiple trace events in batch."""
+    def emit_trace_events(self, events: list[dict[str, Any]]) -> dict[str, Any]:
+        """Emit multiple trace events in batch. Returns the acknowledgement."""
         if not self._enabled or not events:
-            return
-        self._check_ingest_result("trace events", self._post("/api/traces/events", {"events": events}))
+            return _disabled_ack()
+        return self._settle("trace event", _to_ack(self._post("/api/traces/events", {"events": events}), len(events)))
 
     # ── Semantic Helper Methods ────────────────────────────────────────────────
 
@@ -196,10 +269,10 @@ class ReeprovClient:
         input_tokens: Optional[int] = None,
         output_tokens: Optional[int] = None,
         metadata: Optional[dict[str, Any]] = None,
-    ) -> None:
+    ) -> dict[str, Any]:
         """Record model execution event and boundary."""
         if not self._enabled:
-            return
+            return _disabled_ack()
         now = _now()
         event_meta: dict[str, Any] = {
             "model": model,
@@ -210,7 +283,7 @@ class ReeprovClient:
         if metadata:
             event_meta.update(metadata)
 
-        self.emit_trace_event({
+        event_ack = self.emit_trace_event({
             "event_id": f"evt-{_short_id()}",
             "run_id": run_id,
             "workflow_id": self._workflow_id,
@@ -224,7 +297,7 @@ class ReeprovClient:
             "metadata": event_meta,
         })
 
-        self.capture_boundary(run_id, {
+        boundary_ack = self.capture_boundary(run_id, {
             "boundaryType": "model_call",
             "name": f"{provider}/{model}",
             "stepId": step_id,
@@ -240,6 +313,7 @@ class ReeprovClient:
             "declaredSideEffectClass": "read_only",
             "metadata": metadata,
         })
+        return _merge_acks(event_ack, boundary_ack)
 
     def tool_call_completed(
         self,
@@ -254,10 +328,10 @@ class ReeprovClient:
         step_id: Optional[str] = None,
         duration_ms: Optional[int] = None,
         metadata: Optional[dict[str, Any]] = None,
-    ) -> None:
+    ) -> dict[str, Any]:
         """Record tool execution event and boundary."""
         if not self._enabled:
-            return
+            return _disabled_ack()
         now = _now()
         event_meta: dict[str, Any] = {
             "tool_name": tool_name,
@@ -266,7 +340,7 @@ class ReeprovClient:
         if metadata:
             event_meta.update(metadata)
 
-        self.emit_trace_event({
+        event_ack = self.emit_trace_event({
             "event_id": f"evt-{_short_id()}",
             "run_id": run_id,
             "workflow_id": self._workflow_id,
@@ -279,7 +353,7 @@ class ReeprovClient:
             "metadata": event_meta,
         })
 
-        self.capture_boundary(run_id, {
+        boundary_ack = self.capture_boundary(run_id, {
             "boundaryType": "tool_call",
             "name": tool_name,
             "stepId": step_id,
@@ -291,6 +365,7 @@ class ReeprovClient:
             "declaredSideEffectClass": permission_class,
             "metadata": metadata,
         })
+        return _merge_acks(event_ack, boundary_ack)
 
     def eval_completed(
         self,
@@ -306,10 +381,10 @@ class ReeprovClient:
         findings: Optional[list[str]] = None,
         recommendation: Optional[str] = None,
         output_summary: Optional[str] = None,
-    ) -> None:
+    ) -> dict[str, Any]:
         """Record an evaluation outcome event."""
         if not self._enabled:
-            return
+            return _disabled_ack()
         event: dict[str, Any] = {
             "event_id": f"{run_id}::eval::{eval_id}",
             "run_id": run_id,
@@ -332,7 +407,7 @@ class ReeprovClient:
             event["node_id"] = node_id
         if output_summary:
             event["output_summary"] = output_summary
-        self.emit_trace_event(event)
+        return self.emit_trace_event(event)
 
     def artifact_created(
         self,
@@ -342,10 +417,10 @@ class ReeprovClient:
         *,
         output_summary: Optional[str] = None,
         node_id: Optional[str] = None,
-    ) -> None:
+    ) -> dict[str, Any]:
         """Record creation of an execution artifact."""
         if not self._enabled:
-            return
+            return _disabled_ack()
         event: dict[str, Any] = {
             "event_id": f"{run_id}::artifact::{artifact_ref}",
             "run_id": run_id,
@@ -362,53 +437,123 @@ class ReeprovClient:
             event["node_id"] = node_id
         if output_summary:
             event["output_summary"] = output_summary
-        self.emit_trace_events([event])
+        return self.emit_trace_events([event])
 
-    def checkpoint_saved(
+    # ── Checkpoints ───────────────────────────────────────────────────────────
+
+    def checkpoint_observed(
         self,
         run_id: str,
         checkpoint_id: str,
-        state: Any,
+        state: Any = None,
         *,
         node_id: Optional[str] = None,
         step_id: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
-    ) -> None:
-        """Record a checkpoint event; this does not create a restorable snapshot."""
+    ) -> dict[str, Any]:
+        """Checkpoint observation: records that a checkpoint was reached. Never restorable, never a boundary."""
         if not self._enabled:
-            return
-        self.capture_boundary(run_id, {
-            "boundaryType": "checkpoint",
-            "name": f"checkpoint:{checkpoint_id}",
-            "stepId": step_id,
-            "nodeId": node_id,
-            "output": state,
-            "declaredSideEffectClass": "read_only",
-            "metadata": {"checkpoint_id": checkpoint_id, **(metadata or {})},
+            return {"ok": True, "delivery": "disabled", "status": "NOT_SENT"}
+        return self._checkpoint_request(run_id, {
+            "kind": "observe", "checkpoint_id": checkpoint_id, "step_id": step_id,
+            "node_id": node_id, "state": state, "metadata": metadata,
         })
+
+    def checkpoint_saved(self, run_id: str, checkpoint_id: str, state: Any, **kwargs: Any) -> dict[str, Any]:
+        """Deprecated: records an observation only. Use checkpoint_observed() or register_checkpoint()."""
+        return self.checkpoint_observed(run_id, checkpoint_id, state, **kwargs)
+
+    def register_checkpoint(
+        self,
+        run_id: str,
+        *,
+        checkpoint_id: str,
+        step_id: str,
+        resume_step_index: int,
+        state: dict[str, Any],
+        adapter_id: str,
+        adapter_version: str,
+        step_index: Optional[int] = None,
+        resume_step_id: Optional[str] = None,
+        position: str = "AFTER_STEP",
+        boundary_cursor: Optional[int] = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        """Restorable-checkpoint capture.
+
+        Sends the state snapshot with its canonical hash, the boundary cursor and
+        the resume adapter identity. Reeprov validates the snapshot and advertises
+        the checkpoint as restorable only after a compatible host resume is verified.
+        """
+        if not self._enabled:
+            return {"ok": True, "delivery": "disabled", "status": "NOT_SENT"}
+        return self._checkpoint_request(run_id, {
+            "kind": "register",
+            "checkpoint_id": checkpoint_id,
+            "step_id": step_id,
+            "step_index": step_index,
+            "position": position,
+            "resume_step_index": resume_step_index,
+            "resume_step_id": resume_step_id,
+            "boundary_cursor": self.confirmed_boundary_cursor(run_id) if boundary_cursor is None else boundary_cursor,
+            "state": state,
+            "state_hash": canonical_sha256(state),
+            "adapter": {"adapter_id": adapter_id, "adapter_version": adapter_version},
+            "metadata": metadata,
+        })
+
+    def confirmed_boundary_cursor(self, run_id: str) -> int:
+        """Number of contiguous boundaries (from sequence 0) the server confirmed for a run."""
+        confirmed = self._confirmed.get(run_id, set())
+        cursor = 0
+        while cursor in confirmed:
+            cursor += 1
+        return cursor
+
+    def _checkpoint_request(self, run_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        clean = {k: v for k, v in body.items() if v is not None}
+        res = self._post(f"/api/runs/{urllib.parse.quote(run_id, safe='')}/checkpoints", clean)
+        data = res[1] if res is not None and isinstance(res[1], dict) else {}
+        status = data.get("status", "REJECTED")
+        ack = {
+            "ok": res is not None and status != "REJECTED",
+            "delivery": "unreachable" if res is None else "acknowledged",
+            "http_status": None if res is None else res[0],
+            "status": status,
+            "code": data.get("code") or (None if res is not None else "UNREACHABLE"),
+            "message": data.get("message"),
+            "assessment": data.get("assessment"),
+        }
+        if not ack["ok"]:
+            message = f"Reeprov rejected checkpoint {body.get('checkpoint_id')}: {ack['code'] or 'REJECTED'} {ack['message'] or ''}".strip()
+            if self._fail_open:
+                print(f"[Reeprov] {message}", file=sys.stderr)
+            else:
+                raise ReeprovIngestError(message, ack)
+        return ack
 
     # ── Replay-Grade Boundary Capture ──────────────────────────────────────────
 
-    def capture_boundary(self, run_id: str, boundary: dict[str, Any]) -> None:
-        """Emit a replay-grade execution boundary to Reeprov."""
+    def capture_boundary(self, run_id: str, boundary: dict[str, Any]) -> dict[str, Any]:
+        """Emit one boundary with a stable client id and per-run sequence (idempotent on retry)."""
         if not self._enabled:
-            return
-        payload = {
-            "boundaries": [
-                {
-                    "runId": run_id,
-                    "startedAt": _now(),
-                    **boundary,
-                }
-            ]
-        }
-        try:
-            self._check_ingest_result("boundary", self._post("/api/traces/boundaries", payload))
-        except Exception as e:
-            if self._fail_open:
-                print(f"[Reeprov] Non-fatal boundary capture error: {e}", file=sys.stderr)
-            else:
-                raise
+            return _disabled_ack()
+        sequence = boundary.get("sequenceIndex")
+        if sequence is None:
+            sequence = self._next_sequence.get(run_id, 0)
+            self._next_sequence[run_id] = sequence + 1
+        else:
+            self._next_sequence[run_id] = max(self._next_sequence.get(run_id, 0), int(sequence) + 1)
+        record = {"runId": run_id, "startedAt": _now(), **{k: v for k, v in boundary.items() if v is not None}}
+        record["sequenceIndex"] = sequence
+        record.setdefault("boundaryId", f"bnd:{run_id}:{sequence}")
+
+        ack = _to_ack(self._post("/api/traces/boundaries", {"boundaries": [record]}), 1)
+        confirmed = self._confirmed.setdefault(run_id, set())
+        for result in ack["results"]:
+            if result.get("status") in ("ACCEPTED", "DUPLICATE") and isinstance(result.get("sequence_index"), int):
+                confirmed.add(result["sequence_index"])
+        return self._settle("boundary", ack)
 
     def capture_model_call(
         self,
@@ -423,9 +568,9 @@ class ReeprovClient:
         node_id: Optional[str] = None,
         duration_ms: Optional[int] = None,
         metadata: Optional[dict[str, Any]] = None,
-    ) -> None:
+    ) -> dict[str, Any]:
         """Capture a model invocation boundary."""
-        self.capture_boundary(run_id, {
+        return self.capture_boundary(run_id, {
             "boundaryType": "model_call",
             "name": f"{provider}/{model}",
             "stepId": step_id,
@@ -455,9 +600,9 @@ class ReeprovClient:
         node_id: Optional[str] = None,
         duration_ms: Optional[int] = None,
         metadata: Optional[dict[str, Any]] = None,
-    ) -> None:
+    ) -> dict[str, Any]:
         """Capture a tool invocation boundary."""
-        self.capture_boundary(run_id, {
+        return self.capture_boundary(run_id, {
             "boundaryType": "tool_call",
             "name": tool_name,
             "stepId": step_id,
@@ -480,9 +625,9 @@ class ReeprovClient:
         step_id: Optional[str] = None,
         node_id: Optional[str] = None,
         duration_ms: Optional[int] = None,
-    ) -> None:
+    ) -> dict[str, Any]:
         """Capture a retrieval operation boundary."""
-        self.capture_boundary(run_id, {
+        return self.capture_boundary(run_id, {
             "boundaryType": "retrieval_service",
             "name": f"{service_name}:search",
             "stepId": step_id,
@@ -504,10 +649,10 @@ class ReeprovClient:
         value: Optional[Any] = None,
         step_id: Optional[str] = None,
         node_id: Optional[str] = None,
-    ) -> None:
+    ) -> dict[str, Any]:
         """Capture a memory operation boundary."""
         is_read = operation_type in ("read", "retrieval")
-        self.capture_boundary(run_id, {
+        return self.capture_boundary(run_id, {
             "boundaryType": "memory_read" if is_read else "memory_write",
             "name": f"{provider}:{operation_type}",
             "stepId": step_id,
@@ -519,17 +664,21 @@ class ReeprovClient:
 
     # ── Internal Transport ─────────────────────────────────────────────────────
 
-    def _check_ingest_result(self, kind: str, result: Any) -> None:
-        if not isinstance(result, dict) or not isinstance(result.get("rejected"), int) or result["rejected"] == 0:
-            return
-        reasons = "; ".join(str(error.get("message", "unknown reason")) for error in result.get("errors", []))
-        error = ReeprovError(f"Reeprov rejected {result['rejected']} {kind} record(s): {reasons or 'unknown reason'}", 422, False)
+    def _settle(self, kind: str, ack: dict[str, Any]) -> dict[str, Any]:
+        if ack["ok"]:
+            return ack
+        message = f"Reeprov did not confirm {ack['rejected']} {kind} record(s): {'; '.join(ack['errors']) or 'unknown reason'}"
         if self._fail_open:
-            print(f"[Reeprov] {error}", file=sys.stderr)
-        else:
-            raise error
+            print(f"[Reeprov] {message}", file=sys.stderr)
+            return ack
+        raise ReeprovIngestError(message, ack)
 
-    def _post(self, path: str, body: dict[str, Any]) -> Any:
+    def _post(self, path: str, body: dict[str, Any]) -> Optional[tuple[int, Any]]:
+        """POST JSON. Returns (status, parsed body) for any response below 500.
+
+        Network errors and 5xx are retried (safe: records are keyed). Returns
+        None when the server could not be reached.
+        """
         url = f"{self._url}{path}"
         data = json.dumps(body).encode("utf-8")
         last_error: Optional[Exception] = None
@@ -546,32 +695,41 @@ class ReeprovClient:
             )
             try:
                 with urllib.request.urlopen(req, timeout=self._timeout) as resp:
-                    if resp.status < 400:
-                        content_type = resp.headers.get("Content-Type", "")
-                        if "application/json" in content_type:
-                            return json.loads(resp.read().decode("utf-8"))
-                        return {}
-                    last_error = ReeprovError(f"Reeprov API Error {resp.status}: {path}", resp.status, True)
+                    return resp.status, _parse_json(resp.headers.get("Content-Type", ""), resp.read())
             except urllib.error.HTTPError as e:
-                # 401/403 or 4xx: fast-fail non-retryable client errors
-                if e.code in (401, 403) or (400 <= e.code < 500):
-                    err = ReeprovError(f"Reeprov request failed: {e.code} {path}", e.code, False)
-                    if self._fail_open:
-                        print(f"[Reeprov] Non-retryable error ({e.code}): {path}", file=sys.stderr)
-                        return {}
-                    raise err from e
-                # 5xx server error: transient, retry
+                if e.code < 500:
+                    return e.code, _parse_json(e.headers.get("Content-Type", "") if e.headers else "", e.read())
                 last_error = ReeprovError(f"Reeprov server error {e.code}: {path}", e.code, True)
-            except Exception as e:
+            except Exception as e:  # network error, timeout
                 last_error = e
 
             if attempt < self._max_retries:
                 time.sleep(0.05 * (2 ** attempt))
 
-        if self._fail_open:
-            print(f"[Reeprov] Telemetry request to {path} failed: {last_error}", file=sys.stderr)
-            return {}
-        raise last_error or ReeprovError(f"Reeprov request failed: {path}")
+        print(f"[Reeprov] Request to {path} failed after retries: {last_error}", file=sys.stderr)
+        return None
+
+
+def _parse_json(content_type: str, raw: bytes) -> Any:
+    if "application/json" not in content_type:
+        return {}
+    try:
+        return json.loads(raw.decode("utf-8"))
+    except ValueError:
+        return {}
+
+
+def _merge_acks(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ok": a["ok"] and b["ok"],
+        "delivery": a["delivery"] if a["delivery"] != "acknowledged" else b["delivery"],
+        "http_status": b.get("http_status") or a.get("http_status"),
+        "accepted": a["accepted"] + b["accepted"],
+        "duplicates": a["duplicates"] + b["duplicates"],
+        "rejected": a["rejected"] + b["rejected"],
+        "results": a["results"] + b["results"],
+        "errors": a["errors"] + b["errors"],
+    }
 
 
 AgentPulseClient = ReeprovClient

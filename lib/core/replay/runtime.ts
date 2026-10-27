@@ -377,7 +377,22 @@ export class ReplayRuntime {
       replay_events: events,
       last_successful_step_id: lastSuccessfulStepId,
       last_substituted_boundary_id: lastSubstitutedBoundaryId,
+      host_execution: {
+        kind: executeLogic ? "HOST_REEXECUTED" : "RECORDED_SELF_CHECK",
+        runner: "ReplayRuntime",
+        input_mutations: [],
+      },
+      verification: !executeLogic
+        ? "UNVERIFIED"
+        : status === "MATCHED"
+          ? resolver.getPartiallyVerifiedCount() === 0 ? "VERIFIED" : "PARTIALLY_VERIFIED"
+          : "UNVERIFIED",
     };
+    if (!executeLogic) {
+      result.limitations.push(
+        "RECORDED_SELF_CHECK: no host logic was executed; recorded inputs were fed back to the resolver. This verifies evidence self-consistency, not application behavior.",
+      );
+    }
 
     if (persist) {
       await saveReplayResult(result, plan);

@@ -35,6 +35,7 @@ reeprov.db*
 *.sqlite3
 agentpulse.db*
 /s12-evidence/
+/s13-evidence/
 /runs/
 /workflows/
 /comparisons/

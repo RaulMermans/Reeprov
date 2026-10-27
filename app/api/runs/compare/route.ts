@@ -3,6 +3,9 @@ import { authorizeRequest, AccessControlError } from "@/lib/auth/accessControl";
 import { getCanonicalRun } from "@/lib/core/capture/persistence";
 import { compareRuns, saveRunComparison, listRunComparisons } from "@/lib/core/comparison";
 import { comparisonPolicySchema } from "@/lib/core/contracts/comparison";
+import { assessImprovementClaim, type ImprovementClaim } from "@/lib/core/comparison/improvementClaim";
+import { getEvaluationRun } from "@/lib/core/evals/persistence";
+import { getReplayResult } from "@/lib/core/replay/persistence";
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,7 +37,10 @@ export async function POST(request: NextRequest) {
   try {
     await authorizeRequest(request, { capability: "DASHBOARD_READ" });
     const body = await request.json();
-    const { baseline_run_id, candidate_run_id, enable_semantic, policy } = body;
+    const {
+      baseline_run_id, candidate_run_id, enable_semantic, policy,
+      baseline_evaluation_run_id, candidate_evaluation_run_id, baseline_replay_id,
+    } = body;
 
     if (!baseline_run_id || !candidate_run_id) {
       return NextResponse.json(
@@ -68,7 +74,24 @@ export async function POST(request: NextRequest) {
 
     await saveRunComparison(comparison);
 
-    return NextResponse.json({ comparison });
+    // Improvement is claimed only through the evidence gate, never from the
+    // comparison verdict or a candidate's successful completion alone.
+    let improvement_claim: ImprovementClaim | undefined;
+    if (baseline_evaluation_run_id && candidate_evaluation_run_id) {
+      const [be, ce, replay] = await Promise.all([
+        getEvaluationRun(String(baseline_evaluation_run_id)),
+        getEvaluationRun(String(candidate_evaluation_run_id)),
+        baseline_replay_id ? getReplayResult(String(baseline_replay_id)) : Promise.resolve(null),
+      ]);
+      if (!be || !ce) {
+        return NextResponse.json({ error: "Evaluation run not found." }, { status: 404 });
+      }
+      improvement_claim = assessImprovementClaim({
+        baseline, candidate, comparison, baselineEvaluation: be, candidateEvaluation: ce, baselineReplay: replay ?? undefined,
+      });
+    }
+
+    return NextResponse.json({ comparison, ...(improvement_claim ? { improvement_claim } : {}) });
   } catch (error) {
     if (error instanceof AccessControlError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

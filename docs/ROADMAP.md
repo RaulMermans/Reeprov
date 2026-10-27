@@ -334,3 +334,16 @@ Now that the integration path and Visual Execution Canvas are in place, the next
 - Consider project-specific ingest keys for multi-project isolation
 - Multi-project pulse on the Overview
 - Artifact preview proof and portfolio packaging (tracked as future work, not started)
+
+## Sprint 13 — External Replay, Checkpoint Integrity & SDK Contract ✓
+
+Verdict `EXTERNAL_REPLAY_AND_FORK_VERIFIED` (see `docs/sprints/S13-external-replay.md`):
+- Checkpoint observation separated from restorable registration; restorability requires valid state and a verified host.
+- Canonical ingestion with per-record accounting, client-keyed boundaries, run-level locking and atomic writes.
+- Run capture policy propagated over HTTP.
+- Developer-side host replay and fork runner (`reeprov host-replay | host-fork`), with upload validation that never executes code server-side.
+- Reference incident-triage agent, domain eval suite, fork-aware comparison and an improvement-claim gate.
+- TypeScript/Python SDK parity for acknowledgements, keyed boundaries, checkpoints and canonical hashing.
+- Studio execution-state labels and Replays tab; `personal_local` + access-key unlock fix.
+
+Still open: Python host replay, OS-level isolation for untrusted host code, a live Postgres concurrency test, an SDK release (version decision pending owner approval), and a live LLM leg.

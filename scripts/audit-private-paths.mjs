@@ -41,6 +41,7 @@ const EXCLUDED_DIRS = new Set([
   ".venv",
   ".turbo",
   "s12-evidence",
+  "s13-evidence",
 ]);
 
 const EXCLUDED_FILES = new Set([

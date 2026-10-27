@@ -308,6 +308,7 @@ export function adaptLegacyRunToRunArtifact(input: LegacyRunInput | SavedRun): R
     external_calls: [],
     state: [],
     checkpoints: [],
+    checkpoint_observations: [],
     context: [], // Explicitly not captured in legacy runs
     memory: {
       operations: [],

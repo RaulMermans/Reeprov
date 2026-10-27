@@ -61,7 +61,7 @@ describe("Route Inventory Completeness (Sprint Item 3)", () => {
   const routeFiles = findRouteFiles(apiRoot);
 
   it("discovers all API route files", () => {
-    expect(routeFiles.length).toBe(66);
+    expect(routeFiles.length).toBe(68);
   });
 
   it("ensures every route/method combination is declared in ROUTE_SECURITY_INVENTORY (code -> inventory)", () => {
@@ -127,7 +127,7 @@ describe("Route Inventory Completeness (Sprint Item 3)", () => {
     }
 
     expect(staleDeclarations).toEqual([]);
-    expect(codeHandlers.size).toBe(88);
+    expect(codeHandlers.size).toBe(92);
   });
 
   it("verifies runtime capability matches inventory capability for every handler", () => {

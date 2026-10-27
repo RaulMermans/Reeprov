@@ -83,9 +83,32 @@ The client can automatically configure itself from standard environment variable
 ## Reliability & Failure Isolation
 
 - **Zero Runtime Dependencies:** Built strictly on standard platform APIs (`fetch`, `AbortController`).
-- **Fail-Open Posture:** By default, telemetry delivery failures log warnings and do not crash your primary agent loop.
+- **Fail-Open Posture:** By default, delivery failures log warnings and do not crash your agent loop. They are still reported in the returned acknowledgement (`ok: false`).
 - **Fast-Fail on Auth:** 401/403 responses fail immediately without wasteful retries.
 - **Bounded Exponential Backoff:** Transient 5xx server errors retry up to 2 times with jitter.
+
+## Acknowledgements, checkpoints and replay
+
+Every ingest call returns an acknowledgement. `ok` is `true` only when Reeprov confirmed every record (stored, or an idempotent duplicate). A rejected, missing or undelivered record makes it `false`, whatever the HTTP status. With `failOpen: false` such a result throws `ReeprovIngestError`.
+
+```ts
+const ack = await client.captureBoundary(runId, { boundaryType: "tool_call", name: "lookup", input, output });
+ack.ok;                 // false if anything was not confirmed
+ack.results[0].status;  // ACCEPTED | DUPLICATE | REJECTED (+ code)
+```
+
+Boundaries get a stable `boundary_id` and a per-run sequence assigned by the client, so retries never duplicate or overwrite.
+
+Checkpoints are two different operations:
+
+| Call | Meaning |
+| --- | --- |
+| `checkpointObserved({ run_id, checkpoint_id })` | The agent reached a checkpoint. **Never restorable.** (`checkpointSaved` is a deprecated alias.) |
+| `registerCheckpoint({ run_id, checkpoint_id, step_id, resume_step_index, state, adapter })` | Restorable-checkpoint capture: state snapshot + canonical hash + boundary cursor + resume adapter identity. Reeprov advertises it as restorable only after a compatible host resume is verified. |
+
+To make an agent replayable and forkable, write its steps against injected `HostDependencies` and expose a `ReeprovHostAdapter`. Live runs use `createCapturingDependencies(client, runId, liveImpls)`. `npx reeprov host-replay` and `host-fork` re-execute the same step code on your machine against recorded evidence; Reeprov never runs your code in its server. See `examples/external-agents/incident-triage` in the Reeprov repository.
+
+`startRun({ contentMode })` selects `STRUCTURE_ONLY`, `SAFE_CONTENT` (default) or `FULL_CONTENT` for every record of the run. `completeRun({ output })` stores the final output as outcome evidence.
 
 ---
 

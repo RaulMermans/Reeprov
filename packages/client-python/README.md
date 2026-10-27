@@ -80,9 +80,24 @@ The client can automatically configure itself from standard environment variable
 ## Reliability & Failure Isolation
 
 - **Zero Third-Party Dependencies:** Pure Python standard library implementation (`urllib.request`).
-- **Fail-Open Posture:** By default, telemetry delivery failures print non-fatal warnings to stderr without crashing the host agent.
+- **Fail-Open Posture:** By default, delivery failures print warnings to stderr without crashing the host agent. They are still reported in the returned acknowledgement (`ok` is `False`).
 - **Fast-Fail on Auth:** 401/403 responses fail immediately without wasteful retries.
 - **Bounded Exponential Backoff:** Transient 5xx server errors retry up to 2 times.
+
+## Acknowledgements and checkpoints
+
+Ingest methods return an acknowledgement dict: `ok` is `True` only when every record was confirmed. With `fail_open=False`, an unconfirmed record raises `ReeprovIngestError`. Boundaries carry a stable client `boundaryId` and a per-run sequence, so retries are idempotent.
+
+```python
+client.checkpoint_observed(run_id, "reached_review")         # observation only, never restorable
+client.register_checkpoint(run_id, checkpoint_id="after_lookup", step_id="lookup",
+                           resume_step_index=1, state={"ticket": "T-1"},
+                           adapter_id="my-agent", adapter_version="1.0.0")  # restorable-checkpoint capture
+```
+
+`checkpoint_saved` is a deprecated alias of `checkpoint_observed`. `start_run(..., content_mode="STRUCTURE_ONLY")` selects the capture policy; `complete_run(..., output=...)` records the final output.
+
+The Reeprov host replay/fork runner executes JavaScript/TypeScript host adapters only. Python agents can capture boundaries and register checkpoints, but host replay of Python code returns `UNSUPPORTED_HOST_LANGUAGE`.
 
 ---
 

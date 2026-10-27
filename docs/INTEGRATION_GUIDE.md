@@ -83,6 +83,16 @@ Without a matching registered spec, Reeprov uses inferred mode. It groups events
 
 The event endpoint returns `{ accepted, rejected, errors }`. Inspect `rejected` even when the HTTP response is `200`, because a mixed batch can accept valid events and reject invalid ones.
 
+## Replay and fork an external agent
+
+1. Write the agent's steps against injected dependencies (`HostDependencies`) and export a `ReeprovHostAdapter` (identity, ordered steps, `initialState`, `supportsResume`, `run`). No I/O outside the dependencies.
+2. In live runs, use `createCapturingDependencies` and call `registerCheckpoint` at the start (resume step 0) and at each resume point. Use `checkpointObserved` for checkpoints you cannot restore.
+3. On your machine: `REEPROV_ACCESS_KEY=… npx reeprov host-replay --server <url> --run <id> --adapter ./adapter.mjs --upload`. The result appears in the run's **Replays** tab as `REPLAYED`, `PARTIALLY VERIFIED` or `UNSUPPORTED`, with the reason.
+4. `npx reeprov host-fork --server <url> --run <id> --checkpoint <id> --adapter ./adapter.mjs --mutations ./mutations.json --upload` resumes after the checkpoint. The child appears as `FORKED`, with lineage and a resume proof.
+5. Evaluate both runs with the same eval suite. `POST /api/runs/compare` with both evaluation run IDs and the replay ID reports whether an improvement is evidence-backed.
+
+Reeprov never executes your agent code in its server; the runner runs it on your machine. Network interception during replay is application-level, not a sandbox. A worked example is in `examples/external-agents/incident-triage/`.
+
 ## Privacy boundary
 
-Send operational summaries, counts, classifications, references, and timings—not raw prompts, full model outputs, customer messages, credentials, cookies, private keys, access tokens, personal data, or proprietary document bodies. Prefer opaque IDs or one-way references. Artifact telemetry should contain a safe reference and type, not the artifact contents. `agent_note_recorded` is only renderable when metadata explicitly marks `visibility: "user_safe"`; it must never contain hidden chain-of-thought.
+Choose the run's capture policy with `startRun({ contentMode })` (`STRUCTURE_ONLY`, `SAFE_CONTENT`, `FULL_CONTENT`; secrets are always redacted). Never put credentials in checkpoint state: a redacted snapshot is not restorable. Send operational summaries, counts, classifications, references, and timings—not raw prompts, full model outputs, customer messages, credentials, cookies, private keys, access tokens, personal data, or proprietary document bodies. Prefer opaque IDs or one-way references. Artifact telemetry should contain a safe reference and type, not the artifact contents. `agent_note_recorded` is only renderable when metadata explicitly marks `visibility: "user_safe"`; it must never contain hidden chain-of-thought.

@@ -40,8 +40,10 @@ export function RunSummaryView({
   // Find state mutation divergence if present
   const checkpoints = artifact?.checkpoints ?? [];
   const hasCheckpoints = checkpoints.length > 0;
-  const modelCallCount = traceEvents.filter((event) => event.event_type === "model_call_completed").length;
-  const toolCallCount = traceEvents.filter((event) => event.event_type === "tool_call_completed").length;
+  // SDK host capture records calls as boundaries without separate trace events.
+  const boundaryCount = (type: string) => (artifact?.boundaries ?? []).filter((b) => b.boundary_type === type).length;
+  const modelCallCount = Math.max(traceEvents.filter((event) => event.event_type === "model_call_completed").length, boundaryCount("model_call"));
+  const toolCallCount = Math.max(traceEvents.filter((event) => event.event_type === "tool_call_completed").length, boundaryCount("tool_call"));
   const unmaterializedEvalCount = traceEvents.filter((event) => event.event_type === "eval_completed" &&
     (typeof event.metadata?.["eval_id"] !== "string" ||
       !evalResults.some((result) => result.eval_id === event.metadata?.["eval_id"]))).length;

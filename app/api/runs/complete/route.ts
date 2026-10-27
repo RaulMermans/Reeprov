@@ -22,8 +22,8 @@ import { traceEventSchema } from "@/lib/proof-layer/schemas";
 import { assertTraceContract, summarizeRun } from "@/lib/proof-layer/index";
 import type { TraceEvent } from "@/lib/proof-layer/schemas";
 import { getRunStore, recordIngestDiagnostic, requireIngestAuth, touchIntegrationForProject } from "@/lib/db/getStores";
-import { getCanonicalRun, saveCanonicalRun } from "@/lib/core/capture/persistence";
-import { adaptLegacyRunToRunArtifact } from "@/lib/core/adapters/legacyRunAdapter";
+import { mutateCanonicalRun } from "@/lib/core/capture/persistence";
+import { finalizeCanonicalArtifact } from "@/lib/core/capture/runPolicy";
 import { sanitizeCanonicalRecord } from "@/lib/core/capture/redaction";
 import { DEFAULT_CAPTURE_POLICY } from "@/lib/core/capture/policy";
 
@@ -31,7 +31,8 @@ export async function POST(request: Request) {
   try {
     const auth = await requireIngestAuth(request, "POST /api/runs/complete");
 
-    const body = sanitizeCanonicalRecord(await request.json() as Record<string, unknown>, DEFAULT_CAPTURE_POLICY);
+    const rawBody = await request.json() as Record<string, unknown>;
+    const body = sanitizeCanonicalRecord(rawBody, DEFAULT_CAPTURE_POLICY);
 
     const run_id = body["run_id"];
     if (!run_id || typeof run_id !== "string") {
@@ -109,37 +110,31 @@ export async function POST(request: Request) {
       });
     }
 
-    // Update canonical run artifact if present
-    try {
-      const canonical = await getCanonicalRun(run_id);
-      const existingBoundaries = canonical?.boundaries ?? [];
-      const existingCheckpoints = canonical?.checkpoints ?? [];
-      const existingState = canonical?.state ?? [];
-      const incomingCheckpoints = Array.isArray(body["checkpoints"]) ? (body["checkpoints"] as any[]) : [];
-      const incomingState = Array.isArray(body["state"]) ? (body["state"] as any[]) : [];
-      if (finalRun) {
-        const fullArtifact = adaptLegacyRunToRunArtifact(finalRun);
-        fullArtifact.boundaries = existingBoundaries;
-        fullArtifact.checkpoints = incomingCheckpoints.length > 0 ? incomingCheckpoints : existingCheckpoints;
-        fullArtifact.state = incomingState.length > 0 ? incomingState : existingState;
-        fullArtifact.execution.status = finalStatus === "failed" ? "failed" : "completed";
-        fullArtifact.execution.completed_at = completedAt;
-        if (typeof body["total_duration_ms"] === "number") {
-          fullArtifact.execution.duration_ms = body["total_duration_ms"];
-        }
-        if (typeof body["total_cost_usd"] === "number") {
-          fullArtifact.observability.total_cost_usd = body["total_cost_usd"] as number;
-        }
-        await saveCanonicalRun(fullArtifact);
-      }
-    } catch {
-      // Non-fatal
+    // Update the canonical artifact under the run lock, preserving boundaries,
+    // registered checkpoints, observations and capture policy.
+    let canonicalWarning: string | undefined;
+    if (Array.isArray(body["checkpoints"]) || Array.isArray(body["state"])) {
+      canonicalWarning =
+        "RAW_CHECKPOINTS_IGNORED: checkpoints/state sent at completed time are not trusted; register restorable checkpoints while the run executes.";
+    }
+    if (finalRun) {
+      await mutateCanonicalRun(run_id, (current) => ({
+        artifact: finalizeCanonicalArtifact(current, finalRun, {
+          status: finalStatus === "failed" ? "failed" : "completed",
+          completedAt: completedAt,
+          durationMs: typeof body["total_duration_ms"] === "number" ? body["total_duration_ms"] as number : undefined,
+          costUsd: typeof body["total_cost_usd"] === "number" ? body["total_cost_usd"] as number : undefined,
+          output: rawBody["output"],
+        }),
+        value: undefined,
+      }));
     }
 
     return NextResponse.json({
       runRecord: finalRun?.runRecord,
       contractResult,
       runSummary,
+      ...(canonicalWarning ? { warnings: [canonicalWarning] } : {}),
     });
   } catch (error) {
     return apiErrorResponse(error);

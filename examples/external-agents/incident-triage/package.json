@@ -1,0 +1,12 @@
+{
+  "name": "reeprov-example-incident-triage",
+  "private": true,
+  "type": "module",
+  "description": "Synthetic incident-triage reference agent for Reeprov external replay and checkpoint forks.",
+  "scripts": {
+    "live": "node run-live.mjs"
+  },
+  "dependencies": {
+    "@reeprov/client": "*"
+  }
+}

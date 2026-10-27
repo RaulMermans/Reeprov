@@ -9,10 +9,12 @@
  *   events  TraceEvent[]  — array of trace events to ingest
  *
  * Response:
- *   { accepted: number, rejected: number, errors: [...] }
+ *   { ok, accepted, duplicates, rejected, results: [{ index, event_id, status, code?, message? }], errors }
+ *   200 all succeeded · 207 some rejected · 422 all rejected.
  *
- * Idempotency: events with a duplicate event_id for the same run are silently
- * skipped and counted as accepted (not rejected).
+ * Idempotency: an event with an existing event_id is reported as DUPLICATE
+ * and not stored again. A storage write that fails is REJECTED
+ * (PERSISTENCE_FAILED), never reported as accepted.
  *
  * Eval pass-through: when an `eval_completed` event has well-formed metadata,
  * the shared `tryBuildEvalResultFromTraceEvent` helper builds an EvalResult
@@ -28,10 +30,23 @@ import { sanitizeCanonicalRecord } from "@/lib/core/capture/redaction";
 import { DEFAULT_CAPTURE_POLICY } from "@/lib/core/capture/policy";
 import { tryBuildEvalResultFromTraceEvent } from "@/lib/proof-layer/evalFromTrace";
 import { classifyZodIssues } from "@/lib/diagnostics/classifyIngestError";
+import { getCanonicalRun } from "@/lib/core/capture/persistence";
+import { applyPolicyToTraceEvent, capturePolicyForRun } from "@/lib/core/capture/runPolicy";
+import { ingestHttpStatus } from "@/lib/core/capture/ingestBoundaries";
+import type { CapturePolicy } from "@/lib/core/capture/types";
 
 interface EventError {
   event_id: string;
   message: string;
+}
+
+interface EventResult {
+  index: number;
+  event_id: string;
+  status: "ACCEPTED" | "DUPLICATE" | "REJECTED";
+  code?: string;
+  message?: string;
+  warnings?: string[];
 }
 
 export async function POST(request: Request) {
@@ -46,24 +61,24 @@ export async function POST(request: Request) {
     }
 
     if (rawEvents.length === 0) {
-      return NextResponse.json({ accepted: 0, rejected: 0, errors: [] });
+      return NextResponse.json({ ok: true, accepted: 0, duplicates: 0, rejected: 0, results: [], errors: [] });
     }
 
-    let accepted = 0;
-    let rejected = 0;
-    const errors: EventError[] = [];
+    const results: EventResult[] = [];
     const touchedProjects = new Set<string>();
+    const policies = new Map<string, CapturePolicy>();
+    const reject = (index: number, event_id: string, code: string, message: string) =>
+      results.push({ index, event_id, status: "REJECTED", code, message });
 
-    for (const raw of rawEvents) {
+    for (const [index, raw] of rawEvents.entries()) {
       const parseResult = traceEventSchema.safeParse(raw);
       if (!parseResult.success) {
         const eventId =
           typeof raw === "object" && raw !== null && typeof (raw as Record<string, unknown>)["event_id"] === "string"
             ? String((raw as Record<string, unknown>)["event_id"])
             : "unknown";
-        rejected++;
         const message = parseResult.error.issues.map((i) => i.message).join("; ");
-        errors.push({ event_id: eventId, message });
+        reject(index, eventId, "SCHEMA_VALIDATION_FAILED", message);
 
         const { category, schemaPath } = classifyZodIssues(parseResult.error.issues);
         const rawRunId =
@@ -85,19 +100,14 @@ export async function POST(request: Request) {
         continue;
       }
 
-      const event: TraceEvent = sanitizeCanonicalRecord(parseResult.data, DEFAULT_CAPTURE_POLICY);
-
-      const run = await getRunStore().getRun(event.run_id);
+      const run = await getRunStore().getRun(parseResult.data.run_id);
       // A scoped ingest key may only append events to runs it owns. Treat a
       // scope mismatch identically to "not found" so a scoped key cannot be
       // used to probe for the existence of other projects' runs.
       const ownedByScope = !auth.integration || run?.runRecord.project_id === auth.integration.projectId;
       if (!run || !ownedByScope) {
-        rejected++;
-        errors.push({
-          event_id: event.event_id,
-          message: `Run "${event.run_id}" not found. Start the run first with POST /api/runs/start.`,
-        });
+        const event = sanitizeCanonicalRecord(parseResult.data, DEFAULT_CAPTURE_POLICY);
+        reject(index, event.event_id, "RUN_NOT_FOUND", `Run "${event.run_id}" not found. Start the run first with POST /api/runs/start.`);
         await recordIngestDiagnostic({
           integrationId: auth.integration?.integrationId,
           runId: event.run_id,
@@ -109,14 +119,34 @@ export async function POST(request: Request) {
         continue;
       }
 
-      await getRunStore().appendTraceEvent(event.run_id, event);
+      const warnings: string[] = [];
+      let policy = policies.get(parseResult.data.run_id);
+      if (!policy) {
+        policy = capturePolicyForRun(await getCanonicalRun(parseResult.data.run_id));
+        policies.set(parseResult.data.run_id, policy);
+      }
+      // Build eval evidence from the verdict-bearing metadata before content
+      // minimization, then store the event under the run's content mode.
+      const evalResult = tryBuildEvalResultFromTraceEvent(sanitizeCanonicalRecord(parseResult.data, policy));
+      const event: TraceEvent = applyPolicyToTraceEvent(parseResult.data, policy);
+
+      const appended = await getRunStore().appendTraceEvent(event.run_id, event);
+      if (appended.warning) {
+        reject(index, event.event_id, "PERSISTENCE_FAILED", appended.warning);
+        continue;
+      }
 
       // If this is an eval_completed event with well-formed metadata, also
-      // append an EvalResult record via the shared helper.
-      const evalResult = tryBuildEvalResultFromTraceEvent(event);
+      // append an EvalResult record via the shared helper. Duplicate events
+      // retry this idempotent append so a lost eval write can be repaired.
       if (evalResult) {
-        await getRunStore().appendEvalResult(event.run_id, evalResult);
+        const evalAppend = await getRunStore().appendEvalResult(event.run_id, evalResult);
+        if (evalAppend.warning) {
+          reject(index, event.event_id, "EVAL_PERSISTENCE_FAILED", evalAppend.warning);
+          continue;
+        }
       } else if (event.event_type === "eval_completed") {
+        warnings.push("EVAL_NOT_RECORDED: eval_completed requires eval_id, eval_name and a boolean passed verdict; no EvalResult was stored.");
         await recordIngestDiagnostic({
           projectId: run.runRecord.project_id,
           runId: event.run_id,
@@ -134,10 +164,23 @@ export async function POST(request: Request) {
         void touchIntegrationForProject(projectId, { runId: event.run_id });
       }
 
-      accepted++;
+      results.push({
+        index, event_id: event.event_id, status: appended.appended ? "ACCEPTED" : "DUPLICATE",
+        warnings: warnings.length > 0 ? warnings : undefined,
+      });
     }
 
-    return NextResponse.json({ accepted, rejected, errors });
+    const rejected = results.filter((r) => r.status === "REJECTED");
+    const errors: EventError[] = rejected.map((r) => ({ event_id: r.event_id, message: r.message ?? r.code ?? "rejected" }));
+    const summary = {
+      ok: rejected.length === 0,
+      accepted: results.filter((r) => r.status === "ACCEPTED").length,
+      duplicates: results.filter((r) => r.status === "DUPLICATE").length,
+      rejected: rejected.length,
+      results,
+      errors,
+    };
+    return NextResponse.json(summary, { status: ingestHttpStatus(summary) });
   } catch (error) {
     return apiErrorResponse(error);
   }

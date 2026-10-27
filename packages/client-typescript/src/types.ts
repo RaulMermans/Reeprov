@@ -55,6 +55,9 @@ export interface ReeprovClientOptions {
   enabled?: boolean;
 }
 
+/** How much content Reeprov may persist for a run. Secret redaction always applies. */
+export type ContentMode = "STRUCTURE_ONLY" | "SAFE_CONTENT" | "FULL_CONTENT";
+
 export type AgentPulseClientOptions = ReeprovClientOptions;
 
 export interface StartRunInput {
@@ -70,6 +73,8 @@ export interface StartRunInput {
   workflowId?: string;
   /** Arbitrary metadata attached to the run */
   metadata?: Record<string, unknown>;
+  /** Content capture mode for every record of this run (default SAFE_CONTENT). */
+  contentMode?: ContentMode;
 }
 
 export interface StartRunResult {
@@ -89,6 +94,8 @@ export interface CompleteRunInput {
   total_duration_ms?: number;
   artifact_refs?: string[];
   metrics?: Record<string, number>;
+  /** Final agent output, stored as outcome evidence under the run's content mode. */
+  output?: unknown;
 }
 
 export interface FailRunInput {
@@ -98,14 +105,53 @@ export interface FailRunInput {
   total_duration_ms?: number;
 }
 
+export type RecordStatus = "ACCEPTED" | "DUPLICATE" | "OBSERVATION_RECORDED" | "REJECTED";
+
+export interface RecordResult {
+  index: number;
+  status: RecordStatus;
+  boundary_id?: string;
+  event_id?: string;
+  sequence_index?: number;
+  code?: string;
+  message?: string;
+  warnings?: string[];
+}
+
 export interface EmitEventsResult {
+  ok?: boolean;
   accepted: number;
+  duplicates?: number;
+  observations?: number;
   rejected: number;
-  errors?: Array<{ event_id: string; message: string }>;
+  results?: RecordResult[];
+  errors?: Array<{ event_id?: string; boundary_id?: string; message: string }>;
+}
+
+/**
+ * Acknowledgement returned by every ingest call. `ok` is true only when the
+ * server confirmed every record (stored or idempotent duplicate). A transport
+ * success with rejected records is `ok: false`.
+ */
+export interface IngestAck {
+  ok: boolean;
+  /** "disabled" when the client is off; "unreachable" when no response was received. */
+  delivery: "acknowledged" | "disabled" | "unreachable";
+  httpStatus?: number;
+  accepted: number;
+  duplicates: number;
+  rejected: number;
+  results: RecordResult[];
+  errors: string[];
 }
 
 export interface BoundaryCaptureInput {
-  boundaryType: "model_call" | "tool_call" | "retrieval_service" | "memory_read" | "memory_write" | "checkpoint" | string;
+  /** Client-assigned stable id. Assigned automatically when omitted; reused on retry. */
+  boundaryId?: string;
+  /** Client-assigned per-run sequence. Assigned automatically when omitted. */
+  sequenceIndex?: number;
+  dependencyIdentity?: string;
+  boundaryType: "model_call" | "tool_call" | "retrieval_service" | "memory_read" | "memory_write" | string;
   name: string;
   stepId?: string;
   nodeId?: string;
@@ -166,11 +212,51 @@ export interface ArtifactCreatedInput {
   metadata?: Record<string, unknown>;
 }
 
-export interface CheckpointSavedInput {
+/** Records that a checkpoint was reached. Never restorable. */
+export interface CheckpointObservedInput {
   run_id: string;
   checkpoint_id: string;
-  state: unknown;
+  state?: unknown;
   node_id?: string;
   step_id?: string;
   metadata?: Record<string, unknown>;
+}
+
+/** @deprecated Use CheckpointObservedInput / checkpointObserved(). */
+export type CheckpointSavedInput = CheckpointObservedInput;
+
+export interface ResumeAdapterIdentity {
+  adapter_id: string;
+  adapter_version: string;
+}
+
+/** Restorable-checkpoint capture: a validated state snapshot your host can resume from. */
+export interface RegisterCheckpointInput {
+  run_id: string;
+  checkpoint_id: string;
+  /** Host step the checkpoint is taken at. */
+  step_id: string;
+  step_index?: number;
+  position?: "BEFORE_STEP" | "AFTER_STEP" | "CUSTOM";
+  /** First host step executed when resuming. */
+  resume_step_index: number;
+  resume_step_id?: string;
+  /** JSON-serializable state the host needs to resume. */
+  state: Record<string, unknown>;
+  /** Host code that can resume from this checkpoint. */
+  adapter: ResumeAdapterIdentity;
+  /** Boundaries already recorded; defaults to the boundaries this client acknowledged for the run. */
+  boundary_cursor?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CheckpointAck {
+  ok: boolean;
+  delivery: IngestAck["delivery"];
+  httpStatus?: number;
+  status: "REGISTERED" | "REGISTERED_NOT_RESTORABLE" | "DUPLICATE" | "OBSERVATION_RECORDED" | "REJECTED" | "NOT_SENT";
+  code?: string;
+  message?: string;
+  /** Restorability is established by Reeprov, never assumed by the client. */
+  assessment?: { status: string; advertised_restorable: boolean; reasons: string[] };
 }

@@ -6,7 +6,23 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { mergeAuthHeaders } from "@/lib/auth/internalKey";
-import type { CheckpointReference, ExperimentMutation } from "@/lib/core/contracts/lineage";
+import type { CheckpointObservation, CheckpointReference, ExperimentMutation } from "@/lib/core/contracts/lineage";
+import type { CheckpointAssessment } from "@/lib/core/fork/restorability";
+import { CUSTOMER_SUPPORT_REFERENCE_ADAPTER } from "@/lib/core/fork/hostAdapter";
+
+const ASSESSMENT_LABEL: Record<CheckpointAssessment["status"], { text: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
+  RESTORABLE: { text: "Restorable (host verified)", tone: "success" },
+  STATE_VALID_HOST_UNVERIFIED: { text: "State valid · host unverified", tone: "warning" },
+  LEGACY_UNVERIFIED: { text: "Legacy · unverified", tone: "neutral" },
+  INVALID: { text: "Not restorable", tone: "danger" },
+};
+
+/** External host adapters run on the developer machine; only built-in reference adapters run in Studio. */
+function needsHostRunner(checkpoint: CheckpointReference): boolean {
+  return Boolean(
+    checkpoint.resume_adapter && checkpoint.resume_adapter.adapter_id !== CUSTOMER_SUPPORT_REFERENCE_ADAPTER.adapter_id,
+  );
+}
 import type { ForkResult } from "@/lib/core/fork/contracts";
 
 interface LineageData {
@@ -21,6 +37,8 @@ interface LineageData {
 
 export function ForkDebuggerPanel({ runId }: { runId: string }) {
   const [checkpoints, setCheckpoints] = useState<CheckpointReference[]>([]);
+  const [assessments, setAssessments] = useState<Record<string, CheckpointAssessment>>({});
+  const [observations, setObservations] = useState<CheckpointObservation[]>([]);
   const [lineage, setLineage] = useState<LineageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCheckpoint, setSelectedCheckpoint] = useState<CheckpointReference | null>(null);
@@ -53,6 +71,8 @@ export function ForkDebuggerPanel({ runId }: { runId: string }) {
       if (chkRes.ok) {
         const chkData = await chkRes.json();
         setCheckpoints(chkData.checkpoints ?? []);
+        setAssessments(Object.fromEntries((chkData.assessments ?? []).map((a: CheckpointAssessment) => [a.checkpoint_id, a])));
+        setObservations(chkData.observations ?? []);
         if (chkData.checkpoints?.length > 0 && !selectedCheckpoint) {
           setSelectedCheckpoint(chkData.checkpoints[0]);
         }
@@ -175,7 +195,8 @@ export function ForkDebuggerPanel({ runId }: { runId: string }) {
                       <Link href={`/dashboard/runs/${child.run_id}`} className="font-semibold text-teal-700 hover:underline">
                         {child.run_id}
                       </Link>
-                      <Badge tone="success" className="text-[10px]">
+                      <Badge tone="info" className="text-[10px]">FORKED</Badge>
+                      <Badge tone="neutral" className="text-[10px]">
                         {child.status}
                       </Badge>
                       <span className="text-slate-400 text-[10px]">via {child.fork_checkpoint_id}</span>
@@ -199,7 +220,7 @@ export function ForkDebuggerPanel({ runId }: { runId: string }) {
           <p className="mt-4 text-xs text-slate-400">Loading checkpoints...</p>
         ) : checkpoints.length === 0 ? (
           <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
-            No checkpoints recorded for this run. To enable &ldquo;Fork from here&rdquo;, create checkpoints via <code>session.checkpoint(state, options)</code> in your workflow.
+            No restorable checkpoints for this run. To enable &ldquo;Fork from here&rdquo;, register checkpoints with <code>registerCheckpoint()</code> (TypeScript) or <code>register_checkpoint()</code> (Python).
           </div>
         ) : (
           <div className="mt-4 overflow-x-auto">
@@ -224,13 +245,20 @@ export function ForkDebuggerPanel({ runId }: { runId: string }) {
                     </td>
                     <td className="py-2.5 pr-4 font-mono tabular-nums">{chk.boundary_cursor ?? 0}</td>
                     <td className="py-2.5 pr-4">
-                      <Badge tone={chk.restorable !== false ? "success" : "danger"}>
-                        {chk.restorable !== false ? "Restorable" : "Corrupt / Missing"}
-                      </Badge>
+                      {(() => {
+                        const assessment = assessments[chk.checkpoint_id];
+                        const label = assessment ? ASSESSMENT_LABEL[assessment.status] : { text: "Unassessed", tone: "neutral" as const };
+                        return (
+                          <Badge tone={label.tone} title={assessment?.reasons.join("\n")} data-testid={`checkpoint-assessment-${chk.checkpoint_id}`}>
+                            {label.text}
+                          </Badge>
+                        );
+                      })()}
                     </td>
                     <td className="py-2.5 text-right">
                       <Button
                         variant={selectedCheckpoint?.checkpoint_id === chk.checkpoint_id ? "primary" : "secondary"}
+                        disabled={assessments[chk.checkpoint_id]?.status === "INVALID"}
                         onClick={() => setSelectedCheckpoint(chk)}
                         data-testid={`fork-from-here-${chk.checkpoint_id}`}
                       >
@@ -244,6 +272,22 @@ export function ForkDebuggerPanel({ runId }: { runId: string }) {
           </div>
         )}
       </Card>
+
+      {observations.length > 0 && (
+        <Card className="p-5" data-testid="checkpoint-observations">
+          <h2 className="text-sm font-semibold text-slate-950">Checkpoint observations (not restorable)</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            The agent reported reaching these checkpoints but did not register a restorable state snapshot. They cannot be replayed or forked.
+          </p>
+          <ul className="mt-2 space-y-1 font-mono text-xs text-slate-700">
+            {observations.map((o) => (
+              <li key={o.observation_id}>
+                {o.checkpoint_id} <span className="text-slate-400">({o.source === "LEGACY_CHECKPOINT_BOUNDARY" ? "legacy SDK checkpoint event" : "observation"})</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {/* ── Fork Execution Affordance ── */}
       {selectedCheckpoint && (
@@ -259,10 +303,11 @@ export function ForkDebuggerPanel({ runId }: { runId: string }) {
                 <code className="font-semibold">{selectedCheckpoint.state_snapshot_id ?? "initial"}</code>
               </p>
             </div>
-            <Badge tone="info">SAFE_OFFLINE_FORK (recorded substitutions)</Badge>
+            <Badge tone="info">{needsHostRunner(selectedCheckpoint) ? "Developer-side host fork" : "SAFE_OFFLINE_FORK (recorded substitutions)"}</Badge>
           </div>
 
           <div className="mt-5 grid gap-4 border-t border-slate-100 pt-4">
+            {!needsHostRunner(selectedCheckpoint) && (<>
             <h4 className="text-xs font-semibold uppercase text-slate-500">Controlled Mutation (Optional)</h4>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -327,6 +372,21 @@ export function ForkDebuggerPanel({ runId }: { runId: string }) {
               />
             </div>
 
+            </>)}
+            {needsHostRunner(selectedCheckpoint) ? (
+              <div className="rounded-md border border-cyan-200 bg-cyan-50 p-3 text-xs text-cyan-900" data-testid="host-runner-required">
+                <p className="font-semibold">
+                  This checkpoint resumes in host adapter{" "}
+                  <code>{selectedCheckpoint.resume_adapter?.adapter_id}@{selectedCheckpoint.resume_adapter?.adapter_version}</code>.
+                </p>
+                <p className="mt-1">
+                  Reeprov does not execute agent code in the server. Run the fork on your machine; the child run appears here as FORKED after upload:
+                </p>
+                <pre className="mt-2 overflow-x-auto rounded bg-white p-2 font-mono text-[11px] text-slate-800">
+                  {`npx reeprov host-fork --server <studio-url> --run ${runId} --checkpoint ${selectedCheckpoint.checkpoint_id} --adapter ./adapter.mjs --mutations ./mutations.json --upload`}
+                </pre>
+              </div>
+            ) : (
             <div className="flex items-center justify-between gap-4 pt-2">
               <div className="text-xs text-slate-500">
                 Prefix will not be re-executed. Known Node network and subprocess APIs are blocked; untrusted code needs separate process isolation.
@@ -339,6 +399,7 @@ export function ForkDebuggerPanel({ runId }: { runId: string }) {
                 {forking ? "Branching Execution..." : "Execute Fork From Here"}
               </Button>
             </div>
+            )}
 
             {forkError && (
               <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700" data-testid="fork-error-message">
@@ -350,7 +411,7 @@ export function ForkDebuggerPanel({ runId }: { runId: string }) {
             {forkResult && (
               <div className="rounded-md border border-teal-200 bg-teal-50 p-4" data-testid="fork-result-card">
                 <div className="flex items-center justify-between gap-2">
-                  <h4 className="text-sm font-semibold text-teal-900">Fork Execution Completed Successfully!</h4>
+                  <h4 className="text-sm font-semibold text-teal-900">FORKED: execution resumed from the checkpoint</h4>
                   <Badge tone="success">{forkResult.status}</Badge>
                 </div>
 

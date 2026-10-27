@@ -79,3 +79,7 @@ Ignored files, `.env*` files, lockfiles, binaries, full source code, package-loc
 ## Raw Repo Retention
 
 The scaffold does not persist raw repository content. Future scan history should store redacted reports by default and should avoid storing raw file contents unless an explicit retention policy is added.
+
+## External Replay Execution Boundary (Sprint 13)
+
+Agent code under replay or fork runs only on the developer's machine, inside the `reeprov host-replay` / `host-fork` CLI. The Reeprov server validates and stores uploaded results and never executes agent code. Replay network blocking is in-process interception of Node APIs, not OS or container isolation. Side effects are never executed during replay or fork: they are substituted from the recording, or blocked and simulated after divergence. Restorable checkpoints must not contain credentials; redacted snapshots are marked not restorable. Details: `docs/security/S13-execution-boundaries.md`.

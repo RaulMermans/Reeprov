@@ -18,7 +18,7 @@ import { toolInvocationSchema } from "./tools";
 import { modelInvocationSchema } from "./models";
 import { artifactReferenceSchema } from "./artifacts";
 import { evalResultSchema } from "./evals";
-import { runLineageSchema, comparisonMetadataSchema, checkpointReferenceSchema } from "./lineage";
+import { runLineageSchema, comparisonMetadataSchema, checkpointReferenceSchema, checkpointObservationSchema } from "./lineage";
 import { agentConfigurationSnapshotSchema, type AgentConfigurationSnapshot } from "./configuration";
 import { runEvidenceSchema, type RunEvidence } from "./evidence";
 
@@ -137,6 +137,7 @@ export const runArtifactSchema = z.object({
   external_calls: z.array(externalCallSchema).default([]),
   state: z.array(stateSnapshotSchema).default([]),
   checkpoints: z.array(checkpointReferenceSchema).default([]),
+  checkpoint_observations: z.array(checkpointObservationSchema).default([]),
   context: z.array(contextSnapshotSchema).default([]),
   memory: runMemoryBlockSchema.default({ operations: [], references: [] }),
   tools: z.array(toolInvocationSchema).default([]),

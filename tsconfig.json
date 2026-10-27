@@ -20,6 +20,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@reeprov/client": [
+        "./packages/client-typescript/src/index.ts"
       ]
     },
     "plugins": [
@@ -38,6 +41,7 @@
   "exclude": [
     "node_modules",
     "s12-evidence",
+    "s13-evidence",
     ".claude",
     ".cursor",
     "**/__tests__/**",

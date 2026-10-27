@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import type { RunArtifact } from "@/lib/core/contracts/runArtifact";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { EvalResultsPanel } from "@/components/proof-layer/EvalResultsPanel";
@@ -15,6 +16,7 @@ import { IssuesPanel } from "@/components/proof-layer/IssuesPanel";
 import { ArtifactPreviewPanel } from "@/components/proof-layer/ArtifactPreviewPanel";
 import { RunSummaryHeader } from "@/components/proof-layer/RunSummaryHeader";
 import { ForkDebuggerPanel } from "@/components/proof-layer/ForkDebuggerPanel";
+import { ExecutionStateBadges, ReplaysPanel } from "@/components/proof-layer/ExecutionReplayPanels";
 import { EvidencePanel } from "@/components/proof-layer/EvidencePanel";
 import { ContextIntelligenceStudio } from "@/components/proof-layer/ContextIntelligenceStudio";
 import { MemoryIntelligenceStudio } from "@/components/proof-layer/MemoryIntelligenceStudio";
@@ -69,6 +71,18 @@ export default function RunDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [showLegacyGraph, setShowLegacyGraph] = useState(false);
+  const [canonicalArtifact, setCanonicalArtifact] = useState<RunArtifact | null>(null);
+
+  // Canonical evidence (boundaries, registered checkpoints) for the summary.
+  useEffect(() => {
+    if (!runId) return;
+    let cancelled = false;
+    fetch(`/api/runs/${encodeURIComponent(runId)}/canonical`, { headers: mergeAuthHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((artifact) => { if (!cancelled) setCanonicalArtifact(artifact); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [runId]);
 
   useEffect(() => {
     if (!runId) return;
@@ -266,8 +280,15 @@ export default function RunDetailPage() {
   const modelEvents = traceEvents.filter((e) => e.event_type === "model_call_started" || e.event_type === "model_call_completed");
   const observedRun = {
     ...run,
-    model_calls_count: traceEvents.filter((e) => e.event_type === "model_call_completed").length,
-    tool_calls_count: traceEvents.filter((e) => e.event_type === "tool_call_completed").length,
+    // Host-captured calls arrive as boundaries without separate trace events.
+    model_calls_count: Math.max(
+      traceEvents.filter((e) => e.event_type === "model_call_completed").length,
+      (canonicalArtifact?.boundaries ?? []).filter((b) => b.boundary_type === "model_call").length,
+    ),
+    tool_calls_count: Math.max(
+      traceEvents.filter((e) => e.event_type === "tool_call_completed").length,
+      (canonicalArtifact?.boundaries ?? []).filter((b) => b.boundary_type === "tool_call").length,
+    ),
     evals_passed: evalResults.filter((result) => result.passed).length,
     evals_failed: evalResults.filter((result) => !result.passed).length,
   };
@@ -312,11 +333,12 @@ export default function RunDetailPage() {
 
   const badges = (
     <>
+      {isLive ? <ExecutionStateBadges runId={run.run_id} /> : null}
       {isDemo ? (
         <span className="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700">
           Demo
         </span>
-      ) : isLive && !isSeeded ? (
+      ) : canonicalArtifact?.lineage?.parent_run_id ? null : isLive && !isSeeded ? (
         <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
           Live ingestion
         </span>
@@ -549,6 +571,7 @@ export default function RunDetailPage() {
     { key: "context", label: "Context", content: <ContextIntelligenceStudio runId={run.run_id} /> },
     { key: "memory", label: "Memory", content: <MemoryIntelligenceStudio runId={run.run_id} /> },
     { key: "workflow", label: "Workflow", badge: runGraph.summary.totalStages || undefined, content: workflowTab },
+    { key: "replays", label: "Replays", content: <ReplaysPanel runId={run.run_id} /> },
     { key: "forks", label: "Checkpoints & Forks", content: <ForkDebuggerPanel runId={run.run_id} /> },
     { key: "issues", label: "Issues", badge: issues.length || undefined, content: issuesTab },
     { key: "artifacts", label: "Artifacts", badge: artifactCount || undefined, content: artifactsTab },
@@ -570,6 +593,7 @@ export default function RunDetailPage() {
         runRecord={run}
         traceEvents={traceEvents}
         evalResults={evalResults}
+        artifact={canonicalArtifact}
       />
 
       <RunDetailTabs tabs={tabs} />

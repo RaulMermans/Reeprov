@@ -10,12 +10,20 @@ const eslintConfig = [
       "packages/**/dist/**",
       "dist/**",
       "s12-evidence/**",
+      "s13-evidence/**",
       "next-env.d.ts",
       "**/*.ts",
       "**/*.tsx",
     ],
   },
   js.configs.recommended,
+  {
+    // Example agents are standalone Node programs.
+    files: ["examples/**/*.mjs"],
+    languageOptions: {
+      globals: { process: "readonly", console: "readonly", structuredClone: "readonly" },
+    },
+  },
 ];
 
 export default eslintConfig;

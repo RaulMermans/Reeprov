@@ -1058,6 +1058,7 @@ export class CaptureSession {
       external_calls: [],
       state: this.stateSnapshots,
       checkpoints: this.checkpoints,
+      checkpoint_observations: [],
       context: this.contexts,
       memory: {
         operations: this.memories,
