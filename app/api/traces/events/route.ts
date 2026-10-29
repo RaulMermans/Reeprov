@@ -34,6 +34,7 @@ import { getCanonicalRun } from "@/lib/core/capture/persistence";
 import { applyPolicyToTraceEvent, capturePolicyForRun } from "@/lib/core/capture/runPolicy";
 import { ingestHttpStatus } from "@/lib/core/capture/ingestBoundaries";
 import type { CapturePolicy } from "@/lib/core/capture/types";
+import { agentIdFromMetadata, resolveExplicitAgentId } from "@/lib/core/contracts/identity";
 
 interface EventError {
   event_id: string;
@@ -99,6 +100,14 @@ export async function POST(request: Request) {
         });
         continue;
       }
+
+      const resolvedAgentId = resolveExplicitAgentId(
+        parseResult.data.agent_id,
+        agentIdFromMetadata(parseResult.data.metadata)
+      );
+      parseResult.data = resolvedAgentId
+        ? { ...parseResult.data, agent_id: resolvedAgentId }
+        : parseResult.data;
 
       const run = await getRunStore().getRun(parseResult.data.run_id);
       // A scoped ingest key may only append events to runs it owns. Treat a

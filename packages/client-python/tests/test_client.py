@@ -104,6 +104,7 @@ class TestReeprovClient(unittest.TestCase):
             arguments={"query": "test"},
         )
         client.complete_run(run_id=run_id)
+        client.record_handoff(run_id, from_agent_id="a", to_agent_id="b")
 
     def test_error_instantiation(self):
         err = ReeprovError("Unauthorized", status=401, is_retryable=False)

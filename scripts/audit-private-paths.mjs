@@ -42,6 +42,7 @@ const EXCLUDED_DIRS = new Set([
   ".turbo",
   "s12-evidence",
   "s13-evidence",
+  "test-artifacts",
 ]);
 
 const EXCLUDED_FILES = new Set([

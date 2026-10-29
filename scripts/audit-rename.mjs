@@ -46,6 +46,7 @@ const IGNORED_DIRS = new Set([
   ".reeprov",
   "s12-evidence",
   "s13-evidence",
+  "test-artifacts",
 ]);
 
 // File extensions to scan

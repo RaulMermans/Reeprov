@@ -36,6 +36,7 @@ reeprov.db*
 agentpulse.db*
 /s12-evidence/
 /s13-evidence/
+/test-artifacts/
 /runs/
 /workflows/
 /comparisons/

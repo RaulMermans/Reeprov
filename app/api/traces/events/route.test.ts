@@ -233,4 +233,116 @@ describe("POST /api/traces/events — scoped ingest key ownership", () => {
     expect(data.accepted).toBe(1);
     expect(data.rejected).toBe(0);
   });
+
+  it("persists agent_id, parent_event_id, and agent_handoff relationships", async () => {
+    const startRes = await START_RUN(new Request("http://localhost/api/runs/start", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-agentpulse-key": TEST_INGEST_KEY },
+      body: JSON.stringify({
+        project_id: "proj-handoff",
+        project_name: "Handoff",
+        workflow_id: "wf-handoff",
+        summary: "two agent ingest",
+        agent_id: "triage-agent",
+      }),
+    }));
+    expect(startRes.status).toBe(201);
+    const { run_id } = await startRes.json() as { run_id: string };
+
+    const res = await POST(req({
+      events: [
+        {
+          event_id: "evt-tool",
+          run_id,
+          workflow_id: "wf-handoff",
+          timestamp: new Date().toISOString(),
+          event_type: "tool_call_completed",
+          status: "completed",
+          agent_id: "triage-agent",
+          output_summary: "ticket INC-1042 open",
+          metadata: { tool_name: "lookup_incident_ticket", agent_id: "triage-agent" },
+        },
+        {
+          event_id: "evt-handoff",
+          run_id,
+          workflow_id: "wf-handoff",
+          timestamp: new Date().toISOString(),
+          event_type: "agent_handoff",
+          status: "completed",
+          agent_id: "triage-agent",
+          parent_event_id: "evt-tool",
+          output_summary: "hand to resolver",
+          metadata: { from_agent_id: "triage-agent", to_agent_id: "resolver-agent" },
+        },
+        {
+          event_id: "evt-resolver",
+          run_id,
+          workflow_id: "wf-handoff",
+          timestamp: new Date().toISOString(),
+          event_type: "model_call_completed",
+          status: "completed",
+          agent_id: "resolver-agent",
+          parent_event_id: "evt-handoff",
+          metadata: { model: "resolver-policy-v1", provider: "deterministic" },
+        },
+      ],
+    }, { "x-agentpulse-key": TEST_INGEST_KEY }));
+
+    const body = await res.json() as { accepted: number; rejected: number };
+    expect(body.accepted).toBe(3);
+    expect(body.rejected).toBe(0);
+
+    const saved = await fileRunStore.getRun(run_id);
+    expect(saved).toBeDefined();
+    const handoff = saved?.traceEvents.find((event) => event.event_id === "evt-handoff");
+    const resolver = saved?.traceEvents.find((event) => event.event_id === "evt-resolver");
+    expect(handoff?.event_type).toBe("agent_handoff");
+    expect(handoff?.agent_id).toBe("triage-agent");
+    expect(handoff?.parent_event_id).toBe("evt-tool");
+    expect(resolver?.agent_id).toBe("resolver-agent");
+    expect(resolver?.parent_event_id).toBe("evt-handoff");
+  });
+
+  it("promotes metadata.agent_id onto the event without inventing missing attribution", async () => {
+    const startRes = await START_RUN(new Request("http://localhost/api/runs/start", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-agentpulse-key": TEST_INGEST_KEY },
+      body: JSON.stringify({
+        project_id: "proj-identity",
+        project_name: "Identity",
+        workflow_id: "wf-identity",
+        summary: "identity promotion",
+      }),
+    }));
+    const { run_id } = await startRes.json() as { run_id: string };
+
+    await POST(req({
+      events: [
+        {
+          event_id: "evt-meta-agent",
+          run_id,
+          workflow_id: "wf-identity",
+          timestamp: new Date().toISOString(),
+          event_type: "node_completed",
+          status: "completed",
+          metadata: { agent_id: "observer-agent" },
+        },
+        {
+          event_id: "evt-no-agent",
+          run_id,
+          workflow_id: "wf-identity",
+          timestamp: new Date().toISOString(),
+          event_type: "node_completed",
+          status: "completed",
+          metadata: { actor: "someone" },
+        },
+      ],
+    }, { "x-agentpulse-key": TEST_INGEST_KEY }));
+
+    const saved = await fileRunStore.getRun(run_id);
+    const promoted = saved?.traceEvents.find((event) => event.event_id === "evt-meta-agent");
+    const unknown = saved?.traceEvents.find((event) => event.event_id === "evt-no-agent");
+    expect(promoted?.agent_id).toBe("observer-agent");
+    expect(unknown?.agent_id).toBeUndefined();
+  });
 });

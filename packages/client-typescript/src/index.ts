@@ -42,6 +42,7 @@ export type {
   EvalCompletedInput,
   EventStatus,
   FailRunInput,
+  HandoffInput,
   IngestAck,
   ModelCallInput,
   PermissionClass,

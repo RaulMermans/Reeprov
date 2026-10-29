@@ -18,6 +18,7 @@ import type {
   EmitEventsResult,
   EvalCompletedInput,
   FailRunInput,
+  HandoffInput,
   ModelCallInput,
   ReeprovClientOptions,
   StartRunInput,
@@ -161,6 +162,7 @@ export class ReeprovClient {
       run_id: runId,
       sdk: { name: SDK_NAME, version: SDK_VERSION },
       ...(input.contentMode ? { capture_policy: { content_mode: input.contentMode } } : {}),
+      ...(input.agent_id ? { agent_id: input.agent_id } : {}),
       ...(input.metadata ? { metadata: input.metadata } : {}),
     };
 
@@ -221,13 +223,15 @@ export class ReeprovClient {
     if (!this.enabled) return disabledAck();
     const now = new Date().toISOString();
     const event: TraceEvent = {
-      event_id: `evt-${Math.random().toString(36).slice(2, 10)}`,
+      event_id: input.step_id ?? `evt-${Math.random().toString(36).slice(2, 10)}`,
       run_id: input.run_id,
       workflow_id: this.defaultWorkflowId,
       timestamp: now,
       event_type: "model_call_completed",
       status: "completed",
       node_id: input.node_id,
+      agent_id: input.agent_id,
+      parent_event_id: input.parent_event_id,
       cost_usd: input.cost_usd,
       duration_ms: input.duration_ms,
       input_summary: input.prompt ? input.prompt.slice(0, 500) : undefined,
@@ -236,6 +240,7 @@ export class ReeprovClient {
         provider: input.provider,
         input_tokens: input.input_tokens,
         output_tokens: input.output_tokens,
+        ...(input.agent_id ? { agent_id: input.agent_id } : {}),
         ...input.metadata,
       },
     };
@@ -264,18 +269,21 @@ export class ReeprovClient {
     if (!this.enabled) return disabledAck();
     const now = new Date().toISOString();
     const event: TraceEvent = {
-      event_id: `evt-${Math.random().toString(36).slice(2, 10)}`,
+      event_id: input.step_id ?? `evt-${Math.random().toString(36).slice(2, 10)}`,
       run_id: input.run_id,
       workflow_id: this.defaultWorkflowId,
       timestamp: now,
       event_type: "tool_call_completed",
       status: input.error ? "failed" : "completed",
       node_id: input.node_id,
+      agent_id: input.agent_id,
+      parent_event_id: input.parent_event_id,
       duration_ms: input.duration_ms,
       error_message: input.error,
       metadata: {
         tool_name: input.tool_name,
         permission_class: input.permission_class ?? "read_only",
+        ...(input.agent_id ? { agent_id: input.agent_id } : {}),
         ...input.metadata,
       },
     };
@@ -307,6 +315,8 @@ export class ReeprovClient {
       event_type: "eval_completed",
       status: input.passed ? "completed" : "failed",
       node_id: input.node_id,
+      agent_id: input.agent_id,
+      parent_event_id: input.parent_event_id,
       metadata: {
         ...input.metadata,
         eval_id: input.eval_id ?? input.eval_name,
@@ -314,6 +324,34 @@ export class ReeprovClient {
         passed: input.passed,
         score: input.score,
         reason: input.reason,
+        origin: "agent_asserted",
+        authority: "asserted",
+        ...(input.agent_id ? { agent_id: input.agent_id } : {}),
+      },
+    };
+    return this.emitTraceEvent(event);
+  }
+
+  public async recordHandoff(input: HandoffInput): Promise<IngestAck> {
+    if (!this.enabled) return disabledAck();
+    const now = new Date().toISOString();
+    const event: TraceEvent = {
+      event_id: input.event_id ?? `evt-handoff-${Math.random().toString(36).slice(2, 10)}`,
+      run_id: input.run_id,
+      workflow_id: this.defaultWorkflowId,
+      timestamp: now,
+      event_type: "agent_handoff",
+      status: "completed",
+      node_id: input.node_id,
+      agent_id: input.from_agent_id,
+      parent_event_id: input.parent_event_id ?? input.from_step_id,
+      output_summary: input.payload_summary,
+      metadata: {
+        from_agent_id: input.from_agent_id,
+        to_agent_id: input.to_agent_id,
+        from_step_id: input.from_step_id,
+        to_step_id: input.to_step_id,
+        ...input.metadata,
       },
     };
     return this.emitTraceEvent(event);

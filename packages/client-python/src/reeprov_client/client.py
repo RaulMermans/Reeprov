@@ -166,6 +166,7 @@ class ReeprovClient:
         workflow_id: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
         content_mode: Optional[str] = None,
+        agent_id: Optional[str] = None,
     ) -> str:
         """Start a run (idempotent for a client-supplied run_id). Returns the run_id.
 
@@ -185,6 +186,8 @@ class ReeprovClient:
         }
         if content_mode:
             body["capture_policy"] = {"content_mode": content_mode}
+        if agent_id:
+            body["agent_id"] = agent_id
         if metadata:
             body["metadata"] = metadata
 
@@ -264,10 +267,12 @@ class ReeprovClient:
         messages: Optional[list[dict[str, Any]]] = None,
         node_id: Optional[str] = None,
         step_id: Optional[str] = None,
+        parent_event_id: Optional[str] = None,
         duration_ms: Optional[int] = None,
         cost_usd: Optional[float] = None,
         input_tokens: Optional[int] = None,
         output_tokens: Optional[int] = None,
+        agent_id: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Record model execution event and boundary."""
@@ -280,17 +285,21 @@ class ReeprovClient:
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
         }
+        if agent_id:
+            event_meta["agent_id"] = agent_id
         if metadata:
             event_meta.update(metadata)
 
         event_ack = self.emit_trace_event({
-            "event_id": f"evt-{_short_id()}",
+            "event_id": step_id or f"evt-{_short_id()}",
             "run_id": run_id,
             "workflow_id": self._workflow_id,
             "timestamp": now,
             "event_type": "model_call_completed",
             "status": "completed",
             "node_id": node_id,
+            "agent_id": agent_id,
+            "parent_event_id": parent_event_id,
             "cost_usd": cost_usd,
             "duration_ms": duration_ms,
             "input_summary": prompt[:500] if prompt else None,
@@ -326,7 +335,9 @@ class ReeprovClient:
         permission_class: str = "read_only",
         node_id: Optional[str] = None,
         step_id: Optional[str] = None,
+        parent_event_id: Optional[str] = None,
         duration_ms: Optional[int] = None,
+        agent_id: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Record tool execution event and boundary."""
@@ -337,17 +348,21 @@ class ReeprovClient:
             "tool_name": tool_name,
             "permission_class": permission_class,
         }
+        if agent_id:
+            event_meta["agent_id"] = agent_id
         if metadata:
             event_meta.update(metadata)
 
         event_ack = self.emit_trace_event({
-            "event_id": f"evt-{_short_id()}",
+            "event_id": step_id or f"evt-{_short_id()}",
             "run_id": run_id,
             "workflow_id": self._workflow_id,
             "timestamp": now,
             "event_type": "tool_call_completed",
             "status": "failed" if error else "completed",
             "node_id": node_id,
+            "agent_id": agent_id,
+            "parent_event_id": parent_event_id,
             "duration_ms": duration_ms,
             "error_message": error,
             "metadata": event_meta,
@@ -381,8 +396,9 @@ class ReeprovClient:
         findings: Optional[list[str]] = None,
         recommendation: Optional[str] = None,
         output_summary: Optional[str] = None,
+        agent_id: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Record an evaluation outcome event."""
+        """Record an evaluation outcome event. Agent-emitted evals are asserted, not proof."""
         if not self._enabled:
             return _disabled_ack()
         event: dict[str, Any] = {
@@ -401,12 +417,58 @@ class ReeprovClient:
                 "severity": severity,
                 "findings": findings or [],
                 "recommendation": recommendation,
+                "origin": "agent_asserted",
+                "authority": "asserted",
             },
         }
         if node_id:
             event["node_id"] = node_id
+        if agent_id:
+            event["agent_id"] = agent_id
+            event["metadata"]["agent_id"] = agent_id
         if output_summary:
             event["output_summary"] = output_summary
+        return self.emit_trace_event(event)
+
+    def record_handoff(
+        self,
+        run_id: str,
+        *,
+        from_agent_id: Optional[str] = None,
+        to_agent_id: Optional[str] = None,
+        from_step_id: Optional[str] = None,
+        to_step_id: Optional[str] = None,
+        parent_event_id: Optional[str] = None,
+        payload_summary: Optional[str] = None,
+        node_id: Optional[str] = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        """Record a cross-agent handoff. Missing identities stay unknown."""
+        if not self._enabled:
+            return _disabled_ack()
+        event_meta: dict[str, Any] = {
+            "from_agent_id": from_agent_id,
+            "to_agent_id": to_agent_id,
+            "from_step_id": from_step_id,
+            "to_step_id": to_step_id,
+        }
+        if metadata:
+            event_meta.update(metadata)
+        event: dict[str, Any] = {
+            "event_id": f"evt-handoff-{_short_id()}",
+            "run_id": run_id,
+            "workflow_id": self._workflow_id,
+            "timestamp": _now(),
+            "event_type": "agent_handoff",
+            "status": "completed",
+            "agent_id": from_agent_id,
+            "parent_event_id": parent_event_id or from_step_id,
+            "metadata": event_meta,
+        }
+        if node_id:
+            event["node_id"] = node_id
+        if payload_summary:
+            event["output_summary"] = payload_summary
         return self.emit_trace_event(event)
 
     def artifact_created(
