@@ -749,6 +749,7 @@ export class ForkRuntime {
       tools: [],
       checkpoints: this.sourceRun.checkpoints ?? [],
       checkpoint_observations: [],
+      handoffs: [],
       retrieval: childRetrieval,
       models: [],
       artifacts: [],

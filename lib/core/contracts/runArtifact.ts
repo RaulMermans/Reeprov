@@ -21,6 +21,7 @@ import { evalResultSchema } from "./evals";
 import { runLineageSchema, comparisonMetadataSchema, checkpointReferenceSchema, checkpointObservationSchema } from "./lineage";
 import { agentConfigurationSnapshotSchema, type AgentConfigurationSnapshot } from "./configuration";
 import { runEvidenceSchema, type RunEvidence } from "./evidence";
+import { agentHandoffSchema } from "./handoff";
 
 export const CANONICAL_RUN_ARTIFACT_SCHEMA_VERSION = "1.0.0-alpha";
 
@@ -170,6 +171,7 @@ export const runArtifactSchema = z.object({
   comparison: comparisonMetadataSchema.optional(),
   configuration_snapshot: agentConfigurationSnapshotSchema.optional(),
   evidence: runEvidenceSchema.optional(),
+  handoffs: z.array(agentHandoffSchema).optional(),
 });
 
 export type RunArtifact = z.infer<typeof runArtifactSchema>;

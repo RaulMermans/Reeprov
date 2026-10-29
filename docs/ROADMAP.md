@@ -347,3 +347,15 @@ Verdict `EXTERNAL_REPLAY_AND_FORK_VERIFIED` (see `docs/sprints/S13-external-repl
 - Studio execution-state labels and Replays tab; `personal_local` + access-key unlock fix.
 
 Still open: Python host replay, OS-level isolation for untrusted host code, a live Postgres concurrency test, an SDK release (version decision pending owner approval), and a live LLM leg.
+
+## Sprint P1 — Runtime & Evidence Readiness
+
+Establishes experimental readiness for later multi-agent research without implementing SwarmGuard.
+
+- Agent identity is first-class on ingest (`agent_id`, `participating_agent_ids`) and is never invented from generic labels.
+- Cross-agent handoffs are canonical `handoffs[]` records with `resolved` / `partial` / `unknown` attribution.
+- Verification events distinguish `agent_asserted` claims from `system_recorded` / `externally_observed` evidence.
+- `validateEvidenceIntegrity` refuses to treat missing, malformed, duplicate, or cross-run refs as verified evidence.
+- `exportRunEvidenceBundle` wraps the existing RunArtifact for independent analysis.
+- Two-agent harness: `examples/external-agents/two-agent-handoff/` (in addition to the Sprint 13 single-agent incident-triage example).
+- Proof: `docs/testing/p1-runtime-evidence-readiness.md`.

@@ -137,3 +137,32 @@ Every run can be evaluated for evidence completeness across 9 canonical dimensio
 - `outcome`
 
 Completeness policies define required dimensions (e.g., `["configuration", "tests", "outcome"]`). If any required dimension is missing, the run fails the evidence policy check, providing an automated gate for CI/CD and deployment pipelines.
+
+---
+
+## 6. Claims vs Observed Evidence
+
+Completeness measures whether records are **present**. It does not decide whether those records are **authoritative**.
+
+Every verification event and test result carries:
+
+- `origin`: `externally_observed` | `agent_asserted` | `system_recorded` | `unverified`
+- `authority`: `authoritative` | `asserted` | `unverified`
+
+Rules:
+
+1. An agent saying that validation succeeded is `agent_asserted` and is never authoritative proof.
+2. Capture-SDK test helpers record `system_recorded` / `authoritative` because the host actually ran the check.
+3. HTTP-ingested `eval_completed` events are stored, but classified as `agent_asserted`.
+4. Missing, malformed, duplicate, or cross-run `evidence_refs` stay unresolved. They do not become verified evidence.
+
+`validateEvidenceIntegrity(artifact)` is the canonical checker. `exportRunEvidenceBundle(artifact)` writes that report next to the existing RunArtifact for independent analysis.
+
+---
+
+## 7. Agent Identity and Handoffs
+
+- `identity.agent_id` is the initiating agent when known. It is omitted when unknown.
+- `identity.participating_agent_ids` lists distinct observed agent identities. Reeprov does not invent members of this list.
+- Trajectory steps, tool invocations, and model invocations may carry `agent_id`.
+- Cross-agent transfers are first-class `handoffs[]` records (`from_agent_id`, `to_agent_id`, `attribution_status`). Missing identifiers yield `partial` or `unknown` attribution rather than inferred agents.

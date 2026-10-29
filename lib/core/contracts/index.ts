@@ -12,6 +12,7 @@ export * from "./evalDefinitions";
 export * from "./evals";
 export * from "./evidence";
 export * from "./execution";
+export * from "./handoff";
 export * from "./experiment";
 export * from "./identity";
 export * from "./lineage";

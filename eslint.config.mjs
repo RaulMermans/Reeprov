@@ -11,6 +11,7 @@ const eslintConfig = [
       "dist/**",
       "s12-evidence/**",
       "s13-evidence/**",
+      "test-artifacts/**",
       "next-env.d.ts",
       "**/*.ts",
       "**/*.tsx",

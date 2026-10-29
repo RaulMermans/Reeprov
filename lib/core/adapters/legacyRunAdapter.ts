@@ -22,6 +22,12 @@ import type { ExecutionBoundary } from "../contracts/replay";
 import type { ToolInvocation } from "../contracts/tools";
 import type { ModelInvocation } from "../contracts/models";
 import type { ArtifactReference } from "../contracts/artifacts";
+import {
+  agentHandoffSchema,
+  handoffAttributionStatus,
+  type AgentHandoff,
+} from "../contracts/handoff";
+import { agentIdFromMetadata, resolveExplicitAgentId, uniqueAgentIds } from "../contracts/identity";
 
 export interface LegacyRunInput {
   runRecord: RunRecord;
@@ -118,6 +124,8 @@ function mapTraceEventTypeToStepType(eventType: TraceEvent["event_type"]): Execu
     case "agent_note_recorded":
     case "error":
       return "state_change";
+    case "agent_handoff":
+      return "handoff";
     default:
       return "unknown";
   }
@@ -142,6 +150,8 @@ export function adaptLegacyRunToRunArtifact(input: LegacyRunInput | SavedRun): R
     step_type: mapTraceEventTypeToStepType(evt.event_type),
     name: evt.node_id ? `${evt.node_id}: ${evt.event_type}` : evt.event_type,
     node_id: evt.node_id,
+    agent_id: resolveExplicitAgentId(evt.agent_id, agentIdFromMetadata(evt.metadata)),
+    parent_step_id: evt.parent_event_id,
     started_at: evt.timestamp,
     completed_at: evt.duration_ms
       ? new Date(Date.parse(evt.timestamp) + evt.duration_ms).toISOString()
@@ -160,10 +170,12 @@ export function adaptLegacyRunToRunArtifact(input: LegacyRunInput | SavedRun): R
     metadata: { ...evt.metadata, original_event_type: evt.event_type },
   }));
 
-  // Tools: map ToolCallRecords to ToolInvocations
+  // Tools: map ToolCallRecords to ToolInvocations. HTTP SDK ingest stores
+  // tool results as trace events + boundaries, not dedicated toolCalls.
   const tools: ToolInvocation[] = toolCalls.map((tc) => ({
     tool_call_id: tc.tool_call_id,
     node_id: tc.node_id,
+    agent_id: agentIdFromMetadata((tc as { metadata?: Record<string, unknown> }).metadata),
     tool_name: tc.tool_name,
     permission_class: tc.permission_class,
     replayability: "UNKNOWN",
@@ -175,6 +187,54 @@ export function adaptLegacyRunToRunArtifact(input: LegacyRunInput | SavedRun): R
     completed_at: tc.completed_at,
     duration_ms: tc.duration_ms,
   }));
+
+  const toolEvents = traceEvents.filter(
+    (evt) => evt.event_type === "tool_call_completed" || evt.event_type === "tool_call_failed"
+  );
+
+  for (const tool of tools) {
+    if (tool.agent_id) continue;
+    const evt = toolEvents.find(
+      (event) =>
+        event.event_id === tool.tool_call_id ||
+        event.node_id === tool.node_id ||
+        event.metadata?.["tool_name"] === tool.tool_name
+    );
+    if (evt) {
+      tool.agent_id = resolveExplicitAgentId(evt.agent_id, agentIdFromMetadata(evt.metadata));
+    }
+  }
+
+  if (tools.length === 0) {
+    for (const evt of toolEvents) {
+      const toolName =
+        (typeof evt.metadata?.["tool_name"] === "string" && evt.metadata["tool_name"]) ||
+        evt.node_id ||
+        "unknown_tool";
+      const permission =
+        evt.metadata?.["permission_class"] === "write_draft" ||
+        evt.metadata?.["permission_class"] === "external_side_effect" ||
+        evt.metadata?.["permission_class"] === "destructive" ||
+        evt.metadata?.["permission_class"] === "sensitive_data"
+          ? evt.metadata["permission_class"]
+          : "read_only";
+      tools.push({
+        tool_call_id: evt.event_id,
+        step_id: evt.event_id,
+        node_id: evt.node_id,
+        agent_id: resolveExplicitAgentId(evt.agent_id, agentIdFromMetadata(evt.metadata)),
+        tool_name: toolName,
+        permission_class: permission,
+        replayability: "REPLAYABLE_RECORDED",
+        input_summary: evt.input_summary,
+        output_summary: evt.output_summary,
+        status: evt.event_type === "tool_call_failed" || evt.status === "failed" ? "failed" : "completed",
+        started_at: evt.timestamp,
+        duration_ms: evt.duration_ms,
+        metadata: evt.metadata,
+      });
+    }
+  }
 
   // Boundaries: build boundary entries for tools and model calls
   const boundaries: ExecutionBoundary[] = toolCalls.map((tc) => ({
@@ -216,6 +276,7 @@ export function adaptLegacyRunToRunArtifact(input: LegacyRunInput | SavedRun): R
         invocation_id: `model_${evt.event_id}`,
         step_id: evt.event_id,
         node_id: evt.node_id,
+        agent_id: resolveExplicitAgentId(evt.agent_id, agentIdFromMetadata(evt.metadata)),
         model_name: modelName,
         provider,
         cost_usd: evt.cost_usd,
@@ -280,7 +341,44 @@ export function adaptLegacyRunToRunArtifact(input: LegacyRunInput | SavedRun): R
     findings: ev.findings,
     recommendation: ev.recommendation,
     timestamp: runRecord.completed_at || runRecord.started_at,
+    metadata: {
+      ...(ev.metadata ?? {}),
+      origin: typeof ev.metadata?.["origin"] === "string" ? ev.metadata["origin"] : "agent_asserted",
+      authority: typeof ev.metadata?.["authority"] === "string" ? ev.metadata["authority"] : "asserted",
+    },
   }));
+
+  const handoffs: AgentHandoff[] = [];
+  for (const evt of traceEvents) {
+    if (evt.event_type !== "agent_handoff") continue;
+    const fromAgentId = resolveExplicitAgentId(
+      typeof evt.metadata?.["from_agent_id"] === "string" ? evt.metadata["from_agent_id"] : undefined,
+      evt.agent_id
+    );
+    const toAgentId = resolveExplicitAgentId(
+      typeof evt.metadata?.["to_agent_id"] === "string" ? evt.metadata["to_agent_id"] : undefined
+    );
+    handoffs.push(agentHandoffSchema.parse({
+      handoff_id: typeof evt.metadata?.["handoff_id"] === "string" ? evt.metadata["handoff_id"] : `handoff_${evt.event_id}`,
+      run_id: runRecord.run_id,
+      from_agent_id: fromAgentId,
+      to_agent_id: toAgentId,
+      from_step_id: evt.parent_event_id,
+      payload_summary: evt.output_summary ?? evt.input_summary,
+      artifact_refs: [],
+      evidence_refs: [],
+      timestamp: evt.timestamp,
+      attribution_status: handoffAttributionStatus(fromAgentId, toAgentId),
+      metadata: evt.metadata,
+    }));
+  }
+
+  const participating = uniqueAgentIds(
+    trajectory.map((step) => step.agent_id),
+    tools.map((tool) => tool.agent_id),
+    models.map((model) => model.agent_id),
+    handoffs.flatMap((handoff) => [handoff.from_agent_id, handoff.to_agent_id])
+  );
 
   const rawArtifact: RunArtifact = {
     schema_version: CANONICAL_RUN_ARTIFACT_SCHEMA_VERSION,
@@ -289,6 +387,7 @@ export function adaptLegacyRunToRunArtifact(input: LegacyRunInput | SavedRun): R
       project_id: runRecord.project_id,
       project_name: runRecord.project_name,
       workflow_id: runRecord.workflow_id,
+      participating_agent_ids: participating.length > 0 ? participating : undefined,
       created_at: input.createdAt || runRecord.started_at,
     },
     execution: {
@@ -309,6 +408,7 @@ export function adaptLegacyRunToRunArtifact(input: LegacyRunInput | SavedRun): R
     state: [],
     checkpoints: [],
     checkpoint_observations: [],
+    handoffs,
     context: [], // Explicitly not captured in legacy runs
     memory: {
       operations: [],

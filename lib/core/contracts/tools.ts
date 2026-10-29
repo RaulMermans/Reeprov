@@ -11,6 +11,7 @@ export const toolInvocationSchema = z.object({
   tool_call_id: z.string(),
   step_id: z.string().optional(),
   node_id: z.string().optional(),
+  agent_id: z.string().optional(),
   tool_name: z.string(),
   permission_class: sideEffectClassSchema.default("read_only"),
   replayability: replayabilityClassSchema.default("UNKNOWN"),

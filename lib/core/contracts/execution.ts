@@ -57,6 +57,7 @@ export const executionStepTypeSchema = z.enum([
   "artifact",
   "state_change",
   "branch",
+  "handoff",
   "unknown",
 ]);
 
@@ -81,6 +82,8 @@ export const executionStepSchema = z.object({
   name: z.string(),
   node_id: z.string().optional(),
   agent_id: z.string().optional(),
+  parent_step_id: z.string().optional(),
+  handoff_id: z.string().optional(),
   started_at: z.string(),
   completed_at: z.string().optional(),
   duration_ms: z.number().optional(),

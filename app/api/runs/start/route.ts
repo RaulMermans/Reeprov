@@ -30,6 +30,7 @@ import { DEFAULT_CAPTURE_POLICY } from "@/lib/core/capture/policy";
 import { mutateCanonicalRun } from "@/lib/core/capture/persistence";
 import { parseContentMode, refreshCanonicalFromLegacy } from "@/lib/core/capture/runPolicy";
 import { withRunWriteLock } from "@/lib/runs/runStore";
+import { uniqueAgentIds } from "@/lib/core/contracts/identity";
 
 export async function POST(request: Request) {
   try {
@@ -84,6 +85,9 @@ export async function POST(request: Request) {
       throw invalidRequest('capture_policy.content_mode must be one of "STRUCTURE_ONLY", "SAFE_CONTENT", "FULL_CONTENT".');
     }
     const sdk = body["sdk"] && typeof body["sdk"] === "object" ? body["sdk"] as Record<string, unknown> : undefined;
+    const agent_id = typeof body["agent_id"] === "string" && body["agent_id"].trim().length > 0
+      ? body["agent_id"].trim()
+      : undefined;
 
     return await withRunWriteLock(run_id, async () => {
     const existing = await getRunStore().getRun(run_id);
@@ -139,6 +143,7 @@ export async function POST(request: Request) {
       timestamp: started_at,
       event_type: "run_started",
       status: "running",
+      ...(agent_id ? { agent_id } : {}),
     });
     await getRunStore().appendTraceEvent(run_id, startedEvent);
 
@@ -153,6 +158,16 @@ export async function POST(request: Request) {
           redaction_verified: true,
           metadata: { capture_policy: { content_mode: contentMode } },
         };
+        if (agent_id) {
+          artifact.identity = {
+            ...artifact.identity,
+            agent_id,
+            participating_agent_ids: uniqueAgentIds(
+              artifact.identity.participating_agent_ids,
+              [agent_id]
+            ),
+          };
+        }
         return { artifact, value: undefined };
       });
     }

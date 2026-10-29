@@ -11,6 +11,7 @@ export const modelInvocationSchema = z.object({
   invocation_id: z.string(),
   step_id: z.string().optional(),
   node_id: z.string().optional(),
+  agent_id: z.string().optional(),
   model_name: z.string(),
   provider: z.string(),                          // e.g. "anthropic", "openai", "google", "ollama"
   parameters: z.record(z.string(), z.unknown()).optional(), // temperature, top_p, max_tokens, etc.

@@ -42,7 +42,14 @@ import {
   approvalEvidenceSchema,
   securityEventSchema,
   runOutcomeSchema,
+  validateEvidenceIntegrity,
 } from "../contracts/evidence";
+import {
+  agentHandoffSchema,
+  handoffAttributionStatus,
+  type AgentHandoff,
+} from "../contracts/handoff";
+import { resolveExplicitAgentId, uniqueAgentIds } from "../contracts/identity";
 import { captureModelInvocation } from "./adapters/modelCapture";
 import { captureToolInvocation } from "./adapters/toolCapture";
 import { captureRetrievalOperation } from "./adapters/retrievalCapture";
@@ -84,8 +91,28 @@ export interface StartRunOptions {
   workflowId: string;
   summary: string;
   runId?: string;
+  /** Initiating agent identity when known. Never invented when omitted. */
+  agentId?: string;
   policy?: Partial<CapturePolicy>;
   strict?: boolean; // If true, capture errors throw instead of logging warnings
+}
+
+export interface CaptureStepOptions {
+  agentId?: string;
+  nodeId?: string;
+  parentStepId?: string;
+}
+
+export interface RecordHandoffInput {
+  fromAgentId?: string;
+  toAgentId?: string;
+  fromStepId?: string;
+  toStepId?: string;
+  parentEventId?: string;
+  payloadSummary?: string;
+  artifactRefs?: string[];
+  evidenceRefs?: string[];
+  metadata?: Record<string, unknown>;
 }
 
 export interface FinishRunOptions {
@@ -100,6 +127,7 @@ export class CaptureSession {
   public readonly projectName: string;
   public readonly workflowId: string;
   public readonly startedAt: string;
+  public readonly agentId?: string;
   private readonly policy: CapturePolicy;
   private readonly strict: boolean;
 
@@ -112,6 +140,7 @@ export class CaptureSession {
   private readonly contexts: ContextSnapshot[] = [];
   private readonly stateSnapshots: StateSnapshot[] = [];
   private readonly checkpoints: CheckpointReference[] = [];
+  private readonly handoffs: AgentHandoff[] = [];
 
   private readonly activeStepStack: ExecutionStep[] = [];
   private stepCounter = 0;
@@ -133,6 +162,7 @@ export class CaptureSession {
     this.projectName = options.projectName ?? options.projectId;
     this.workflowId = options.workflowId;
     this.runId = options.runId || `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    this.agentId = resolveExplicitAgentId(options.agentId);
     this.startedAt = new Date().toISOString();
     this.policy = resolvePolicy(options.policy);
     this.strict = options.strict === true;
@@ -143,17 +173,22 @@ export class CaptureSession {
   async step<T>(
     name: string,
     stepType: ExecutionStepType,
-    fn: (stepId: string) => Promise<T>
+    fn: (stepId: string) => Promise<T>,
+    options?: CaptureStepOptions
   ): Promise<T> {
     const stepIndex = this.stepCounter++;
     const stepId = `step_${this.runId}_${stepIndex}`;
     const startedAt = new Date().toISOString();
+    const agentId = resolveExplicitAgentId(options?.agentId, this.agentId);
 
     const stepRecord: ExecutionStep = {
       step_id: stepId,
       step_index: stepIndex,
       step_type: stepType,
       name,
+      node_id: options?.nodeId,
+      agent_id: agentId,
+      parent_step_id: options?.parentStepId,
       started_at: startedAt,
       status: "completed",
       boundary_ids: [],
@@ -423,6 +458,12 @@ export class CaptureSession {
       );
 
       this.boundaries.push(res.boundary);
+      const stepAgentId = this.activeStepStack[this.activeStepStack.length - 1]?.agent_id
+        ?? this.steps.find((s) => s.step_id === effectiveStepId)?.agent_id
+        ?? this.agentId;
+      if (stepAgentId) {
+        res.modelInvocation.agent_id = stepAgentId;
+      }
       this.models.push(res.modelInvocation);
       if (res.contextSnapshot) {
         this.contexts.push(res.contextSnapshot);
@@ -458,6 +499,12 @@ export class CaptureSession {
       );
 
       this.boundaries.push(res.boundary);
+      const stepAgentId = this.activeStepStack[this.activeStepStack.length - 1]?.agent_id
+        ?? this.steps.find((s) => s.step_id === effectiveStepId)?.agent_id
+        ?? this.agentId;
+      if (stepAgentId) {
+        res.toolInvocation.agent_id = stepAgentId;
+      }
       this.tools.push(res.toolInvocation);
 
       this.linkToActiveStep({
@@ -730,6 +777,8 @@ export class CaptureSession {
   ): TestResult {
     const validated = testResultSchema.parse({
       ...test,
+      origin: test.origin ?? "system_recorded",
+      authority: test.authority ?? "authoritative",
       run_id: this.runId,
     });
     this.testResults.push(validated);
@@ -760,6 +809,8 @@ export class CaptureSession {
     const sequenceIndex = event.sequence_index ?? this.verificationCounter++;
     const validated = verificationEventSchema.parse({
       ...event,
+      origin: event.origin ?? "system_recorded",
+      authority: event.authority ?? "authoritative",
       run_id: this.runId,
       sequence_index: sequenceIndex,
     });
@@ -796,6 +847,61 @@ export class CaptureSession {
     });
     this.approvalEvents.push(validated);
     return validated;
+  }
+
+  recordHandoff(input: RecordHandoffInput): AgentHandoff {
+    const fromAgentId = resolveExplicitAgentId(input.fromAgentId);
+    const toAgentId = resolveExplicitAgentId(input.toAgentId);
+    const timestamp = new Date().toISOString();
+    const stepIndex = this.stepCounter++;
+    const stepId = `step_${this.runId}_${stepIndex}`;
+    const handoffId = `handoff_${this.runId}_${this.handoffs.length}`;
+
+    const handoff = agentHandoffSchema.parse({
+      handoff_id: handoffId,
+      run_id: this.runId,
+      from_agent_id: fromAgentId,
+      to_agent_id: toAgentId,
+      from_step_id: input.fromStepId,
+      to_step_id: input.toStepId,
+      parent_event_id: input.parentEventId ?? input.fromStepId,
+      payload_summary: input.payloadSummary,
+      artifact_refs: input.artifactRefs ?? [],
+      evidence_refs: input.evidenceRefs ?? [],
+      timestamp,
+      attribution_status: handoffAttributionStatus(fromAgentId, toAgentId),
+      metadata: input.metadata,
+    });
+
+    this.handoffs.push(handoff);
+    this.steps.push({
+      step_id: stepId,
+      step_index: stepIndex,
+      step_type: "handoff",
+      name: `handoff:${fromAgentId ?? "unknown"}->${toAgentId ?? "unknown"}`,
+      agent_id: fromAgentId,
+      parent_step_id: input.fromStepId,
+      handoff_id: handoffId,
+      started_at: timestamp,
+      completed_at: timestamp,
+      duration_ms: 0,
+      status: "completed",
+      boundary_ids: [],
+      tool_invocation_ids: [],
+      model_invocation_ids: [],
+      memory_operation_ids: [],
+      retrieval_operation_ids: [],
+      eval_result_ids: [],
+      artifact_ids: [],
+      input_summary: input.payloadSummary,
+      metadata: {
+        original_event_type: "agent_handoff",
+        from_agent_id: fromAgentId,
+        to_agent_id: toAgentId,
+        ...input.metadata,
+      },
+    });
+    return handoff;
   }
 
   setOutcome(
@@ -1031,6 +1137,14 @@ export class CaptureSession {
       if (m.total_tokens) totalTokens += m.total_tokens;
     }
 
+    const participatingAgentIds = uniqueAgentIds(
+      [this.agentId],
+      this.steps.map((step) => step.agent_id),
+      this.tools.map((tool) => tool.agent_id),
+      this.models.map((model) => model.agent_id),
+      this.handoffs.flatMap((handoff) => [handoff.from_agent_id, handoff.to_agent_id])
+    );
+
     const artifact: RunArtifact = {
       schema_version: CANONICAL_RUN_ARTIFACT_SCHEMA_VERSION,
       identity: {
@@ -1039,6 +1153,8 @@ export class CaptureSession {
         project_name: this.projectName,
         workflow_id: this.workflowId,
         created_at: this.startedAt,
+        ...(this.agentId ? { agent_id: this.agentId } : {}),
+        ...(participatingAgentIds.length > 0 ? { participating_agent_ids: participatingAgentIds } : {}),
       },
       execution: {
         status: options.status ?? "completed",
@@ -1123,6 +1239,7 @@ export class CaptureSession {
         notes: [],
       },
       configuration_snapshot: this.configurationSnapshot,
+      handoffs: this.handoffs,
       evidence:
         this.plan ||
         this.verificationEvents.length > 0 ||
@@ -1167,6 +1284,22 @@ export class CaptureSession {
         throw new ExecutionIntegrityError(integrityReport.errors);
       }
       console.warn("[Reeprov Execution Integrity Warning]", integrityReport.errors);
+    }
+
+    const evidenceIntegrity = validateEvidenceIntegrity(safeArtifact);
+    if (safeArtifact.evidence) {
+      safeArtifact.evidence = {
+        ...safeArtifact.evidence,
+        integrity: evidenceIntegrity,
+      };
+    }
+    if (!evidenceIntegrity.valid) {
+      if (this.strict) {
+        throw new Error(
+          `[EvidenceIntegrityError] ${evidenceIntegrity.errors.join("; ")}`
+        );
+      }
+      console.warn("[Reeprov Evidence Integrity Warning]", evidenceIntegrity.errors);
     }
 
     // Persist

@@ -93,6 +93,9 @@ function projectToSavedRun(artifact: RunArtifact, existingSaved?: SavedRun | nul
     } else if (step.name.endsWith("run_failed") || step.step_id.endsWith("run_failed")) {
       event_type = "run_failed";
     }
+    if (step.step_type === "handoff") {
+      event_type = "agent_handoff";
+    }
     return {
       event_id: step.step_id,
       run_id: artifact.identity.run_id,
@@ -101,6 +104,8 @@ function projectToSavedRun(artifact: RunArtifact, existingSaved?: SavedRun | nul
       timestamp: step.started_at,
       duration_ms: step.duration_ms,
       node_id: step.node_id,
+      agent_id: step.agent_id,
+      parent_event_id: step.parent_step_id,
       status: step.status === "failed" ? "failed" : "completed",
       input_summary: step.input_summary,
       output_summary: step.output_summary,

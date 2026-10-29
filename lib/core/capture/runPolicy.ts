@@ -38,6 +38,8 @@ const STRUCTURE_ONLY_EVENT_METADATA = new Set([
   "model", "provider", "input_tokens", "output_tokens",
   "tool_name", "permission_class", "artifact_type", "checkpoint_id",
   "agent_id", "agent_role", "visibility",
+  "agentId", "from_agent_id", "to_agent_id", "handoff_id",
+  "origin", "authority", "parent_event_id",
 ]);
 
 /** Applies the run's content mode to a trace event before it is stored. */
@@ -75,6 +77,7 @@ export function refreshCanonicalFromLegacy(existing: RunArtifact | null, legacy:
     state: existing.state,
     checkpoints: existing.checkpoints,
     checkpoint_observations: existing.checkpoint_observations ?? [],
+    handoffs: (existing.handoffs?.length ? existing.handoffs : adapted.handoffs) ?? [],
     context: existing.context.length > 0 ? existing.context : adapted.context,
     lineage: existing.lineage,
     provenance: existing.provenance.capture_method === "legacy_adaptation" ? adapted.provenance : existing.provenance,

@@ -82,6 +82,11 @@ export function tryBuildEvalResultFromTraceEvent(event: TraceEvent): EvalResult 
     severity,
     findings,
     recommendation,
+    metadata: {
+      origin: "agent_asserted",
+      authority: "asserted",
+      source: "http_ingest",
+    },
   };
 
   const result = evalResultSchema.safeParse(candidate);

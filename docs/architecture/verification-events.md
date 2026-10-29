@@ -55,8 +55,12 @@ export interface VerificationEvent {
   details?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
   sequence_index: number;
+  origin: "externally_observed" | "agent_asserted" | "system_recorded" | "unverified";
+  authority: "authoritative" | "asserted" | "unverified";
 }
 ```
+
+`origin` and `authority` default to `unverified` for stored records that predate this field. Agent-authored passes remain claims until independently observed or system-recorded.
 
 ---
 
@@ -68,6 +72,8 @@ Reeprov enforces the following invariants on verification event streams:
 3. **Out-of-Order Detection:** Events with decreasing sequence indices or out-of-order timestamps trigger validation warnings or failures.
 4. **Lifecycle Completeness:** Every completed event (`test.passed`, `review.passed`) should reference its corresponding `target_id`.
 5. **No Mutation:** Events cannot be updated or deleted post-capture.
+6. **Claim/Observation Separation:** `test.passed` with `origin: agent_asserted` is not authoritative verification.
+7. **Reference Integrity:** `evidence_refs` that are missing, malformed, duplicated, or scoped to another `run_id` cannot resolve to verified evidence.
 
 ---
 

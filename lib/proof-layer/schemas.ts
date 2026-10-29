@@ -101,6 +101,7 @@ export const traceEventTypeSchema = z.enum([
   "artifact_created",
   "retry_started",
   "agent_note_recorded",
+  "agent_handoff",
   "error",
 ]);
 
@@ -128,6 +129,8 @@ export const traceEventSchema = z.object({
   run_id: z.string(),
   workflow_id: z.string(),
   node_id: z.string().optional(),
+  agent_id: z.string().optional(),
+  parent_event_id: z.string().optional(),
   timestamp: z.string(),
   event_type: traceEventTypeSchema,
   status: z.enum(["started", "running", "completed", "failed", "degraded", "pending", "skipped", "blocked"]).optional(),

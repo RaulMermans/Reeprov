@@ -39,6 +39,11 @@ test("AgentPulseClient handles disabled posture cleanly", async () => {
   });
 
   await client.completeRun({ run_id: run.run_id });
+  await client.recordHandoff({
+    run_id: run.run_id,
+    from_agent_id: "triage-agent",
+    to_agent_id: "resolver-agent",
+  });
 });
 
 test("AgentPulseError constructs properly", () => {

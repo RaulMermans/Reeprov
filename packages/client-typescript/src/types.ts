@@ -21,6 +21,7 @@ export interface TraceEvent {
   event_type: string;
   status: EventStatus | string;
   node_id?: string;
+  agent_id?: string;
   parent_event_id?: string;
   cost_usd?: number;
   duration_ms?: number;
@@ -71,6 +72,8 @@ export interface StartRunInput {
   projectName?: string;
   /** Override workflow ID for this specific run */
   workflowId?: string;
+  /** Initiating agent identity when known. Omitted when attribution is unknown. */
+  agent_id?: string;
   /** Arbitrary metadata attached to the run */
   metadata?: Record<string, unknown>;
   /** Content capture mode for every record of this run (default SAFE_CONTENT). */
@@ -172,10 +175,12 @@ export interface ModelCallInput {
   messages?: unknown[];
   node_id?: string;
   step_id?: string;
+  parent_event_id?: string;
   duration_ms?: number;
   cost_usd?: number;
   input_tokens?: number;
   output_tokens?: number;
+  agent_id?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -188,7 +193,9 @@ export interface ToolCallInput {
   permission_class?: PermissionClass;
   node_id?: string;
   step_id?: string;
+  parent_event_id?: string;
   duration_ms?: number;
+  agent_id?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -199,6 +206,21 @@ export interface EvalCompletedInput {
   passed: boolean;
   score?: number;
   reason?: string;
+  node_id?: string;
+  agent_id?: string;
+  parent_event_id?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface HandoffInput {
+  run_id: string;
+  from_agent_id?: string;
+  to_agent_id?: string;
+  from_step_id?: string;
+  to_step_id?: string;
+  parent_event_id?: string;
+  event_id?: string;
+  payload_summary?: string;
   node_id?: string;
   metadata?: Record<string, unknown>;
 }
