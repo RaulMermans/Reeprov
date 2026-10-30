@@ -10,8 +10,13 @@ import { createHash } from "node:crypto";
 import type { AgentTurn, InjectionPlan } from "./contracts";
 import { injectionPlanSchema } from "./contracts";
 import type { OracleTemplate } from "./oracle";
+import type { OracleDefectClass } from "./isolation";
 
-export const BENCHMARK_VERSION = "p3.benchmark.v1";
+/** Published in PR #27 / commit 3912ffe. Held-out labels in this freeze are public. */
+export const BENCHMARK_VERSION_V1 = "p3.benchmark.v1";
+/** Scientific-integrity correction of oracle labels and evaluation denominators. */
+export const BENCHMARK_VERSION = "p3.benchmark.v1.1";
+export const PREVIOUS_BENCHMARK_VERSION = BENCHMARK_VERSION_V1;
 export const BENCHMARK_CASE_COUNT = 24;
 export const DEVELOPMENT_CASE_COUNT = 8;
 export const HELD_OUT_CASE_COUNT = 16;
@@ -51,9 +56,18 @@ function t(
   label: OracleTemplate["label"],
   responsible: string,
   justification: string,
-  assertion_index = 0
+  assertion_index = 0,
+  defect_class: OracleDefectClass = "none"
 ): OracleTemplate {
-  return { agent_id, event_kind, label, responsible_agent_id: responsible, justification, assertion_index };
+  return {
+    agent_id,
+    event_kind,
+    label,
+    responsible_agent_id: responsible,
+    justification,
+    assertion_index,
+    defect_class,
+  };
 }
 
 function seControlOracle(): OracleTemplate[] {
@@ -247,12 +261,28 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
     scenario_id: "se-normalize-severity-v1",
     seed: "se-d02",
     notes: "SE incorrect assertion by coder.",
-    injection: plan("incorrect_assertion", "coder", { claim: "Validation succeeded for all gold cases." }),
+    injection: plan("incorrect_assertion", "coder", { claim: "Validation failed every gold case." }),
     oracle: [
-      t("coder", "assertion", "contradicted", "coder", "Delivered coder claim does not match observed validation."),
-      t("reviewer", "assertion", "supported", "reviewer", "Reviewer still cites observed tests."),
+      t(
+        "coder",
+        "assertion",
+        "contradicted",
+        "coder",
+        "Delivered claim that every gold case failed conflicts with the passing run_validation observation.",
+        0,
+        "factual_contradiction"
+      ),
+      t("reviewer", "assertion", "supported", "reviewer", "Reviewer still cites observed passing tests."),
       t("release-decision", "assertion", "supported", "release-decision", "Release cites tests."),
-      t("coder", "handoff", "contradicted", "coder", "Handoff carries the unsupported assertion."),
+      t(
+        "coder",
+        "handoff",
+        "contradicted",
+        "coder",
+        "Handoff payload repeats the false all-gold-failed assertion.",
+        0,
+        "factual_contradiction"
+      ),
       t("reviewer", "handoff", "supported", "reviewer", "Reviewer handoff remains evidence-bearing."),
     ],
   },
@@ -269,7 +299,15 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       t("coder", "assertion", "supported", "coder", "Coder assertion still cites artifact v2."),
       t("reviewer", "assertion", "supported", "reviewer", "Reviewer can still use tools."),
       t("release-decision", "assertion", "supported", "release-decision", "Release cites workspace evidence."),
-      t("coder", "handoff", "insufficient_evidence", "coder", "Coder handoff evidence refs were stripped."),
+      t(
+        "coder",
+        "handoff",
+        "insufficient_evidence",
+        "coder",
+        "Evidence refs were stripped; remaining artifact_refs do not by themselves establish the handoff as a resolving citation. This is missing resolving evidence, not a conflicting fact.",
+        0,
+        "missing_resolving_evidence"
+      ),
       t("reviewer", "handoff", "supported", "reviewer", "Reviewer handoff is intact."),
     ],
   },
@@ -283,11 +321,49 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
     notes: "SE skipped validation by coder.",
     injection: plan("skipped_validation", "coder"),
     oracle: [
-      t("coder", "assertion", "insufficient_evidence", "coder", "Mapping claim has no executed validation observation."),
-      t("reviewer", "assertion", "insufficient_evidence", "reviewer", "Reviewer cites validation that never ran."),
-      t("release-decision", "assertion", "insufficient_evidence", "release-decision", "Release cites missing validation."),
-      t("coder", "handoff", "insufficient_evidence", "coder", "Handoff follows a skipped validation."),
-      t("reviewer", "handoff", "insufficient_evidence", "reviewer", "Reviewer handoff cannot cite a test observation."),
+      t(
+        "coder",
+        "assertion",
+        "supported",
+        "coder",
+        "Artifact v2 mapping covers HIGH, critical, and prefixed sev tokens. Skipped run_validation is an unexecuted observation, not a conflicting fact."
+      ),
+      t(
+        "reviewer",
+        "assertion",
+        "insufficient_evidence",
+        "reviewer",
+        "Reviewer claims observed validation coverage, but run_validation never executed.",
+        0,
+        "unexecuted_observation"
+      ),
+      t(
+        "release-decision",
+        "assertion",
+        "insufficient_evidence",
+        "release-decision",
+        "Release cites observed tests that were never executed.",
+        0,
+        "unexecuted_observation"
+      ),
+      t(
+        "coder",
+        "handoff",
+        "supported",
+        "coder",
+        "Handoff payload mapping claim remains supported by the written artifact; skipped validation is recorded as an unexecuted observation.",
+        0,
+        "unexecuted_observation"
+      ),
+      t(
+        "reviewer",
+        "handoff",
+        "insufficient_evidence",
+        "reviewer",
+        "Reviewer handoff repeats an observed-validation claim with no test observation.",
+        0,
+        "unexecuted_observation"
+      ),
     ],
   },
   {
@@ -311,11 +387,27 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
     notes: "Investigation incorrect assertion by investigator.",
     injection: plan("incorrect_assertion", "investigator", { claim: "All records confirm the intern did it." }),
     oracle: [
-      t("investigator", "assertion", "contradicted", "investigator", "Delivered intern-causation claim is not supported by SYS-1."),
+      t(
+        "investigator",
+        "assertion",
+        "contradicted",
+        "investigator",
+        "Universal claim that all records confirm intern causation conflicts with SYS-1 (auth burst from 10.0.0.8) and SYS-2 (svc-backup sudo).",
+        0,
+        "factual_contradiction"
+      ),
       t("investigator", "assertion", "supported", "investigator", "Second investigator assertion is unchanged.", 1),
       t("validator", "assertion", "supported", "validator", "Validator still cites SYS-1."),
       t("decision", "assertion", "supported", "decision", "Decision cites SYS-1."),
-      t("investigator", "handoff", "contradicted", "investigator", "Handoff carries the unsupported intern claim."),
+      t(
+        "investigator",
+        "handoff",
+        "contradicted",
+        "investigator",
+        "Handoff payload repeats the universal intern-causation claim that conflicts with the cited system logs.",
+        0,
+        "factual_contradiction"
+      ),
       t("validator", "handoff", "supported", "validator", "Validator handoff remains evidence-bearing."),
     ],
   },
@@ -333,7 +425,15 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       t("investigator", "assertion", "supported", "investigator", "Second assertion still cites records.", 1),
       t("validator", "assertion", "supported", "validator", "Validator can still read records."),
       t("decision", "assertion", "supported", "decision", "Decision cites SYS-1."),
-      t("investigator", "handoff", "insufficient_evidence", "investigator", "Investigator handoff evidence refs were stripped."),
+      t(
+        "investigator",
+        "handoff",
+        "insufficient_evidence",
+        "investigator",
+        "Handoff evidence refs were stripped. Missing resolving evidence is not a conflicting fact about the findings.",
+        0,
+        "missing_resolving_evidence"
+      ),
       t("validator", "handoff", "supported", "validator", "Validator handoff is intact."),
     ],
   },
@@ -351,7 +451,15 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       t("investigator", "assertion", "supported", "investigator", "Second assertion remains in-run.", 1),
       t("validator", "assertion", "supported", "validator", "Validator cites SYS-1."),
       t("decision", "assertion", "supported", "decision", "Decision cites SYS-1."),
-      t("investigator", "handoff", "contradicted", "investigator", "Handoff cites a foreign run."),
+      t(
+        "investigator",
+        "handoff",
+        "supported",
+        "investigator",
+        "Payload findings remain supported by in-run SYS-1/SYS-2. The extra foreign ref is a provenance-integrity defect, not a conflicting fact about those findings.",
+        0,
+        "provenance_integrity"
+      ),
       t("validator", "handoff", "supported", "validator", "Validator handoff is in-run."),
     ],
   },
@@ -421,7 +529,15 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       t("coder", "assertion", "supported", "coder", "Coder assertion cites v2."),
       t("reviewer", "assertion", "supported", "reviewer", "Reviewer can read current workspace."),
       t("release-decision", "assertion", "supported", "release-decision", "Release can read current workspace."),
-      t("coder", "handoff", "contradicted", "coder", "Handoff cites the previous artifact version."),
+      t(
+        "coder",
+        "handoff",
+        "supported",
+        "coder",
+        "Payload mapping claim remains supported by in-run validation and v2. Citing the previous artifact version is a provenance-integrity defect, not a false mapping statement.",
+        0,
+        "provenance_integrity"
+      ),
       t("reviewer", "handoff", "supported", "reviewer", "Reviewer handoff is current."),
     ],
   },
@@ -438,7 +554,15 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       t("coder", "assertion", "supported", "coder", "Coder assertion remains in-run."),
       t("reviewer", "assertion", "supported", "reviewer", "Reviewer cites in-run tests."),
       t("release-decision", "assertion", "supported", "release-decision", "Release cites in-run tests."),
-      t("coder", "handoff", "contradicted", "coder", "Handoff cites a foreign run."),
+      t(
+        "coder",
+        "handoff",
+        "supported",
+        "coder",
+        "Payload mapping claim remains supported by in-run tests. The extra foreign ref is a provenance-integrity defect, not a conflicting fact about the mapping.",
+        0,
+        "provenance_integrity"
+      ),
       t("reviewer", "handoff", "supported", "reviewer", "Reviewer handoff is in-run."),
     ],
   },
@@ -455,7 +579,15 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       t("coder", "assertion", "supported", "coder", "Coder assertion content is unchanged."),
       t("reviewer", "assertion", "supported", "reviewer", "Reviewer cites tests."),
       t("release-decision", "assertion", "supported", "release-decision", "Release cites tests."),
-      t("coder", "handoff", "contradicted", "coder", "Delivered handoff body diverges from the producing output."),
+      t(
+        "coder",
+        "handoff",
+        "contradicted",
+        "coder",
+        "Delivered output.artifact_name tamperedMapper conflicts with the producing agent's recorded normalizeIncidentSeverity output.",
+        0,
+        "payload_tamper"
+      ),
       t("reviewer", "handoff", "supported", "reviewer", "Reviewer handoff is unmodified."),
     ],
   },
@@ -470,11 +602,49 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
     injection: plan("skipped_validation", "coder"),
     fixtureTurns: { coder: ALTGOLD_CODER },
     oracle: [
-      t("coder", "assertion", "insufficient_evidence", "coder", "Alternate gold mapping was not validated."),
-      t("reviewer", "assertion", "insufficient_evidence", "reviewer", "Reviewer cites missing validation."),
-      t("release-decision", "assertion", "insufficient_evidence", "release-decision", "Release cites missing validation."),
-      t("coder", "handoff", "insufficient_evidence", "coder", "Handoff follows skipped validation."),
-      t("reviewer", "handoff", "insufficient_evidence", "reviewer", "Reviewer handoff has no test observation."),
+      t(
+        "coder",
+        "assertion",
+        "supported",
+        "coder",
+        "Artifact v2 mapping includes CRITICAL, sev: high, and canonical tokens. Skipped validation is an unexecuted observation, not a conflicting fact."
+      ),
+      t(
+        "reviewer",
+        "assertion",
+        "insufficient_evidence",
+        "reviewer",
+        "Reviewer claims observed validation coverage, but run_validation never executed.",
+        0,
+        "unexecuted_observation"
+      ),
+      t(
+        "release-decision",
+        "assertion",
+        "insufficient_evidence",
+        "release-decision",
+        "Release cites observed tests that were never executed.",
+        0,
+        "unexecuted_observation"
+      ),
+      t(
+        "coder",
+        "handoff",
+        "supported",
+        "coder",
+        "Handoff payload mapping claim is supported by the written artifact.",
+        0,
+        "unexecuted_observation"
+      ),
+      t(
+        "reviewer",
+        "handoff",
+        "insufficient_evidence",
+        "reviewer",
+        "Reviewer handoff repeats an observed-validation claim with no test observation.",
+        0,
+        "unexecuted_observation"
+      ),
     ],
   },
   {
@@ -491,7 +661,15 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       t("reviewer", "assertion", "supported", "reviewer", "Reviewer assertion still cites tests."),
       t("release-decision", "assertion", "supported", "release-decision", "Release can still read workspace."),
       t("coder", "handoff", "supported", "coder", "Coder handoff intact."),
-      t("reviewer", "handoff", "insufficient_evidence", "reviewer", "Reviewer handoff evidence refs were stripped."),
+      t(
+        "reviewer",
+        "handoff",
+        "insufficient_evidence",
+        "reviewer",
+        "Reviewer handoff evidence refs were stripped. Missing resolving evidence is not a conflicting fact.",
+        0,
+        "missing_resolving_evidence"
+      ),
     ],
   },
   {
@@ -523,10 +701,22 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
     injection: CONTROL,
     fixtureTurns: { investigator: INVESTIGATOR_RUMOR },
     oracle: [
-      t("investigator", "assertion", "contradicted", "investigator", "Rumor cannot solely support intern causation."),
+      t(
+        "investigator",
+        "assertion",
+        "insufficient_evidence",
+        "investigator",
+        "RUM-1 is a rumor and cannot establish intern causation. SYS-1/SYS-2 do not state a conflicting intern fact, so the claim is unverified rather than contradicted."
+      ),
       t("validator", "assertion", "supported", "validator", "Validator cites SYS-1, not the rumor."),
       t("decision", "assertion", "supported", "decision", "Decision cites SYS-1."),
-      t("investigator", "handoff", "contradicted", "investigator", "Handoff carries rumor-as-proof."),
+      t(
+        "investigator",
+        "handoff",
+        "insufficient_evidence",
+        "investigator",
+        "Handoff carries intern causation citing only RUM-1. That is missing resolving evidence, not a log-established conflict."
+      ),
       t("validator", "handoff", "supported", "validator", "Validator handoff intact."),
     ],
   },
@@ -542,7 +732,15 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
     oracle: [
       t("investigator", "assertion", "supported", "investigator", "Investigator SYS-1 claim stands."),
       t("investigator", "assertion", "supported", "investigator", "Investigator rumor caveat stands.", 1),
-      t("validator", "assertion", "contradicted", "validator", "Delivered validator claim mislabels rumor as a system log."),
+      t(
+        "validator",
+        "assertion",
+        "contradicted",
+        "validator",
+        "RUM-1 is recorded as kind=rumor, which conflicts with the delivered claim that it is a system log.",
+        0,
+        "factual_contradiction"
+      ),
       t("decision", "assertion", "supported", "decision", "Decision cites SYS-1."),
       t("investigator", "handoff", "supported", "investigator", "Investigator handoff intact."),
       t("validator", "handoff", "contradicted", "validator", "Validator handoff carries the false claim."),
@@ -562,7 +760,15 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       t("investigator", "assertion", "supported", "investigator", "Second assertion still cites records.", 1),
       t("validator", "assertion", "supported", "validator", "Validator cites SYS-1."),
       t("decision", "assertion", "supported", "decision", "Decision cites SYS-1."),
-      t("investigator", "handoff", "contradicted", "investigator", "Handoff cites case-file v1 rather than current v2."),
+      t(
+        "investigator",
+        "handoff",
+        "supported",
+        "investigator",
+        "Payload findings remain supported by in-run records. Citing case-file v1 rather than current v2 is a provenance-integrity defect, not a false finding.",
+        0,
+        "provenance_integrity"
+      ),
       t("validator", "handoff", "supported", "validator", "Validator handoff intact."),
     ],
   },
@@ -580,7 +786,15 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       t("investigator", "assertion", "supported", "investigator", "Second assertion remains.", 1),
       t("validator", "assertion", "supported", "validator", "Validator cites SYS-1."),
       t("decision", "assertion", "supported", "decision", "Decision cites SYS-1."),
-      t("investigator", "handoff", "contradicted", "investigator", "Delivered findings array was emptied."),
+      t(
+        "investigator",
+        "handoff",
+        "contradicted",
+        "investigator",
+        "Delivered findings array is empty, which conflicts with the producing agent's recorded findings.",
+        0,
+        "payload_tamper"
+      ),
       t("validator", "handoff", "supported", "validator", "Validator handoff intact."),
     ],
   },
@@ -597,10 +811,26 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
     oracle: [
       t("investigator", "assertion", "supported", "investigator", "Investigator evidence unchanged."),
       t("investigator", "assertion", "supported", "investigator", "Second investigator assertion unchanged.", 1),
-      t("validator", "assertion", "insufficient_evidence", "validator", "Validator did not execute validate_findings."),
+      t(
+        "validator",
+        "assertion",
+        "supported",
+        "validator",
+        "Validator still read SYS-1, which supports F1 (auth burst). Skipped validate_findings is an unexecuted extra check, not a conflicting fact.",
+        0,
+        "unexecuted_observation"
+      ),
       t("decision", "assertion", "supported", "decision", "Decision cites SYS-1."),
       t("investigator", "handoff", "supported", "investigator", "Investigator handoff intact."),
-      t("validator", "handoff", "insufficient_evidence", "validator", "Handoff follows skipped validation."),
+      t(
+        "validator",
+        "handoff",
+        "supported",
+        "validator",
+        "Handoff payload still claims F1 is supported by SYS-1, which the record establishes. Skipped validate_findings is an unexecuted observation.",
+        0,
+        "unexecuted_observation"
+      ),
     ],
   },
   {
@@ -618,7 +848,15 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       t("validator", "assertion", "supported", "validator", "Validator assertion still cites SYS-1."),
       t("decision", "assertion", "supported", "decision", "Decision cites SYS-1."),
       t("investigator", "handoff", "supported", "investigator", "Investigator handoff intact."),
-      t("validator", "handoff", "insufficient_evidence", "validator", "Validator handoff evidence refs were stripped."),
+      t(
+        "validator",
+        "handoff",
+        "insufficient_evidence",
+        "validator",
+        "Validator handoff evidence refs were stripped. Missing resolving evidence is not a conflicting fact.",
+        0,
+        "missing_resolving_evidence"
+      ),
     ],
   },
   {
@@ -633,10 +871,34 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
     fixtureTurns: { investigator: SUDO_INVESTIGATOR },
     oracle: [
       t("investigator", "assertion", "supported", "investigator", "Sudo finding is supported by SYS-2."),
-      t("validator", "assertion", "supported", "validator", "Validator still cites SYS-1 in the fixture."),
-      t("decision", "assertion", "contradicted", "decision", "Delivered decision treats rumor as proof."),
+      t(
+        "validator",
+        "assertion",
+        "contradicted",
+        "validator",
+        "On sudo_focus, investigator F1 is privileged sudo citing SYS-2. Claiming F1 is supported by SYS-1 (ssh failures) conflicts with the delivered finding.",
+        0,
+        "factual_contradiction"
+      ),
+      t(
+        "decision",
+        "assertion",
+        "contradicted",
+        "decision",
+        "RUM-1 is kind=rumor, which conflicts with treating the contractor-laptop rumor as proof.",
+        0,
+        "factual_contradiction"
+      ),
       t("investigator", "handoff", "supported", "investigator", "Investigator handoff intact."),
-      t("validator", "handoff", "supported", "validator", "Validator handoff intact."),
+      t(
+        "validator",
+        "handoff",
+        "contradicted",
+        "validator",
+        "Handoff assessments still bind F1 to SYS-1, which conflicts with investigator F1 (sudo / SYS-2) on sudo_focus.",
+        0,
+        "factual_contradiction"
+      ),
     ],
   },
 ];

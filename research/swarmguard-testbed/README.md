@@ -4,6 +4,8 @@ Reusable, domain-independent multi-agent laboratory for later SwarmGuard researc
 
 This directory is **research infrastructure**. It is not a Reeprov product feature, not a public SDK, and not SwarmGuard. SwarmGuard detection, attribution, and scoring are intentionally unimplemented. Sprint P3 adds capture of delivered claims/handoffs, split detector/evaluator storage, a frozen 24-case benchmark, two conventional baselines, and an independent scorer.
 
+Benchmark protocol `p3.benchmark.v1.1` corrects oracle labels and evaluation denominators from `p3.benchmark.v1` (PR #27). Held-out answers in that freeze are public; H1 must not treat them as blind. Detector workspaces should set `REEPROV_P3_DETECTOR_ROLE=1`. New private cases use `benchmark/sealed/`.
+
 ## What it produces
 
 Each run has two isolated records, now in **separate storage roots**:
@@ -39,6 +41,8 @@ Offline (default, no network, CI-safe):
 npm run research:p3:list
 npm run research:p3:offline
 npx tsx research/swarmguard-testbed/scripts/run.ts run --case se-d01
+# held-out scoring is gated; in-tree labels are not blind
+# REEPROV_P3_ALLOW_HELDOUT=1 npx tsx research/swarmguard-testbed/scripts/run.ts experiment --partition held_out
 npx tsx research/swarmguard-testbed/scripts/run.ts --domain se --mode offline_fixture --inject skipped_validation --target-agent coder
 ```
 

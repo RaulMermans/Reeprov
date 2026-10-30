@@ -7,6 +7,7 @@ npx vitest run research/swarmguard-testbed
 npx tsx research/swarmguard-testbed/scripts/run.ts list
 npx tsx research/swarmguard-testbed/scripts/run.ts run --case se-d01 --mode offline_fixture
 npx tsx research/swarmguard-testbed/scripts/run.ts freeze
+REEPROV_P3_ALLOW_HELDOUT=1 npx vitest run research/swarmguard-testbed/__tests__/oracle-audit.test.ts
 ```
 
 Live (optional, not default CI):

@@ -1,6 +1,6 @@
 {
   "format": "reeprov.swarmguard_testbed.benchmark_manifest.v1",
-  "version": "p3.benchmark.v1",
+  "version": "p3.benchmark.v1.1",
   "case_count": 24,
   "development_count": 8,
   "held_out_count": 16,
@@ -198,5 +198,5 @@
       "notes": "investigation held_out case (sudo_focus)."
     }
   ],
-  "integrity_hash": "8d7b4bd145871085fc1adeb2f0211fbd01acf29a6ec0d7754bc6d28e7e2529ba"
+  "integrity_hash": "bedfa278aaa3b73d2e9f77e698e662b0f8f1ec27955c7e5c06610c7031cd29cd"
 }

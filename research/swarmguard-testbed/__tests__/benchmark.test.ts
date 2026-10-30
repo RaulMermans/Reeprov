@@ -4,8 +4,10 @@ import { join } from "node:path";
 import {
   BENCHMARK_CASE_COUNT,
   BENCHMARK_CASES,
+  BENCHMARK_VERSION,
   DEVELOPMENT_CASE_COUNT,
   HELD_OUT_CASE_COUNT,
+  PREVIOUS_BENCHMARK_VERSION,
   casesAreSubstantivelyDistinct,
   listBenchmarkCases,
   oracleManifest,
@@ -37,6 +39,8 @@ describe("P3 benchmark catalog", () => {
 
   it("freezes public and oracle manifests with integrity hashes", () => {
     const pub = publicManifest();
+    expect(pub.version).toBe(BENCHMARK_VERSION);
+    expect(PREVIOUS_BENCHMARK_VERSION).toBe("p3.benchmark.v1");
     expect(pub.case_count).toBe(24);
     expect(pub.integrity_hash).toMatch(/^[a-f0-9]{64}$/);
     expect(pub.integrity_hash).toBe(sha256Json({ ...pub, integrity_hash: undefined }));

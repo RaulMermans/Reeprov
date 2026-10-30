@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Sprint P2 research testbed (`research/swarmguard-testbed/`): reusable multi-agent harness, two experimental domains, honest live/offline/mocked LLM modes, fault injection, and detector vs evaluator isolation. SwarmGuard is not implemented.
 - `CaptureSession.recordArtifact` so experimental runs can persist canonical artifact references.
+- Independently sealed evaluation packs (`REEPROV_P3_SEALED_EVALUATION_PATH`) for operator-held cases after in-tree held-out labels were published in PR #27.
+
+### Fixed
+- Sprint P3 scientific-integrity correction (`p3.benchmark.v1.1`, evaluation v2): `se-d02` injected a true validation-success claim; provenance (stale/cross-run) was labeled contradicted; rumor-only intern causation was labeled contradicted; skipped-validation mapping claims ignored artifact evidence; primary accuracy/recall omitted missing predictions. See `docs/research/p3-oracle-audit.md`. Frozen baselines are unchanged.
 
 ## [0.2.0-beta.1] - 2026-10-27
 

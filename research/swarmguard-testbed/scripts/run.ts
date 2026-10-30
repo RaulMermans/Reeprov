@@ -20,8 +20,18 @@ import {
   runAndEvaluate,
   validateArtifactSchema,
 } from "../src/experiment";
-import { listBenchmarkCases, oracleManifest, publicManifest, type Partition } from "../src/benchmark";
+import {
+  BENCHMARK_VERSION,
+  PREVIOUS_BENCHMARK_VERSION,
+  listBenchmarkCases,
+  oracleManifest,
+  publicManifest,
+  sha256Json,
+  type Partition,
+} from "../src/benchmark";
 import { FROZEN_BASELINES } from "../src/baselines";
+import { EVALUATION_FORMAT, EVALUATION_FORMAT_V1 } from "../src/evaluate";
+import { HELDOUT_ALLOW_ENV } from "../src/heldoutAccess";
 
 function arg(flag: string): string | undefined {
   const index = process.argv.indexOf(flag);
@@ -49,6 +59,29 @@ async function freezeManifests(): Promise<void> {
     JSON.stringify(developmentOracles, null, 2) + "\n"
   );
   await writeFile(join(BENCH_DIR, "oracles.heldout.v1.json"), JSON.stringify(heldOutOracles, null, 2) + "\n");
+  const protocol = {
+    format: "reeprov.swarmguard_testbed.protocol_hashes.v1",
+    current_benchmark_version: BENCHMARK_VERSION,
+    previous_benchmark_version: PREVIOUS_BENCHMARK_VERSION,
+    evaluation_format: EVALUATION_FORMAT,
+    previous_evaluation_format: EVALUATION_FORMAT_V1,
+    published_v1_commit: "3912ffe82e1128a7ca6b3e83b4cc9f10c4fe92ba",
+    v1_hashes: {
+      public_manifest: "8d7b4bd145871085fc1adeb2f0211fbd01acf29a6ec0d7754bc6d28e7e2529ba",
+      development_oracles: "6741c225d0c7504cdf2ba0ba8cd4bd515c030447e224680fff9aa04d91faf673",
+      held_out_oracles: "5584709c968170c8fc72045c925e664f813cc301e314d2e33bdd0e6e8be10d83",
+    },
+    v1_1_hashes: {
+      public_manifest: publicFile.integrity_hash,
+      development_oracles: developmentOracles.integrity_hash,
+      held_out_oracles: heldOutOracles.integrity_hash,
+    },
+    held_out_blindness:
+      "p3.benchmark.v1 held-out labels were published in PR #27. Genuine H1 blindness is not established for those 16 cases. Use independently sealed packs for new private evaluation.",
+    integrity_hash: "",
+  };
+  protocol.integrity_hash = sha256Json({ ...protocol, integrity_hash: undefined });
+  await writeFile(join(BENCH_DIR, "protocol-hashes.v1.json"), JSON.stringify(protocol, null, 2) + "\n");
   console.log(
     JSON.stringify(
       {
@@ -56,10 +89,12 @@ async function freezeManifests(): Promise<void> {
         public_hash: publicFile.integrity_hash,
         development_oracle_hash: developmentOracles.integrity_hash,
         held_out_oracle_hash: heldOutOracles.integrity_hash,
+        protocol_hash: protocol.integrity_hash,
         paths: {
           manifest: join(BENCH_DIR, "manifest.v1.json"),
           development_oracles: join(BENCH_DIR, "oracles.development.v1.json"),
           held_out_oracles: join(BENCH_DIR, "oracles.heldout.v1.json"),
+          protocol_hashes: join(BENCH_DIR, "protocol-hashes.v1.json"),
         },
       },
       null,
@@ -91,7 +126,13 @@ if (command === "validate") {
 if (command === "run" || command === "baselines" || command === "score" || command === "experiment") {
   const outputDir = arg("--output") ?? defaultOutput;
   const mode = arg("--mode") ?? "offline_fixture";
-  const partition = (arg("--partition") as Partition | undefined) ?? undefined;
+  const partition = (arg("--partition") as Partition | undefined) ?? (arg("--case") ? undefined : "development");
+  if (partition === "held_out" && process.env[HELDOUT_ALLOW_ENV] !== "1") {
+    console.error(
+      `Held-out scoring requires ${HELDOUT_ALLOW_ENV}=1. Default experiment partition is development. In-tree held-out labels are public (PR #27) and are not a blind test.`
+    );
+    process.exit(2);
+  }
   const caseId = arg("--case");
   const caseIds = caseId
     ? [caseId]

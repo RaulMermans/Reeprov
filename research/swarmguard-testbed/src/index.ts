@@ -16,6 +16,8 @@ export * from "./evaluate";
 export * from "./benchmark";
 export * from "./experiment";
 export * from "./oracle";
+export * from "./heldoutAccess";
+export * from "./sealed";
 
 import { investigationDomain } from "../domains/investigation";
 import { softwareEngineeringDomain } from "../domains/softwareEngineering";

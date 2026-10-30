@@ -10,7 +10,13 @@ import { join } from "node:path";
 import { runArtifactSchema } from "../../../lib/core/contracts/runArtifact";
 import { exportRunEvidenceBundle } from "../../../lib/core/evidence/exportBundle";
 import { FROZEN_BASELINES, runBaseline, type MonitorResult } from "./baselines";
-import { BENCHMARK_VERSION, getBenchmarkCase, listBenchmarkCases, type Partition } from "./benchmark";
+import {
+  BENCHMARK_VERSION,
+  getBenchmarkCase,
+  listBenchmarkCases,
+  type BenchmarkCase,
+  type Partition,
+} from "./benchmark";
 import { evaluateMonitor, evaluationToRow, type EvaluationReport } from "./evaluate";
 import { investigationDomain } from "../domains/investigation";
 import { softwareEngineeringDomain } from "../domains/softwareEngineering";
@@ -18,6 +24,8 @@ import { runExperiment, type ExperimentalRunResult, type HarnessOptions } from "
 import type { DomainModule } from "./domain";
 import { commitSha } from "./gitmeta";
 import type { ExecutionMode } from "./contracts";
+import { assertCanLoadHeldOutOracles, SEALED_EVAL_ENV } from "./heldoutAccess";
+import { loadSealedEvaluationPack } from "./sealed";
 
 const DOMAINS: Record<string, DomainModule> = {
   "software-engineering": softwareEngineeringDomain,
@@ -41,12 +49,33 @@ export async function listScenarios(partition?: Partition) {
     domain_id: item.domain_id,
     content_variant: item.content_variant,
     scenario_id: item.scenario_id,
-    notes: item.notes,
+    notes: `${item.domain_id} ${item.partition} case (${item.content_variant}).`,
   }));
 }
 
+export async function resolveBenchmarkCase(caseId: string): Promise<BenchmarkCase> {
+  try {
+    const spec = getBenchmarkCase(caseId);
+    if (spec.partition === "held_out") {
+      assertCanLoadHeldOutOracles(`in-tree case ${caseId}`);
+    }
+    return spec;
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("Unknown benchmark case")) throw error;
+    if (!process.env[SEALED_EVAL_ENV]) throw error;
+    const sealed = await loadSealedEvaluationPack();
+    const found = sealed.cases.find((item) => item.case_id === caseId);
+    if (!found) {
+      throw new Error(
+        `Unknown benchmark case "${caseId}". In-tree catalog and sealed pack do not contain it.`
+      );
+    }
+    return found;
+  }
+}
+
 export async function runBenchmarkCase(options: ExperimentRunOptions): Promise<ExperimentalRunResult> {
-  const spec = getBenchmarkCase(options.caseId);
+  const spec = await resolveBenchmarkCase(options.caseId);
   const domain = DOMAINS[spec.domain_id];
   if (!domain) throw new Error(`Unknown domain ${spec.domain_id}`);
   const variant = DOMAIN_VARIANTS.has(spec.content_variant) ? spec.content_variant : "default";
