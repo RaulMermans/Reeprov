@@ -70,6 +70,9 @@ Welcome to the Reeprov documentation. Reeprov is local-first debugging, offline 
 - [Roadmap](ROADMAP.md) — Project roadmap and priorities.
 - [Sprint P2 Multi-Agent Testbed](sprints/P2-universal-multi-agent-testbed.md) — Research laboratory (not SwarmGuard).
 - [P2 verification](testing/p2-multi-agent-testbed.md) — Offline / live-guard reproduction.
+- [Sprint P3 Research Infrastructure](sprints/P3-research-infrastructure.md) — Capture, isolation, baselines, evaluation (not SwarmGuard).
+- [P3 verification](testing/p3-research-infrastructure.md) — Observability matrix and reproduction.
+- [SwarmGuard methodology](research/swarmguard-methodology.md) — Frozen experimental protocol.
 
 ## 9. Historical & Internal
 - [North Star Vision](architecture/reeprov-north-star.md) — Initial project vision.

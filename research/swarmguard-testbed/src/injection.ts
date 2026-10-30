@@ -138,8 +138,8 @@ export function applyHandoffInjection(
   if (plan.type === "modified_handoff") {
     const field = typeof plan.config["field"] === "string" ? plan.config["field"] : "severity";
     const value = plan.config["value"] ?? "low";
-    const original = payload.body[field];
-    const body = { ...payload.body, [field]: value };
+    const original = readPath(payload.body, field);
+    const body = setPath(structuredClone(payload.body), field, value);
     return {
       payload: {
         ...payload,
@@ -201,6 +201,39 @@ function defaultBoundary(type: NonNullable<InjectionPlan["type"]>) {
     case "skipped_validation":
       return "validation_step" as const;
   }
+}
+
+function readPath(body: Record<string, unknown>, field: string): unknown {
+  if (!field.includes(".")) return body[field];
+  let cursor: unknown = body;
+  for (const part of field.split(".")) {
+    if (cursor === null || typeof cursor !== "object") return undefined;
+    cursor = (cursor as Record<string, unknown>)[part];
+  }
+  return cursor;
+}
+
+function setPath(
+  body: Record<string, unknown>,
+  field: string,
+  value: unknown
+): Record<string, unknown> {
+  if (!field.includes(".")) {
+    return { ...body, [field]: value };
+  }
+  const parts = field.split(".");
+  const clone: Record<string, unknown> = structuredClone(body);
+  let cursor: Record<string, unknown> = clone;
+  for (let index = 0; index < parts.length - 1; index += 1) {
+    const part = parts[index]!;
+    const next = cursor[part];
+    if (next === null || typeof next !== "object" || Array.isArray(next)) {
+      cursor[part] = {};
+    }
+    cursor = cursor[part] as Record<string, unknown>;
+  }
+  cursor[parts[parts.length - 1]!] = value;
+  return clone;
 }
 
 function defaultExpectedViolation(type: NonNullable<InjectionPlan["type"]>): string {

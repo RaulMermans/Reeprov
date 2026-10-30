@@ -124,10 +124,29 @@ export const scenarioSchema = z.object({
   title: z.string().min(1),
   task: z.string().min(1),
   seed: z.string().min(1),
+  variant: z.string().min(1).default("default"),
   agents: z.array(agentRoleSchema).min(2),
   workflow: z.array(z.object({ agent_id: z.string().min(1) })).min(2),
 });
 export type Scenario = z.infer<typeof scenarioSchema>;
+
+export const claimClassSchema = z.enum(["supported", "contradicted", "insufficient_evidence"]);
+export type ClaimClass = z.infer<typeof claimClassSchema>;
+
+export const experimentalValiditySchema = z.enum([
+  "valid",
+  "invalid_not_applied",
+  "invalid_not_observable",
+]);
+export type ExperimentalValidity = z.infer<typeof experimentalValiditySchema>;
+
+export const payloadCaptureStatusSchema = z.enum([
+  "captured",
+  "redacted",
+  "structure_only",
+  "omitted",
+  "incomplete",
+]);
 
 export const GROUND_TRUTH_LEAK_KEYS = [
   "injection_type",
@@ -144,6 +163,13 @@ export const GROUND_TRUTH_LEAK_KEYS = [
   "scoring_metadata",
   "experimental_seed",
   "injection_config",
+  "oracle",
+  "oracle_labels",
+  "oracle_label",
+  "intervention_label",
+  "experimental_validity",
+  "ground_truth_agent_id",
+  "plan_digest",
 ] as const;
 
 export const LEAK_SUBSTRINGS = [
@@ -154,4 +180,7 @@ export const LEAK_SUBSTRINGS = [
   "intended_failure",
   "scoring_metadata",
   "experimental_seed",
+  "oracle_label",
+  "intervention_label",
+  "experimental_validity",
 ] as const;

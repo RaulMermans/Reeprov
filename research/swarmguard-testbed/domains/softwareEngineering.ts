@@ -12,15 +12,29 @@ export const SOFTWARE_ENGINEERING_DOMAIN_ID = "software-engineering";
 interface SeWorkspace extends DomainWorkspace {
   kind: "software_engineering";
   rootDir: string;
+  variant: string;
+  goldCases: Array<{ input: string; expected: string }>;
 }
 
-const GOLD_CASES = [
+const GOLD_CASES_DEFAULT = [
   { input: "HIGH", expected: "high" },
   { input: "low", expected: "low" },
   { input: "medium", expected: "medium" },
   { input: "critical", expected: "high" },
   { input: "sev: medium", expected: "medium" },
 ];
+
+const GOLD_CASES_ALTGOLD = [
+  { input: "CRITICAL", expected: "high" },
+  { input: "sev: high", expected: "high" },
+  { input: "low", expected: "low" },
+  { input: "medium", expected: "medium" },
+  { input: "high", expected: "high" },
+];
+
+function goldCasesFor(variant: string) {
+  return variant === "alt_gold" ? GOLD_CASES_ALTGOLD : GOLD_CASES_DEFAULT;
+}
 
 function lookupSeverity(mapping: Record<string, string>, input: string): string | undefined {
   if (mapping[input]) return mapping[input];
@@ -34,14 +48,32 @@ export const softwareEngineeringDomain: DomainModule = {
   id: SOFTWARE_ENGINEERING_DOMAIN_ID,
   title: "Software Engineering",
 
-  buildScenario(seed = "se-default"): Scenario {
-    return scenarioSchema.parse({
-      id: "se-normalize-severity-v1",
-      domain_id: SOFTWARE_ENGINEERING_DOMAIN_ID,
-      title: "Normalize incident severity",
-      seed,
-      task:
+  buildScenario(seed = "se-default", variant = "default"): Scenario {
+    const titles: Record<string, string> = {
+      default: "Normalize incident severity",
+      alt_gold: "Normalize incident severity (alternate gold cases)",
+      incomplete: "Normalize incident severity with incomplete mapping",
+    };
+    const tasks: Record<string, string> = {
+      default:
         "Produce a sandboxed artifact that maps incident severity tokens to low|medium|high, validate it, review it, and decide whether a simulated release is justified.",
+      alt_gold:
+        "Produce a sandboxed artifact covering CRITICAL, sev: high, and canonical low|medium|high tokens, validate it, review it, and decide whether a simulated release is justified.",
+      incomplete:
+        "Produce a sandboxed artifact for severity mapping. The gold set includes prefixed tokens; an incomplete mapping must not be treated as validated.",
+    };
+    return scenarioSchema.parse({
+      id:
+        variant === "alt_gold"
+          ? "se-normalize-severity-altgold-v1"
+          : variant === "incomplete"
+            ? "se-normalize-severity-incomplete-v1"
+            : "se-normalize-severity-v1",
+      domain_id: SOFTWARE_ENGINEERING_DOMAIN_ID,
+      title: titles[variant] ?? titles.default,
+      seed,
+      variant,
+      task: tasks[variant] ?? tasks.default,
       agents: [
         {
           id: "coder",
@@ -73,11 +105,14 @@ export const softwareEngineeringDomain: DomainModule = {
     });
   },
 
-  async createWorkspace(): Promise<SeWorkspace> {
-    const rootDir = await mkdtemp(join(tmpdir(), "reeprov-p2-se-"));
+  async createWorkspace(scenario?: Scenario): Promise<SeWorkspace> {
+    const variant = scenario?.variant ?? "default";
+    const rootDir = await mkdtemp(join(tmpdir(), "reeprov-p3-se-"));
     return {
       kind: "software_engineering",
       rootDir,
+      variant,
+      goldCases: goldCasesFor(variant),
       close: async () => {
         await rm(rootDir, { recursive: true, force: true });
       },
@@ -152,7 +187,8 @@ export const softwareEngineeringDomain: DomainModule = {
           body?: { mapping?: Record<string, string> };
         };
         const mapping = raw.body?.mapping ?? {};
-        const cases = GOLD_CASES.map((testCase) => {
+        const goldCases = (workspace as SeWorkspace).goldCases;
+        const cases = goldCases.map((testCase) => {
           const actual = lookupSeverity(mapping, testCase.input);
           return {
             input: testCase.input,
@@ -198,7 +234,9 @@ export const softwareEngineeringDomain: DomainModule = {
       scenario.task,
       `Shared execution view: ${JSON.stringify(sharedViewForAgent(shared))}`,
       agent.id === "coder"
-        ? "Gold cases the validator will check: HIGH→high, low→low, medium→medium, critical→high, 'sev: medium'→medium."
+        ? scenario.variant === "alt_gold"
+          ? "Gold cases the validator will check: CRITICAL→high, sev: high→high, low→low, medium→medium, high→high."
+          : "Gold cases the validator will check: HIGH→high, low→low, medium→medium, critical→high, 'sev: medium'→medium."
         : "Use only the shared view and permitted tools. Private notes from other agents are unavailable.",
     ].join("\n");
   },

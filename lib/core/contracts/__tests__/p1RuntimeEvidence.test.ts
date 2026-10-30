@@ -257,6 +257,40 @@ describe("Sprint P1: runtime identity, evidence integrity, persistence, replay, 
     expect(parsed.attribution_status).toBe("unknown");
   });
 
+  it("round-trips delivered handoff payload without requiring it on legacy records", async () => {
+    const session = new CaptureSession({
+      projectId: "incident-triage",
+      workflowId: "two-agent-handoff-v1",
+      summary: "payload capture",
+      runId: "run_p1_handoff_payload",
+    });
+    session.recordHandoff({
+      fromAgentId: TRIAGE_AGENT_ID,
+      toAgentId: RESOLVER_AGENT_ID,
+      payloadSummary: "Escalate T-1",
+      payload: { ticket_id: "T-1", severity: "high", assertions: [{ claim: "auth burst" }] },
+      evidenceRefs: ["art_ticket"],
+    });
+    const artifact = await session.finishRun({ status: "completed", summary: "payload" });
+    const handoff = artifact.handoffs?.[0];
+    expect(handoff?.payload_capture_status).toBe("captured");
+    expect(handoff?.payload).toEqual({
+      ticket_id: "T-1",
+      severity: "high",
+      assertions: [{ claim: "auth burst" }],
+    });
+    const legacy = agentHandoffSchema.parse({
+      handoff_id: "handoff_legacy",
+      run_id: "run_x",
+      timestamp: "2026-10-29T00:00:00.000Z",
+      attribution_status: "resolved",
+      from_agent_id: TRIAGE_AGENT_ID,
+      to_agent_id: RESOLVER_AGENT_ID,
+    });
+    expect(legacy.payload).toBeUndefined();
+    expect(legacy.payload_capture_status).toBeUndefined();
+  });
+
   it("lifts HTTP tool_call events into canonical tools when toolCalls are absent", () => {
     const artifact = adaptLegacyRunToRunArtifact({
       runRecord: {

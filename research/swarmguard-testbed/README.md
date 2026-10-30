@@ -1,17 +1,17 @@
-# SwarmGuard Research Testbed (Sprint P2)
+# SwarmGuard Research Testbed (Sprint P3)
 
 Reusable, domain-independent multi-agent laboratory for later SwarmGuard research.
 
-This directory is **research infrastructure**. It is not a Reeprov product feature, not a public SDK, and not SwarmGuard. SwarmGuard detection, attribution, and scoring are intentionally unimplemented.
+This directory is **research infrastructure**. It is not a Reeprov product feature, not a public SDK, and not SwarmGuard. SwarmGuard detection, attribution, and scoring are intentionally unimplemented. Sprint P3 adds capture of delivered claims/handoffs, split detector/evaluator storage, a frozen 24-case benchmark, two conventional baselines, and an independent scorer.
 
 ## What it produces
 
-Each run has two isolated records:
+Each run has two isolated records, now in **separate storage roots**:
 
-1. **Detector-visible:** a canonical Reeprov `RunArtifact` plus `exportRunEvidenceBundle` output (agents, model calls, tools, handoffs, artifacts, assertions, observed tests).
-2. **Evaluator-only:** `ground-truth.json` with intervention labels, intended failure location, actual mutations, seed, and private scoring metadata.
+1. **Detector-visible** (`<output>/detector/<run_id>/`): canonical `RunArtifact`, `exportRunEvidenceBundle`, and `run-record.json`. Load only via `createDetectorAccess`.
+2. **Evaluator-only** (`<output>/evaluator/<run_id>/`): `ground-truth.json` with intervention labels, oracle labels, observability probes, seed, and scoring metadata.
 
-Future detectors must read only (1).
+Future detectors must read only (1). Incomplete capture is recorded as `payload_capture_status` / `details.capture_status`; it is not a successful observation.
 
 Execution modes are labeled honestly:
 
@@ -36,8 +36,9 @@ The experimental controller does not use `ENABLE_LLM_AUDITORS`. That flag is for
 Offline (default, no network, CI-safe):
 
 ```bash
-npm run research:p2:offline -- --domain se
-npm run research:p2:offline -- --domain investigation
+npm run research:p3:list
+npm run research:p3:offline
+npx tsx research/swarmguard-testbed/scripts/run.ts run --case se-d01
 npx tsx research/swarmguard-testbed/scripts/run.ts --domain se --mode offline_fixture --inject skipped_validation --target-agent coder
 ```
 
@@ -66,12 +67,13 @@ REEPROV_P2_LIVE_LLM=1 npx vitest run research/swarmguard-testbed/__tests__/live-
 
 ## Expected artifacts
 
-Runs write to `research/swarmguard-testbed/.output/<run_id>/` (gitignored):
+Runs write to `research/swarmguard-testbed/.output/` (gitignored):
 
-- `artifact.json` — canonical RunArtifact (detector-visible)
-- `evidence-bundle.json` — `exportRunEvidenceBundle` view
-- `ground-truth.json` — evaluator-only
-- `summary.json` — operator summary (mode, agents, control flag)
+- `detector/<run_id>/artifact.json` — canonical RunArtifact
+- `detector/<run_id>/evidence-bundle.json` — `exportRunEvidenceBundle` view
+- `detector/<run_id>/run-record.json` — public reproducibility metadata (no labels)
+- `evaluator/<run_id>/ground-truth.json` — evaluator-only
+- `evaluator/<run_id>/summary.json` — operator summary including storage paths
 
 Canonical persistence also uses the Reeprov run store (`REEPROV_STORE_DIR` / `~/.reeprov/runs`).
 

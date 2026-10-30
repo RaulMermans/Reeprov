@@ -1,0 +1,202 @@
+{
+  "format": "reeprov.swarmguard_testbed.benchmark_manifest.v1",
+  "version": "p3.benchmark.v1",
+  "case_count": 24,
+  "development_count": 8,
+  "held_out_count": 16,
+  "cases": [
+    {
+      "case_id": "se-d01",
+      "partition": "development",
+      "domain_id": "software-engineering",
+      "content_variant": "default",
+      "scenario_id": "se-normalize-severity-v1",
+      "notes": "software-engineering development case (default)."
+    },
+    {
+      "case_id": "se-d02",
+      "partition": "development",
+      "domain_id": "software-engineering",
+      "content_variant": "default",
+      "scenario_id": "se-normalize-severity-v1",
+      "notes": "software-engineering development case (default)."
+    },
+    {
+      "case_id": "se-d03",
+      "partition": "development",
+      "domain_id": "software-engineering",
+      "content_variant": "default",
+      "scenario_id": "se-normalize-severity-v1",
+      "notes": "software-engineering development case (default)."
+    },
+    {
+      "case_id": "se-d04",
+      "partition": "development",
+      "domain_id": "software-engineering",
+      "content_variant": "default",
+      "scenario_id": "se-normalize-severity-v1",
+      "notes": "software-engineering development case (default)."
+    },
+    {
+      "case_id": "inv-d01",
+      "partition": "development",
+      "domain_id": "investigation",
+      "content_variant": "default",
+      "scenario_id": "inv-auth-burst-v1",
+      "notes": "investigation development case (default)."
+    },
+    {
+      "case_id": "inv-d02",
+      "partition": "development",
+      "domain_id": "investigation",
+      "content_variant": "default",
+      "scenario_id": "inv-auth-burst-v1",
+      "notes": "investigation development case (default)."
+    },
+    {
+      "case_id": "inv-d03",
+      "partition": "development",
+      "domain_id": "investigation",
+      "content_variant": "default",
+      "scenario_id": "inv-auth-burst-v1",
+      "notes": "investigation development case (default)."
+    },
+    {
+      "case_id": "inv-d04",
+      "partition": "development",
+      "domain_id": "investigation",
+      "content_variant": "default",
+      "scenario_id": "inv-auth-burst-v1",
+      "notes": "investigation development case (default)."
+    },
+    {
+      "case_id": "se-h01",
+      "partition": "held_out",
+      "domain_id": "software-engineering",
+      "content_variant": "no_cite",
+      "scenario_id": "se-normalize-severity-v1",
+      "notes": "software-engineering held_out case (no_cite)."
+    },
+    {
+      "case_id": "se-h02",
+      "partition": "held_out",
+      "domain_id": "software-engineering",
+      "content_variant": "incomplete",
+      "scenario_id": "se-normalize-severity-incomplete-v1",
+      "notes": "software-engineering held_out case (incomplete)."
+    },
+    {
+      "case_id": "se-h03",
+      "partition": "held_out",
+      "domain_id": "software-engineering",
+      "content_variant": "default",
+      "scenario_id": "se-normalize-severity-v1",
+      "notes": "software-engineering held_out case (default)."
+    },
+    {
+      "case_id": "se-h04",
+      "partition": "held_out",
+      "domain_id": "software-engineering",
+      "content_variant": "default",
+      "scenario_id": "se-normalize-severity-v1",
+      "notes": "software-engineering held_out case (default)."
+    },
+    {
+      "case_id": "se-h05",
+      "partition": "held_out",
+      "domain_id": "software-engineering",
+      "content_variant": "default",
+      "scenario_id": "se-normalize-severity-v1",
+      "notes": "software-engineering held_out case (default)."
+    },
+    {
+      "case_id": "se-h06",
+      "partition": "held_out",
+      "domain_id": "software-engineering",
+      "content_variant": "default",
+      "scenario_id": "se-normalize-severity-v1",
+      "notes": "software-engineering held_out case (default)."
+    },
+    {
+      "case_id": "se-h07",
+      "partition": "held_out",
+      "domain_id": "software-engineering",
+      "content_variant": "alt_gold",
+      "scenario_id": "se-normalize-severity-altgold-v1",
+      "notes": "software-engineering held_out case (alt_gold)."
+    },
+    {
+      "case_id": "se-h08",
+      "partition": "held_out",
+      "domain_id": "software-engineering",
+      "content_variant": "default",
+      "scenario_id": "se-normalize-severity-v1",
+      "notes": "software-engineering held_out case (default)."
+    },
+    {
+      "case_id": "inv-h01",
+      "partition": "held_out",
+      "domain_id": "investigation",
+      "content_variant": "no_cite",
+      "scenario_id": "inv-auth-burst-v1",
+      "notes": "investigation held_out case (no_cite)."
+    },
+    {
+      "case_id": "inv-h02",
+      "partition": "held_out",
+      "domain_id": "investigation",
+      "content_variant": "rumor_as_proof",
+      "scenario_id": "inv-auth-burst-v1",
+      "notes": "investigation held_out case (rumor_as_proof)."
+    },
+    {
+      "case_id": "inv-h03",
+      "partition": "held_out",
+      "domain_id": "investigation",
+      "content_variant": "default",
+      "scenario_id": "inv-auth-burst-v1",
+      "notes": "investigation held_out case (default)."
+    },
+    {
+      "case_id": "inv-h04",
+      "partition": "held_out",
+      "domain_id": "investigation",
+      "content_variant": "default",
+      "scenario_id": "inv-auth-burst-v1",
+      "notes": "investigation held_out case (default)."
+    },
+    {
+      "case_id": "inv-h05",
+      "partition": "held_out",
+      "domain_id": "investigation",
+      "content_variant": "default",
+      "scenario_id": "inv-auth-burst-v1",
+      "notes": "investigation held_out case (default)."
+    },
+    {
+      "case_id": "inv-h06",
+      "partition": "held_out",
+      "domain_id": "investigation",
+      "content_variant": "with_validation_tool",
+      "scenario_id": "inv-auth-burst-v1",
+      "notes": "investigation held_out case (with_validation_tool)."
+    },
+    {
+      "case_id": "inv-h07",
+      "partition": "held_out",
+      "domain_id": "investigation",
+      "content_variant": "default",
+      "scenario_id": "inv-auth-burst-v1",
+      "notes": "investigation held_out case (default)."
+    },
+    {
+      "case_id": "inv-h08",
+      "partition": "held_out",
+      "domain_id": "investigation",
+      "content_variant": "sudo_focus",
+      "scenario_id": "inv-sudo-restore-v1",
+      "notes": "investigation held_out case (sudo_focus)."
+    }
+  ],
+  "integrity_hash": "8d7b4bd145871085fc1adeb2f0211fbd01acf29a6ec0d7754bc6d28e7e2529ba"
+}

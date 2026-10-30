@@ -369,3 +369,13 @@ Minimal domain-independent laboratory for later SwarmGuard research. SwarmGuard 
 - Honest modes: `live_llm` (actual provider HTTP), `offline_fixture`, `mocked`. Credentials do not upgrade a run to live.
 - Controlled fault injection with evaluator-only ground truth; detector-visible export is the canonical Reeprov artifact + evidence bundle.
 - Docs: `research/swarmguard-testbed/README.md`, `docs/sprints/P2-universal-multi-agent-testbed.md`, `docs/testing/p2-multi-agent-testbed.md`.
+
+## Sprint P3 — Research Infrastructure, Baselines & Experimental Readiness
+
+Makes the P2 laboratory scientifically trustworthy for H1/H2 without implementing SwarmGuard.
+
+- Delivered assertions and handoff payloads are captured in canonical exports (with honest incomplete-capture status).
+- Detector and evaluator storage roots are separated; monitors load evidence only through an allowlisted interface.
+- Frozen 24-case benchmark (8 development / 16 held-out) and two conventional baselines.
+- Independent evaluation pipeline; research protocol and paper skeleton frozen without results.
+- Docs: `docs/sprints/P3-research-infrastructure.md`, `docs/research/swarmguard-methodology.md`, `docs/testing/p3-research-infrastructure.md`.

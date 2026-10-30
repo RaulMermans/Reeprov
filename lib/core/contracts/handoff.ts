@@ -15,6 +15,16 @@ export const handoffAttributionStatusSchema = z.enum([
 
 export type HandoffAttributionStatus = z.infer<typeof handoffAttributionStatusSchema>;
 
+export const payloadCaptureStatusSchema = z.enum([
+  "captured",
+  "redacted",
+  "structure_only",
+  "omitted",
+  "incomplete",
+]);
+
+export type PayloadCaptureStatus = z.infer<typeof payloadCaptureStatusSchema>;
+
 export const agentHandoffSchema = z.object({
   handoff_id: z.string(),
   run_id: z.string(),
@@ -24,6 +34,13 @@ export const agentHandoffSchema = z.object({
   to_step_id: z.string().optional(),
   parent_event_id: z.string().optional(),
   payload_summary: z.string().optional(),
+  /**
+   * Delivered handoff body. Optional and backward-compatible.
+   * Omitted when capture policy forbids content or when nothing was supplied.
+   * Never treat a missing payload as a successful observation of an empty handoff.
+   */
+  payload: z.unknown().optional(),
+  payload_capture_status: payloadCaptureStatusSchema.optional(),
   artifact_refs: z.array(z.string()).default([]),
   evidence_refs: z.array(z.string()).default([]),
   timestamp: z.string(),

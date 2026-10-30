@@ -134,7 +134,10 @@ export async function invokeModel(request: ModelCallRequest, retries = 2): Promi
   }
 
   if (request.mode === "offline_fixture") {
-    const turn = request.fixtureOverride ?? (await loadFixtureTurn(request.domainId, request.agentId));
+    const turn =
+      request.fixtureOverride ??
+      request.mockTurn ??
+      (await loadFixtureTurn(request.domainId, request.agentId));
     return {
       mode: "offline_fixture",
       provider: "fixture",

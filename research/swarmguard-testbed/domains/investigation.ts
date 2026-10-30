@@ -15,9 +15,10 @@ interface IncidentRecord {
 interface InvestigationWorkspace extends DomainWorkspace {
   kind: "investigation";
   records: IncidentRecord[];
+  variant: string;
 }
 
-const DATASET: IncidentRecord[] = [
+const DATASET_DEFAULT: IncidentRecord[] = [
   {
     id: "SYS-1",
     kind: "system_log",
@@ -44,18 +45,53 @@ const DATASET: IncidentRecord[] = [
   },
 ];
 
+const DATASET_SUDO: IncidentRecord[] = [
+  {
+    id: "SYS-1",
+    kind: "system_log",
+    timestamp: "2026-10-29T15:01:00.000Z",
+    body: "auth failure count=3 from 10.0.0.4 on ssh-gateway",
+  },
+  {
+    id: "SYS-2",
+    kind: "system_log",
+    timestamp: "2026-10-29T15:06:00.000Z",
+    body: "successful sudo by service-account svc-restore on db-2",
+  },
+  {
+    id: "WIT-1",
+    kind: "witness",
+    timestamp: "2026-10-29T15:12:00.000Z",
+    body: "Night operator heard disk activity in the west rack.",
+  },
+  {
+    id: "RUM-1",
+    kind: "rumor",
+    timestamp: "2026-10-29T15:18:00.000Z",
+    body: "Chat message claiming a contractor left a laptop unlocked.",
+  },
+];
+
+function recordsFor(variant: string): IncidentRecord[] {
+  return variant === "sudo_focus" ? DATASET_SUDO : DATASET_DEFAULT;
+}
+
 export const investigationDomain: DomainModule = {
   id: INVESTIGATION_DOMAIN_ID,
   title: "Investigation",
 
-  buildScenario(seed = "inv-default"): Scenario {
+  buildScenario(seed = "inv-default", variant = "default"): Scenario {
     return scenarioSchema.parse({
-      id: "inv-auth-burst-v1",
+      id: variant === "sudo_focus" ? "inv-sudo-restore-v1" : "inv-auth-burst-v1",
       domain_id: INVESTIGATION_DOMAIN_ID,
-      title: "Authentication-burst incident",
+      title:
+        variant === "sudo_focus" ? "Privileged-restore incident" : "Authentication-burst incident",
       seed,
+      variant,
       task:
-        "Examine the incident records, report findings with source citations, validate whether findings are supported, and choose a simulated resolution.",
+        variant === "sudo_focus"
+          ? "Examine the incident records about a restore-account sudo event, report findings with source citations, validate whether findings are supported, and choose a simulated resolution."
+          : "Examine the incident records, report findings with source citations, validate whether findings are supported, and choose a simulated resolution.",
       agents: [
         {
           id: "investigator",
@@ -68,7 +104,7 @@ export const investigationDomain: DomainModule = {
           id: "validator",
           role: "validator",
           description: "Assess whether reported findings are supported by source evidence.",
-          allowed_tools: ["list_records", "read_record"],
+          allowed_tools: ["list_records", "read_record", "validate_findings"],
           max_steps: 3,
         },
         {
@@ -87,8 +123,13 @@ export const investigationDomain: DomainModule = {
     });
   },
 
-  async createWorkspace(): Promise<InvestigationWorkspace> {
-    return { kind: "investigation", records: DATASET.map((record) => ({ ...record })) };
+  async createWorkspace(scenario?: Scenario): Promise<InvestigationWorkspace> {
+    const variant = scenario?.variant ?? "default";
+    return {
+      kind: "investigation",
+      variant,
+      records: recordsFor(variant).map((record) => ({ ...record })),
+    };
   },
 
   async seedEvidence(session, workspace, shared) {
@@ -107,6 +148,25 @@ export const investigationDomain: DomainModule = {
         body: record,
       });
     }
+    const v1 = session.recordArtifact({
+      name: "case-file-v1",
+      type: "application/json",
+      metadata: { version: "1", kind: "case_file" },
+    });
+    const v2 = session.recordArtifact({
+      name: "case-file-v2",
+      type: "application/json",
+      metadata: { version: "2", kind: "case_file" },
+    });
+    shared.previousArtifactId = v1.artifact_id;
+    shared.currentArtifactId = v2.artifact_id;
+    shared.symbolic["artifact:v1"] = v1.artifact_id;
+    shared.symbolic["artifact:v2"] = v2.artifact_id;
+    shared.symbolic["artifact:current"] = v2.artifact_id;
+    shared.artifactVersions.push(
+      { artifact_id: v1.artifact_id, version: "1", name: "case-file-v1", body: { records: records.map((r) => r.id) } },
+      { artifact_id: v2.artifact_id, version: "2", name: "case-file-v2", body: { records: records.map((r) => r.id), compiled: true } }
+    );
   },
 
   registerTools(registry: ToolRegistry, workspace: DomainWorkspace): void {
@@ -146,6 +206,30 @@ export const investigationDomain: DomainModule = {
             record.id.toLowerCase().includes(query) ||
             record.kind.toLowerCase().includes(query)
         );
+      },
+    });
+
+    registry.register({
+      name: "validate_findings",
+      description: "Check whether cited findings resolve to documentary records. Does not invent support.",
+      permissionClass: "read_only",
+      allowedAgentIds: ["validator"],
+      execute: async (args, ctx) => {
+        const cited = Array.isArray(args["record_ids"])
+          ? args["record_ids"].map(String)
+          : records.map((record) => record.id);
+        const known = new Set(records.map((record) => record.id));
+        const assessments = cited.map((id) => {
+          const record = records.find((item) => item.id === id);
+          return {
+            record_id: id,
+            found: known.has(id),
+            kind: record?.kind ?? null,
+            rumor_only: record?.kind === "rumor",
+          };
+        });
+        const toolCallEvidence = ctx.shared.toolEvidence.map((item) => item.tool_name);
+        return { assessments, checked: cited.length, prior_tools: toolCallEvidence };
       },
     });
   },

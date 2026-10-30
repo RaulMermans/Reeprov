@@ -1,0 +1,886 @@
+{
+  "format": "reeprov.swarmguard_testbed.oracle_manifest.v1",
+  "version": "p3.benchmark.v1",
+  "partition": "held_out",
+  "cases": [
+    {
+      "case_id": "se-h01",
+      "partition": "held_out",
+      "injection": {
+        "enabled": false,
+        "config": {}
+      },
+      "oracle": [
+        {
+          "agent_id": "coder",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "coder",
+          "justification": "Coder still has validation evidence.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "assertion",
+          "label": "insufficient_evidence",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer assertion has empty evidence refs.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "release-decision",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "release-decision",
+          "justification": "Release cites artifact and tests.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "coder",
+          "event_kind": "handoff",
+          "label": "supported",
+          "responsible_agent_id": "coder",
+          "justification": "Coder handoff is intact.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "handoff",
+          "label": "insufficient_evidence",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer handoff carries an uncited assertion.",
+          "assertion_index": 0
+        }
+      ]
+    },
+    {
+      "case_id": "se-h02",
+      "partition": "held_out",
+      "injection": {
+        "enabled": false,
+        "config": {}
+      },
+      "oracle": [
+        {
+          "agent_id": "coder",
+          "event_kind": "assertion",
+          "label": "contradicted",
+          "responsible_agent_id": "coder",
+          "justification": "Coder claims gold coverage but validation failed.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "assertion",
+          "label": "contradicted",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer claims observed coverage that failed.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "release-decision",
+          "event_kind": "assertion",
+          "label": "contradicted",
+          "responsible_agent_id": "release-decision",
+          "justification": "Release is not justified by failed tests.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "coder",
+          "event_kind": "handoff",
+          "label": "contradicted",
+          "responsible_agent_id": "coder",
+          "justification": "Handoff carries the failed-validation claim.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "handoff",
+          "label": "contradicted",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer handoff inherits the failed observation.",
+          "assertion_index": 0
+        }
+      ]
+    },
+    {
+      "case_id": "se-h03",
+      "partition": "held_out",
+      "injection": {
+        "enabled": true,
+        "type": "incorrect_assertion",
+        "target_agent_id": "reviewer",
+        "config": {
+          "claim": "Observed tests failed every gold case."
+        }
+      },
+      "oracle": [
+        {
+          "agent_id": "coder",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "coder",
+          "justification": "Coder evidence is unchanged.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "assertion",
+          "label": "contradicted",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer delivered claim contradicts passing tests.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "release-decision",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "release-decision",
+          "justification": "Release still cites tests.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "coder",
+          "event_kind": "handoff",
+          "label": "supported",
+          "responsible_agent_id": "coder",
+          "justification": "Coder handoff intact.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "handoff",
+          "label": "contradicted",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer handoff carries the false claim.",
+          "assertion_index": 0
+        }
+      ]
+    },
+    {
+      "case_id": "se-h04",
+      "partition": "held_out",
+      "injection": {
+        "enabled": true,
+        "type": "stale_evidence",
+        "target_agent_id": "coder",
+        "config": {}
+      },
+      "oracle": [
+        {
+          "agent_id": "coder",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "coder",
+          "justification": "Coder assertion cites v2.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer can read current workspace.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "release-decision",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "release-decision",
+          "justification": "Release can read current workspace.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "coder",
+          "event_kind": "handoff",
+          "label": "contradicted",
+          "responsible_agent_id": "coder",
+          "justification": "Handoff cites the previous artifact version.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "handoff",
+          "label": "supported",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer handoff is current.",
+          "assertion_index": 0
+        }
+      ]
+    },
+    {
+      "case_id": "se-h05",
+      "partition": "held_out",
+      "injection": {
+        "enabled": true,
+        "type": "cross_run_evidence",
+        "target_agent_id": "coder",
+        "config": {
+          "foreign_run_id": "run_foreign_hold_0007"
+        }
+      },
+      "oracle": [
+        {
+          "agent_id": "coder",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "coder",
+          "justification": "Coder assertion remains in-run.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer cites in-run tests.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "release-decision",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "release-decision",
+          "justification": "Release cites in-run tests.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "coder",
+          "event_kind": "handoff",
+          "label": "contradicted",
+          "responsible_agent_id": "coder",
+          "justification": "Handoff cites a foreign run.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "handoff",
+          "label": "supported",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer handoff is in-run.",
+          "assertion_index": 0
+        }
+      ]
+    },
+    {
+      "case_id": "se-h06",
+      "partition": "held_out",
+      "injection": {
+        "enabled": true,
+        "type": "modified_handoff",
+        "target_agent_id": "coder",
+        "config": {
+          "field": "output.artifact_name",
+          "value": "tamperedMapper"
+        }
+      },
+      "oracle": [
+        {
+          "agent_id": "coder",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "coder",
+          "justification": "Coder assertion content is unchanged.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer cites tests.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "release-decision",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "release-decision",
+          "justification": "Release cites tests.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "coder",
+          "event_kind": "handoff",
+          "label": "contradicted",
+          "responsible_agent_id": "coder",
+          "justification": "Delivered handoff body diverges from the producing output.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "handoff",
+          "label": "supported",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer handoff is unmodified.",
+          "assertion_index": 0
+        }
+      ]
+    },
+    {
+      "case_id": "se-h07",
+      "partition": "held_out",
+      "injection": {
+        "enabled": true,
+        "type": "skipped_validation",
+        "target_agent_id": "coder",
+        "config": {}
+      },
+      "oracle": [
+        {
+          "agent_id": "coder",
+          "event_kind": "assertion",
+          "label": "insufficient_evidence",
+          "responsible_agent_id": "coder",
+          "justification": "Alternate gold mapping was not validated.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "assertion",
+          "label": "insufficient_evidence",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer cites missing validation.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "release-decision",
+          "event_kind": "assertion",
+          "label": "insufficient_evidence",
+          "responsible_agent_id": "release-decision",
+          "justification": "Release cites missing validation.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "coder",
+          "event_kind": "handoff",
+          "label": "insufficient_evidence",
+          "responsible_agent_id": "coder",
+          "justification": "Handoff follows skipped validation.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "handoff",
+          "label": "insufficient_evidence",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer handoff has no test observation.",
+          "assertion_index": 0
+        }
+      ]
+    },
+    {
+      "case_id": "se-h08",
+      "partition": "held_out",
+      "injection": {
+        "enabled": true,
+        "type": "missing_evidence",
+        "target_agent_id": "reviewer",
+        "config": {}
+      },
+      "oracle": [
+        {
+          "agent_id": "coder",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "coder",
+          "justification": "Coder evidence unchanged.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer assertion still cites tests.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "release-decision",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "release-decision",
+          "justification": "Release can still read workspace.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "coder",
+          "event_kind": "handoff",
+          "label": "supported",
+          "responsible_agent_id": "coder",
+          "justification": "Coder handoff intact.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "reviewer",
+          "event_kind": "handoff",
+          "label": "insufficient_evidence",
+          "responsible_agent_id": "reviewer",
+          "justification": "Reviewer handoff evidence refs were stripped.",
+          "assertion_index": 0
+        }
+      ]
+    },
+    {
+      "case_id": "inv-h01",
+      "partition": "held_out",
+      "injection": {
+        "enabled": false,
+        "config": {}
+      },
+      "oracle": [
+        {
+          "agent_id": "investigator",
+          "event_kind": "assertion",
+          "label": "insufficient_evidence",
+          "responsible_agent_id": "investigator",
+          "justification": "Investigator assertion has empty refs.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "validator",
+          "justification": "Validator still cites SYS-1.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "decision",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "decision",
+          "justification": "Decision cites SYS-1.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "investigator",
+          "event_kind": "handoff",
+          "label": "insufficient_evidence",
+          "responsible_agent_id": "investigator",
+          "justification": "Handoff carries an uncited finding.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "handoff",
+          "label": "supported",
+          "responsible_agent_id": "validator",
+          "justification": "Validator handoff intact.",
+          "assertion_index": 0
+        }
+      ]
+    },
+    {
+      "case_id": "inv-h02",
+      "partition": "held_out",
+      "injection": {
+        "enabled": false,
+        "config": {}
+      },
+      "oracle": [
+        {
+          "agent_id": "investigator",
+          "event_kind": "assertion",
+          "label": "contradicted",
+          "responsible_agent_id": "investigator",
+          "justification": "Rumor cannot solely support intern causation.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "validator",
+          "justification": "Validator cites SYS-1, not the rumor.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "decision",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "decision",
+          "justification": "Decision cites SYS-1.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "investigator",
+          "event_kind": "handoff",
+          "label": "contradicted",
+          "responsible_agent_id": "investigator",
+          "justification": "Handoff carries rumor-as-proof.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "handoff",
+          "label": "supported",
+          "responsible_agent_id": "validator",
+          "justification": "Validator handoff intact.",
+          "assertion_index": 0
+        }
+      ]
+    },
+    {
+      "case_id": "inv-h03",
+      "partition": "held_out",
+      "injection": {
+        "enabled": true,
+        "type": "incorrect_assertion",
+        "target_agent_id": "validator",
+        "config": {
+          "claim": "Rumor RUM-1 is a system log."
+        }
+      },
+      "oracle": [
+        {
+          "agent_id": "investigator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "investigator",
+          "justification": "Investigator SYS-1 claim stands.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "investigator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "investigator",
+          "justification": "Investigator rumor caveat stands.",
+          "assertion_index": 1
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "assertion",
+          "label": "contradicted",
+          "responsible_agent_id": "validator",
+          "justification": "Delivered validator claim mislabels rumor as a system log.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "decision",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "decision",
+          "justification": "Decision cites SYS-1.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "investigator",
+          "event_kind": "handoff",
+          "label": "supported",
+          "responsible_agent_id": "investigator",
+          "justification": "Investigator handoff intact.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "handoff",
+          "label": "contradicted",
+          "responsible_agent_id": "validator",
+          "justification": "Validator handoff carries the false claim.",
+          "assertion_index": 0
+        }
+      ]
+    },
+    {
+      "case_id": "inv-h04",
+      "partition": "held_out",
+      "injection": {
+        "enabled": true,
+        "type": "stale_evidence",
+        "target_agent_id": "investigator",
+        "config": {}
+      },
+      "oracle": [
+        {
+          "agent_id": "investigator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "investigator",
+          "justification": "Assertions still cite records.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "investigator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "investigator",
+          "justification": "Second assertion still cites records.",
+          "assertion_index": 1
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "validator",
+          "justification": "Validator cites SYS-1.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "decision",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "decision",
+          "justification": "Decision cites SYS-1.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "investigator",
+          "event_kind": "handoff",
+          "label": "contradicted",
+          "responsible_agent_id": "investigator",
+          "justification": "Handoff cites case-file v1 rather than current v2.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "handoff",
+          "label": "supported",
+          "responsible_agent_id": "validator",
+          "justification": "Validator handoff intact.",
+          "assertion_index": 0
+        }
+      ]
+    },
+    {
+      "case_id": "inv-h05",
+      "partition": "held_out",
+      "injection": {
+        "enabled": true,
+        "type": "modified_handoff",
+        "target_agent_id": "investigator",
+        "config": {
+          "field": "output.findings",
+          "value": []
+        }
+      },
+      "oracle": [
+        {
+          "agent_id": "investigator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "investigator",
+          "justification": "Assertions remain.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "investigator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "investigator",
+          "justification": "Second assertion remains.",
+          "assertion_index": 1
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "validator",
+          "justification": "Validator cites SYS-1.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "decision",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "decision",
+          "justification": "Decision cites SYS-1.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "investigator",
+          "event_kind": "handoff",
+          "label": "contradicted",
+          "responsible_agent_id": "investigator",
+          "justification": "Delivered findings array was emptied.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "handoff",
+          "label": "supported",
+          "responsible_agent_id": "validator",
+          "justification": "Validator handoff intact.",
+          "assertion_index": 0
+        }
+      ]
+    },
+    {
+      "case_id": "inv-h06",
+      "partition": "held_out",
+      "injection": {
+        "enabled": true,
+        "type": "skipped_validation",
+        "target_agent_id": "validator",
+        "config": {}
+      },
+      "oracle": [
+        {
+          "agent_id": "investigator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "investigator",
+          "justification": "Investigator evidence unchanged.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "investigator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "investigator",
+          "justification": "Second investigator assertion unchanged.",
+          "assertion_index": 1
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "assertion",
+          "label": "insufficient_evidence",
+          "responsible_agent_id": "validator",
+          "justification": "Validator did not execute validate_findings.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "decision",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "decision",
+          "justification": "Decision cites SYS-1.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "investigator",
+          "event_kind": "handoff",
+          "label": "supported",
+          "responsible_agent_id": "investigator",
+          "justification": "Investigator handoff intact.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "handoff",
+          "label": "insufficient_evidence",
+          "responsible_agent_id": "validator",
+          "justification": "Handoff follows skipped validation.",
+          "assertion_index": 0
+        }
+      ]
+    },
+    {
+      "case_id": "inv-h07",
+      "partition": "held_out",
+      "injection": {
+        "enabled": true,
+        "type": "missing_evidence",
+        "target_agent_id": "validator",
+        "config": {}
+      },
+      "oracle": [
+        {
+          "agent_id": "investigator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "investigator",
+          "justification": "Investigator evidence unchanged.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "investigator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "investigator",
+          "justification": "Second assertion unchanged.",
+          "assertion_index": 1
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "validator",
+          "justification": "Validator assertion still cites SYS-1.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "decision",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "decision",
+          "justification": "Decision cites SYS-1.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "investigator",
+          "event_kind": "handoff",
+          "label": "supported",
+          "responsible_agent_id": "investigator",
+          "justification": "Investigator handoff intact.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "handoff",
+          "label": "insufficient_evidence",
+          "responsible_agent_id": "validator",
+          "justification": "Validator handoff evidence refs were stripped.",
+          "assertion_index": 0
+        }
+      ]
+    },
+    {
+      "case_id": "inv-h08",
+      "partition": "held_out",
+      "injection": {
+        "enabled": true,
+        "type": "incorrect_assertion",
+        "target_agent_id": "decision",
+        "config": {
+          "claim": "Close the incident; the contractor laptop rumor is proof."
+        }
+      },
+      "oracle": [
+        {
+          "agent_id": "investigator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "investigator",
+          "justification": "Sudo finding is supported by SYS-2.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "validator",
+          "justification": "Validator still cites SYS-1 in the fixture.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "decision",
+          "event_kind": "assertion",
+          "label": "contradicted",
+          "responsible_agent_id": "decision",
+          "justification": "Delivered decision treats rumor as proof.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "investigator",
+          "event_kind": "handoff",
+          "label": "supported",
+          "responsible_agent_id": "investigator",
+          "justification": "Investigator handoff intact.",
+          "assertion_index": 0
+        },
+        {
+          "agent_id": "validator",
+          "event_kind": "handoff",
+          "label": "supported",
+          "responsible_agent_id": "validator",
+          "justification": "Validator handoff intact.",
+          "assertion_index": 0
+        }
+      ]
+    }
+  ],
+  "integrity_hash": "5584709c968170c8fc72045c925e664f813cc301e314d2e33bdd0e6e8be10d83"
+}
