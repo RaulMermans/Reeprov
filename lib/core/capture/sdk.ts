@@ -50,6 +50,7 @@ import {
   type AgentHandoff,
 } from "../contracts/handoff";
 import { resolveExplicitAgentId, uniqueAgentIds } from "../contracts/identity";
+import { artifactReferenceSchema, type ArtifactReference } from "../contracts/artifacts";
 import { captureModelInvocation } from "./adapters/modelCapture";
 import { captureToolInvocation } from "./adapters/toolCapture";
 import { captureRetrievalOperation } from "./adapters/retrievalCapture";
@@ -141,6 +142,7 @@ export class CaptureSession {
   private readonly stateSnapshots: StateSnapshot[] = [];
   private readonly checkpoints: CheckpointReference[] = [];
   private readonly handoffs: AgentHandoff[] = [];
+  private readonly artifactRefs: ArtifactReference[] = [];
 
   private readonly activeStepStack: ExecutionStep[] = [];
   private stepCounter = 0;
@@ -904,6 +906,43 @@ export class CaptureSession {
     return handoff;
   }
 
+  recordArtifact(input: {
+    name: string;
+    type: string;
+    uri?: string;
+    sizeBytes?: number;
+    hash?: string;
+    metadata?: Record<string, unknown>;
+    stepId?: string;
+  }): ArtifactReference {
+    const stepId =
+      input.stepId ??
+      this.activeStepStack[this.activeStepStack.length - 1]?.step_id;
+    const artifact = artifactReferenceSchema.parse({
+      artifact_id: `art_${this.runId}_${this.artifactRefs.length}`,
+      step_id: stepId,
+      name: input.name,
+      type: input.type,
+      uri: input.uri,
+      size_bytes: input.sizeBytes,
+      hash: input.hash,
+      created_at: new Date().toISOString(),
+      metadata: this.policy.contentMode === "STRUCTURE_ONLY"
+        ? undefined
+        : sanitizeCanonicalRecord(input.metadata, this.policy),
+    });
+    this.artifactRefs.push(artifact);
+    if (stepId) {
+      const step =
+        this.steps.find((candidate) => candidate.step_id === stepId) ??
+        this.activeStepStack.find((candidate) => candidate.step_id === stepId);
+      if (step && !step.artifact_ids.includes(artifact.artifact_id)) {
+        step.artifact_ids.push(artifact.artifact_id);
+      }
+    }
+    return artifact;
+  }
+
   setOutcome(
     outcome: Omit<RunOutcome, "completed_at"> & { completed_at?: string }
   ): RunOutcome {
@@ -1183,7 +1222,7 @@ export class CaptureSession {
       tools: this.tools,
       retrieval: this.retrievals,
       models: this.models,
-      artifacts: [],
+      artifacts: this.artifactRefs,
       evals: [],
       lineage: {
         checkpoint_reference: this.checkpoints[0],

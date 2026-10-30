@@ -47,6 +47,7 @@ const IGNORED_DIRS = new Set([
   "s12-evidence",
   "s13-evidence",
   "test-artifacts",
+  ".output",
 ]);
 
 // File extensions to scan
