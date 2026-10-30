@@ -38,6 +38,7 @@ agentpulse.db*
 /s13-evidence/
 /test-artifacts/
 /research/swarmguard-testbed/.output/
+/research/swarmguard-testbed/benchmark/sealed/*.private.json
 /runs/
 /workflows/
 /comparisons/

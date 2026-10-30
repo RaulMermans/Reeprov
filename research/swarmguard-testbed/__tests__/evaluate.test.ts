@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateMonitor, aggregateEvaluations } from "../src/evaluate";
+import { aggregateEvaluations, evaluateMonitor } from "../src/evaluate";
 import { createGroundTruth, type OracleClaimLabel } from "../src/isolation";
 import { MONITOR_RESULT_FORMAT, type MonitorResult } from "../src/baselines/schema";
 
@@ -74,6 +74,8 @@ describe("P3 evaluation: independent scoring fixtures", () => {
       }),
     });
     expect(report.classification.accuracy).toEqual({ value: 0.75, numerator: 3, denominator: 4 });
+    expect(report.classification.conditional_accuracy).toEqual({ value: 0.75, numerator: 3, denominator: 4 });
+    expect(report.classification.prediction_coverage).toEqual({ value: 1, numerator: 4, denominator: 4 });
     expect(report.classification.contradiction_precision).toEqual({
       value: 1,
       numerator: 1,
@@ -91,7 +93,35 @@ describe("P3 evaluation: independent scoring fixtures", () => {
     expect(report.causal.responsible_agent_accuracy.undefined_reason).toMatch(/not_attempted/i);
   });
 
-  it("handles missing predictions, invalid output, and empty oracles", () => {
+  it("does not let missing predictions inflate primary accuracy or recall", () => {
+    const groundTruth = createGroundTruth({
+      scenarioId: "s",
+      runId: "run_eval_missing_mix",
+      domainId: "software-engineering",
+      seed: "eval",
+      plan: { enabled: false, config: {} },
+      oracleLabels: labels([
+        { claim_id: "easy", label: "supported", event_or_handoff_id: "evt_easy" },
+        { claim_id: "hard", label: "contradicted", event_or_handoff_id: "evt_hard" },
+      ]),
+    });
+    const report = evaluateMonitor({
+      groundTruth,
+      prediction: prediction({
+        predictions: [pred("easy", "supported")],
+      }),
+    });
+    expect(report.missing_predictions).toBe(1);
+    expect(report.gold_claims).toBe(2);
+    expect(report.classification.conditional_accuracy).toEqual({ value: 1, numerator: 1, denominator: 1 });
+    expect(report.classification.accuracy).toEqual({ value: 0.5, numerator: 1, denominator: 2 });
+    expect(report.classification.prediction_coverage).toEqual({ value: 0.5, numerator: 1, denominator: 2 });
+    expect(report.classification.contradiction_recall).toEqual({ value: 0, numerator: 0, denominator: 1 });
+    expect(report.classification.conditional_contradiction_recall.value).toBeNull();
+    expect(report.classification.confusion.counts["contradicted->missing"]).toBe(1);
+  });
+
+  it("treats invalid monitor output as coverage zero rather than undefined-as-perfect", () => {
     const groundTruth = createGroundTruth({
       scenarioId: "s",
       runId: "run_eval_empty",
@@ -105,12 +135,17 @@ describe("P3 evaluation: independent scoring fixtures", () => {
       prediction: prediction({ predictions: [] }),
     });
     expect(missing.missing_predictions).toBe(1);
-    expect(missing.classification.accuracy.value).toBeNull();
+    expect(missing.classification.accuracy).toEqual({ value: 0, numerator: 0, denominator: 1 });
+    expect(missing.classification.conditional_accuracy.value).toBeNull();
+    expect(missing.classification.prediction_coverage).toEqual({ value: 0, numerator: 0, denominator: 1 });
     const invalid = evaluateMonitor({
       groundTruth,
       prediction: { not: "valid" },
     });
     expect(invalid.invalid_predictions).toBe(1);
+    expect(invalid.missing_predictions).toBe(0);
+    expect(invalid.classification.accuracy).toEqual({ value: 0, numerator: 0, denominator: 1 });
+    expect(invalid.classification.confusion.counts["supported->invalid"]).toBe(1);
     const empty = evaluateMonitor({
       groundTruth: createGroundTruth({
         scenarioId: "s",
@@ -124,5 +159,31 @@ describe("P3 evaluation: independent scoring fixtures", () => {
     expect(empty.classification.contradiction_precision.value).toBeNull();
     const aggregated = aggregateEvaluations([missing, invalid]);
     expect(aggregated.missing_predictions).toBeGreaterThan(0);
+    expect(aggregated.classification.accuracy).toEqual({ value: 0, numerator: 0, denominator: 2 });
+  });
+
+  it("aggregates coverage and primary metrics from independent fixtures", () => {
+    const gt = (id: string, label: OracleClaimLabel["label"]) =>
+      createGroundTruth({
+        scenarioId: "s",
+        runId: id,
+        domainId: id.startsWith("se") ? "software-engineering" : "investigation",
+        seed: "x",
+        plan: { enabled: false, config: {} },
+        oracleLabels: labels([{ claim_id: "c1", label, event_or_handoff_id: "evt_c1" }]),
+      });
+    const a = evaluateMonitor({
+      groundTruth: gt("se1", "contradicted"),
+      prediction: prediction({ predictions: [pred("c1", "contradicted")] }),
+    });
+    const b = evaluateMonitor({
+      groundTruth: gt("inv1", "contradicted"),
+      prediction: prediction({ predictions: [] }),
+    });
+    const aggregated = aggregateEvaluations([a, b]);
+    expect(aggregated.classification.contradiction_precision).toEqual({ value: 1, numerator: 1, denominator: 1 });
+    expect(aggregated.classification.contradiction_recall).toEqual({ value: 0.5, numerator: 1, denominator: 2 });
+    expect(aggregated.classification.prediction_coverage).toEqual({ value: 0.5, numerator: 1, denominator: 2 });
+    expect(aggregated.per_domain).toBeDefined();
   });
 });

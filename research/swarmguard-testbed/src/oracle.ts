@@ -3,13 +3,14 @@
  */
 
 import type { RunArtifact } from "../../../lib/core/contracts/runArtifact";
-import type { OracleClaimLabel } from "./isolation";
+import type { OracleClaimLabel, OracleDefectClass } from "./isolation";
 
 export interface OracleTemplate {
   agent_id: string;
   event_kind: "assertion" | "handoff";
   assertion_index?: number;
   label: OracleClaimLabel["label"];
+  defect_class?: OracleDefectClass;
   responsible_agent_id: string;
   justification: string;
 }
@@ -32,6 +33,7 @@ export function bindOracleLabels(artifact: RunArtifact, templates: OracleTemplat
         event_kind: "assertion" as const,
         event_id: match?.event_id,
         label: template.label,
+        defect_class: template.defect_class ?? "none",
         originating_agent_id: template.agent_id,
         responsible_agent_id: template.responsible_agent_id,
         event_or_handoff_id: match?.event_id,
@@ -45,6 +47,7 @@ export function bindOracleLabels(artifact: RunArtifact, templates: OracleTemplat
       event_kind: "handoff" as const,
       handoff_id: match?.handoff_id,
       label: template.label,
+      defect_class: template.defect_class ?? "none",
       originating_agent_id: template.agent_id,
       responsible_agent_id: template.responsible_agent_id,
       event_or_handoff_id: match?.handoff_id,

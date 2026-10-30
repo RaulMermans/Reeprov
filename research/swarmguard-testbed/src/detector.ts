@@ -74,6 +74,13 @@ function assertAllowedDetectorPath(root: string, candidate: string): string {
     throw new DetectorAccessError("Detector interface cannot traverse into evaluator storage.");
   }
   const base = basename(resolvedCandidate);
+  if (
+    base.startsWith("oracles.") ||
+    base === "ground-truth.json" ||
+    base.includes("sealed")
+  ) {
+    throw new DetectorAccessError(`Detector interface cannot read evaluator label file: ${base}`);
+  }
   if (!(DETECTOR_ALLOWED_FILES as readonly string[]).includes(base)) {
     throw new DetectorAccessError(
       `Detector interface may only read ${DETECTOR_ALLOWED_FILES.join(", ")}. Refused: ${base}`

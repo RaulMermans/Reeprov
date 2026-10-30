@@ -1,0 +1,28 @@
+{
+  "format": "reeprov.swarmguard_testbed.sealed_evaluation.v1",
+  "version": "operator.sealed.example",
+  "cases": [
+    {
+      "case_id": "sealed-example-01",
+      "partition": "held_out",
+      "domain_id": "software-engineering",
+      "content_variant": "default",
+      "scenario_id": "se-normalize-severity-v1",
+      "seed": "sealed-example-01",
+      "notes": "Example only. Replace before use. Do not commit real labels in this tree.",
+      "injection": {
+        "enabled": false,
+        "config": {}
+      },
+      "oracle": [
+        {
+          "agent_id": "coder",
+          "event_kind": "assertion",
+          "label": "supported",
+          "responsible_agent_id": "coder",
+          "justification": "Replace with an operator-authored justification."
+        }
+      ]
+    }
+  ]
+}

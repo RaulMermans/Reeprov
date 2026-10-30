@@ -1,6 +1,6 @@
 {
   "format": "reeprov.swarmguard_testbed.oracle_manifest.v1",
-  "version": "p3.benchmark.v1",
+  "version": "p3.benchmark.v1.1",
   "partition": "development",
   "cases": [
     {
@@ -17,7 +17,8 @@
           "label": "supported",
           "responsible_agent_id": "coder",
           "justification": "Coder cites artifact v2; gold validation passed.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "reviewer",
@@ -25,7 +26,8 @@
           "label": "supported",
           "responsible_agent_id": "reviewer",
           "justification": "Reviewer cites observed validation evidence.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "release-decision",
@@ -33,7 +35,8 @@
           "label": "supported",
           "responsible_agent_id": "release-decision",
           "justification": "Release decision cites reviewed artifact and tests.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "coder",
@@ -41,7 +44,8 @@
           "label": "supported",
           "responsible_agent_id": "coder",
           "justification": "Coder handoff carries resolving evidence refs.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "reviewer",
@@ -49,7 +53,8 @@
           "label": "supported",
           "responsible_agent_id": "reviewer",
           "justification": "Reviewer handoff carries resolving evidence refs.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         }
       ]
     },
@@ -61,7 +66,7 @@
         "type": "incorrect_assertion",
         "target_agent_id": "coder",
         "config": {
-          "claim": "Validation succeeded for all gold cases."
+          "claim": "Validation failed every gold case."
         }
       },
       "oracle": [
@@ -70,16 +75,18 @@
           "event_kind": "assertion",
           "label": "contradicted",
           "responsible_agent_id": "coder",
-          "justification": "Delivered coder claim does not match observed validation.",
-          "assertion_index": 0
+          "justification": "Delivered claim that every gold case failed conflicts with the passing run_validation observation.",
+          "assertion_index": 0,
+          "defect_class": "factual_contradiction"
         },
         {
           "agent_id": "reviewer",
           "event_kind": "assertion",
           "label": "supported",
           "responsible_agent_id": "reviewer",
-          "justification": "Reviewer still cites observed tests.",
-          "assertion_index": 0
+          "justification": "Reviewer still cites observed passing tests.",
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "release-decision",
@@ -87,15 +94,17 @@
           "label": "supported",
           "responsible_agent_id": "release-decision",
           "justification": "Release cites tests.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "coder",
           "event_kind": "handoff",
           "label": "contradicted",
           "responsible_agent_id": "coder",
-          "justification": "Handoff carries the unsupported assertion.",
-          "assertion_index": 0
+          "justification": "Handoff payload repeats the false all-gold-failed assertion.",
+          "assertion_index": 0,
+          "defect_class": "factual_contradiction"
         },
         {
           "agent_id": "reviewer",
@@ -103,7 +112,8 @@
           "label": "supported",
           "responsible_agent_id": "reviewer",
           "justification": "Reviewer handoff remains evidence-bearing.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         }
       ]
     },
@@ -123,7 +133,8 @@
           "label": "supported",
           "responsible_agent_id": "coder",
           "justification": "Coder assertion still cites artifact v2.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "reviewer",
@@ -131,7 +142,8 @@
           "label": "supported",
           "responsible_agent_id": "reviewer",
           "justification": "Reviewer can still use tools.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "release-decision",
@@ -139,15 +151,17 @@
           "label": "supported",
           "responsible_agent_id": "release-decision",
           "justification": "Release cites workspace evidence.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "coder",
           "event_kind": "handoff",
           "label": "insufficient_evidence",
           "responsible_agent_id": "coder",
-          "justification": "Coder handoff evidence refs were stripped.",
-          "assertion_index": 0
+          "justification": "Evidence refs were stripped; remaining artifact_refs do not by themselves establish the handoff as a resolving citation. This is missing resolving evidence, not a conflicting fact.",
+          "assertion_index": 0,
+          "defect_class": "missing_resolving_evidence"
         },
         {
           "agent_id": "reviewer",
@@ -155,7 +169,8 @@
           "label": "supported",
           "responsible_agent_id": "reviewer",
           "justification": "Reviewer handoff is intact.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         }
       ]
     },
@@ -172,42 +187,47 @@
         {
           "agent_id": "coder",
           "event_kind": "assertion",
-          "label": "insufficient_evidence",
+          "label": "supported",
           "responsible_agent_id": "coder",
-          "justification": "Mapping claim has no executed validation observation.",
-          "assertion_index": 0
+          "justification": "Artifact v2 mapping covers HIGH, critical, and prefixed sev tokens. Skipped run_validation is an unexecuted observation, not a conflicting fact.",
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "reviewer",
           "event_kind": "assertion",
           "label": "insufficient_evidence",
           "responsible_agent_id": "reviewer",
-          "justification": "Reviewer cites validation that never ran.",
-          "assertion_index": 0
+          "justification": "Reviewer claims observed validation coverage, but run_validation never executed.",
+          "assertion_index": 0,
+          "defect_class": "unexecuted_observation"
         },
         {
           "agent_id": "release-decision",
           "event_kind": "assertion",
           "label": "insufficient_evidence",
           "responsible_agent_id": "release-decision",
-          "justification": "Release cites missing validation.",
-          "assertion_index": 0
+          "justification": "Release cites observed tests that were never executed.",
+          "assertion_index": 0,
+          "defect_class": "unexecuted_observation"
         },
         {
           "agent_id": "coder",
           "event_kind": "handoff",
-          "label": "insufficient_evidence",
+          "label": "supported",
           "responsible_agent_id": "coder",
-          "justification": "Handoff follows a skipped validation.",
-          "assertion_index": 0
+          "justification": "Handoff payload mapping claim remains supported by the written artifact; skipped validation is recorded as an unexecuted observation.",
+          "assertion_index": 0,
+          "defect_class": "unexecuted_observation"
         },
         {
           "agent_id": "reviewer",
           "event_kind": "handoff",
           "label": "insufficient_evidence",
           "responsible_agent_id": "reviewer",
-          "justification": "Reviewer handoff cannot cite a test observation.",
-          "assertion_index": 0
+          "justification": "Reviewer handoff repeats an observed-validation claim with no test observation.",
+          "assertion_index": 0,
+          "defect_class": "unexecuted_observation"
         }
       ]
     },
@@ -225,7 +245,8 @@
           "label": "supported",
           "responsible_agent_id": "investigator",
           "justification": "Finding cites SYS-1 system log.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "investigator",
@@ -233,7 +254,8 @@
           "label": "supported",
           "responsible_agent_id": "investigator",
           "justification": "Rumor is correctly treated as unsupported by logs.",
-          "assertion_index": 1
+          "assertion_index": 1,
+          "defect_class": "none"
         },
         {
           "agent_id": "validator",
@@ -241,7 +263,8 @@
           "label": "supported",
           "responsible_agent_id": "validator",
           "justification": "Validator cites SYS-1 for F1.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "decision",
@@ -249,7 +272,8 @@
           "label": "supported",
           "responsible_agent_id": "decision",
           "justification": "Resolution cites SYS-1.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "investigator",
@@ -257,7 +281,8 @@
           "label": "supported",
           "responsible_agent_id": "investigator",
           "justification": "Investigator handoff cites documentary records.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "validator",
@@ -265,7 +290,8 @@
           "label": "supported",
           "responsible_agent_id": "validator",
           "justification": "Validator handoff cites documentary records.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         }
       ]
     },
@@ -286,8 +312,9 @@
           "event_kind": "assertion",
           "label": "contradicted",
           "responsible_agent_id": "investigator",
-          "justification": "Delivered intern-causation claim is not supported by SYS-1.",
-          "assertion_index": 0
+          "justification": "Universal claim that all records confirm intern causation conflicts with SYS-1 (auth burst from 10.0.0.8) and SYS-2 (svc-backup sudo).",
+          "assertion_index": 0,
+          "defect_class": "factual_contradiction"
         },
         {
           "agent_id": "investigator",
@@ -295,7 +322,8 @@
           "label": "supported",
           "responsible_agent_id": "investigator",
           "justification": "Second investigator assertion is unchanged.",
-          "assertion_index": 1
+          "assertion_index": 1,
+          "defect_class": "none"
         },
         {
           "agent_id": "validator",
@@ -303,7 +331,8 @@
           "label": "supported",
           "responsible_agent_id": "validator",
           "justification": "Validator still cites SYS-1.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "decision",
@@ -311,15 +340,17 @@
           "label": "supported",
           "responsible_agent_id": "decision",
           "justification": "Decision cites SYS-1.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "investigator",
           "event_kind": "handoff",
           "label": "contradicted",
           "responsible_agent_id": "investigator",
-          "justification": "Handoff carries the unsupported intern claim.",
-          "assertion_index": 0
+          "justification": "Handoff payload repeats the universal intern-causation claim that conflicts with the cited system logs.",
+          "assertion_index": 0,
+          "defect_class": "factual_contradiction"
         },
         {
           "agent_id": "validator",
@@ -327,7 +358,8 @@
           "label": "supported",
           "responsible_agent_id": "validator",
           "justification": "Validator handoff remains evidence-bearing.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         }
       ]
     },
@@ -347,7 +379,8 @@
           "label": "supported",
           "responsible_agent_id": "investigator",
           "justification": "Investigator assertion still cites SYS-1.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "investigator",
@@ -355,7 +388,8 @@
           "label": "supported",
           "responsible_agent_id": "investigator",
           "justification": "Second assertion still cites records.",
-          "assertion_index": 1
+          "assertion_index": 1,
+          "defect_class": "none"
         },
         {
           "agent_id": "validator",
@@ -363,7 +397,8 @@
           "label": "supported",
           "responsible_agent_id": "validator",
           "justification": "Validator can still read records.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "decision",
@@ -371,15 +406,17 @@
           "label": "supported",
           "responsible_agent_id": "decision",
           "justification": "Decision cites SYS-1.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "investigator",
           "event_kind": "handoff",
           "label": "insufficient_evidence",
           "responsible_agent_id": "investigator",
-          "justification": "Investigator handoff evidence refs were stripped.",
-          "assertion_index": 0
+          "justification": "Handoff evidence refs were stripped. Missing resolving evidence is not a conflicting fact about the findings.",
+          "assertion_index": 0,
+          "defect_class": "missing_resolving_evidence"
         },
         {
           "agent_id": "validator",
@@ -387,7 +424,8 @@
           "label": "supported",
           "responsible_agent_id": "validator",
           "justification": "Validator handoff is intact.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         }
       ]
     },
@@ -409,7 +447,8 @@
           "label": "supported",
           "responsible_agent_id": "investigator",
           "justification": "Own assertion refs remain in-run.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "investigator",
@@ -417,7 +456,8 @@
           "label": "supported",
           "responsible_agent_id": "investigator",
           "justification": "Second assertion remains in-run.",
-          "assertion_index": 1
+          "assertion_index": 1,
+          "defect_class": "none"
         },
         {
           "agent_id": "validator",
@@ -425,7 +465,8 @@
           "label": "supported",
           "responsible_agent_id": "validator",
           "justification": "Validator cites SYS-1.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "decision",
@@ -433,15 +474,17 @@
           "label": "supported",
           "responsible_agent_id": "decision",
           "justification": "Decision cites SYS-1.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         },
         {
           "agent_id": "investigator",
           "event_kind": "handoff",
-          "label": "contradicted",
+          "label": "supported",
           "responsible_agent_id": "investigator",
-          "justification": "Handoff cites a foreign run.",
-          "assertion_index": 0
+          "justification": "Payload findings remain supported by in-run SYS-1/SYS-2. The extra foreign ref is a provenance-integrity defect, not a conflicting fact about those findings.",
+          "assertion_index": 0,
+          "defect_class": "provenance_integrity"
         },
         {
           "agent_id": "validator",
@@ -449,10 +492,11 @@
           "label": "supported",
           "responsible_agent_id": "validator",
           "justification": "Validator handoff is in-run.",
-          "assertion_index": 0
+          "assertion_index": 0,
+          "defect_class": "none"
         }
       ]
     }
   ],
-  "integrity_hash": "6741c225d0c7504cdf2ba0ba8cd4bd515c030447e224680fff9aa04d91faf673"
+  "integrity_hash": "2c69d5ee34f7de101f0189d9ef7306e1d1799548dc4f052b27da2449dfba5acd"
 }

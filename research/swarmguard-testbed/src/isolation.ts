@@ -28,13 +28,27 @@ export interface InjectionRecord {
   };
 }
 
+export type OracleDefectClass =
+  | "none"
+  | "factual_contradiction"
+  | "provenance_integrity"
+  | "missing_resolving_evidence"
+  | "unexecuted_observation"
+  | "payload_tamper";
+
 export interface OracleClaimLabel {
   claim_id: string;
   agent_id: string;
   event_kind: "assertion" | "handoff";
   event_id?: string;
   handoff_id?: string;
+  /**
+   * Factual/evidential status of the delivered claim or payload.
+   * Provenance defects are recorded in defect_class and must not be
+   * collapsed into contradicted unless a conflicting fact is established.
+   */
   label: "supported" | "contradicted" | "insufficient_evidence";
+  defect_class?: OracleDefectClass;
   originating_agent_id: string;
   responsible_agent_id: string;
   event_or_handoff_id?: string;
