@@ -1,0 +1,99 @@
+{
+  "domain": "software-engineering",
+  "scenario_id": "se-normalize-severity-v1",
+  "model_name": "recorded-fixture",
+  "agents": {
+    "coder": {
+      "summary": "Wrote severity mapper v1 then v2 and requested gold-case validation.",
+      "assertions": [
+        {
+          "claim": "Artifact v2 maps HIGH, critical, and prefixed sev tokens onto low|medium|high.",
+          "evidence_refs": ["artifact:v2"],
+          "confidence": "high"
+        }
+      ],
+      "tool_requests": [
+        {
+          "name": "write_artifact",
+          "arguments": {
+            "version": "1",
+            "name": "normalizeIncidentSeverity",
+            "body": {
+              "function_name": "normalizeIncidentSeverity",
+              "mapping": {
+                "low": "low",
+                "medium": "medium",
+                "high": "high"
+              }
+            }
+          }
+        },
+        {
+          "name": "write_artifact",
+          "arguments": {
+            "version": "2",
+            "name": "normalizeIncidentSeverity",
+            "body": {
+              "function_name": "normalizeIncidentSeverity",
+              "mapping": {
+                "low": "low",
+                "medium": "medium",
+                "high": "high",
+                "HIGH": "high",
+                "critical": "high",
+                "sev: medium": "medium",
+                "sev: high": "high",
+                "sev: low": "low"
+              }
+            }
+          }
+        },
+        {
+          "name": "run_validation",
+          "arguments": { "version": "2" }
+        }
+      ],
+      "output": {
+        "artifact_name": "normalizeIncidentSeverity",
+        "artifact_version": "2"
+      },
+      "ready_for_handoff": true
+    },
+    "reviewer": {
+      "summary": "Independent review of artifact v2 and observed validation output.",
+      "assertions": [
+        {
+          "claim": "Observed validation covers the required gold cases for artifact v2.",
+          "evidence_refs": ["tool:run_validation", "artifact:current"],
+          "confidence": "medium"
+        }
+      ],
+      "tool_requests": [
+        { "name": "read_workspace", "arguments": {} }
+      ],
+      "output": {
+        "verdict": "approve",
+        "findings": []
+      },
+      "ready_for_handoff": true
+    },
+    "release-decision": {
+      "summary": "Simulated release decision based on review and validation evidence.",
+      "assertions": [
+        {
+          "claim": "Simulated release is justified by reviewed artifact v2 and observed tests.",
+          "evidence_refs": ["artifact:current", "tool:run_validation"],
+          "confidence": "medium"
+        }
+      ],
+      "tool_requests": [
+        { "name": "read_workspace", "arguments": {} }
+      ],
+      "output": {
+        "decision": "grant",
+        "reason": "Review approved and observed validation passed."
+      },
+      "ready_for_handoff": true
+    }
+  }
+}

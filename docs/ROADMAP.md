@@ -359,3 +359,13 @@ Establishes experimental readiness for later multi-agent research without implem
 - `exportRunEvidenceBundle` wraps the existing RunArtifact for independent analysis.
 - Two-agent harness: `examples/external-agents/two-agent-handoff/` (in addition to the Sprint 13 single-agent incident-triage example).
 - Proof: `docs/testing/p1-runtime-evidence-readiness.md`.
+
+## Sprint P2 — Universal Multi-Agent Research Testbed
+
+Minimal domain-independent laboratory for later SwarmGuard research. SwarmGuard detection/attribution is **not** implemented.
+
+- Hybrid controller + LLM agents under `research/swarmguard-testbed/` (isolated from public contracts).
+- Same harness runs software-engineering (coder / reviewer / release-decision) and investigation (investigator / validator / decision) domains.
+- Honest modes: `live_llm` (actual provider HTTP), `offline_fixture`, `mocked`. Credentials do not upgrade a run to live.
+- Controlled fault injection with evaluator-only ground truth; detector-visible export is the canonical Reeprov artifact + evidence bundle.
+- Docs: `research/swarmguard-testbed/README.md`, `docs/sprints/P2-universal-multi-agent-testbed.md`, `docs/testing/p2-multi-agent-testbed.md`.

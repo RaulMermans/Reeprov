@@ -43,6 +43,7 @@ const EXCLUDED_DIRS = new Set([
   "s12-evidence",
   "s13-evidence",
   "test-artifacts",
+  ".output",
 ]);
 
 const EXCLUDED_FILES = new Set([

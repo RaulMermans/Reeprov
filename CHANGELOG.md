@@ -5,6 +5,12 @@ All notable changes to Reeprov will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+- Sprint P2 research testbed (`research/swarmguard-testbed/`): reusable multi-agent harness, two experimental domains, honest live/offline/mocked LLM modes, fault injection, and detector vs evaluator isolation. SwarmGuard is not implemented.
+- `CaptureSession.recordArtifact` so experimental runs can persist canonical artifact references.
+
 ## [0.2.0-beta.1] - 2026-10-27
 
 External replay, checkpoint integrity and SDK contract (Sprints 12–13).

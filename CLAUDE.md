@@ -6,7 +6,7 @@ Reeprov is local-first debugging and reproducibility infrastructure for AI agent
 
 ## Current Phase
 
-Stabilization + Production QA, following Task 12 (Visual Execution Canvas). The proof layer now includes production ingestion, Postgres persistence, real run traces, WorkflowSpec support, and a read-only Visual Execution Canvas (`components/proof-layer/VisualExecutionCanvas.tsx`, `lib/visualGraph/`) with semantic node identity, node type icons, evidence nodes (models/tools/skills/CLI/evals/artifacts/issues/recoveries), inspector v2, replay controls, canvas filters, and a live-polling foundation. The static scanner (agents/workflows/prompts/tools/models/providers/evals/artifacts/approval gates, model/provider detection, optional eval/run metrics) remains active and unchanged. Real LLM auditor calls remain feature-flagged and disabled by default. Local test suite: 1949 passing (see `docs/ROADMAP.md` for task-by-task history). Remaining work: live run updates, artifact proof, multi-integration validation, portfolio packaging.
+Stabilization + Production QA, plus Sprint P2 research testbed under `research/swarmguard-testbed/` (multi-agent harness, two domains, fault injection, isolated ground truth). SwarmGuard detection is not implemented. Real product LLM auditor calls remain feature-flagged and disabled by default. See `docs/ROADMAP.md`.
 
 ## Architecture
 

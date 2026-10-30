@@ -1,0 +1,92 @@
+{
+  "domain": "investigation",
+  "scenario_id": "inv-auth-burst-v1",
+  "model_name": "recorded-fixture",
+  "agents": {
+    "investigator": {
+      "summary": "Examined system logs and supporting records for an authentication burst.",
+      "assertions": [
+        {
+          "claim": "Twelve authentication failures originated from 10.0.0.8 on api-gateway.",
+          "evidence_refs": ["record:SYS-1"],
+          "confidence": "high"
+        },
+        {
+          "claim": "A rumor naming an intern is unsupported by system logs.",
+          "evidence_refs": ["record:RUM-1", "record:SYS-2"],
+          "confidence": "medium"
+        }
+      ],
+      "tool_requests": [
+        { "name": "list_records", "arguments": {} },
+        { "name": "read_record", "arguments": { "id": "SYS-1" } },
+        { "name": "read_record", "arguments": { "id": "SYS-2" } },
+        { "name": "search_records", "arguments": { "query": "auth" } }
+      ],
+      "output": {
+        "findings": [
+          {
+            "id": "F1",
+            "claim": "Repeated authentication failures from 10.0.0.8.",
+            "record_ids": ["SYS-1"],
+            "severity": "high"
+          },
+          {
+            "id": "F2",
+            "claim": "Backup service-account used sudo after the failures.",
+            "record_ids": ["SYS-2"],
+            "severity": "medium"
+          }
+        ]
+      },
+      "ready_for_handoff": true
+    },
+    "validator": {
+      "summary": "Checked whether cited findings resolve to source records.",
+      "assertions": [
+        {
+          "claim": "Finding F1 is supported by system log SYS-1.",
+          "evidence_refs": ["record:SYS-1"],
+          "confidence": "high"
+        }
+      ],
+      "tool_requests": [
+        { "name": "read_record", "arguments": { "id": "SYS-1" } },
+        { "name": "read_record", "arguments": { "id": "RUM-1" } }
+      ],
+      "output": {
+        "assessments": [
+          {
+            "finding_id": "F1",
+            "supported": true,
+            "reason": "SYS-1 is a system_log describing the auth burst.",
+            "record_ids": ["SYS-1"]
+          },
+          {
+            "finding_id": "F2",
+            "supported": true,
+            "reason": "SYS-2 is a system_log of sudo by svc-backup.",
+            "record_ids": ["SYS-2"]
+          }
+        ]
+      },
+      "ready_for_handoff": true
+    },
+    "decision": {
+      "summary": "Simulated resolution based on validated system-log findings.",
+      "assertions": [
+        {
+          "claim": "Escalate for investigation of 10.0.0.8; do not treat the intern rumor as proof.",
+          "evidence_refs": ["record:SYS-1"],
+          "confidence": "medium"
+        }
+      ],
+      "tool_requests": [],
+      "output": {
+        "resolution": "escalate",
+        "reason": "System logs support an authentication burst; rumor is not authoritative."
+      },
+      "ready_for_handoff": true
+    }
+  }
+}

@@ -68,6 +68,8 @@ Welcome to the Reeprov documentation. Reeprov is local-first debugging, offline 
 - [Evaluation Plan](evaluation_plan.md) — Evaluation framework design.
 - [Deployment Guide](DEPLOYMENT.md) — Infrastructure deployment options.
 - [Roadmap](ROADMAP.md) — Project roadmap and priorities.
+- [Sprint P2 Multi-Agent Testbed](sprints/P2-universal-multi-agent-testbed.md) — Research laboratory (not SwarmGuard).
+- [P2 verification](testing/p2-multi-agent-testbed.md) — Offline / live-guard reproduction.
 
 ## 9. Historical & Internal
 - [North Star Vision](architecture/reeprov-north-star.md) — Initial project vision.
