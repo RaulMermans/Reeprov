@@ -48,6 +48,7 @@ import {
   agentHandoffSchema,
   handoffAttributionStatus,
   type AgentHandoff,
+  type PayloadCaptureStatus,
 } from "../contracts/handoff";
 import { resolveExplicitAgentId, uniqueAgentIds } from "../contracts/identity";
 import { artifactReferenceSchema, type ArtifactReference } from "../contracts/artifacts";
@@ -111,6 +112,8 @@ export interface RecordHandoffInput {
   toStepId?: string;
   parentEventId?: string;
   payloadSummary?: string;
+  /** Delivered handoff body. Sanitized according to the session capture policy. */
+  payload?: unknown;
   artifactRefs?: string[];
   evidenceRefs?: string[];
   metadata?: Record<string, unknown>;
@@ -120,6 +123,27 @@ export interface FinishRunOptions {
   summary?: string;
   status?: "completed" | "failed" | "degraded";
   error?: { message: string; code?: string; details?: unknown };
+}
+
+function captureHandoffPayload(
+  payload: unknown,
+  policy: CapturePolicy
+): { payload?: unknown; status: PayloadCaptureStatus } {
+  if (payload === undefined) {
+    return { status: "omitted" };
+  }
+  if (policy.contentMode === "STRUCTURE_ONLY") {
+    return { status: "structure_only" };
+  }
+  try {
+    const sanitized = sanitizeCanonicalRecord(payload, policy);
+    if (sanitized === undefined || sanitized === null) {
+      return { status: "incomplete" };
+    }
+    return { payload: sanitized, status: "captured" };
+  } catch {
+    return { status: "incomplete" };
+  }
 }
 
 export class CaptureSession {
@@ -168,6 +192,10 @@ export class CaptureSession {
     this.startedAt = new Date().toISOString();
     this.policy = resolvePolicy(options.policy);
     this.strict = options.strict === true;
+  }
+
+  getCapturePolicy(): CapturePolicy {
+    return this.policy;
   }
 
   // ── Step Management ───────────────────────────────────────────────────────
@@ -858,6 +886,10 @@ export class CaptureSession {
     const stepIndex = this.stepCounter++;
     const stepId = `step_${this.runId}_${stepIndex}`;
     const handoffId = `handoff_${this.runId}_${this.handoffs.length}`;
+    const captured = captureHandoffPayload(input.payload, this.policy);
+    const metadata = this.policy.contentMode === "STRUCTURE_ONLY"
+      ? undefined
+      : sanitizeCanonicalRecord(input.metadata, this.policy);
 
     const handoff = agentHandoffSchema.parse({
       handoff_id: handoffId,
@@ -868,11 +900,13 @@ export class CaptureSession {
       to_step_id: input.toStepId,
       parent_event_id: input.parentEventId ?? input.fromStepId,
       payload_summary: input.payloadSummary,
+      payload: captured.payload,
+      payload_capture_status: captured.status,
       artifact_refs: input.artifactRefs ?? [],
       evidence_refs: input.evidenceRefs ?? [],
       timestamp,
       attribution_status: handoffAttributionStatus(fromAgentId, toAgentId),
-      metadata: input.metadata,
+      metadata,
     });
 
     this.handoffs.push(handoff);

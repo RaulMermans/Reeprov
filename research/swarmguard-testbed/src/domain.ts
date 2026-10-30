@@ -12,8 +12,8 @@ export interface DomainWorkspace {
 export interface DomainModule {
   id: string;
   title: string;
-  buildScenario(seed?: string): Scenario;
-  createWorkspace(): Promise<DomainWorkspace>;
+  buildScenario(seed?: string, variant?: string): Scenario;
+  createWorkspace(scenario?: Scenario): Promise<DomainWorkspace>;
   registerTools(registry: ToolRegistry, workspace: DomainWorkspace): void;
   seedEvidence?(
     session: CaptureSession,

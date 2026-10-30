@@ -8,19 +8,24 @@
  */
 
 import { CaptureSession } from "../../../lib/core/capture/sdk";
+import type { CapturePolicy } from "../../../lib/core/capture/types";
 import { exportRunEvidenceBundle } from "../../../lib/core/evidence/exportBundle";
+import { sanitizeCanonicalRecord } from "../../../lib/core/capture/redaction";
 import type { RunArtifact } from "../../../lib/core/contracts/runArtifact";
 import type { AgentRole, AgentTurn, ExecutionError, ExecutionMode, ExecutionStatus, ExperimentBudget, InjectionPlan, Scenario } from "./contracts";
 import { DEFAULT_BUDGET, NO_INJECTION, scenarioSchema } from "./contracts";
 import { RunBudget } from "./budget";
 import { applyHandoffInjection, applyIncorrectAssertion, applySkippedValidation, isControl, planDigest } from "./injection";
-import { assertIsolated, createGroundTruth, type GroundTruthRecord, type InjectionRecord } from "./isolation";
+import { assertIsolated, createGroundTruth, type GroundTruthRecord, type InjectionRecord, type OracleClaimLabel } from "./isolation";
 import { invokeModel, ModelInvocationError, type ChatMessage } from "./llm";
 import { resolveExecutionMode } from "./modes";
 import { persistExperimentalRun, type PersistedExperimentalRun } from "./persist";
 import { createPrivateContext, createSharedState, resolveRefs, sharedViewForAgent, type SharedExecutionState } from "./state";
 import { invokeAuthorizedTool, ToolRegistry, type ToolContext } from "./tools";
 import type { DomainModule, DomainWorkspace } from "./domain";
+import { assessObservability } from "./observability";
+import { commitSha } from "./gitmeta";
+import { bindOracleLabels, type OracleTemplate } from "./oracle";
 
 export interface HarnessOptions {
   mode?: ExecutionMode | string;
@@ -29,9 +34,14 @@ export interface HarnessOptions {
   runId?: string;
   outputDir?: string;
   seed?: string;
+  variant?: string;
+  caseId?: string;
   mockTurns?: Record<string, AgentTurn>;
   persist?: boolean;
   strictCapture?: boolean;
+  capturePolicy?: Partial<CapturePolicy>;
+  oracleLabels?: OracleClaimLabel[];
+  oracleTemplates?: OracleTemplate[];
 }
 
 export interface ExperimentalRunResult {
@@ -70,15 +80,17 @@ export async function runExperiment(
     // Offline still runs so the rest of the laboratory stays usable.
   }
   const mode = resolved.mode;
-  const scenario = scenarioSchema.parse(domain.buildScenario(options.seed));
+  const scenario = scenarioSchema.parse(domain.buildScenario(options.seed, options.variant));
   const budgetLimits = { ...DEFAULT_BUDGET, ...options.budget };
   const budget = new RunBudget(budgetLimits);
   const injection = options.injection ?? NO_INJECTION;
-  const runId = options.runId ?? `run_p2_${domain.id}_${scenario.seed}_${Date.now().toString(36)}`;
+  const runId =
+    options.runId ??
+    `run_${domain.id}_${options.caseId ?? scenario.variant}_${scenario.seed}_${Date.now().toString(36)}`;
   const errors: ExecutionError[] = [];
   const injectionRecords: InjectionRecord[] = [];
 
-  const workspace = await domain.createWorkspace();
+  const workspace = await domain.createWorkspace(scenario);
   const registry = new ToolRegistry();
   domain.registerTools(registry, workspace);
   const shared = createSharedState();
@@ -91,6 +103,7 @@ export async function runExperiment(
     runId,
     agentId: scenario.agents[0]?.id,
     strict: options.strictCapture ?? false,
+    policy: options.capturePolicy,
   });
 
   try {
@@ -184,6 +197,7 @@ export async function runExperiment(
           fromStepId: agentResult.stepId,
           parentEventId: agentResult.stepId,
           payloadSummary: injected.payload.summary,
+          payload: injected.payload.body,
           artifactRefs: resolvedArtifactRefs,
           evidenceRefs: resolvedEvidenceRefs,
         });
@@ -223,19 +237,31 @@ export async function runExperiment(
       error: errors[0] ? { message: errors[0].message, code: errors[0].code } : undefined,
     });
 
+    const observability = assessObservability({
+      artifact,
+      plan: injection,
+      injections: injectionRecords,
+    });
     const groundTruth = createGroundTruth({
       scenarioId: scenario.id,
       runId,
       domainId: domain.id,
       seed: scenario.seed,
       plan: injection,
+      caseId: options.caseId,
       injections: injectionRecords,
       expectedOutcomes: isControl(injection)
         ? ["no_injected_violation"]
         : injectionRecords.map((record) => record.expected_observable_violation),
+      experimentalValidity: observability.validity,
+      observability: observability.probes,
+      oracleLabels:
+        options.oracleLabels ??
+        (options.oracleTemplates ? bindOracleLabels(artifact, options.oracleTemplates) : []),
       scoring: {
         plan_digest: planDigest(injection),
         last_agent_id: lastAgentId,
+        content_variant: scenario.variant,
       },
     });
 
@@ -255,12 +281,14 @@ export async function runExperiment(
           run_id: runId,
           domain_id: domain.id,
           scenario_id: scenario.id,
+          case_id: options.caseId,
+          content_variant: scenario.variant,
           execution_mode: mode,
           requested_mode: resolved.requested,
           live_blocked: resolved.live_blocked,
           status,
           participating_agent_ids: artifact.identity.participating_agent_ids ?? [],
-          control: isControl(injection),
+          commit_sha: commitSha(),
         },
       });
     }
@@ -471,6 +499,30 @@ async function runAgentTurn(input: {
 
         turn.assertions.forEach((assertion, index) => {
           const refs = resolveRefs(assertion.evidence_refs, input.shared);
+          const captureMode = session.getCapturePolicy().contentMode;
+          const captureStatus =
+            captureMode === "STRUCTURE_ONLY"
+              ? "structure_only"
+              : assertion.claim.trim().length === 0
+                ? "incomplete"
+                : "captured";
+          const details =
+            captureStatus === "captured"
+              ? sanitizeCanonicalRecord(
+                  {
+                    claim: assertion.claim,
+                    confidence: assertion.confidence,
+                    assertion_index: index,
+                    capture_status: captureStatus,
+                    evidence_ref_count: refs.length,
+                  },
+                  session.getCapturePolicy()
+                )
+              : {
+                  assertion_index: index,
+                  capture_status: captureStatus,
+                  evidence_ref_count: refs.length,
+                };
           session.recordVerification({
             event_id: `vevt_${session.runId}_${agent.id}_assert_${index}`,
             event_type: "verification.passed",
@@ -483,11 +535,17 @@ async function runAgentTurn(input: {
             evidence_refs: refs,
             artifact_refs: [],
             step_id: id,
+            details,
           });
         });
 
         session.captureState(
-          { agent_id: agent.id, output: turn.output },
+          {
+            agent_id: agent.id,
+            output: turn.output,
+            delivered_assertions: turn.assertions,
+            delivered_tool_requests: turn.tool_requests.map((request) => request.name),
+          },
           { stepId: id, scope: "workflow" }
         );
         privateCtx.working["turn"] = turn;

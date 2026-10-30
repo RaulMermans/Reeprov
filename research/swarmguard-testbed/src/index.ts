@@ -9,6 +9,13 @@ export * from "./llm";
 export * from "./domain";
 export * from "./harness";
 export * from "./persist";
+export * from "./detector";
+export * from "./observability";
+export * from "./baselines";
+export * from "./evaluate";
+export * from "./benchmark";
+export * from "./experiment";
+export * from "./oracle";
 
 import { investigationDomain } from "../domains/investigation";
 import { softwareEngineeringDomain } from "../domains/softwareEngineering";

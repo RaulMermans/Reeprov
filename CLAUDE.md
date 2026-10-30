@@ -6,7 +6,7 @@ Reeprov is local-first debugging and reproducibility infrastructure for AI agent
 
 ## Current Phase
 
-Stabilization + Production QA, plus Sprint P2 research testbed under `research/swarmguard-testbed/` (multi-agent harness, two domains, fault injection, isolated ground truth). SwarmGuard detection is not implemented. Real product LLM auditor calls remain feature-flagged and disabled by default. See `docs/ROADMAP.md`.
+Stabilization + Production QA, plus Sprint P3 research infrastructure under `research/swarmguard-testbed/` (observable injections, split detector/evaluator storage, frozen 24-case benchmark, two conventional baselines, independent scorer). SwarmGuard detection is not implemented. Real product LLM auditor calls remain feature-flagged and disabled by default. See `docs/ROADMAP.md`.
 
 ## Architecture
 

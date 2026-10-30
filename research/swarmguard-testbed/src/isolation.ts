@@ -1,12 +1,13 @@
 /**
- * Detector-visible vs evaluator-only isolation.
+ * Evaluator-only ground-truth records.
  *
- * Future SwarmGuard detectors must read only the canonical Reeprov artifact /
- * evidence bundle. Intervention labels live exclusively in GroundTruthRecord.
+ * Detectors must not import this module. Use ./leakcheck and ./detector instead.
  */
 
-import { GROUND_TRUTH_LEAK_KEYS, LEAK_SUBSTRINGS } from "./contracts";
-import type { InjectionPlan, InjectionType, InjectionBoundary } from "./contracts";
+import type { ExperimentalValidity, InjectionPlan, InjectionType, InjectionBoundary } from "./contracts";
+import { assertIsolated, findGroundTruthLeaks, detectorView, type IsolationReport } from "./leakcheck";
+
+export { assertIsolated, findGroundTruthLeaks, detectorView, type IsolationReport };
 
 export interface InjectionRecord {
   injection_id: string;
@@ -27,63 +28,45 @@ export interface InjectionRecord {
   };
 }
 
+export interface OracleClaimLabel {
+  claim_id: string;
+  agent_id: string;
+  event_kind: "assertion" | "handoff";
+  event_id?: string;
+  handoff_id?: string;
+  label: "supported" | "contradicted" | "insufficient_evidence";
+  originating_agent_id: string;
+  responsible_agent_id: string;
+  event_or_handoff_id?: string;
+  justification: string;
+}
+
+export interface ObservabilityProbe {
+  injection_type: InjectionType | "control";
+  applied: boolean;
+  visible_in_canonical_export: boolean;
+  evidence_path: string;
+  distinguishable_from_control: boolean;
+  notes: string;
+}
+
 export interface GroundTruthRecord {
   format: "reeprov.swarmguard_testbed.ground_truth.v1";
   scenario_id: string;
   run_id: string;
   domain_id: string;
+  case_id?: string;
   seed: string;
   control: boolean;
   injections: InjectionRecord[];
   expected_outcomes: string[];
+  experimental_validity: ExperimentalValidity;
+  observability: ObservabilityProbe[];
+  oracle_labels: OracleClaimLabel[];
   scoring_metadata: Record<string, unknown>;
   created_at: string;
 }
 
-export interface IsolationReport {
-  isolated: boolean;
-  leaks: string[];
-}
-
-function collectKeys(value: unknown, path: string, acc: string[]): void {
-  if (value === null || value === undefined) return;
-  if (Array.isArray(value)) {
-    value.forEach((entry, index) => collectKeys(entry, `${path}[${index}]`, acc));
-    return;
-  }
-  if (typeof value === "object") {
-    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-      acc.push(`${path}.${key}`);
-      collectKeys(child, `${path}.${key}`, acc);
-    }
-  }
-}
-
-export function findGroundTruthLeaks(detectorVisible: unknown): string[] {
-  const leaks: string[] = [];
-  const keys: string[] = [];
-  collectKeys(detectorVisible, "$", keys);
-  const forbidden = new Set<string>(GROUND_TRUTH_LEAK_KEYS);
-  for (const path of keys) {
-    const leaf = path.split(".").pop() ?? "";
-    const bracketFree = leaf.replace(/\[\d+\]/g, "");
-    if (forbidden.has(bracketFree)) {
-      leaks.push(`forbidden key at ${path}`);
-    }
-  }
-  const serialized = JSON.stringify(detectorVisible).toLowerCase();
-  for (const token of LEAK_SUBSTRINGS) {
-    if (serialized.includes(token)) {
-      leaks.push(`forbidden substring "${token}" in detector-visible JSON`);
-    }
-  }
-  return [...new Set(leaks)];
-}
-
-export function assertIsolated(detectorVisible: unknown): IsolationReport {
-  const leaks = findGroundTruthLeaks(detectorVisible);
-  return { isolated: leaks.length === 0, leaks };
-}
 
 export function createGroundTruth(input: {
   scenarioId: string;
@@ -94,22 +77,30 @@ export function createGroundTruth(input: {
   injections?: InjectionRecord[];
   expectedOutcomes?: string[];
   scoring?: Record<string, unknown>;
+  caseId?: string;
+  experimentalValidity?: ExperimentalValidity;
+  observability?: ObservabilityProbe[];
+  oracleLabels?: OracleClaimLabel[];
 }): GroundTruthRecord {
-  const control = !input.plan.enabled;
+  const control = !input.plan.enabled || !input.plan.type;
+  const injections = input.injections ?? [];
+  const experimentalValidity: ExperimentalValidity =
+    input.experimentalValidity ?? (control || injections.length > 0 ? "valid" : "invalid_not_applied");
   return {
     format: "reeprov.swarmguard_testbed.ground_truth.v1",
     scenario_id: input.scenarioId,
     run_id: input.runId,
     domain_id: input.domainId,
+    case_id: input.caseId,
     seed: input.seed,
     control,
-    injections: input.injections ?? [],
+    injections,
     expected_outcomes: input.expectedOutcomes ?? (control ? ["no_injected_violation"] : []),
+    experimental_validity: experimentalValidity,
+    observability: input.observability ?? [],
+    oracle_labels: input.oracleLabels ?? [],
     scoring_metadata: input.scoring ?? {},
     created_at: new Date().toISOString(),
   };
 }
 
-export function detectorView<T>(artifact: T): T {
-  return structuredClone(artifact);
-}
