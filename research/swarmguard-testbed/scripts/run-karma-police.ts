@@ -17,6 +17,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runBenchmarkCase } from "../src/experiment";
 import { listBenchmarkCases, type Partition } from "../src/benchmark";
+import { createDetectorAccess } from "../src/detector";
 import { runKarmaPoliceWithFindings } from "../src/karmaPolice";
 import { runPerAgentMonitor, runPooledEventMonitor } from "../src/baselines";
 import { evaluateMonitor, evaluationToRow } from "../src/evaluate";
@@ -35,7 +36,6 @@ const defaultOutput = join(process.cwd(), "research/swarmguard-testbed/.output")
 if (!process.env["REEPROV_STORE_DIR"]) {
   process.env["REEPROV_STORE_DIR"] = join(defaultOutput, ".reeprov-store");
 }
-process.env["REEPROV_P3_DETECTOR_ROLE"] = "1";
 
 async function main() {
   const outputDir = arg("--output") ?? defaultOutput;
@@ -50,6 +50,11 @@ async function main() {
     process.exit(2);
   }
 
+  if (partition !== "held_out" && process.env[HELDOUT_ALLOW_ENV] !== "1") {
+    process.env["REEPROV_P3_DETECTOR_ROLE"] = "1";
+  }
+
+  const detectorAccess = createDetectorAccess(outputDir);
   const caseIds = caseId ? [caseId] : listBenchmarkCases(partition).map((c) => c.case_id);
 
   console.log("================================================================================");
@@ -67,8 +72,10 @@ async function main() {
       persist: true,
     });
 
+    const detectorEvidence = await detectorAccess.loadRun(executed.run_id);
+
     const { result: kpResult, findings: kpFindings } = runKarmaPoliceWithFindings(
-      executed.artifact,
+      detectorEvidence,
       { caseId: id, domainId: executed.domain_id }
     );
 

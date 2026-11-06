@@ -13,6 +13,7 @@
 
 import type { RunArtifact } from "../../../../lib/core/contracts/runArtifact";
 import type { DetectorEvidence } from "../detector";
+import { assertIsolated } from "../leakcheck";
 import {
   MONITOR_RESULT_FORMAT,
   assertMonitorEvidenceAuthorized,
@@ -53,13 +54,24 @@ export function runKarmaPoliceWithFindings(
 ): KarmaPoliceExecutionOutput {
   const started = Date.now();
 
-  // Enforce detector role mode
-  process.env["REEPROV_P3_DETECTOR_ROLE"] = "1";
-
   const artifact: RunArtifact = isDetectorEvidence(input) ? input.artifact : input;
   const bundle = isDetectorEvidence(input) ? input.bundle : undefined;
 
   assertMonitorEvidenceAuthorized(artifact);
+  if (isDetectorEvidence(input)) {
+    const bundleIsolation = assertIsolated(input.bundle);
+    if (!bundleIsolation.isolated) {
+      throw new Error(`Monitor received leaked evaluator fields in bundle: ${bundleIsolation.leaks.join("; ")}`);
+    }
+    if (input.run_record) {
+      const recordIsolation = assertIsolated(input.run_record);
+      if (!recordIsolation.isolated) {
+        throw new Error(
+          `Monitor received leaked evaluator fields in run_record: ${recordIsolation.leaks.join("; ")}`
+        );
+      }
+    }
+  }
 
   const runId = artifact.identity.run_id;
   const index = buildEvidenceIndex(artifact, bundle);

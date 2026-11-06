@@ -114,13 +114,24 @@ export interface IndexedRecord {
   timestamp?: string;
 }
 
+export interface UpstreamFinding {
+  id: string;
+  claim: string;
+  record_ids: string[];
+  severity?: string;
+  agent_id: string;
+  handoff_id: string;
+}
+
 export interface KarmaPoliceEvidenceIndex {
   runId: string;
   artifact: RunArtifact;
   artifactsById: Map<string, IndexedArtifact>;
   artifactsByVersion: Map<string, IndexedArtifact>;
+  ambiguousVersions: Set<string>;
   latestArtifactByName: Map<string, IndexedArtifact>;
   toolsById: Map<string, IndexedTool>;
+  toolsByCallId: Map<string, IndexedTool[]>;
   toolsByAgent: Map<string, IndexedTool[]>;
   validationTools: IndexedTool[];
   testsById: Map<string, TestResult>;
@@ -128,7 +139,12 @@ export interface KarmaPoliceEvidenceIndex {
   passedTests: TestResult[];
   failedTests: TestResult[];
   recordsById: Map<string, IndexedRecord>;
+  canonicalRecords: IndexedRecord[];
   producerOutputsByAgent: Map<string, { output?: unknown; assertions?: unknown[] }>;
+  producerOutputsByStep: Map<string, { output?: unknown; assertions?: unknown[] }>;
+  ambiguousProducerAgents: Set<string>;
+  upstreamFindingsById: Map<string, UpstreamFinding>;
+  ambiguousFindingIds: Set<string>;
   handoffsById: Map<string, AgentHandoff>;
   handoffsBySender: Map<string, AgentHandoff[]>;
   resolveReference: (ref: string) => EvidenceReferenceResolution;
