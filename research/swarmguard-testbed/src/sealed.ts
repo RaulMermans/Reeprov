@@ -10,7 +10,7 @@
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { injectionPlanSchema, type AgentTurn } from "./contracts";
-import type { BenchmarkCase, Partition } from "./benchmark";
+import type { BenchmarkCase, Partition, SealedWorkspaceConfig } from "./benchmark";
 import { sha256Json } from "./benchmark";
 import { detectorRoleEnabled, SEALED_EVAL_ENV } from "./heldoutAccess";
 import type { OracleTemplate } from "./oracle";
@@ -36,6 +36,33 @@ const oracleTemplateSchema = z.object({
   justification: z.string(),
 });
 
+const workspaceConfigSchema = z.object({
+  title: z.string().optional(),
+  task: z.string().optional(),
+  goldCases: z
+    .array(z.object({ input: z.string(), expected: z.string() }))
+    .optional(),
+  artifactFilePrefix: z.string().optional(),
+  records: z
+    .array(
+      z.object({
+        id: z.string(),
+        kind: z.enum(["system_log", "witness", "rumor"]),
+        timestamp: z.string(),
+        body: z.string(),
+      })
+    )
+    .optional(),
+  caseFilePrefix: z.string().optional(),
+  capturePolicy: z
+    .object({
+      contentMode: z.enum(["STRUCTURE_ONLY", "SAFE_CONTENT", "FULL_CONTENT"]).optional(),
+      maxInlineBytes: z.number().int().positive().optional(),
+      maxPayloadBytes: z.number().int().positive().optional(),
+    })
+    .optional(),
+});
+
 const sealedCaseSchema = z.object({
   case_id: z.string(),
   partition: z.literal("held_out"),
@@ -47,6 +74,7 @@ const sealedCaseSchema = z.object({
   injection: injectionPlanSchema,
   oracle: z.array(oracleTemplateSchema).min(1),
   fixtureTurns: z.record(z.string(), z.unknown()).optional(),
+  workspaceConfig: workspaceConfigSchema.optional(),
 });
 
 export const sealedEvaluationPackSchema = z.object({
@@ -84,6 +112,7 @@ export function sealedCasesToBenchmark(pack: SealedEvaluationPack): BenchmarkCas
     injection: item.injection,
     oracle: item.oracle as OracleTemplate[],
     fixtureTurns: item.fixtureTurns as Record<string, AgentTurn> | undefined,
+    workspaceConfig: item.workspaceConfig as SealedWorkspaceConfig | undefined,
   }));
 }
 

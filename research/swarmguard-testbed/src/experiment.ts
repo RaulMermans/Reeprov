@@ -5,8 +5,10 @@
  * scores independently, exports results, and records reproducibility metadata.
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { computeSha256 } from "../../../lib/core/capture/hashing";
 import { runArtifactSchema } from "../../../lib/core/contracts/runArtifact";
 import { exportRunEvidenceBundle } from "../../../lib/core/evidence/exportBundle";
 import { FROZEN_BASELINES, runBaseline, type MonitorResult } from "./baselines";
@@ -16,14 +18,15 @@ import {
   listBenchmarkCases,
   type BenchmarkCase,
   type Partition,
+  type SealedWorkspaceConfig,
 } from "./benchmark";
 import { evaluateMonitor, evaluationToRow, type EvaluationReport } from "./evaluate";
 import { investigationDomain } from "../domains/investigation";
 import { softwareEngineeringDomain } from "../domains/softwareEngineering";
 import { runExperiment, type ExperimentalRunResult, type HarnessOptions } from "./harness";
-import type { DomainModule } from "./domain";
+import type { DomainModule, DomainWorkspace } from "./domain";
 import { commitSha } from "./gitmeta";
-import type { ExecutionMode } from "./contracts";
+import { scenarioSchema, type ExecutionMode } from "./contracts";
 import { assertCanLoadHeldOutOracles, SEALED_EVAL_ENV } from "./heldoutAccess";
 import { loadSealedEvaluationPack } from "./sealed";
 
@@ -74,22 +77,247 @@ export async function resolveBenchmarkCase(caseId: string): Promise<BenchmarkCas
   }
 }
 
+function lookupCustomMapping(mapping: Record<string, string>, input: string): string | undefined {
+  if (mapping[input] !== undefined) return mapping[input];
+  const lower = input.trim().toLowerCase();
+  if (mapping[lower] !== undefined) return mapping[lower];
+  const stripped = lower.replace(/^[a-z0-9_-]+:\s*/i, "");
+  return mapping[stripped] ?? mapping[input.trim()];
+}
+
+function buildDomainForCase(spec: BenchmarkCase, baseDomain: DomainModule): DomainModule {
+  const cfg: SealedWorkspaceConfig | undefined = spec.workspaceConfig;
+  if (!cfg) return baseDomain;
+
+  if (spec.domain_id === "software-engineering") {
+    interface CustomSeWorkspace extends DomainWorkspace {
+      rootDir: string;
+      goldCases: Array<{ input: string; expected: string }>;
+    }
+    return {
+      ...baseDomain,
+      buildScenario(seed = spec.seed, variant = spec.content_variant) {
+        const base = baseDomain.buildScenario(seed, "default");
+        return scenarioSchema.parse({
+          ...base,
+          id: spec.scenario_id || base.id,
+          title: cfg.title ?? base.title,
+          variant,
+          seed,
+          task: cfg.task ?? base.task,
+        });
+      },
+      async createWorkspace(scenario) {
+        if (!cfg.goldCases) {
+          return baseDomain.createWorkspace(scenario);
+        }
+        const rootDir = await mkdtemp(join(tmpdir(), "reeprov-h2-se-"));
+        return {
+          kind: "software-engineering-custom",
+          rootDir,
+          goldCases: cfg.goldCases.map((g) => ({ ...g })),
+          close: async () => {
+            await rm(rootDir, { recursive: true, force: true });
+          },
+        } satisfies CustomSeWorkspace;
+      },
+      registerTools(registry, workspace) {
+        if (!cfg.goldCases && !cfg.artifactFilePrefix) {
+          baseDomain.registerTools(registry, workspace);
+          return;
+        }
+        const customWs = workspace as CustomSeWorkspace & { rootDir: string; goldCases: Array<{ input: string; expected: string }> };
+        const filePrefix = cfg.artifactFilePrefix ?? "artifact";
+
+        registry.register({
+          name: "write_artifact",
+          description: "Write a versioned JSON artifact into the disposable workspace.",
+          permissionClass: "write_draft",
+          allowedAgentIds: ["coder"],
+          execute: async (args, ctx) => {
+            const version = String(args["version"] ?? "1");
+            const name = String(args["name"] ?? filePrefix);
+            const body = (args["body"] ?? args["artifact_body"] ?? {}) as Record<string, unknown>;
+            const fileName = `${filePrefix}-v${version}.json`;
+            const filePath = join(customWs.rootDir, fileName);
+            const serialized = JSON.stringify({ name, version, body }, null, 2);
+            await writeFile(filePath, serialized);
+            const recorded = ctx.session.recordArtifact({
+              name: fileName,
+              type: "application/json",
+              uri: filePath,
+              sizeBytes: Buffer.byteLength(serialized),
+              hash: computeSha256(serialized),
+              metadata: { version, function_name: name },
+              stepId: ctx.stepId,
+            });
+            ctx.shared.previousArtifactId = ctx.shared.currentArtifactId;
+            ctx.shared.currentArtifactId = recorded.artifact_id;
+            ctx.shared.artifactVersions.push({
+              artifact_id: recorded.artifact_id,
+              version,
+              name,
+              body,
+            });
+            ctx.shared.symbolic[`artifact:v${version}`] = recorded.artifact_id;
+            ctx.shared.symbolic[`artifact:${name}:v${version}`] = recorded.artifact_id;
+            ctx.shared.symbolic["artifact:current"] = recorded.artifact_id;
+            return { artifact_id: recorded.artifact_id, version, path: fileName };
+          },
+        });
+
+        registry.register({
+          name: "read_workspace",
+          description: "List workspace artifact versions and the current head.",
+          permissionClass: "read_only",
+          allowedAgentIds: ["coder", "reviewer", "release-decision"],
+          execute: async (_args, ctx) => ({
+            current_artifact_id: ctx.shared.currentArtifactId,
+            versions: ctx.shared.artifactVersions.map((item) => ({
+              artifact_id: item.artifact_id,
+              version: item.version,
+              name: item.name,
+            })),
+          }),
+        });
+
+        registry.register({
+          name: "run_validation",
+          description: "Run gold-case validation against a workspace artifact mapping. Does not execute model-authored code.",
+          permissionClass: "read_only",
+          allowedAgentIds: ["coder"],
+          execute: async (args, ctx) => {
+            const version = String(args["version"] ?? ctx.shared.artifactVersions.at(-1)?.version ?? "1");
+            const filePath = join(customWs.rootDir, `${filePrefix}-v${version}.json`);
+            const raw = JSON.parse(await readFile(filePath, "utf8")) as {
+              name?: string;
+              body?: { mapping?: Record<string, string> };
+            };
+            const mapping = raw.body?.mapping ?? {};
+            const cases = customWs.goldCases.map((testCase) => {
+              const actual = lookupCustomMapping(mapping, testCase.input);
+              return {
+                input: testCase.input,
+                expected: testCase.expected,
+                actual: actual ?? null,
+                passed: actual === testCase.expected,
+              };
+            });
+            const passed = cases.every((item) => item.passed);
+            const targetName = raw.name ?? filePrefix;
+            const verification = ctx.session.verification.startTest("gold-cases", targetName, {
+              stepId: ctx.stepId,
+            });
+            const artifactId = ctx.shared.symbolic[`artifact:v${version}`];
+            if (passed) verification.pass({ artifactRefs: artifactId ? [artifactId] : [] });
+            else {
+              verification.fail({
+                failureMessage: "One or more gold cases failed.",
+                artifactRefs: artifactId ? [artifactId] : [],
+              });
+            }
+            return { passed, version, cases };
+          },
+        });
+      },
+    };
+  }
+
+  // Investigation custom workspace
+  interface CustomInvWorkspace extends DomainWorkspace {
+    records: Array<{
+      id: string;
+      kind: "system_log" | "witness" | "rumor";
+      timestamp: string;
+      body: string;
+    }>;
+  }
+  return {
+    ...baseDomain,
+    buildScenario(seed = spec.seed, variant = spec.content_variant) {
+      const base = baseDomain.buildScenario(seed, "default");
+      return scenarioSchema.parse({
+        ...base,
+        id: spec.scenario_id || base.id,
+        title: cfg.title ?? base.title,
+        variant,
+        seed,
+        task: cfg.task ?? base.task,
+      });
+    },
+    async createWorkspace(scenario) {
+      if (!cfg.records) {
+        return baseDomain.createWorkspace(scenario);
+      }
+      return {
+        kind: "investigation-custom",
+        records: cfg.records.map((r) => ({ ...r })),
+      } satisfies CustomInvWorkspace;
+    },
+    async seedEvidence(session, workspace, shared) {
+      if (!cfg.records && !cfg.caseFilePrefix) {
+        if (baseDomain.seedEvidence) {
+          await baseDomain.seedEvidence(session, workspace, shared);
+        }
+        return;
+      }
+      const records = (workspace as CustomInvWorkspace).records;
+      for (const record of records) {
+        const artifact = session.recordArtifact({
+          name: record.id,
+          type: `incident_record/${record.kind}`,
+          metadata: { kind: record.kind, timestamp: record.timestamp },
+        });
+        shared.symbolic[`record:${record.id}`] = artifact.artifact_id;
+        shared.artifactVersions.push({
+          artifact_id: artifact.artifact_id,
+          version: record.id,
+          name: record.id,
+          body: record,
+        });
+      }
+      const prefix = cfg.caseFilePrefix ?? "case-dossier";
+      const v1 = session.recordArtifact({
+        name: `${prefix}-v1`,
+        type: "application/json",
+        metadata: { version: "1", kind: "case_file" },
+      });
+      const v2 = session.recordArtifact({
+        name: `${prefix}-v2`,
+        type: "application/json",
+        metadata: { version: "2", kind: "case_file" },
+      });
+      shared.previousArtifactId = v1.artifact_id;
+      shared.currentArtifactId = v2.artifact_id;
+      shared.symbolic["artifact:v1"] = v1.artifact_id;
+      shared.symbolic["artifact:v2"] = v2.artifact_id;
+      shared.symbolic["artifact:current"] = v2.artifact_id;
+      shared.artifactVersions.push(
+        { artifact_id: v1.artifact_id, version: "1", name: `${prefix}-v1`, body: { records: records.map((r) => r.id) } },
+        { artifact_id: v2.artifact_id, version: "2", name: `${prefix}-v2`, body: { records: records.map((r) => r.id), compiled: true } }
+      );
+    },
+  };
+}
+
 export async function runBenchmarkCase(options: ExperimentRunOptions): Promise<ExperimentalRunResult> {
   const spec = await resolveBenchmarkCase(options.caseId);
-  const domain = DOMAINS[spec.domain_id];
-  if (!domain) throw new Error(`Unknown domain ${spec.domain_id}`);
+  const baseDomain = DOMAINS[spec.domain_id];
+  if (!baseDomain) throw new Error(`Unknown domain ${spec.domain_id}`);
+  const domain = buildDomainForCase(spec, baseDomain);
   const variant = DOMAIN_VARIANTS.has(spec.content_variant) ? spec.content_variant : "default";
   const harness: HarnessOptions = {
     mode: options.mode ?? "offline_fixture",
     injection: spec.injection,
     seed: spec.seed,
-    variant,
+    variant: spec.workspaceConfig ? spec.content_variant : variant,
     caseId: spec.case_id,
     mockTurns: spec.fixtureTurns,
     persist: options.persist ?? true,
     outputDir: options.outputDir,
     runId: options.runId,
     oracleTemplates: spec.oracle,
+    capturePolicy: spec.workspaceConfig?.capturePolicy,
   };
   return runExperiment(domain, harness);
 }

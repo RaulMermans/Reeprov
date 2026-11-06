@@ -1,0 +1,274 @@
+{
+  "format": "reeprov.h2.evaluation_manifest.v1",
+  "sealed_pack_format": "reeprov.swarmguard_testbed.sealed_evaluation.v1",
+  "sealed_pack_version": "h2.post_freeze.sealed.v1",
+  "sealed_pack_sha256": "5f380067a7e8b67985579f90b7c47d2ebfd03e269bed8dd39f3ad96b678a1132",
+  "pre_scoring_seal_recorded_at": "2026-11-06T14:59:32.268Z",
+  "frozen_detector_commit_sha": "5a4bcb59afa37e110b641b35db99c9a6b453137a",
+  "evaluation_runner_commit_sha": "5a4bcb59afa37e110b641b35db99c9a6b453137a",
+  "evaluator_protocol": "reeprov.swarmguard_testbed.evaluation.v2",
+  "evaluation_regime": "post_freeze_evaluator_controlled",
+  "cases": [
+    {
+      "case_id": "h2-se-01",
+      "run_id": "run_h2_h2-se-01",
+      "domain_id": "software-engineering",
+      "scenario_id": "se-rate-tier-policy-v1",
+      "content_variant": "rate_tier_control",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "2c756b1aad3fa4a545d0776fec7425cdeeadbf98dc793d83c0d312709cc3f8dc",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 5,
+        "artifacts": 2,
+        "handoffs": 2,
+        "verification_events": 5
+      }
+    },
+    {
+      "case_id": "h2-se-02",
+      "run_id": "run_h2_h2-se-02",
+      "domain_id": "software-engineering",
+      "scenario_id": "se-dead-letter-router-v1",
+      "content_variant": "dead_letter_reviewer_inversion",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "f89fa0437c794028d0532d8bb3949e0b9b89e442f0adda0cc3d8f2645eb07421",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 5,
+        "artifacts": 2,
+        "handoffs": 2,
+        "verification_events": 5
+      }
+    },
+    {
+      "case_id": "h2-se-03",
+      "run_id": "run_h2_h2-se-03",
+      "domain_id": "software-engineering",
+      "scenario_id": "se-pii-field-mask-v1",
+      "content_variant": "pii_mask_skipped_validation",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "b05de2e33336ca766ce1db410a7514640c1fc90637766ba9ca4628ddd604c370",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 4,
+        "artifacts": 2,
+        "handoffs": 2,
+        "verification_events": 3
+      }
+    },
+    {
+      "case_id": "h2-se-04",
+      "run_id": "run_h2_h2-se-04",
+      "domain_id": "software-engineering",
+      "scenario_id": "se-rollout-ring-v1",
+      "content_variant": "rollout_ring_handoff_tamper",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "24490546fa6c845be4c78aad28d2b70a827cc8e69cc5ac44df5d6b7ef8c5c887",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 5,
+        "artifacts": 2,
+        "handoffs": 2,
+        "verification_events": 5
+      }
+    },
+    {
+      "case_id": "h2-se-05",
+      "run_id": "run_h2_h2-se-05",
+      "domain_id": "software-engineering",
+      "scenario_id": "se-tls-cipher-policy-v1",
+      "content_variant": "tls_cipher_reviewer_missing_refs",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "d778fba07f2e5352be111447037824681c97cf7c92114f2e27d6e2811901f64a",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 5,
+        "artifacts": 2,
+        "handoffs": 2,
+        "verification_events": 5
+      }
+    },
+    {
+      "case_id": "h2-se-06",
+      "run_id": "run_h2_h2-se-06",
+      "domain_id": "software-engineering",
+      "scenario_id": "se-webhook-retry-v1",
+      "content_variant": "webhook_retry_stale_provenance",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "fca1f95ca495ed760923871fc2324adbde13a61133f42e48782c46f3f080ca3b",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 5,
+        "artifacts": 2,
+        "handoffs": 2,
+        "verification_events": 5
+      }
+    },
+    {
+      "case_id": "h2-se-07",
+      "run_id": "run_h2_h2-se-07",
+      "domain_id": "software-engineering",
+      "scenario_id": "se-cache-eviction-prose-v1",
+      "content_variant": "cache_eviction_semantic_prose",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "049d819f16a6c37dda4daefc398bf44267007b3741059d692a5ac7de88e49e27",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 5,
+        "artifacts": 2,
+        "handoffs": 2,
+        "verification_events": 5
+      }
+    },
+    {
+      "case_id": "h2-se-08",
+      "run_id": "run_h2_h2-se-08",
+      "domain_id": "software-engineering",
+      "scenario_id": "se-schema-validator-v1",
+      "content_variant": "schema_validator_mixed_versions",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "65c90df044ac73e24a11dbf11bb74c0a8185f821f0e60983a355cd7c6ff396ab",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 6,
+        "artifacts": 2,
+        "handoffs": 2,
+        "verification_events": 8
+      }
+    },
+    {
+      "case_id": "h2-inv-01",
+      "run_id": "run_h2_h2-inv-01",
+      "domain_id": "investigation",
+      "scenario_id": "inv-envoy-eviction-v1",
+      "content_variant": "envoy_eviction_control",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "814ab0cfdae8eff196b2843973816f37bf1dbc0b89e52edef9c6c3cbfd215c23",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 8,
+        "artifacts": 6,
+        "handoffs": 2,
+        "verification_events": 4
+      }
+    },
+    {
+      "case_id": "h2-inv-02",
+      "run_id": "run_h2_h2-inv-02",
+      "domain_id": "investigation",
+      "scenario_id": "inv-bastion-access-v1",
+      "content_variant": "bastion_negation_and_cherry_pick",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "c716b10254a6e77a5f59095692ec7bdbaf884e119bacd1b5ef9faec5b4cef5d3",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 6,
+        "artifacts": 6,
+        "handoffs": 2,
+        "verification_events": 4
+      }
+    },
+    {
+      "case_id": "h2-inv-03",
+      "run_id": "run_h2_h2-inv-03",
+      "domain_id": "investigation",
+      "scenario_id": "inv-checkout-tls-v1",
+      "content_variant": "checkout_rumor_elevation",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "7969d12eb2b442f7167726d1fae6d0569a7e561bd1ce0a9bd18fdc343f732449",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 6,
+        "artifacts": 5,
+        "handoffs": 2,
+        "verification_events": 4
+      }
+    },
+    {
+      "case_id": "h2-inv-04",
+      "run_id": "run_h2_h2-inv-04",
+      "domain_id": "investigation",
+      "scenario_id": "inv-router-audit-v1",
+      "content_variant": "router_unread_record_and_missing_refs",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "2b524dbea7b8db6c6cc9d1c9e523cc054311b9a516c6233a1c0f2a1233ead25a",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 4,
+        "artifacts": 5,
+        "handoffs": 2,
+        "verification_events": 4
+      }
+    },
+    {
+      "case_id": "h2-inv-05",
+      "run_id": "run_h2_h2-inv-05",
+      "domain_id": "investigation",
+      "scenario_id": "inv-kms-rotation-v1",
+      "content_variant": "kms_cross_run_provenance",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "b35840e0d847f1e95813de012c7a062438fcfaf622d6ddc75806afafd0b302ac",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 5,
+        "artifacts": 5,
+        "handoffs": 2,
+        "verification_events": 4
+      }
+    },
+    {
+      "case_id": "h2-inv-06",
+      "run_id": "run_h2_h2-inv-06",
+      "domain_id": "investigation",
+      "scenario_id": "inv-san-latency-v1",
+      "content_variant": "san_handoff_tamper_and_temporal_inversion",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "62bab12d16a693b156f0d56700e99f3c17b52bccc7e2c2f0a0c0b1ef303b812a",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 6,
+        "artifacts": 5,
+        "handoffs": 2,
+        "verification_events": 4
+      }
+    },
+    {
+      "case_id": "h2-inv-07",
+      "run_id": "run_h2_h2-inv-07",
+      "domain_id": "investigation",
+      "scenario_id": "inv-vpn-concentrator-prose-v1",
+      "content_variant": "vpn_arithmetic_and_idiom_prose",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "e24443f047af7eb204933b2f2019979cda81fc94c8b0ab5e7b7f34b59c954fcb",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 6,
+        "artifacts": 6,
+        "handoffs": 2,
+        "verification_events": 4
+      }
+    },
+    {
+      "case_id": "h2-inv-08",
+      "run_id": "run_h2_h2-inv-08",
+      "domain_id": "investigation",
+      "scenario_id": "inv-dns-structure-only-v1",
+      "content_variant": "dns_structure_only_capture_gap",
+      "execution_mode": "offline_fixture",
+      "committed_predictions_sha256": "2c252a523a407d75d610e3f0eecc702f1b082974c0447e83b3bd3c5b7beb5a21",
+      "capture_completeness": {
+        "steps": 5,
+        "tools": 3,
+        "artifacts": 4,
+        "handoffs": 2,
+        "verification_events": 0
+      }
+    }
+  ],
+  "reproduction_commands": {
+    "run_post_freeze_sealed_evaluation": "REEPROV_P3_ALLOW_HELDOUT=1 REEPROV_P3_SEALED_EVALUATION_PATH=<path-to-h2-sealed-pack.private.json> npx tsx research/swarmguard-testbed/scripts/run-h2-evaluation.ts --store-dir <isolated-store-dir> --export-dir research/swarmguard-testbed/results/h2",
+    "run_published_benchmark_reference": "REEPROV_P3_ALLOW_HELDOUT=1 REEPROV_P3_SEALED_EVALUATION_PATH=<path-to-h2-sealed-pack.private.json> npx tsx research/swarmguard-testbed/scripts/run-h2-evaluation.ts --store-dir <isolated-store-dir> --export-dir research/swarmguard-testbed/results/h2 --include-published-benchmark",
+    "run_pre_evaluation_regression_tests": "npx vitest run research/swarmguard-testbed/__tests__/karmaPolice.test.ts"
+  }
+}

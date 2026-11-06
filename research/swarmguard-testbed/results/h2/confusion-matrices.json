@@ -1,0 +1,247 @@
+{
+  "format": "reeprov.h2.confusion_matrices.v1",
+  "evaluator_protocol": "reeprov.swarmguard_testbed.evaluation.v2",
+  "sealed_pack_sha256": "5f380067a7e8b67985579f90b7c47d2ebfd03e269bed8dd39f3ad96b678a1132",
+  "aggregate": {
+    "baseline.per_agent.v1": {
+      "labels": [
+        "supported",
+        "contradicted",
+        "unverified",
+        "missing",
+        "invalid"
+      ],
+      "counts": {
+        "supported->supported": 20,
+        "supported->contradicted": 4,
+        "supported->unverified": 28,
+        "supported->missing": 0,
+        "supported->invalid": 0,
+        "contradicted->supported": 10,
+        "contradicted->contradicted": 0,
+        "contradicted->unverified": 10,
+        "contradicted->missing": 0,
+        "contradicted->invalid": 0,
+        "unverified->supported": 4,
+        "unverified->contradicted": 0,
+        "unverified->unverified": 9,
+        "unverified->missing": 3,
+        "unverified->invalid": 0
+      }
+    },
+    "baseline.pooled_event.v1": {
+      "labels": [
+        "supported",
+        "contradicted",
+        "unverified",
+        "missing",
+        "invalid"
+      ],
+      "counts": {
+        "supported->supported": 46,
+        "supported->contradicted": 6,
+        "supported->unverified": 0,
+        "supported->missing": 0,
+        "supported->invalid": 0,
+        "contradicted->supported": 16,
+        "contradicted->contradicted": 4,
+        "contradicted->unverified": 0,
+        "contradicted->missing": 0,
+        "contradicted->invalid": 0,
+        "unverified->supported": 9,
+        "unverified->contradicted": 2,
+        "unverified->unverified": 2,
+        "unverified->missing": 3,
+        "unverified->invalid": 0
+      }
+    },
+    "karma_police.cross_agent.v1": {
+      "labels": [
+        "supported",
+        "contradicted",
+        "unverified",
+        "missing",
+        "invalid"
+      ],
+      "counts": {
+        "supported->supported": 39,
+        "supported->contradicted": 6,
+        "supported->unverified": 7,
+        "supported->missing": 0,
+        "supported->invalid": 0,
+        "contradicted->supported": 0,
+        "contradicted->contradicted": 16,
+        "contradicted->unverified": 4,
+        "contradicted->missing": 0,
+        "contradicted->invalid": 0,
+        "unverified->supported": 0,
+        "unverified->contradicted": 0,
+        "unverified->unverified": 13,
+        "unverified->missing": 3,
+        "unverified->invalid": 0
+      }
+    }
+  },
+  "per_domain": {
+    "software-engineering": {
+      "baseline.per_agent.v1": {
+        "labels": [
+          "supported",
+          "contradicted",
+          "unverified",
+          "missing",
+          "invalid"
+        ],
+        "counts": {
+          "supported->supported": 16,
+          "supported->contradicted": 3,
+          "supported->unverified": 8,
+          "supported->missing": 0,
+          "supported->invalid": 0,
+          "contradicted->supported": 4,
+          "contradicted->contradicted": 0,
+          "contradicted->unverified": 4,
+          "contradicted->missing": 0,
+          "contradicted->invalid": 0,
+          "unverified->supported": 2,
+          "unverified->contradicted": 0,
+          "unverified->unverified": 4,
+          "unverified->missing": 0,
+          "unverified->invalid": 0
+        }
+      },
+      "baseline.pooled_event.v1": {
+        "labels": [
+          "supported",
+          "contradicted",
+          "unverified",
+          "missing",
+          "invalid"
+        ],
+        "counts": {
+          "supported->supported": 22,
+          "supported->contradicted": 5,
+          "supported->unverified": 0,
+          "supported->missing": 0,
+          "supported->invalid": 0,
+          "contradicted->supported": 4,
+          "contradicted->contradicted": 4,
+          "contradicted->unverified": 0,
+          "contradicted->missing": 0,
+          "contradicted->invalid": 0,
+          "unverified->supported": 4,
+          "unverified->contradicted": 2,
+          "unverified->unverified": 0,
+          "unverified->missing": 0,
+          "unverified->invalid": 0
+        }
+      },
+      "karma_police.cross_agent.v1": {
+        "labels": [
+          "supported",
+          "contradicted",
+          "unverified",
+          "missing",
+          "invalid"
+        ],
+        "counts": {
+          "supported->supported": 23,
+          "supported->contradicted": 2,
+          "supported->unverified": 2,
+          "supported->missing": 0,
+          "supported->invalid": 0,
+          "contradicted->supported": 0,
+          "contradicted->contradicted": 5,
+          "contradicted->unverified": 3,
+          "contradicted->missing": 0,
+          "contradicted->invalid": 0,
+          "unverified->supported": 0,
+          "unverified->contradicted": 0,
+          "unverified->unverified": 6,
+          "unverified->missing": 0,
+          "unverified->invalid": 0
+        }
+      }
+    },
+    "investigation": {
+      "baseline.per_agent.v1": {
+        "labels": [
+          "supported",
+          "contradicted",
+          "unverified",
+          "missing",
+          "invalid"
+        ],
+        "counts": {
+          "supported->supported": 4,
+          "supported->contradicted": 1,
+          "supported->unverified": 20,
+          "supported->missing": 0,
+          "supported->invalid": 0,
+          "contradicted->supported": 6,
+          "contradicted->contradicted": 0,
+          "contradicted->unverified": 6,
+          "contradicted->missing": 0,
+          "contradicted->invalid": 0,
+          "unverified->supported": 2,
+          "unverified->contradicted": 0,
+          "unverified->unverified": 5,
+          "unverified->missing": 3,
+          "unverified->invalid": 0
+        }
+      },
+      "baseline.pooled_event.v1": {
+        "labels": [
+          "supported",
+          "contradicted",
+          "unverified",
+          "missing",
+          "invalid"
+        ],
+        "counts": {
+          "supported->supported": 24,
+          "supported->contradicted": 1,
+          "supported->unverified": 0,
+          "supported->missing": 0,
+          "supported->invalid": 0,
+          "contradicted->supported": 12,
+          "contradicted->contradicted": 0,
+          "contradicted->unverified": 0,
+          "contradicted->missing": 0,
+          "contradicted->invalid": 0,
+          "unverified->supported": 5,
+          "unverified->contradicted": 0,
+          "unverified->unverified": 2,
+          "unverified->missing": 3,
+          "unverified->invalid": 0
+        }
+      },
+      "karma_police.cross_agent.v1": {
+        "labels": [
+          "supported",
+          "contradicted",
+          "unverified",
+          "missing",
+          "invalid"
+        ],
+        "counts": {
+          "supported->supported": 16,
+          "supported->contradicted": 4,
+          "supported->unverified": 5,
+          "supported->missing": 0,
+          "supported->invalid": 0,
+          "contradicted->supported": 0,
+          "contradicted->contradicted": 11,
+          "contradicted->unverified": 1,
+          "contradicted->missing": 0,
+          "contradicted->invalid": 0,
+          "unverified->supported": 0,
+          "unverified->contradicted": 0,
+          "unverified->unverified": 7,
+          "unverified->missing": 3,
+          "unverified->invalid": 0
+        }
+      }
+    }
+  }
+}
