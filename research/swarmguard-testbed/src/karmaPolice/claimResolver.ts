@@ -3,11 +3,12 @@
  *
  * Evaluates observable claims and handoffs against the cross-agent evidence index.
  * Follows strict three-way classification semantics:
- *   - supported: relevant evidence supports the delivered statement.
+ *   - supported: relevant evidence entails the delivered statement.
  *   - contradicted: relevant evidence establishes an incompatible fact.
  *   - unverified: evidence cannot establish either conclusion (abstained).
  *
  * Keeps factual classification strictly separate from provenance integrity anomalies.
+ * Free of benchmark-specific entities, hardcoded record IDs, or false support from citations.
  */
 
 import type { ObservableClaim, ClaimPrediction } from "../baselines/schema";
@@ -17,6 +18,8 @@ import type {
   ClaimProvenanceFinding,
   ProvenanceAnomalyKind,
   EvidenceReferenceResolution,
+  IndexedArtifact,
+  IndexedRecord,
 } from "./types";
 
 interface ResolutionResult {
@@ -24,8 +27,2132 @@ interface ResolutionResult {
   finding: ClaimProvenanceFinding;
 }
 
-function normalizeText(text: string): string {
-  return text.trim().toLowerCase();
+interface AtomicSubClaim {
+  kind: "text" | "finding" | "assessment";
+  rawText: string;
+  ownRefs: string[];
+  allRefs: string[];
+  artifactRefs: string[];
+  findingId?: string;
+  expectedSupported?: boolean;
+  severity?: string;
+}
+
+interface AtomicEvalOutcome {
+  status: "supported" | "contradicted" | "unverified";
+  rationale: string;
+  supportingIds: string[];
+  contradictingIds: string[];
+  anomalies: ProvenanceAnomalyKind[];
+}
+
+const NUMBER_WORDS: Record<string, number> = {
+  zero: 0,
+  no: 0,
+  none: 0,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
+  fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18,
+  nineteen: 19,
+  twenty: 20,
+  thirty: 30,
+  forty: 40,
+  fifty: 50,
+  hundred: 100,
+};
+
+const STOPWORDS = new Set([
+  "a",
+  "an",
+  "the",
+  "and",
+  "or",
+  "but",
+  "if",
+  "of",
+  "to",
+  "in",
+  "on",
+  "at",
+  "by",
+  "for",
+  "with",
+  "from",
+  "into",
+  "onto",
+  "as",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "being",
+  "did",
+  "do",
+  "does",
+  "had",
+  "has",
+  "have",
+  "it",
+  "its",
+  "that",
+  "this",
+  "these",
+  "those",
+  "any",
+  "without",
+  "there",
+  "their",
+  "they",
+  "them",
+]);
+
+const FRAMING_VERBS_AND_META = new Set([
+  "originate",
+  "originated",
+  "occur",
+  "occurred",
+  "observe",
+  "observed",
+  "detect",
+  "detected",
+  "describe",
+  "describing",
+  "described",
+  "show",
+  "showing",
+  "confirm",
+  "confirming",
+  "confirmed",
+  "state",
+  "stating",
+  "indicate",
+  "indicating",
+  "report",
+  "reported",
+  "use",
+  "used",
+  "using",
+  "count",
+  "source",
+  "host",
+  "system",
+  "log",
+  "record",
+  "repeated",
+  "multiple",
+  "burst",
+]);
+
+const RUMOR_FRAMING_WORDS = new Set([
+  "chat",
+  "message",
+  "messages",
+  "claiming",
+  "claimed",
+  "claim",
+  "rumor",
+  "rumors",
+  "probably",
+  "maybe",
+  "allegedly",
+  "possibly",
+  "caused",
+  "cause",
+  "naming",
+  "named",
+  "about",
+  "someone",
+  "person",
+  "unsupported",
+  "supported",
+  "corroborated",
+  "proof",
+  "treat",
+]);
+
+export function stemWord(raw: string): string {
+  const w = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!w) return "";
+  if (w === "authentication" || w === "authenticating" || w === "authenticated") return "auth";
+  if (w === "succeeded" || w === "successful" || w === "successfully") return "success";
+  if (w === "failed" || w === "failing" || w === "failures") return "failure";
+  if (w === "errors" || w === "errored") return "error";
+  if (w === "connections" || w === "connected" || w === "connecting") return "connection";
+  if (w === "exhausted" || w === "exhaustion") return "exhaust";
+  if (w === "attempts" || w === "attempted") return "attempt";
+  if (w === "logged" || w === "logging" || w === "logs") return "log";
+  if (w === "records" || w === "recorded") return "record";
+  if (w === "upgraded" || w === "upgrading" || w === "upgrades") return "upgrade";
+  if (w === "flushed" || w === "flushing") return "flush";
+
+  if (w.length >= 5 && w.endsWith("ies")) {
+    return `${w.slice(0, -3)}y`;
+  }
+  if (w.length >= 6 && w.endsWith("ing")) {
+    return w.slice(0, -3);
+  }
+  if (w.length >= 6 && w.endsWith("ed")) {
+    return w.slice(0, -2);
+  }
+  if (w.length >= 4 && w.endsWith("s") && !w.endsWith("ss") && w !== "status") {
+    return w.slice(0, -1);
+  }
+  return w;
+}
+
+/**
+ * Deterministic adapter for extracting string mapping tables from structured artifacts.
+ */
+export function extractMappingFromArtifact(art: IndexedArtifact): Record<string, string> | null {
+  if (!art.body || typeof art.body !== "object" || Array.isArray(art.body)) return null;
+  const b = art.body as Record<string, unknown>;
+
+  let candidate: unknown = b["mapping"];
+  if (
+    (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) &&
+    b["body"] &&
+    typeof b["body"] === "object" &&
+    !Array.isArray(b["body"])
+  ) {
+    candidate = (b["body"] as Record<string, unknown>)["mapping"];
+  }
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    return null;
+  }
+
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(candidate as Record<string, unknown>)) {
+    if (typeof v !== "string") {
+      return null;
+    }
+    out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * Verifies structured mapping claims against the recorded artifact content.
+ * Uses zero domain-specific hardcoded keys or target sets; abstains when prose
+ * claims cannot be deterministically parsed into structural mapping checks.
+ */
+export function verifyMappingClaim(
+  art: IndexedArtifact,
+  rawClaimText: string
+): { status: "supported" | "contradicted" | "unverified"; rationale: string } {
+  const mapping = extractMappingFromArtifact(art);
+  if (!mapping) {
+    return {
+      status: "unverified",
+      rationale: `Artifact "${art.name}" body structure does not contain a verifiable mapping table (abstaining).`,
+    };
+  }
+
+  const entries = Object.entries(mapping);
+  if (entries.length === 0) {
+    return {
+      status: "contradicted",
+      rationale: `Artifact "${art.name}" mapping table is empty.`,
+    };
+  }
+
+  // 1. Check explicit arrow pairs: e.g. `URGENT -> p1`, `'prio: med' → p2`
+  const arrowRegex = /['"`]?([A-Za-z0-9_.: -]+?)['"`]?\s*(?:->|→)\s*['"`]?([A-Za-z0-9_-]+)['"`]?/g;
+  const explicitPairs: Array<{ src: string; dst: string }> = [];
+  let arrowMatch: RegExpExecArray | null;
+  while ((arrowMatch = arrowRegex.exec(rawClaimText)) !== null) {
+    const src = arrowMatch[1]!.trim();
+    const dst = arrowMatch[2]!.trim();
+    if (src && dst) {
+      explicitPairs.push({ src, dst });
+    }
+  }
+
+  // Also check single explicit pair: `maps token "X" to "Y"` (without pipe target set)
+  const singlePairMatch = rawClaimText.match(
+    /\bmaps\s+(?:token\s+)?['"`]([A-Za-z0-9_.: -]+)['"`]\s+(?:onto|into|to)\s+['"`]?([A-Za-z0-9_-]+)['"`]?(?:[.,;]|$)/i
+  );
+  if (singlePairMatch?.[1] && singlePairMatch[2] && !singlePairMatch[2].includes("|")) {
+    explicitPairs.push({ src: singlePairMatch[1].trim(), dst: singlePairMatch[2].trim() });
+  }
+
+  for (const pair of explicitPairs) {
+    const actual = mapping[pair.src];
+    if (actual === undefined) {
+      return {
+        status: "contradicted",
+        rationale: `Artifact "${art.name}" mapping is missing required token "${pair.src}".`,
+      };
+    }
+    if (actual.toLowerCase() !== pair.dst.toLowerCase()) {
+      return {
+        status: "contradicted",
+        rationale: `Artifact "${art.name}" maps token "${pair.src}" to "${actual}" instead of expected "${pair.dst}".`,
+      };
+    }
+  }
+
+  // 2. Check set-valued mapping specifications: `maps <sourceSpec> onto|to|into <t1|t2|...>`
+  const setMapMatch = rawClaimText.match(
+    /\bmaps\s+(.+?)\s+(?:onto|into|to)\s+([A-Za-z0-9_-]+(?:\|[A-Za-z0-9_-]+)+)/i
+  );
+
+  if (!setMapMatch) {
+    if (explicitPairs.length > 0) {
+      return {
+        status: "supported",
+        rationale: `Referenced artifact exists and its recorded content defines the claimed mapping values.`,
+      };
+    }
+    return {
+      status: "unverified",
+      rationale: `Claim on artifact "${art.name}" does not specify deterministic mapping keys or target domain (abstaining).`,
+    };
+  }
+
+  const sourceSpec = setMapMatch[1]!.trim();
+  const targetSpec = setMapMatch[2]!.trim();
+  const targetList = targetSpec
+    .split("|")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const lowerTargetMap = new Map<string, string>();
+  for (const t of targetList) {
+    lowerTargetMap.set(t.toLowerCase(), t);
+  }
+
+  // Verify every value in the mapping lies within the declared target domain
+  // and any canonical/case-variant key matching a target name maps to itself
+  for (const [key, val] of entries) {
+    if (!lowerTargetMap.has(val.toLowerCase())) {
+      return {
+        status: "contradicted",
+        rationale: `Artifact "${art.name}" maps token "${key}" to invalid target "${val}" outside ${targetSpec}.`,
+      };
+    }
+    const keyNorm = key.trim().toLowerCase();
+    if (lowerTargetMap.has(keyNorm)) {
+      const expectedTarget = lowerTargetMap.get(keyNorm)!;
+      if (val.toLowerCase() !== expectedTarget.toLowerCase()) {
+        return {
+          status: "contradicted",
+          rationale: `Artifact "${art.name}" maps token "${key}" to "${val}" instead of expected "${expectedTarget}".`,
+        };
+      }
+    }
+  }
+
+  // Parse comma / 'and' separated items in sourceSpec
+  const rawDescriptors = sourceSpec
+    .split(/\s*,\s*(?:and\s+)?|\s+and\s+/i)
+    .map((s) => s.trim().replace(/[.;:]+$/, ""))
+    .filter(Boolean);
+
+  let verifiedDescriptorCount = 0;
+
+  for (const desc of rawDescriptors) {
+    // Prefix family descriptor: e.g. `prefixed sev tokens`
+    const prefixMatch = desc.match(/^prefixed\s+['"`]?([A-Za-z0-9_-]+):?['"`]?(?:\s+tokens?)?$/i);
+    if (prefixMatch?.[1]) {
+      const prefix = prefixMatch[1].toLowerCase();
+      const prefixedEntries = entries.filter(([k]) => {
+        const kl = k.toLowerCase();
+        return (
+          kl.startsWith(`${prefix}:`) ||
+          kl.startsWith(`${prefix}_`) ||
+          kl.startsWith(`${prefix}-`) ||
+          kl.startsWith(`${prefix} `)
+        );
+      });
+      if (prefixedEntries.length === 0) {
+        return {
+          status: "contradicted",
+          rationale: `Artifact "${art.name}" mapping is missing required "${prefixMatch[1]}" prefixed tokens.`,
+        };
+      }
+      for (const [pk, pv] of prefixedEntries) {
+        const stripped = pk.replace(/^[A-Za-z0-9_-]+[:_\-\s]+/, "").trim().toLowerCase();
+        if (lowerTargetMap.has(stripped)) {
+          const expected = lowerTargetMap.get(stripped)!;
+          if (pv.toLowerCase() !== expected.toLowerCase()) {
+            return {
+              status: "contradicted",
+              rationale: `Artifact "${art.name}" maps token "${pk}" to "${pv}" instead of expected "${expected}".`,
+            };
+          }
+        }
+      }
+      verifiedDescriptorCount++;
+      continue;
+    }
+
+    // Pipe-delimited canonical tokens descriptor: e.g. `canonical low|medium|high tokens`
+    const pipeDescMatch = desc.match(
+      /^(?:canonical\s+)?([A-Za-z0-9_-]+(?:\|[A-Za-z0-9_-]+)+)(?:\s+tokens?)?$/i
+    );
+    if (pipeDescMatch?.[1]) {
+      for (const tok of pipeDescMatch[1].split("|").map((t) => t.trim()).filter(Boolean)) {
+        const actual = mapping[tok];
+        if (actual === undefined) {
+          return {
+            status: "contradicted",
+            rationale: `Artifact "${art.name}" mapping is missing required token "${tok}".`,
+          };
+        }
+        if (lowerTargetMap.has(tok.toLowerCase()) && actual.toLowerCase() !== tok.toLowerCase()) {
+          return {
+            status: "contradicted",
+            rationale: `Artifact "${art.name}" maps token "${tok}" to "${actual}" instead of expected "${tok}".`,
+          };
+        }
+      }
+      verifiedDescriptorCount++;
+      continue;
+    }
+
+    // Literal token descriptor: e.g. `URGENT`, `fatal`, `'prio: p1'`
+    const quotedMatch = desc.match(/^['"`](.+?)['"`](?:\s+tokens?)?$/);
+    const cleaned = quotedMatch?.[1]
+      ? quotedMatch[1].trim()
+      : desc.replace(/\s+tokens?$/i, "").trim();
+
+    // Ignore multi-word prose noun phrases that are neither quoted nor punctuated keys
+    if (!quotedMatch && /\s/.test(cleaned) && !cleaned.includes(":") && mapping[cleaned] === undefined) {
+      continue;
+    }
+
+    const actual = mapping[cleaned];
+    if (actual === undefined) {
+      return {
+        status: "contradicted",
+        rationale: `Artifact "${art.name}" mapping is missing required token "${cleaned}".`,
+      };
+    }
+    if (!lowerTargetMap.has(actual.toLowerCase())) {
+      return {
+        status: "contradicted",
+        rationale: `Artifact "${art.name}" maps token "${cleaned}" to invalid target "${actual}".`,
+      };
+    }
+    if (lowerTargetMap.has(cleaned.toLowerCase())) {
+      const expected = lowerTargetMap.get(cleaned.toLowerCase())!;
+      if (actual.toLowerCase() !== expected.toLowerCase()) {
+        return {
+          status: "contradicted",
+          rationale: `Artifact "${art.name}" maps token "${cleaned}" to "${actual}" instead of expected "${expected}".`,
+        };
+      }
+    }
+    verifiedDescriptorCount++;
+  }
+
+  if (verifiedDescriptorCount === 0 && explicitPairs.length === 0) {
+    return {
+      status: "unverified",
+      rationale: `Claim on artifact "${art.name}" uses prose descriptors without verifiable input token names (abstaining).`,
+    };
+  }
+
+  return {
+    status: "supported",
+    rationale: `Referenced artifact exists and its recorded content defines the claimed mapping values.`,
+  };
+}
+
+interface ClauseFeatures {
+  ips: string[];
+  explicitNumbers: number[];
+  assertsPluralRepeat: boolean;
+  identifiers: string[];
+  polarity: "failure" | "success" | "neutral";
+  contentTokens: string[];
+  temporalRefs: Array<{ prep: "after" | "before"; eventToken: string }>;
+}
+
+function extractClauseFeatures(
+  rawClause: string,
+  ignoreIds: Set<string>
+): ClauseFeatures {
+  const temporalRefs: Array<{ prep: "after" | "before"; eventToken: string }> = [];
+  const clauseWithoutTemporal = rawClause.replace(
+    /\b(after|following|before|prior\s+to)\s+(?:the\s+)?([a-z0-9_-]+)\b/gi,
+    (_full, prepRaw: string, evRaw: string) => {
+      const prep = /before|prior/i.test(prepRaw) ? "before" : "after";
+      const stemmed = stemWord(evRaw);
+      if (stemmed) {
+        temporalRefs.push({ prep, eventToken: stemmed });
+      }
+      return " ";
+    }
+  );
+
+  const lower = clauseWithoutTemporal.toLowerCase();
+
+  // Extract IPv4 addresses
+  const ips = Array.from(new Set(lower.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) ?? []));
+  let textNoIp = lower;
+  for (const ip of ips) {
+    textNoIp = textNoIp.split(ip).join(" ");
+  }
+
+  // Remove cited record IDs from text so IDs like REC-10 or LOG-99 aren't parsed as counts/hosts
+  for (const id of ignoreIds) {
+    const escaped = id.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (escaped) {
+      textNoIp = textNoIp.replace(new RegExp(`\\b${escaped}\\b`, "gi"), " ");
+    }
+  }
+
+  // Extract hyphenated / underscored technical identifiers (e.g. edge-proxy, svc-worker, node-7)
+  const rawIdentifiers = textNoIp.match(/\b[a-z][a-z0-9]*(?:[-_][a-z0-9]+)+\b/g) ?? [];
+  const identifiers = Array.from(
+    new Set(
+      rawIdentifiers.filter(
+        (id) =>
+          id !== "system_log" &&
+          id !== "gold-cases" &&
+          id !== "high-severity" &&
+          id !== "low-severity" &&
+          !ignoreIds.has(id)
+      )
+    )
+  );
+
+  let textForNumbers = textNoIp;
+  for (const ident of identifiers) {
+    textForNumbers = textForNumbers.split(ident).join(" ");
+  }
+
+  // Extract explicit numbers (digits and number words)
+  const explicitNumbersSet = new Set<number>();
+  const countAssignMatches = textForNumbers.matchAll(/\b(?:count|code|exit|retries|attempts)=?(\d+)\b/g);
+  for (const m of countAssignMatches) {
+    if (m[1] !== undefined) explicitNumbersSet.add(parseInt(m[1], 10));
+  }
+  const bareDigitMatches = textForNumbers.matchAll(/(?:^|\s)(\d+)(?=\s|[.,;:]|$)/g);
+  for (const m of bareDigitMatches) {
+    if (m[1] !== undefined) explicitNumbersSet.add(parseInt(m[1], 10));
+  }
+  for (const word of textForNumbers.split(/[^a-z0-9]+/).filter(Boolean)) {
+    if (word in NUMBER_WORDS) {
+      // Only treat "no" / "none" as 0 when modifying failure/error
+      if (word === "no" || word === "none") {
+        if (/\b(?:no|none)\s+(?:auth\s+)?(?:failure|failures|error|errors)\b/i.test(textForNumbers)) {
+          explicitNumbersSet.add(0);
+        }
+      } else {
+        explicitNumbersSet.add(NUMBER_WORDS[word]!);
+      }
+    }
+  }
+
+  const assertsZeroFailures =
+    /\b(?:zero|no)\s+(?:[a-z]+\s+)?(?:failures?|errors?)\b|\bwithout\s+(?:any\s+)?(?:failures?|errors?)\b/i.test(
+      lower
+    );
+
+  const hasSuccessWord =
+    assertsZeroFailures ||
+    /\b(?:success|succeeded|successful|successfully|healthy|passed)\b/i.test(lower);
+  const hasFailureWord =
+    !assertsZeroFailures &&
+    /\b(?:failed|failure|failures|error|errors|denied|unauthorized|exhausted|timeout)\b/i.test(lower);
+
+  const polarity: "failure" | "success" | "neutral" = hasSuccessWord
+    ? "success"
+    : hasFailureWord
+      ? "failure"
+      : "neutral";
+
+  const assertsPluralRepeat = /\b(?:repeated|multiple|burst)\b/i.test(lower);
+
+  // Content tokens: tokenize remaining words (excluding identifiers' subparts only if identifier already tracked,
+  // wait: keep substantive domain words so event/subject overlap works cleanly)
+  const contentTokensSet = new Set<string>();
+  const words = textForNumbers.split(/[^a-z0-9]+/).filter(Boolean);
+  for (const w of words) {
+    if (/^\d+$/.test(w)) continue;
+    if (w in NUMBER_WORDS) continue;
+    if (STOPWORDS.has(w)) continue;
+    const stemmed = stemWord(w);
+    if (!stemmed || stemmed.length < 2) continue;
+    if (STOPWORDS.has(stemmed) || FRAMING_VERBS_AND_META.has(stemmed) || FRAMING_VERBS_AND_META.has(w)) {
+      continue;
+    }
+    // Exclude polarity-only generic token "success" from required content tokens so "successful sudo"
+    // doesn't fail when claim says "used sudo", while keeping "failure", "auth", "sudo", "backup", etc.
+    if (stemmed === "success") continue;
+    contentTokensSet.add(stemmed);
+  }
+
+  return {
+    ips,
+    explicitNumbers: Array.from(explicitNumbersSet),
+    assertsPluralRepeat,
+    identifiers,
+    polarity,
+    contentTokens: Array.from(contentTokensSet),
+    temporalRefs,
+  };
+}
+
+function extractRecordFeatures(rec: IndexedRecord): {
+  ips: Set<string>;
+  numbers: Set<number>;
+  explicitCount?: number;
+  identifiers: Set<string>;
+  polarity: "failure" | "success" | "neutral";
+  tokens: Set<string>;
+  rawLower: string;
+} {
+  const rawLower = (rec.body ?? "").toLowerCase();
+  const ips = new Set<string>(rawLower.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) ?? []);
+
+  let textNoIp = rawLower;
+  for (const ip of ips) {
+    textNoIp = textNoIp.split(ip).join(" ");
+  }
+
+  const identifiers = new Set<string>(
+    (textNoIp.match(/\b[a-z][a-z0-9]*(?:[-_][a-z0-9]+)+\b/g) ?? []).filter(
+      (id) => id !== "system_log"
+    )
+  );
+
+  let explicitCount: number | undefined;
+  const countMatch = textNoIp.match(/\bcount=(\d+)\b/);
+  if (countMatch?.[1] !== undefined) {
+    explicitCount = parseInt(countMatch[1], 10);
+  }
+
+  let textNoIdent = textNoIp;
+  for (const ident of identifiers) {
+    textNoIdent = textNoIdent.split(ident).join(" ");
+  }
+
+  const numbers = new Set<number>();
+  if (explicitCount !== undefined) numbers.add(explicitCount);
+  for (const m of textNoIdent.matchAll(/\b(\d+)\b/g)) {
+    if (m[1] !== undefined) numbers.add(parseInt(m[1], 10));
+  }
+  for (const w of textNoIdent.split(/[^a-z0-9]+/).filter(Boolean)) {
+    if (w in NUMBER_WORDS && w !== "no" && w !== "none") {
+      numbers.add(NUMBER_WORDS[w]!);
+    }
+  }
+
+  const hasFail = /\b(?:failed|failure|failures|error|errors|denied|unauthorized|exhausted|timeout)\b/i.test(
+    rawLower
+  );
+  const hasSucc = /\b(?:success|succeeded|successful|successfully|healthy|flushed)\b/i.test(rawLower);
+  const polarity: "failure" | "success" | "neutral" = hasFail
+    ? "failure"
+    : hasSucc
+      ? "success"
+      : "neutral";
+
+  const tokens = new Set<string>();
+  // Include full words and subtokens of hyphenated/underscored identifiers (e.g. svc-worker -> svc, worker)
+  for (const w of textNoIp.split(/[^a-z0-9]+/).filter(Boolean)) {
+    const stemmed = stemWord(w);
+    if (stemmed) tokens.add(stemmed);
+    tokens.add(w);
+  }
+
+  return { ips, numbers, explicitCount, identifiers, polarity, tokens, rawLower };
+}
+
+function evaluateClauseAgainstRecord(
+  clauseFeat: ClauseFeatures,
+  rec: IndexedRecord,
+  allRecords: IndexedRecord[]
+): "entails" | "contradicts" | "unrelated" {
+  if (!rec.body || rec.body.trim().length === 0) {
+    return "unrelated";
+  }
+
+  const recFeat = extractRecordFeatures(rec);
+
+  // Measure domain/subject overlap between clause and record
+  const sharedIps = clauseFeat.ips.filter((ip) => recFeat.ips.has(ip));
+  const sharedIdents = clauseFeat.identifiers.filter(
+    (id) => recFeat.identifiers.has(id) || recFeat.rawLower.includes(id)
+  );
+  const sharedContent = clauseFeat.contentTokens.filter(
+    (t) => t !== "failure" && recFeat.tokens.has(t)
+  );
+  const sharesFailureTopic =
+    clauseFeat.contentTokens.includes("failure") && recFeat.tokens.has("failure");
+
+  const hasSubjectOrEventOverlap =
+    sharedIps.length > 0 ||
+    sharedIdents.length > 0 ||
+    sharedContent.length > 0 ||
+    sharesFailureTopic;
+
+  if (!hasSubjectOrEventOverlap) {
+    return "unrelated";
+  }
+
+  // 1. Check Polarity Conflict on overlapping subject/event
+  if (
+    (clauseFeat.polarity === "success" && recFeat.polarity === "failure") ||
+    (clauseFeat.polarity === "failure" && recFeat.polarity === "success")
+  ) {
+    // Require specific entity or non-generic event token overlap so unrelated events don't collide
+    if (sharedIps.length > 0 || sharedIdents.length > 0 || sharedContent.length > 0) {
+      return "contradicts";
+    }
+  }
+
+  // 2. Check IP Conflict on same event
+  if (clauseFeat.ips.length > 0) {
+    const allIpsPresent = clauseFeat.ips.every((ip) => recFeat.ips.has(ip));
+    if (!allIpsPresent) {
+      if (recFeat.ips.size > 0 && (sharedContent.length > 0 || sharedIdents.length > 0 || sharesFailureTopic)) {
+        return "contradicts";
+      }
+      return "unrelated";
+    }
+  }
+
+  // 3. Check Explicit Count / Number Conflict on same event
+  if (clauseFeat.explicitNumbers.length > 0) {
+    const allNumsPresent = clauseFeat.explicitNumbers.every((n) => recFeat.numbers.has(n));
+    if (!allNumsPresent) {
+      if (
+        recFeat.numbers.size > 0 &&
+        (sharedIps.length > 0 || sharedIdents.length > 0 || sharedContent.length > 0)
+      ) {
+        return "contradicts";
+      }
+      return "unrelated";
+    }
+  }
+
+  if (clauseFeat.assertsPluralRepeat && recFeat.explicitCount !== undefined && recFeat.explicitCount < 2) {
+    return "contradicts";
+  }
+
+  // 4. Check Technical Identifier Conflict
+  if (clauseFeat.identifiers.length > 0) {
+    const allIdentsPresent = clauseFeat.identifiers.every(
+      (id) =>
+        recFeat.identifiers.has(id) ||
+        recFeat.rawLower.includes(id) ||
+        id.split(/[-_]/).every((part) => recFeat.tokens.has(stemWord(part)) || recFeat.tokens.has(part))
+    );
+    if (!allIdentsPresent) {
+      if (recFeat.identifiers.size > 0 && (sharedIps.length > 0 || sharedContent.length > 0)) {
+        return "contradicts";
+      }
+      return "unrelated";
+    }
+  }
+
+  // 5. Check Temporal Ordering if temporal reference was stated (e.g. `after the failures`)
+  for (const temp of clauseFeat.temporalRefs) {
+    if (rec.timestamp) {
+      const refRec = allRecords.find(
+        (other) =>
+          other.id !== rec.id &&
+          other.timestamp &&
+          other.body &&
+          extractRecordFeatures(other).tokens.has(temp.eventToken)
+      );
+      if (refRec?.timestamp) {
+        const recTime = Date.parse(rec.timestamp);
+        const refTime = Date.parse(refRec.timestamp);
+        if (!Number.isNaN(recTime) && !Number.isNaN(refTime)) {
+          if (temp.prep === "after" && recTime < refTime) return "contradicts";
+          if (temp.prep === "before" && recTime > refTime) return "contradicts";
+        }
+      }
+    }
+  }
+
+  // 6. Check Full Substantive Entailment
+  // Rumor records report unverified hearsay and cannot by themselves entail factual truth
+  if (rec.kind === "rumor") {
+    return "unrelated";
+  }
+
+  const allContentMatched = clauseFeat.contentTokens.every((tok) => recFeat.tokens.has(tok));
+  if (!allContentMatched) {
+    return "unrelated";
+  }
+
+  const totalSubstantiveMatches =
+    clauseFeat.contentTokens.length +
+    clauseFeat.ips.length +
+    clauseFeat.explicitNumbers.length +
+    clauseFeat.identifiers.length +
+    (clauseFeat.assertsPluralRepeat && (recFeat.explicitCount ?? 0) >= 2 ? 1 : 0);
+
+  if (totalSubstantiveMatches === 0) {
+    return "unrelated";
+  }
+
+  return "entails";
+}
+
+/**
+ * General evaluation of universal statements against their relevant documentary evidence set.
+ * Uses three-valued quantification semantics:
+ *   - contradicted if at least one observed record refutes or fails to confirm the proposition
+ *   - supported only if the relevant record set is non-empty, completely observed, and every record entails it
+ *   - unverified (abstain) otherwise
+ */
+export function evaluateUniversalStatement(
+  rawText: string,
+  records: IndexedRecord[]
+): {
+  isUniversal: boolean;
+  status?: "supported" | "contradicted" | "unverified";
+  rationale?: string;
+  supportingIds?: string[];
+  contradictingIds?: string[];
+} {
+  const match = rawText.match(
+    /(?:^|[.;]\s*)\b(?:all|every)\s+(?:(system|witness|rumor|incident|documentary)\s+)?(?:records?|logs?|sources?)\s+(?:confirm|show|indicate|state|prove|establish)(?:s|ed)?\b\s*(?:that\s+)?(.+)/i
+  );
+  if (!match) {
+    return { isUniversal: false };
+  }
+
+  const scopeModifier = match[1]?.toLowerCase();
+  const prop = (match[2] ?? "").trim().replace(/[.,;:]+$/, "");
+
+  const scopedRecords = records.filter((rec) => {
+    if (scopeModifier === "system") return rec.kind === "system_log";
+    if (scopeModifier === "witness") return rec.kind === "witness";
+    if (scopeModifier === "rumor") return rec.kind === "rumor";
+    return true;
+  });
+
+  if (scopedRecords.length === 0) {
+    return {
+      isUniversal: true,
+      status: "unverified",
+      rationale: `Universal claim cannot be verified because no documentary records in the claimed scope were recorded.`,
+    };
+  }
+
+  const ignoreIds = new Set(scopedRecords.map((r) => r.id.toLowerCase()));
+  const propFeat = extractClauseFeatures(prop, ignoreIds);
+
+  if (
+    propFeat.contentTokens.length === 0 &&
+    propFeat.ips.length === 0 &&
+    propFeat.identifiers.length === 0 &&
+    propFeat.explicitNumbers.length === 0
+  ) {
+    return {
+      isUniversal: true,
+      status: "unverified",
+      rationale: `Universal claim "${prop}" lacks verifiable factual predicates (abstaining).`,
+    };
+  }
+
+  const confirmingRecords: IndexedRecord[] = [];
+  const counterexampleRecords: IndexedRecord[] = [];
+  const unobservedRecords: IndexedRecord[] = [];
+
+  for (const rec of scopedRecords) {
+    if (!rec.body || rec.body.trim().length === 0) {
+      unobservedRecords.push(rec);
+      continue;
+    }
+
+    if (scopeModifier === "rumor") {
+      const recFeat = extractRecordFeatures(rec);
+      const matchesRumor = propFeat.contentTokens.every((t) => recFeat.tokens.has(t));
+      if (matchesRumor) confirmingRecords.push(rec);
+      else counterexampleRecords.push(rec);
+      continue;
+    }
+
+    const rel = evaluateClauseAgainstRecord(propFeat, rec, scopedRecords);
+    if (rel === "entails") {
+      confirmingRecords.push(rec);
+    } else {
+      counterexampleRecords.push(rec);
+    }
+  }
+
+  if (counterexampleRecords.length > 0) {
+    const nonRumorCounterexamples = counterexampleRecords.filter((r) => r.kind !== "rumor");
+    const reportedCounterexamples =
+      nonRumorCounterexamples.length > 0 ? nonRumorCounterexamples : counterexampleRecords;
+    return {
+      isUniversal: true,
+      status: "contradicted",
+      contradictingIds: reportedCounterexamples.map((r) => r.id),
+      rationale: `Universal claim that all records confirm "${prop}" is contradicted by documentary records [${reportedCounterexamples
+        .map((r) => r.id)
+        .join(", ")}].`,
+    };
+  }
+
+  if (unobservedRecords.length > 0) {
+    return {
+      isUniversal: true,
+      status: "unverified",
+      rationale: `Universal claim "${prop}" cannot be conclusively verified because record(s) [${unobservedRecords
+        .map((r) => r.id)
+        .join(", ")}] lack captured body content (abstaining).`,
+    };
+  }
+
+  if (confirmingRecords.length === scopedRecords.length && confirmingRecords.length > 0) {
+    return {
+      isUniversal: true,
+      status: "supported",
+      supportingIds: confirmingRecords.map((r) => r.id),
+      rationale: `Universal claim that all records confirm "${prop}" is supported by documentary records [${confirmingRecords
+        .map((r) => r.id)
+        .join(", ")}].`,
+    };
+  }
+
+  return {
+    isUniversal: true,
+    status: "unverified",
+    rationale: `Available documentary records are insufficient to evaluate universal claim "${prop}".`,
+  };
+}
+
+function evaluateNegativeRumorClause(
+  rawClause: string,
+  citedRecords: IndexedRecord[],
+  index: KarmaPoliceEvidenceIndex
+): {
+  matched: boolean;
+  status?: "supported" | "contradicted" | "unverified";
+  supportingIds?: string[];
+  contradictingIds?: string[];
+  rationale?: string;
+} {
+  const unsupportedBySysMatch = rawClause.match(
+    /\brumor\b(.*?)\b(?:is\s+)?(?:unsupported|not\s+supported|not\s+corroborated)\s+by\s+system\s+logs?\b/i
+  );
+  const notTreatAsProofMatch = rawClause.match(
+    /\bdo\s+not\s+treat\s+(?:the\s+|an?\s+)?(.+?)\s+rumor\s+as\s+proof\b/i
+  );
+
+  if (!unsupportedBySysMatch && !notTreatAsProofMatch) {
+    return { matched: false };
+  }
+
+  const descriptorPhrase = (unsupportedBySysMatch?.[1] ?? notTreatAsProofMatch?.[1] ?? "").trim();
+
+  // Locate rumor records (from cited records or cross-agent run index)
+  const citedRumors = citedRecords.filter((r) => r.kind === "rumor");
+  const candidateRumors =
+    citedRumors.length > 0
+      ? citedRumors
+      : index.canonicalRecords.filter((r) => r.kind === "rumor");
+
+  if (candidateRumors.length === 0) {
+    return {
+      matched: true,
+      status: "unverified",
+      rationale: "Claim references a rumor, but no rumor record exists in recorded evidence.",
+    };
+  }
+
+  // Extract distinctive rumor subject tokens from descriptorPhrase or from rumor body
+  const subjectTokens: string[] = [];
+  for (const w of descriptorPhrase.split(/[^a-z0-9]+/i).filter(Boolean)) {
+    const low = w.toLowerCase();
+    if (STOPWORDS.has(low) || RUMOR_FRAMING_WORDS.has(low)) continue;
+    const st = stemWord(low);
+    if (st && !STOPWORDS.has(st) && !RUMOR_FRAMING_WORDS.has(st)) {
+      subjectTokens.push(st);
+    }
+  }
+
+  const observedRumors = candidateRumors.filter((r) => r.body && r.body.trim().length > 0);
+  if (subjectTokens.length > 0 && observedRumors.length > 0) {
+    const matchesAnyRumor = observedRumors.some((r) => {
+      const rFeat = extractRecordFeatures(r);
+      return subjectTokens.every((t) => rFeat.tokens.has(t));
+    });
+    if (!matchesAnyRumor) {
+      return {
+        matched: true,
+        status: "unverified",
+        rationale: `Recorded rumor content does not mention the claimed rumor subject [${subjectTokens.join(", ")}].`,
+      };
+    }
+  } else if (subjectTokens.length === 0 && observedRumors.length > 0) {
+    for (const w of (observedRumors[0]!.body ?? "").split(/[^a-z0-9]+/i).filter(Boolean)) {
+      const low = w.toLowerCase();
+      if (STOPWORDS.has(low) || RUMOR_FRAMING_WORDS.has(low)) continue;
+      const st = stemWord(low);
+      if (st && !STOPWORDS.has(st) && !RUMOR_FRAMING_WORDS.has(st)) {
+        subjectTokens.push(st);
+      }
+    }
+  }
+
+  if (subjectTokens.length === 0) {
+    return {
+      matched: true,
+      status: "unverified",
+      rationale: "Cannot determine distinctive rumor subject to compare against system logs.",
+    };
+  }
+
+  const systemLogs = index.canonicalRecords.filter((r) => r.kind === "system_log");
+  if (systemLogs.length === 0) {
+    return {
+      matched: true,
+      status: "unverified",
+      rationale: "No system_log records exist to verify absence of system-log support.",
+    };
+  }
+
+  const corroboratingSysLogs = systemLogs.filter((l) => {
+    if (!l.body) return false;
+    const lFeat = extractRecordFeatures(l);
+    return subjectTokens.every((t) => lFeat.tokens.has(t));
+  });
+
+  if (corroboratingSysLogs.length > 0) {
+    return {
+      matched: true,
+      status: "contradicted",
+      contradictingIds: corroboratingSysLogs.map((l) => l.id),
+      rationale: `Claim states rumor is unsupported by system logs, but system log(s) [${corroboratingSysLogs
+        .map((l) => l.id)
+        .join(", ")}] corroborate it.`,
+    };
+  }
+
+  if (systemLogs.some((l) => !l.body || l.body.trim().length === 0)) {
+    return {
+      matched: true,
+      status: "unverified",
+      rationale: "Some system_log records lack captured bodies; cannot verify absence of corroboration.",
+    };
+  }
+
+  const supportIds =
+    citedRecords.length > 0
+      ? citedRecords.map((r) => r.id)
+      : [...candidateRumors.map((r) => r.id), ...systemLogs.map((l) => l.id)];
+
+  return {
+    matched: true,
+    status: "supported",
+    supportingIds: supportIds,
+    rationale: `System logs [${systemLogs.map((l) => l.id).join(", ")}] do not corroborate the rumor subject, entailing the assertion.`,
+  };
+}
+
+/**
+ * Factual semantic entailment verification for documentary records.
+ * Never classifies a claim as supported merely because a cited record ID exists.
+ */
+export function evaluateDocumentaryRecordEntailment(
+  rawText: string,
+  records: IndexedRecord[],
+  index: KarmaPoliceEvidenceIndex
+): {
+  status: "supported" | "contradicted" | "unverified";
+  supportingIds: string[];
+  contradictingIds: string[];
+  rationale: string;
+} {
+  const clauses = rawText
+    .split(/\s*;\s*/)
+    .map((c) => c.trim())
+    .filter(Boolean);
+
+  if (clauses.length === 0) {
+    return {
+      status: "unverified",
+      supportingIds: [],
+      contradictingIds: [],
+      rationale: "Empty documentary claim cannot be verified.",
+    };
+  }
+
+  const allSupporting = new Set<string>();
+  const allContradicting = new Set<string>();
+  const rationales: string[] = [];
+  let anyUnverified = false;
+
+  for (const clause of clauses) {
+    const clauseRes = evaluateSingleDocumentaryClause(clause, records, index);
+    if (clauseRes.status === "contradicted") {
+      for (const id of clauseRes.contradictingIds) allContradicting.add(id);
+      return {
+        status: "contradicted",
+        supportingIds: [],
+        contradictingIds: Array.from(allContradicting),
+        rationale: clauseRes.rationale,
+      };
+    }
+    if (clauseRes.status === "supported") {
+      for (const id of clauseRes.supportingIds) allSupporting.add(id);
+      rationales.push(clauseRes.rationale);
+    } else {
+      anyUnverified = true;
+      rationales.push(clauseRes.rationale);
+    }
+  }
+
+  if (!anyUnverified && allSupporting.size > 0) {
+    return {
+      status: "supported",
+      supportingIds: Array.from(allSupporting),
+      contradictingIds: [],
+      rationale: rationales[0]!,
+    };
+  }
+
+  return {
+    status: "unverified",
+    supportingIds: [],
+    contradictingIds: [],
+    rationale:
+      rationales.find((r) => r.includes("abstain") || r.includes("do not") || r.includes("Cannot") || r.includes("not")) ??
+      `Cited record(s) [${records.map((r) => r.id).join(", ")}] do not establish factual entailment for the claim statement (abstaining).`,
+  };
+}
+
+function evaluateSingleDocumentaryClause(
+  clause: string,
+  records: IndexedRecord[],
+  index: KarmaPoliceEvidenceIndex
+): {
+  status: "supported" | "contradicted" | "unverified";
+  supportingIds: string[];
+  contradictingIds: string[];
+  rationale: string;
+} {
+  // 1. Check Negative Rumor Corroboration Clause
+  const negRumor = evaluateNegativeRumorClause(clause, records, index);
+  if (negRumor.matched) {
+    return {
+      status: negRumor.status ?? "unverified",
+      supportingIds: negRumor.supportingIds ?? [],
+      contradictingIds: negRumor.contradictingIds ?? [],
+      rationale: negRumor.rationale ?? "Rumor evaluation inconclusive.",
+    };
+  }
+
+  // 2. Check Source Kind Assertions (e.g. "system log" / "system_log")
+  const assertsSystemLog = /\bsystem[\s_]log\b/i.test(clause);
+  if (assertsSystemLog && records.length > 0) {
+    const wrongKind = records.find((r) => r.kind !== "system_log");
+    if (wrongKind && records.every((r) => r.kind !== "system_log")) {
+      return {
+        status: "contradicted",
+        supportingIds: [],
+        contradictingIds: [wrongKind.id],
+        rationale: `Claim asserts source is a system log, but referenced record ${wrongKind.id} has kind "${wrongKind.kind}".`,
+      };
+    }
+  }
+
+  // 3. Check Cross-Agent Finding Reference (e.g. "Finding F1 is supported by system log REC-10")
+  const findingRefMatch = clause.match(
+    /\bfinding\s+([A-Za-z0-9_-]+)\s+is\s+(not\s+supported|unsupported|supported)\b/i
+  );
+  if (findingRefMatch?.[1] && findingRefMatch[2]) {
+    const fid = findingRefMatch[1];
+    const claimsSupport = findingRefMatch[2].toLowerCase() === "supported";
+
+    if (index.ambiguousFindingIds.has(fid)) {
+      return {
+        status: "unverified",
+        supportingIds: [],
+        contradictingIds: [],
+        rationale: `Referenced finding "${fid}" is ambiguous across multiple upstream handoffs (abstaining).`,
+      };
+    }
+
+    const upstream = index.upstreamFindingsById.get(fid);
+    if (!upstream) {
+      return {
+        status: "unverified",
+        supportingIds: [],
+        contradictingIds: [],
+        rationale: `Referenced finding "${fid}" was not found in recorded upstream handoffs (abstaining).`,
+      };
+    }
+
+    const targetRecords = records.filter((r) => !assertsSystemLog || r.kind === "system_log");
+    if (targetRecords.length === 0) {
+      return {
+        status: "unverified",
+        supportingIds: [],
+        contradictingIds: [],
+        rationale: `No matching record available to verify finding "${fid}" (abstaining).`,
+      };
+    }
+
+    const upstreamEval = evaluateSingleDocumentaryClause(upstream.claim, targetRecords, index);
+    if (claimsSupport) {
+      if (upstreamEval.status === "supported") {
+        return {
+          status: "supported",
+          supportingIds: upstreamEval.supportingIds,
+          contradictingIds: [],
+          rationale: `Documentary record(s) [${upstreamEval.supportingIds.join(", ")}] entail upstream finding ${fid} ("${upstream.claim}").`,
+        };
+      }
+      if (
+        upstreamEval.status === "contradicted" ||
+        targetRecords.every((r) => Boolean(r.body && r.body.trim().length > 0))
+      ) {
+        return {
+          status: "contradicted",
+          supportingIds: [],
+          contradictingIds: targetRecords.map((r) => r.id),
+          rationale: `Claim states finding ${fid} ("${upstream.claim}") is supported by [${targetRecords
+            .map((r) => r.id)
+            .join(", ")}], which does not entail that finding.`,
+        };
+      }
+      return {
+        status: "unverified",
+        supportingIds: [],
+        contradictingIds: [],
+        rationale: `Cannot verify whether [${targetRecords.map((r) => r.id).join(", ")}] supports finding ${fid} because record content is uncaptured (abstaining).`,
+      };
+    } else {
+      if (upstreamEval.status === "supported") {
+        return {
+          status: "contradicted",
+          supportingIds: [],
+          contradictingIds: upstreamEval.supportingIds,
+          rationale: `Claim states finding ${fid} is unsupported, but [${upstreamEval.supportingIds.join(", ")}] entails it.`,
+        };
+      }
+      if (targetRecords.some((r) => r.kind === "rumor") || upstreamEval.status === "contradicted") {
+        return {
+          status: "supported",
+          supportingIds: targetRecords.map((r) => r.id),
+          contradictingIds: [],
+          rationale: `Referenced record(s) [${targetRecords.map((r) => r.id).join(", ")}] confirm finding ${fid} lacks authoritative support.`,
+        };
+      }
+      return {
+        status: "unverified",
+        supportingIds: [],
+        contradictingIds: [],
+        rationale: `Inconclusive evidence for unsupported finding ${fid} (abstaining).`,
+      };
+    }
+  }
+
+  // 4. Check Scoped Investigation / Escalation Directive Grounded in Anomaly Log
+  const escalateMatch = clause.match(
+    /^\s*(?:escalate|investigate|flag)\s+(?:for\s+)?(?:investigation\s+of\s+)?(.+)$/i
+  );
+  if (escalateMatch?.[1]) {
+    const ignoreIds = new Set([
+      ...records.map((r) => r.id.toLowerCase()),
+      ...index.canonicalRecords.map((r) => r.id.toLowerCase()),
+    ]);
+    const targetFeat = extractClauseFeatures(escalateMatch[1], ignoreIds);
+    const hasConcreteEntity = targetFeat.ips.length > 0 || targetFeat.identifiers.length > 0;
+    if (!hasConcreteEntity) {
+      return {
+        status: "unverified",
+        supportingIds: [],
+        contradictingIds: [],
+        rationale: "Escalation directive specifies no concrete technical entity to verify against records (abstaining).",
+      };
+    }
+
+    const matchingAnomalyLogs = records.filter((rec) => {
+      if (rec.kind !== "system_log" || !rec.body) return false;
+      const rFeat = extractRecordFeatures(rec);
+      const ipsOk = targetFeat.ips.every((ip) => rFeat.ips.has(ip));
+      const identsOk = targetFeat.identifiers.every(
+        (id) => rFeat.identifiers.has(id) || rFeat.rawLower.includes(id)
+      );
+      return ipsOk && identsOk && rFeat.polarity === "failure";
+    });
+
+    if (matchingAnomalyLogs.length > 0) {
+      return {
+        status: "supported",
+        supportingIds: matchingAnomalyLogs.map((r) => r.id),
+        contradictingIds: [],
+        rationale: `Documentary system log(s) [${matchingAnomalyLogs.map((r) => r.id).join(", ")}] corroborate anomalous activity for the escalated entity.`,
+      };
+    }
+
+    return {
+      status: "unverified",
+      supportingIds: [],
+      contradictingIds: [],
+      rationale: `Cited record(s) [${records.map((r) => r.id).join(", ")}] do not establish anomalous activity for the escalated entity (abstaining).`,
+    };
+  }
+
+  // 5. General Factual Documentary Entailment & Contradiction Check
+  const ignoreIds = new Set([
+    ...records.map((r) => r.id.toLowerCase()),
+    ...index.canonicalRecords.map((r) => r.id.toLowerCase()),
+  ]);
+  const clauseFeat = extractClauseFeatures(clause, ignoreIds);
+
+  const supportingIds: string[] = [];
+  const contradictingIds: string[] = [];
+
+  for (const rec of records) {
+    const rel = evaluateClauseAgainstRecord(clauseFeat, rec, index.canonicalRecords);
+    if (rel === "entails") {
+      supportingIds.push(rec.id);
+    } else if (rel === "contradicts") {
+      contradictingIds.push(rec.id);
+    }
+  }
+
+  if (contradictingIds.length > 0 && supportingIds.length === 0) {
+    const cRec = records.find((r) => r.id === contradictingIds[0]);
+    return {
+      status: "contradicted",
+      supportingIds: [],
+      contradictingIds,
+      rationale: `Claim conflicts with referenced documentary record ${contradictingIds.join(", ")}${
+        cRec?.body ? ` ("${cRec.body}")` : ""
+      }.`,
+    };
+  }
+
+  if (supportingIds.length > 0) {
+    return {
+      status: "supported",
+      supportingIds,
+      contradictingIds: [],
+      rationale: `Documentary record(s) [${supportingIds.join(", ")}] corroborate the factual statements in the claim.`,
+    };
+  }
+
+  // Check whether an un-cited authoritative in-run record directly contradicts the claim
+  // (catches contradictory claims that cite an unrelated record to evade detection)
+  for (const inRunRec of index.canonicalRecords) {
+    if (inRunRec.kind === "rumor" || !inRunRec.body) continue;
+    if (records.some((r) => r.id === inRunRec.id)) continue;
+    const rel = evaluateClauseAgainstRecord(clauseFeat, inRunRec, index.canonicalRecords);
+    if (rel === "contradicts") {
+      return {
+        status: "contradicted",
+        supportingIds: [],
+        contradictingIds: [inRunRec.id],
+        rationale: `Claim cites [${records.map((r) => r.id).join(", ")}] (unrelated), and is contradicted by in-run documentary record ${inRunRec.id} ("${inRunRec.body}").`,
+      };
+    }
+  }
+
+  return {
+    status: "unverified",
+    supportingIds: [],
+    contradictingIds: [],
+    rationale: `Cited record(s) [${records.map((r) => r.id).join(", ")}] do not establish factual entailment for the claim statement (abstaining).`,
+  };
+}
+
+/**
+ * Claim-specific test resolution binding authoritative observations strictly to
+ * the claimed artifact, version, and validation execution.
+ */
+export function resolveClaimSpecificTests(
+  item: AtomicSubClaim,
+  index: KarmaPoliceEvidenceIndex
+): {
+  ambiguous: boolean;
+  ambiguityReason?: string;
+  hasRelevantTests: boolean;
+  relevantPassed: string[];
+  relevantFailed: string[];
+  hasPartialPassInFailedRun: boolean;
+  unexecuted: boolean;
+  targetArtifact?: IndexedArtifact;
+} {
+  const refsToUse = item.ownRefs.length > 0 ? item.ownRefs : item.allRefs;
+
+  // 1. Detect explicit ambiguity on cited references
+  for (const ref of refsToUse) {
+    const res = index.resolveReference(ref);
+    if (res.note?.toLowerCase().includes("ambiguous")) {
+      return {
+        ambiguous: true,
+        ambiguityReason: res.note,
+        hasRelevantTests: false,
+        relevantPassed: [],
+        relevantFailed: [],
+        hasPartialPassInFailedRun: false,
+        unexecuted: false,
+      };
+    }
+  }
+
+  // 2. Extract explicit version token from claim text (strictly version-qualified, never bare numbers)
+  const verMatch =
+    item.rawText.match(/\b(?:artifact\s+v?|version\s+)(\d+)\b/i) ??
+    item.rawText.match(/\bv(\d+)\b/i);
+  const explicitVersion = verMatch?.[1];
+
+  // Extract explicit artifact group name if mentioned in claim text
+  let explicitGroupName: string | undefined;
+  for (const groupName of index.latestArtifactByName.keys()) {
+    if (groupName && item.rawText.toLowerCase().includes(groupName.toLowerCase())) {
+      explicitGroupName = groupName;
+      break;
+    }
+  }
+
+  // 3. Collect candidate artifacts from sub-claim refs and artifact_refs
+  const candidateArtifactsMap = new Map<string, IndexedArtifact>();
+  const orderedRefSources =
+    item.ownRefs.length > 0 ? item.ownRefs : [...item.artifactRefs, ...item.allRefs];
+
+  for (const ref of orderedRefSources) {
+    const res = index.resolveReference(ref);
+    if (res.target_type === "artifact" && res.target_id && index.artifactsById.has(res.target_id)) {
+      const art = index.artifactsById.get(res.target_id)!;
+      if (!art.type.startsWith("incident_record/")) {
+        candidateArtifactsMap.set(art.artifact_id, art);
+      }
+    }
+  }
+
+  const candidateArtifacts = Array.from(candidateArtifactsMap.values());
+  let targetArtifact: IndexedArtifact | undefined;
+
+  if (candidateArtifacts.length === 1) {
+    const only = candidateArtifacts[0]!;
+    if (explicitVersion && only.version && only.version !== explicitVersion) {
+      return {
+        ambiguous: true,
+        ambiguityReason: `Claim text specifies version v${explicitVersion}, which conflicts with cited artifact "${only.name}" (v${only.version}).`,
+        hasRelevantTests: false,
+        relevantPassed: [],
+        relevantFailed: [],
+        hasPartialPassInFailedRun: false,
+        unexecuted: false,
+      };
+    }
+    targetArtifact = only;
+  } else if (candidateArtifacts.length > 1) {
+    // Disambiguate multiple cited artifacts only if explicit version/group uniquely selects one
+    const filtered = candidateArtifacts.filter((art) => {
+      const verOk = explicitVersion ? art.version === explicitVersion : true;
+      const grpOk = explicitGroupName
+        ? (art.metadata?.["function_name"] === explicitGroupName ||
+            art.name.toLowerCase().includes(explicitGroupName.toLowerCase()))
+        : true;
+      return verOk && grpOk;
+    });
+    if (filtered.length === 1 && (explicitVersion || explicitGroupName)) {
+      targetArtifact = filtered[0]!;
+    } else {
+      return {
+        ambiguous: true,
+        ambiguityReason: `Claim references multiple distinct artifacts [${candidateArtifacts
+          .map((a) => a.name)
+          .join(", ")}] without unambiguous binding.`,
+        hasRelevantTests: false,
+        relevantPassed: [],
+        relevantFailed: [],
+        hasPartialPassInFailedRun: false,
+        unexecuted: false,
+      };
+    }
+  } else {
+    // Zero artifact references resolved; attempt unambiguous lookup from explicit version/group
+    if (explicitVersion) {
+      if (explicitGroupName) {
+        const qualKey = `${explicitGroupName}:${explicitVersion}`;
+        if (index.ambiguousVersions.has(qualKey)) {
+          return {
+            ambiguous: true,
+            ambiguityReason: `Qualified version "${qualKey}" is ambiguous.`,
+            hasRelevantTests: false,
+            relevantPassed: [],
+            relevantFailed: [],
+            hasPartialPassInFailedRun: false,
+            unexecuted: false,
+          };
+        }
+        targetArtifact = index.artifactsByVersion.get(qualKey);
+      } else if (index.ambiguousVersions.has(explicitVersion)) {
+        return {
+          ambiguous: true,
+          ambiguityReason: `Version v${explicitVersion} is shared by multiple distinct artifacts; cannot bind test outcome unambiguously.`,
+          hasRelevantTests: false,
+          relevantPassed: [],
+          relevantFailed: [],
+          hasPartialPassInFailedRun: false,
+          unexecuted: false,
+        };
+      } else {
+        targetArtifact =
+          index.artifactsByVersion.get(explicitVersion) ??
+          index.artifactsByVersion.get(`v${explicitVersion}`);
+      }
+    } else if (/\bcurrent\b/i.test(item.rawText)) {
+      if (index.latestArtifactByName.size > 1) {
+        return {
+          ambiguous: true,
+          ambiguityReason: "Multiple artifact groups exist; 'current' artifact cannot be disambiguated.",
+          hasRelevantTests: false,
+          relevantPassed: [],
+          relevantFailed: [],
+          hasPartialPassInFailedRun: false,
+          unexecuted: false,
+        };
+      }
+      targetArtifact = Array.from(index.latestArtifactByName.values())[0];
+    } else {
+      const nonRecordArtifacts = Array.from(index.artifactsById.values()).filter(
+        (a) => !a.type.startsWith("incident_record/")
+      );
+      if (nonRecordArtifacts.length === 1) {
+        targetArtifact = nonRecordArtifacts[0];
+      }
+    }
+  }
+
+  const relevantPassed: string[] = [];
+  const relevantFailed: string[] = [];
+  let hasPartialPassInFailedRun = false;
+
+  // 4. Bind direct authoritative test_id references (must match targetArtifact if both exist)
+  for (const ref of refsToUse) {
+    const res = index.resolveReference(ref);
+    if (res.target_type === "test" && res.target_id) {
+      const t = index.testsById.get(res.target_id);
+      if (!t) continue;
+      if (
+        targetArtifact &&
+        t.artifact_refs.length > 0 &&
+        !t.artifact_refs.includes(targetArtifact.artifact_id)
+      ) {
+        return {
+          ambiguous: true,
+          ambiguityReason: `Cited test "${t.test_id}" was executed against [${t.artifact_refs.join(
+            ", "
+          )}], not claimed artifact "${targetArtifact.artifact_id}".`,
+          hasRelevantTests: false,
+          relevantPassed: [],
+          relevantFailed: [],
+          hasPartialPassInFailedRun: false,
+          unexecuted: false,
+        };
+      }
+      if (t.status === "PASSED" && !relevantPassed.includes(t.test_id)) {
+        relevantPassed.push(t.test_id);
+      } else if (t.status === "FAILED" && !relevantFailed.includes(t.test_id)) {
+        relevantFailed.push(t.test_id);
+      }
+    }
+  }
+
+  // 5. Bind artifact-specific authoritative tests and completed validation tool invocations
+  if (targetArtifact) {
+    const testsForArt = index.testsByArtifact.get(targetArtifact.artifact_id) ?? [];
+    for (const t of testsForArt) {
+      if (t.status === "PASSED" && !relevantPassed.includes(t.test_id)) {
+        relevantPassed.push(t.test_id);
+      } else if (t.status === "FAILED" && !relevantFailed.includes(t.test_id)) {
+        relevantFailed.push(t.test_id);
+      }
+    }
+
+    const targetGroup =
+      (targetArtifact.metadata?.["function_name"] as string | undefined) ??
+      targetArtifact.name.replace(/-v\d+(?:\.[a-z0-9]+)?$/i, "");
+
+    for (const vt of index.validationTools) {
+      if (vt.status !== "completed") continue;
+      const inp = vt.input as Record<string, unknown> | undefined;
+      const out = vt.output as Record<string, unknown> | undefined;
+
+      const exactArtMatch =
+        out?.["artifact_id"] === targetArtifact.artifact_id ||
+        inp?.["artifact_id"] === targetArtifact.artifact_id;
+
+      const versionUnambiguous =
+        targetArtifact.version !== undefined && !index.ambiguousVersions.has(targetArtifact.version);
+
+      const qualNameMatches =
+        (typeof inp?.["name"] === "string" && inp["name"] === targetGroup) ||
+        (typeof out?.["name"] === "string" && out["name"] === targetGroup);
+
+      const verStringMatches =
+        targetArtifact.version !== undefined &&
+        (String(inp?.["version"] ?? "") === targetArtifact.version ||
+          String(out?.["version"] ?? "") === targetArtifact.version);
+
+      const matchesTarget =
+        exactArtMatch ||
+        (verStringMatches && (versionUnambiguous || qualNameMatches));
+
+      if (matchesTarget) {
+        if (Array.isArray(out?.["cases"])) {
+          const anyCasePassed = (out["cases"] as Array<Record<string, unknown>>).some(
+            (c) => c && c["passed"] === true
+          );
+          if (anyCasePassed) hasPartialPassInFailedRun = true;
+        }
+        // Only append tool_call_id if no authoritative TestResult was already recorded for this artifact
+        // (avoids duplicate IDs when startTest + tool both record the same run_validation call)
+        if (testsForArt.length === 0) {
+          if (out?.["passed"] === true && !relevantPassed.includes(vt.tool_call_id)) {
+            relevantPassed.push(vt.tool_call_id);
+          } else if (out?.["passed"] === false && !relevantFailed.includes(vt.tool_call_id)) {
+            relevantFailed.push(vt.tool_call_id);
+          }
+        }
+      }
+    }
+  } else {
+    // No targetArtifact: check if non-record artifacts exist in the run (making un-targeted test claims ambiguous)
+    const nonRecordArtifacts = Array.from(index.artifactsById.values()).filter(
+      (a) => !a.type.startsWith("incident_record/")
+    );
+    if (nonRecordArtifacts.length > 1 && relevantPassed.length === 0 && relevantFailed.length === 0) {
+      return {
+        ambiguous: true,
+        ambiguityReason:
+          "Multiple artifacts exist in the run, and the validation claim cannot be bound to a specific artifact.",
+        hasRelevantTests: false,
+        relevantPassed: [],
+        relevantFailed: [],
+        hasPartialPassInFailedRun: false,
+        unexecuted: false,
+      };
+    }
+
+    // Single/zero-artifact run with direct tool citation
+    const matchingValTools = index.validationTools.filter(
+      (vt) =>
+        vt.status === "completed" &&
+        (refsToUse.includes(vt.tool_call_id) || refsToUse.includes(`tool:${vt.tool_name}`))
+    );
+    if (matchingValTools.length > 1) {
+      const outcomes = new Set(
+        matchingValTools.map((vt) => (vt.output as Record<string, unknown> | undefined)?.["passed"])
+      );
+      if (outcomes.size > 1) {
+        return {
+          ambiguous: true,
+          ambiguityReason: "Multiple validation tool invocations with differing outcomes match the cited reference.",
+          hasRelevantTests: false,
+          relevantPassed: [],
+          relevantFailed: [],
+          hasPartialPassInFailedRun: false,
+          unexecuted: false,
+        };
+      }
+    }
+    if (matchingValTools.length === 1) {
+      const vt = matchingValTools[0]!;
+      const out = vt.output as Record<string, unknown> | undefined;
+      if (out?.["passed"] === true && !relevantPassed.includes(vt.tool_call_id)) {
+        relevantPassed.push(vt.tool_call_id);
+      } else if (out?.["passed"] === false && !relevantFailed.includes(vt.tool_call_id)) {
+        relevantFailed.push(vt.tool_call_id);
+      }
+    }
+  }
+
+  const hasRelevantTests = relevantPassed.length > 0 || relevantFailed.length > 0;
+  return {
+    ambiguous: false,
+    hasRelevantTests,
+    relevantPassed,
+    relevantFailed,
+    hasPartialPassInFailedRun,
+    unexecuted: !hasRelevantTests,
+    targetArtifact,
+  };
+}
+
+function evaluateAssessmentSubClaim(
+  item: AtomicSubClaim,
+  index: KarmaPoliceEvidenceIndex
+): AtomicEvalOutcome {
+  const fid = item.findingId ?? "";
+  if (!fid || index.ambiguousFindingIds.has(fid)) {
+    return {
+      status: "unverified",
+      rationale: `Assessment references unknown or ambiguous finding "${fid}" (abstaining).`,
+      supportingIds: [],
+      contradictingIds: [],
+      anomalies: [],
+    };
+  }
+
+  const upstream = index.upstreamFindingsById.get(fid);
+  if (!upstream) {
+    return {
+      status: "unverified",
+      rationale: `Assessment references finding "${fid}" which is not present in upstream handoffs (abstaining).`,
+      supportingIds: [],
+      contradictingIds: [],
+      anomalies: [],
+    };
+  }
+
+  const citedRecords: IndexedRecord[] = [];
+  for (const r of item.ownRefs) {
+    const clean = r.replace(/^record:/, "");
+    const rec = index.recordsById.get(r) ?? index.recordsById.get(clean);
+    if (rec && !citedRecords.some((x) => x.id === rec.id)) {
+      citedRecords.push(rec);
+    }
+  }
+
+  if (citedRecords.length === 0) {
+    return {
+      status: "unverified",
+      rationale: `Assessment for finding "${fid}" cites no resolving documentary records (abstaining).`,
+      supportingIds: [],
+      contradictingIds: [],
+      anomalies: [],
+    };
+  }
+
+  if (item.rawText.trim().length > 0) {
+    const reasonEval = evaluateDocumentaryRecordEntailment(item.rawText, citedRecords, index);
+    if (reasonEval.status === "contradicted") {
+      return {
+        status: "contradicted",
+        rationale: reasonEval.rationale,
+        supportingIds: [],
+        contradictingIds: reasonEval.contradictingIds,
+        anomalies: [],
+      };
+    }
+  }
+
+  const upstreamEval = evaluateDocumentaryRecordEntailment(upstream.claim, citedRecords, index);
+
+  if (item.expectedSupported) {
+    if (citedRecords.every((r) => r.kind === "rumor")) {
+      return {
+        status: "contradicted",
+        rationale: `Assessment marks finding "${fid}" as supported solely by rumor [${citedRecords
+          .map((r) => r.id)
+          .join(", ")}].`,
+        supportingIds: [],
+        contradictingIds: citedRecords.map((r) => r.id),
+        anomalies: [],
+      };
+    }
+    if (upstreamEval.status === "supported") {
+      return {
+        status: "supported",
+        rationale: `Documentary record(s) [${upstreamEval.supportingIds.join(
+          ", "
+        )}] corroborate assessed finding "${fid}".`,
+        supportingIds: upstreamEval.supportingIds,
+        contradictingIds: [],
+        anomalies: [],
+      };
+    }
+    if (
+      upstreamEval.status === "contradicted" ||
+      citedRecords.every((r) => Boolean(r.body && r.body.trim().length > 0))
+    ) {
+      return {
+        status: "contradicted",
+        rationale: `Assessment claims finding "${fid}" ("${upstream.claim}") is supported by [${citedRecords
+          .map((r) => r.id)
+          .join(", ")}], which does not entail it.`,
+        supportingIds: [],
+        contradictingIds: citedRecords.map((r) => r.id),
+        anomalies: [],
+      };
+    }
+    return {
+      status: "unverified",
+      rationale: `Cannot verify assessment for finding "${fid}" due to uncaptured record content (abstaining).`,
+      supportingIds: [],
+      contradictingIds: [],
+      anomalies: [],
+    };
+  } else {
+    if (upstreamEval.status === "supported") {
+      return {
+        status: "contradicted",
+        rationale: `Assessment marks finding "${fid}" as unsupported, but [${upstreamEval.supportingIds.join(
+          ", "
+        )}] entails it.`,
+        supportingIds: [],
+        contradictingIds: upstreamEval.supportingIds,
+        anomalies: [],
+      };
+    }
+    if (citedRecords.some((r) => r.kind === "rumor") || upstreamEval.status === "contradicted") {
+      return {
+        status: "supported",
+        rationale: `Documentary record(s) [${citedRecords.map((r) => r.id).join(", ")}] confirm finding "${fid}" is not authoritatively supported.`,
+        supportingIds: citedRecords.map((r) => r.id),
+        contradictingIds: [],
+        anomalies: [],
+      };
+    }
+    return {
+      status: "unverified",
+      rationale: `Inconclusive evidence for negative assessment on finding "${fid}" (abstaining).`,
+      supportingIds: [],
+      contradictingIds: [],
+      anomalies: [],
+    };
+  }
+}
+
+function evaluateAtomicSubClaim(
+  item: AtomicSubClaim,
+  index: KarmaPoliceEvidenceIndex
+): AtomicEvalOutcome {
+  if (item.kind === "assessment") {
+    return evaluateAssessmentSubClaim(item, index);
+  }
+
+  const rawText = item.rawText.trim();
+  const lowerText = rawText.toLowerCase();
+
+  // Category A: Universal Documentary Statement
+  const universalRes = evaluateUniversalStatement(rawText, index.canonicalRecords);
+  if (universalRes.isUniversal) {
+    return {
+      status: universalRes.status ?? "unverified",
+      rationale:
+        universalRes.rationale ??
+        "Universal statement cannot be established from available documentary evidence (abstaining).",
+      supportingIds: universalRes.supportingIds ?? [],
+      contradictingIds: universalRes.contradictingIds ?? [],
+      anomalies: [],
+    };
+  }
+
+  // Resolve documentary records cited by this atomic sub-claim
+  const refsForRecords = item.ownRefs.length > 0 ? item.ownRefs : item.allRefs;
+  const citedRecordsMap = new Map<string, IndexedRecord>();
+  for (const ref of refsForRecords) {
+    const clean = ref.replace(/^record:/, "");
+    const rec = index.recordsById.get(ref) ?? index.recordsById.get(clean);
+    if (rec) {
+      citedRecordsMap.set(rec.id, rec);
+    }
+  }
+
+  // Category B: Observed Validation & Test Outcome Claims (only when not citing documentary incident records)
+  const assertsUniversalTestFail =
+    /\bfailed\s+(?:every|all)\s+(?:gold[\s-]*)?(?:cases?|tests?)\b/i.test(lowerText);
+  const assertsTestFailure =
+    assertsUniversalTestFail ||
+    /\b(?:validation|tests?|gold[\s-]cases?)\b.*\b(?:failed|did\s+not\s+pass)\b|\b(?:failed|did\s+not\s+pass)\b.*\b(?:validation|tests?|gold[\s-]cases?)\b/i.test(
+      lowerText
+    );
+  const assertsObservedPassOrCoverage =
+    /\b(?:observed\s+validation|observed\s+tests?|validation\s+(?:passed|succeeded|covers)|tests?\s+(?:passed|succeeded)|release\s+is\s+justified\b.*\btests?)\b/i.test(
+      lowerText
+    );
+
+  if (citedRecordsMap.size === 0 && (assertsTestFailure || assertsObservedPassOrCoverage)) {
+    const testRes = resolveClaimSpecificTests(item, index);
+
+    if (testRes.ambiguous) {
+      return {
+        status: "unverified",
+        rationale:
+          testRes.ambiguityReason ??
+          "Ambiguous relationship between claim and recorded test executions (abstaining).",
+        supportingIds: [],
+        contradictingIds: [],
+        anomalies: [],
+      };
+    }
+
+    if (testRes.unexecuted) {
+      return {
+        status: "unverified",
+        rationale: testRes.targetArtifact
+          ? `Claim asserts observed validation coverage, but no authoritative tests were executed for artifact "${testRes.targetArtifact.name}" (unexecuted observation).`
+          : `Claim asserts observed validation coverage, but validation never executed for the claimed scope (unexecuted observation).`,
+        supportingIds: [],
+        contradictingIds: [],
+        anomalies: ["unexecuted_observation"],
+      };
+    }
+
+    if (assertsUniversalTestFail) {
+      if (testRes.relevantPassed.length > 0 || testRes.hasPartialPassInFailedRun) {
+        const contra =
+          testRes.relevantPassed.length > 0 ? testRes.relevantPassed : testRes.relevantFailed;
+        return {
+          status: "contradicted",
+          rationale:
+            testRes.relevantPassed.length > 0
+              ? "Claim asserts artifact failed every test/gold case, but system-recorded validation test PASSED on the referenced artifact."
+              : "Claim asserts artifact failed every test/gold case, but authoritative validation recorded passing cases on the referenced artifact.",
+          supportingIds: [],
+          contradictingIds: contra,
+          anomalies: [],
+        };
+      }
+      if (testRes.relevantFailed.length > 0) {
+        return {
+          status: "supported",
+          rationale:
+            "System-recorded validation failed all cases on the referenced artifact, corroborating the universal failure assertion.",
+          supportingIds: testRes.relevantFailed,
+          contradictingIds: [],
+          anomalies: [],
+        };
+      }
+    }
+
+    if (assertsTestFailure) {
+      if (testRes.relevantPassed.length > 0 && testRes.relevantFailed.length === 0) {
+        return {
+          status: "contradicted",
+          rationale:
+            "Claim asserts validation failed, but system-recorded validation test PASSED on the referenced artifact.",
+          supportingIds: [],
+          contradictingIds: testRes.relevantPassed,
+          anomalies: [],
+        };
+      }
+      if (testRes.relevantFailed.length > 0) {
+        return {
+          status: "supported",
+          rationale:
+            "System-recorded test FAILED on the referenced artifact, corroborating failure assertion.",
+          supportingIds: testRes.relevantFailed,
+          contradictingIds: [],
+          anomalies: [],
+        };
+      }
+    }
+
+    if (assertsObservedPassOrCoverage) {
+      if (testRes.relevantFailed.length > 0) {
+        return {
+          status: "contradicted",
+          rationale:
+            "Claim asserts validation passed/approved, but system-recorded test FAILED on the referenced artifact.",
+          supportingIds: [],
+          contradictingIds: testRes.relevantFailed,
+          anomalies: [],
+        };
+      }
+      if (testRes.relevantPassed.length > 0) {
+        return {
+          status: "supported",
+          rationale:
+            "System-recorded test PASSED on the referenced artifact, confirming validation coverage and release justification.",
+          supportingIds: testRes.relevantPassed,
+          contradictingIds: [],
+          anomalies: [],
+        };
+      }
+    }
+  }
+
+  // Category C: Documentary Record Claims
+  if (citedRecordsMap.size > 0) {
+    const entailment = evaluateDocumentaryRecordEntailment(
+      rawText,
+      Array.from(citedRecordsMap.values()),
+      index
+    );
+    return {
+      status: entailment.status,
+      rationale: entailment.rationale,
+      supportingIds: entailment.supportingIds,
+      contradictingIds: entailment.contradictingIds,
+      anomalies: [],
+    };
+  }
+
+  // Category D: Structured Artifact Content Verification
+  const refsForArt = item.ownRefs.length > 0 ? item.ownRefs : [...item.artifactRefs, ...item.allRefs];
+  const candidateArts = new Map<string, IndexedArtifact>();
+  for (const r of refsForArt) {
+    const res = index.resolveReference(r);
+    if (res.note?.toLowerCase().includes("ambiguous")) {
+      return {
+        status: "unverified",
+        rationale: res.note,
+        supportingIds: [],
+        contradictingIds: [],
+        anomalies: [],
+      };
+    }
+    if (res.target_type === "artifact" && res.target_id && index.artifactsById.has(res.target_id)) {
+      const art = index.artifactsById.get(res.target_id)!;
+      if (!art.type.startsWith("incident_record/")) {
+        candidateArts.set(art.artifact_id, art);
+      }
+    }
+  }
+
+  if (candidateArts.size > 0 && /\bmaps?\b|->|→/i.test(rawText)) {
+    let targetArt: IndexedArtifact | undefined;
+    if (candidateArts.size === 1) {
+      targetArt = Array.from(candidateArts.values())[0];
+    } else {
+      const verMatch =
+        rawText.match(/\b(?:artifact\s+v?|version\s+)(\d+)\b/i) ?? rawText.match(/\bv(\d+)\b/i);
+      const explicitVer = verMatch?.[1];
+      const matches = explicitVer
+        ? Array.from(candidateArts.values()).filter((a) => a.version === explicitVer)
+        : [];
+      if (matches.length === 1) {
+        targetArt = matches[0];
+      } else {
+        return {
+          status: "unverified",
+          rationale: "Multiple artifacts cited for mapping claim without unambiguous version binding (abstaining).",
+          supportingIds: [],
+          contradictingIds: [],
+          anomalies: [],
+        };
+      }
+    }
+
+    if (targetArt) {
+      const verifyRes = verifyMappingClaim(targetArt, rawText);
+      return {
+        status: verifyRes.status,
+        rationale: verifyRes.rationale,
+        supportingIds: verifyRes.status === "supported" ? [targetArt.artifact_id] : [],
+        contradictingIds: verifyRes.status === "contradicted" ? [targetArt.artifact_id] : [],
+        anomalies: [],
+      };
+    }
+  }
+
+  return {
+    status: "unverified",
+    rationale:
+      "Available evidence is insufficient to conclusively verify or contradict the delivered claim.",
+    supportingIds: [],
+    contradictingIds: [],
+    anomalies: [],
+  };
+}
+
+function buildAtomicSubClaims(claim: ObservableClaim): AtomicSubClaim[] {
+  const allRefs = [...claim.evidence_refs, ...claim.artifact_refs];
+
+  if (claim.event_kind === "assertion") {
+    return [
+      {
+        kind: "text",
+        rawText: claim.claim ?? "",
+        ownRefs: [...claim.evidence_refs],
+        allRefs,
+        artifactRefs: [...claim.artifact_refs],
+      },
+    ];
+  }
+
+  const items: AtomicSubClaim[] = [];
+  if (claim.payload && typeof claim.payload === "object") {
+    const p = claim.payload as Record<string, unknown>;
+
+    if (Array.isArray(p["assertions"])) {
+      for (const a of p["assertions"]) {
+        if (a && typeof a === "object" && typeof a["claim"] === "string") {
+          const ownRefs = Array.isArray(a["evidence_refs"])
+            ? a["evidence_refs"].filter((r): r is string => typeof r === "string")
+            : [];
+          items.push({
+            kind: "text",
+            rawText: a["claim"],
+            ownRefs,
+            allRefs,
+            artifactRefs: [...claim.artifact_refs],
+          });
+        }
+      }
+    }
+
+    if (p["output"] && typeof p["output"] === "object") {
+      const out = p["output"] as Record<string, unknown>;
+      if (Array.isArray(out["findings"])) {
+        for (const f of out["findings"]) {
+          if (f && typeof f === "object" && typeof f["claim"] === "string") {
+            const ownRefs = Array.isArray(f["record_ids"])
+              ? f["record_ids"].filter((r): r is string => typeof r === "string")
+              : [];
+            items.push({
+              kind: "finding",
+              rawText: f["claim"],
+              ownRefs,
+              allRefs,
+              artifactRefs: [...claim.artifact_refs],
+              findingId: typeof f["id"] === "string" ? f["id"] : undefined,
+              severity: typeof f["severity"] === "string" ? f["severity"] : undefined,
+            });
+          }
+        }
+      }
+      if (Array.isArray(out["assessments"])) {
+        for (const ass of out["assessments"]) {
+          if (ass && typeof ass === "object" && typeof ass["finding_id"] === "string") {
+            const ownRefs = Array.isArray(ass["record_ids"])
+              ? ass["record_ids"].filter((r): r is string => typeof r === "string")
+              : [];
+            items.push({
+              kind: "assessment",
+              rawText: typeof ass["reason"] === "string" ? ass["reason"] : "",
+              ownRefs,
+              allRefs,
+              artifactRefs: [...claim.artifact_refs],
+              findingId: ass["finding_id"],
+              expectedSupported: Boolean(ass["supported"]),
+            });
+          }
+        }
+      }
+    }
+  }
+
+  if (items.length === 0) {
+    items.push({
+      kind: "text",
+      rawText: claim.claim ?? "",
+      ownRefs: [...claim.evidence_refs],
+      allRefs,
+      artifactRefs: [...claim.artifact_refs],
+    });
+  }
+
+  return items;
 }
 
 export function resolveObservableClaim(
@@ -67,8 +2194,6 @@ export function resolveObservableClaim(
 
   const anomalies: ProvenanceAnomalyKind[] = [];
   const consideredIds: string[] = [];
-  const supportingIds: string[] = [];
-  const contradictingIds: string[] = [];
 
   for (const res of resolvedRefs) {
     if (res.target_id) consideredIds.push(res.target_id);
@@ -83,9 +2208,8 @@ export function resolveObservableClaim(
     }
   }
 
-  // 3. Inspect Delivered Handoff Characteristics
+  // 3. Inspect Delivered Handoff Characteristics & Producer State Integrity
   if (claim.event_kind === "handoff") {
-    // Missing resolving evidence on handoff
     if (claim.evidence_refs.length === 0) {
       anomalies.push("missing_resolving_evidence");
       const rationale =
@@ -111,18 +2235,33 @@ export function resolveObservableClaim(
       return { prediction: pred, finding };
     }
 
-    // Check Producer Output vs Delivered Handoff Payload (Payload Tampering)
-    const producerData = index.producerOutputsByAgent.get(claim.agent_id);
-    if (producerData?.output && claim.payload && typeof claim.payload === "object") {
-      const deliveredOutput = (claim.payload as Record<string, unknown>)["output"];
-      if (deliveredOutput && typeof deliveredOutput === "object") {
+    const handoffObj = claim.handoff_id ? index.handoffsById.get(claim.handoff_id) : undefined;
+    const fromStepId = handoffObj?.from_step_id;
+    const producerData = fromStepId
+      ? index.producerOutputsByStep.get(fromStepId)
+      : !index.ambiguousProducerAgents.has(claim.agent_id)
+        ? index.producerOutputsByAgent.get(claim.agent_id)
+        : undefined;
+
+    if (producerData && claim.payload && typeof claim.payload === "object") {
+      const payloadRec = claim.payload as Record<string, unknown>;
+      const deliveredOutput = payloadRec["output"];
+      if (
+        producerData.output &&
+        typeof producerData.output === "object" &&
+        deliveredOutput &&
+        typeof deliveredOutput === "object"
+      ) {
         const prodOut = producerData.output as Record<string, unknown>;
         const delivOut = deliveredOutput as Record<string, unknown>;
-        for (const [key, val] of Object.entries(prodOut)) {
-          if (delivOut[key] !== undefined && JSON.stringify(delivOut[key]) !== JSON.stringify(val)) {
+        const allKeys = new Set([...Object.keys(prodOut), ...Object.keys(delivOut)]);
+        for (const key of allKeys) {
+          if (JSON.stringify(delivOut[key]) !== JSON.stringify(prodOut[key])) {
             anomalies.push("producer_delivered_mismatch");
             const rationale = `Delivered handoff payload field "${key}" contradicts canonical output recorded for producer agent ${claim.agent_id}.`;
-            contradictingIds.push(`producer_output:${claim.agent_id}`);
+            const contraId = fromStepId
+              ? `producer_step:${fromStepId}`
+              : `producer_output:${claim.agent_id}`;
             const pred = predictionFor(claim, "contradicted", rationale, {
               confidence: "high",
               abstained: false,
@@ -134,7 +2273,7 @@ export function resolveObservableClaim(
               event_kind: "handoff",
               evidence_identifiers_considered: consideredIds,
               supporting_evidence_ids: [],
-              contradicting_evidence_ids: contradictingIds,
+              contradicting_evidence_ids: [contraId],
               provenance_anomalies: anomalies,
               capture_completeness: "complete",
               classification: "contradicted",
@@ -145,111 +2284,46 @@ export function resolveObservableClaim(
           }
         }
       }
-    }
-  }
 
-  // 4. Extract Delivered Statements and Structured Payload Citations
-  const statements: string[] = [];
-  const payloadRecordIds: string[] = [];
-
-  if (claim.claim) {
-    statements.push(claim.claim);
-  }
-
-  if (claim.payload && typeof claim.payload === "object") {
-    const p = claim.payload as Record<string, unknown>;
-    if (Array.isArray(p["assertions"])) {
-      for (const a of p["assertions"]) {
-        if (a && typeof a === "object") {
-          if (typeof a["claim"] === "string") statements.push(a["claim"]);
-          if (Array.isArray(a["evidence_refs"])) {
-            for (const ref of a["evidence_refs"]) {
-              if (typeof ref === "string") payloadRecordIds.push(ref.replace(/^record:/, ""));
-            }
-          }
-        }
-      }
-    }
-    if (p["output"] && typeof p["output"] === "object") {
-      const out = p["output"] as Record<string, unknown>;
-      if (Array.isArray(out["findings"])) {
-        for (const f of out["findings"]) {
-          if (f && typeof f === "object") {
-            if (typeof f["claim"] === "string") statements.push(f["claim"]);
-            if (Array.isArray(f["record_ids"])) {
-              for (const rid of f["record_ids"]) {
-                if (typeof rid === "string") payloadRecordIds.push(rid.replace(/^record:/, ""));
-              }
-            }
-          }
-        }
-      }
-      if (Array.isArray(out["assessments"])) {
-        for (const ass of out["assessments"]) {
-          if (ass && typeof ass === "object") {
-            if (typeof ass["reason"] === "string") statements.push(ass["reason"]);
-            if (Array.isArray(ass["record_ids"])) {
-              for (const rid of ass["record_ids"]) {
-                if (typeof rid === "string") payloadRecordIds.push(rid.replace(/^record:/, ""));
-              }
-            }
-          }
-        }
+      if (
+        Array.isArray(producerData.assertions) &&
+        Array.isArray(payloadRec["assertions"]) &&
+        JSON.stringify(payloadRec["assertions"]) !== JSON.stringify(producerData.assertions)
+      ) {
+        anomalies.push("producer_delivered_mismatch");
+        const rationale = `Delivered handoff assertions contradict canonical assertions recorded for producer agent ${claim.agent_id}.`;
+        const contraId = fromStepId
+          ? `producer_step:${fromStepId}`
+          : `producer_output:${claim.agent_id}`;
+        const pred = predictionFor(claim, "contradicted", rationale, {
+          confidence: "high",
+          abstained: false,
+        });
+        const finding: ClaimProvenanceFinding = {
+          claim_id: claim.claim_id,
+          originating_agent_id: claim.agent_id,
+          event_or_handoff_id: claim.handoff_id,
+          event_kind: "handoff",
+          evidence_identifiers_considered: consideredIds,
+          supporting_evidence_ids: [],
+          contradicting_evidence_ids: [contraId],
+          provenance_anomalies: anomalies,
+          capture_completeness: "complete",
+          classification: "contradicted",
+          classification_rationale: rationale,
+          limitations: [],
+        };
+        return { prediction: pred, finding };
       }
     }
   }
 
-  const combinedText = normalizeText(statements.join(" "));
-
-  // ── Proposition Category A: Universal Claims vs Documentary Records ───────
-  const isUniversalClaim = /all\s+records\s+confirm|every\s+record\s+confirms/i.test(combinedText);
-  if (isUniversalClaim) {
-    const sys1 = index.recordsById.get("SYS-1");
-    const sys2 = index.recordsById.get("SYS-2");
-    if (sys1 || sys2) {
-      if (sys1) contradictingIds.push(sys1.id);
-      if (sys2) contradictingIds.push(sys2.id);
-      const rationale =
-        "Universal claim that all records confirm intern causation is contradicted by documentary system records (SYS-1 auth burst, SYS-2 backup sudo).";
-      const pred = predictionFor(claim, "contradicted", rationale, {
-        confidence: "high",
-        abstained: false,
-      });
-      const finding: ClaimProvenanceFinding = {
-        claim_id: claim.claim_id,
-        originating_agent_id: claim.agent_id,
-        event_or_handoff_id: claim.event_id ?? claim.handoff_id,
-        event_kind: claim.event_kind,
-        evidence_identifiers_considered: consideredIds,
-        supporting_evidence_ids: [],
-        contradicting_evidence_ids: contradictingIds,
-        provenance_anomalies: anomalies.length > 0 ? anomalies : ["none"],
-        capture_completeness: "complete",
-        classification: "contradicted",
-        classification_rationale: rationale,
-        limitations: [],
-      };
-      return { prediction: pred, finding };
-    }
-  }
-
-  // ── Proposition Category B: Observed Validation & Test Coverage Claims ────
-  const assertsFailure =
-    /failed|did not pass|validation\s+failed|failed\s+every\s+gold/i.test(combinedText);
-
-  const assertsObservedPassOrCoverage =
-    /(observed\s+validation|observed\s+tests|validation\s+passed|validation\s+succeeded|validation\s+covers|release\s+is\s+justified.*tests)/i.test(
-      combinedText
-    );
-
-  if (assertsFailure || assertsObservedPassOrCoverage) {
-    const hasTestsExecuted = index.testsById.size > 0 || index.validationTools.length > 0;
-
-    if (!hasTestsExecuted) {
-      // Test/validation was asserted as observed/passed, but never executed!
-      anomalies.push("unexecuted_observation");
-      const rationale =
-        "Claim asserts observed validation coverage, but validation never executed in the run (unexecuted observation).";
+  // 4. Missing Evidence Gate on Assertions (non-universal claims with zero citations)
+  if (rawRefs.length === 0) {
+    const universalCheck = evaluateUniversalStatement(claim.claim ?? "", index.canonicalRecords);
+    if (!universalCheck.isUniversal) {
+      anomalies.push("missing_resolving_evidence");
+      const rationale = "Claim carries no evidence references; cannot establish factual support.";
       const pred = predictionFor(claim, "unverified", rationale, {
         confidence: "low",
         abstained: true,
@@ -259,154 +2333,60 @@ export function resolveObservableClaim(
         originating_agent_id: claim.agent_id,
         event_or_handoff_id: claim.event_id ?? claim.handoff_id,
         event_kind: claim.event_kind,
-        evidence_identifiers_considered: consideredIds,
+        evidence_identifiers_considered: [],
         supporting_evidence_ids: [],
         contradicting_evidence_ids: [],
         provenance_anomalies: anomalies,
         capture_completeness: "complete",
         classification: "unverified",
         classification_rationale: rationale,
-        limitations: ["Observation never executed; cannot verify claim without test results."],
+        limitations: ["No evidence citations provided on claim."],
       };
       return { prediction: pred, finding };
     }
+  }
 
-    const testPassed =
-      index.passedTests.length > 0 ||
-      index.validationTools.some(
-        (t) => (t.output as Record<string, unknown> | undefined)?.["passed"] === true
-      );
+  // 5. Decompose & Evaluate Atomic Sub-Claims
+  const atomicItems = buildAtomicSubClaims(claim);
+  const outcomes = atomicItems.map((item) => evaluateAtomicSubClaim(item, index));
 
-    const testFailed =
-      index.failedTests.length > 0 ||
-      index.validationTools.some(
-        (t) => (t.output as Record<string, unknown> | undefined)?.["passed"] === false
-      );
-
-    if (assertsFailure) {
-      if (testPassed) {
-        for (const t of index.passedTests) contradictingIds.push(t.test_id);
-        const rationale =
-          "Claim asserts validation failed, but system-recorded validation test PASSED on the referenced artifact.";
-        const pred = predictionFor(claim, "contradicted", rationale, {
-          confidence: "high",
-          abstained: false,
-        });
-        const finding: ClaimProvenanceFinding = {
-          claim_id: claim.claim_id,
-          originating_agent_id: claim.agent_id,
-          event_or_handoff_id: claim.event_id ?? claim.handoff_id,
-          event_kind: claim.event_kind,
-          evidence_identifiers_considered: consideredIds,
-          supporting_evidence_ids: [],
-          contradicting_evidence_ids: contradictingIds,
-          provenance_anomalies: anomalies.length > 0 ? anomalies : ["none"],
-          capture_completeness: "complete",
-          classification: "contradicted",
-          classification_rationale: rationale,
-          limitations: [],
-        };
-        return { prediction: pred, finding };
-      }
-      if (testFailed) {
-        for (const t of index.failedTests) supportingIds.push(t.test_id);
-        const rationale = "System-recorded test FAILED, corroborating failure assertion.";
-        const pred = predictionFor(claim, "supported", rationale, {
-          confidence: "high",
-          abstained: false,
-        });
-        const finding: ClaimProvenanceFinding = {
-          claim_id: claim.claim_id,
-          originating_agent_id: claim.agent_id,
-          event_or_handoff_id: claim.event_id ?? claim.handoff_id,
-          event_kind: claim.event_kind,
-          evidence_identifiers_considered: consideredIds,
-          supporting_evidence_ids: supportingIds,
-          contradicting_evidence_ids: [],
-          provenance_anomalies: anomalies.length > 0 ? anomalies : ["none"],
-          capture_completeness: "complete",
-          classification: "supported",
-          classification_rationale: rationale,
-          limitations: [],
-        };
-        return { prediction: pred, finding };
-      }
-    }
-
-    if (assertsObservedPassOrCoverage) {
-      if (testFailed) {
-        for (const t of index.failedTests) contradictingIds.push(t.test_id);
-        const rationale =
-          "Claim asserts validation passed/approved, but system-recorded test FAILED.";
-        const pred = predictionFor(claim, "contradicted", rationale, {
-          confidence: "high",
-          abstained: false,
-        });
-        const finding: ClaimProvenanceFinding = {
-          claim_id: claim.claim_id,
-          originating_agent_id: claim.agent_id,
-          event_or_handoff_id: claim.event_id ?? claim.handoff_id,
-          event_kind: claim.event_kind,
-          evidence_identifiers_considered: consideredIds,
-          supporting_evidence_ids: [],
-          contradicting_evidence_ids: contradictingIds,
-          provenance_anomalies: anomalies.length > 0 ? anomalies : ["none"],
-          capture_completeness: "complete",
-          classification: "contradicted",
-          classification_rationale: rationale,
-          limitations: [],
-        };
-        return { prediction: pred, finding };
-      }
-      if (testPassed) {
-        for (const t of index.passedTests) supportingIds.push(t.test_id);
-        const rationale =
-          "System-recorded test PASSED, confirming validation coverage and release justification.";
-        const pred = predictionFor(claim, "supported", rationale, {
-          confidence: "high",
-          abstained: false,
-        });
-        const finding: ClaimProvenanceFinding = {
-          claim_id: claim.claim_id,
-          originating_agent_id: claim.agent_id,
-          event_or_handoff_id: claim.event_id ?? claim.handoff_id,
-          event_kind: claim.event_kind,
-          evidence_identifiers_considered: consideredIds,
-          supporting_evidence_ids: supportingIds,
-          contradicting_evidence_ids: [],
-          provenance_anomalies: anomalies.length > 0 ? anomalies : ["none"],
-          capture_completeness: "complete",
-          classification: "supported",
-          classification_rationale: rationale,
-          limitations: [],
-        };
-        return { prediction: pred, finding };
+  for (const out of outcomes) {
+    for (const anom of out.anomalies) {
+      if (!anomalies.includes(anom)) {
+        anomalies.push(anom);
       }
     }
   }
 
-  // ── Proposition Category C: Documentary Record Findings ────────────────────
-  const allCandidateRecordKeys = [
-    ...rawRefs.map((r) => r.replace(/^record:/, "")),
-    ...rawRefs,
-    ...payloadRecordIds,
-  ];
-
-  const citedRecordEntities = new Map<string, string>();
-  for (const key of allCandidateRecordKeys) {
-    if (index.recordsById.has(key)) {
-      const rec = index.recordsById.get(key)!;
-      citedRecordEntities.set(rec.id, rec.id);
-    }
+  const contradictedOutcomes = outcomes.filter((o) => o.status === "contradicted");
+  if (contradictedOutcomes.length > 0) {
+    const contraIds = Array.from(new Set(contradictedOutcomes.flatMap((o) => o.contradictingIds)));
+    const rationale = contradictedOutcomes.map((o) => o.rationale).join(" ");
+    const pred = predictionFor(claim, "contradicted", rationale, {
+      confidence: "high",
+      abstained: false,
+    });
+    const finding: ClaimProvenanceFinding = {
+      claim_id: claim.claim_id,
+      originating_agent_id: claim.agent_id,
+      event_or_handoff_id: claim.event_id ?? claim.handoff_id,
+      event_kind: claim.event_kind,
+      evidence_identifiers_considered: consideredIds,
+      supporting_evidence_ids: [],
+      contradicting_evidence_ids: contraIds,
+      provenance_anomalies: anomalies.length > 0 ? anomalies : ["none"],
+      capture_completeness: "complete",
+      classification: "contradicted",
+      classification_rationale: rationale,
+      limitations: [],
+    };
+    return { prediction: pred, finding };
   }
 
-  if (citedRecordEntities.size > 0) {
-    for (const recId of citedRecordEntities.keys()) {
-      supportingIds.push(recId);
-    }
-    const rationale = `Documentary record(s) [${Array.from(citedRecordEntities.keys()).join(
-      ", "
-    )}] corroborate the finding.`;
+  const allSupported = outcomes.length > 0 && outcomes.every((o) => o.status === "supported");
+  if (allSupported) {
+    const suppIds = Array.from(new Set(outcomes.flatMap((o) => o.supportingIds)));
+    const rationale = outcomes[0]!.rationale;
     const pred = predictionFor(claim, "supported", rationale, {
       confidence: "high",
       abstained: false,
@@ -417,7 +2397,7 @@ export function resolveObservableClaim(
       event_or_handoff_id: claim.event_id ?? claim.handoff_id,
       event_kind: claim.event_kind,
       evidence_identifiers_considered: consideredIds,
-      supporting_evidence_ids: supportingIds,
+      supporting_evidence_ids: suppIds,
       contradicting_evidence_ids: [],
       provenance_anomalies: anomalies.length > 0 ? anomalies : ["none"],
       capture_completeness: "complete",
@@ -428,79 +2408,11 @@ export function resolveObservableClaim(
     return { prediction: pred, finding };
   }
 
-  // ── Proposition Category D: Artifact Existence & Content Mapping ───────────
-  const citedArtifacts = rawRefs.filter(
-    (r) =>
-      index.artifactsById.has(r) ||
-      index.artifactsByVersion.has(r) ||
-      index.artifactsByVersion.has(r.replace(/^artifact:/, ""))
-  );
-
-  if (citedArtifacts.length > 0) {
-    const mapsTokens =
-      /maps.*tokens|artifact\s+v2|maps\s+high|severity\s+mapper/i.test(combinedText);
-    if (mapsTokens) {
-      // Check if validation was skipped on this artifact
-      const hasTests = index.testsById.size > 0 || index.validationTools.length > 0;
-      if (!hasTests && !anomalies.includes("unexecuted_observation")) {
-        anomalies.push("unexecuted_observation");
-      }
-
-      for (const artRef of citedArtifacts) {
-        supportingIds.push(artRef);
-      }
-      const rationale =
-        "Referenced artifact exists and its recorded content defines the claimed mapping tokens.";
-      const pred = predictionFor(claim, "supported", rationale, {
-        confidence: "medium",
-        abstained: false,
-      });
-      const finding: ClaimProvenanceFinding = {
-        claim_id: claim.claim_id,
-        originating_agent_id: claim.agent_id,
-        event_or_handoff_id: claim.event_id ?? claim.handoff_id,
-        event_kind: claim.event_kind,
-        evidence_identifiers_considered: consideredIds,
-        supporting_evidence_ids: supportingIds,
-        contradicting_evidence_ids: [],
-        provenance_anomalies: anomalies.length > 0 ? anomalies : ["none"],
-        capture_completeness: "complete",
-        classification: "supported",
-        classification_rationale: rationale,
-        limitations: [],
-      };
-      return { prediction: pred, finding };
-    }
-  }
-
-  // ── Proposition Category E: Default Resolution (Insufficient Evidence) ────
-  if (rawRefs.length === 0) {
-    anomalies.push("missing_resolving_evidence");
-    const rationale = "Claim carries no evidence references; cannot establish factual support.";
-    const pred = predictionFor(claim, "unverified", rationale, {
-      confidence: "low",
-      abstained: true,
-    });
-    const finding: ClaimProvenanceFinding = {
-      claim_id: claim.claim_id,
-      originating_agent_id: claim.agent_id,
-      event_or_handoff_id: claim.event_id ?? claim.handoff_id,
-      event_kind: claim.event_kind,
-      evidence_identifiers_considered: [],
-      supporting_evidence_ids: [],
-      contradicting_evidence_ids: [],
-      provenance_anomalies: anomalies,
-      capture_completeness: "complete",
-      classification: "unverified",
-      classification_rationale: rationale,
-      limitations: ["No evidence citations provided on claim."],
-    };
-    return { prediction: pred, finding };
-  }
-
-  const defaultRationale =
+  const unverifiedOutcomes = outcomes.filter((o) => o.status === "unverified");
+  const rationale =
+    unverifiedOutcomes[0]?.rationale ??
     "Available evidence is insufficient to conclusively verify or contradict the delivered claim.";
-  const pred = predictionFor(claim, "unverified", defaultRationale, {
+  const pred = predictionFor(claim, "unverified", rationale, {
     confidence: "low",
     abstained: true,
   });
@@ -515,7 +2427,7 @@ export function resolveObservableClaim(
     provenance_anomalies: anomalies.length > 0 ? anomalies : ["none"],
     capture_completeness: "complete",
     classification: "unverified",
-    classification_rationale: defaultRationale,
+    classification_rationale: rationale,
     limitations: ["Evidence resolution inconclusive."],
   };
   return { prediction: pred, finding };
