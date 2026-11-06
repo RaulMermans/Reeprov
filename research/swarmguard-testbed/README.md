@@ -40,6 +40,8 @@ Offline (default, no network, CI-safe):
 ```bash
 npm run research:p3:list
 npm run research:p3:offline
+npm run research:karma-police
+npx tsx research/swarmguard-testbed/scripts/run.ts karma-police --case se-d02
 npx tsx research/swarmguard-testbed/scripts/run.ts run --case se-d01
 # held-out scoring is gated; in-tree labels are not blind
 # REEPROV_P3_ALLOW_HELDOUT=1 npx tsx research/swarmguard-testbed/scripts/run.ts experiment --partition held_out

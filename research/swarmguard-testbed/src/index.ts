@@ -18,6 +18,7 @@ export * from "./experiment";
 export * from "./oracle";
 export * from "./heldoutAccess";
 export * from "./sealed";
+export * from "./karmaPolice";
 
 import { investigationDomain } from "../domains/investigation";
 import { softwareEngineeringDomain } from "../domains/softwareEngineering";

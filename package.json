@@ -41,7 +41,8 @@
     "research:p3": "tsx research/swarmguard-testbed/scripts/run.ts",
     "research:p3:offline": "tsx research/swarmguard-testbed/scripts/run.ts experiment --partition development --mode offline_fixture",
     "research:p3:list": "tsx research/swarmguard-testbed/scripts/run.ts list",
-    "research:p3:live": "tsx research/swarmguard-testbed/scripts/run.ts --mode live_llm --require-live"
+    "research:p3:live": "tsx research/swarmguard-testbed/scripts/run.ts --mode live_llm --require-live",
+    "research:karma-police": "tsx research/swarmguard-testbed/scripts/run-karma-police.ts"
   },
   "keywords": [
     "reeprov",
