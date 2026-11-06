@@ -32,11 +32,31 @@ export interface PublicBenchmarkCase {
   notes: string;
 }
 
+export interface SealedWorkspaceConfig {
+  title?: string;
+  task?: string;
+  goldCases?: Array<{ input: string; expected: string }>;
+  artifactFilePrefix?: string;
+  records?: Array<{
+    id: string;
+    kind: "system_log" | "witness" | "rumor";
+    timestamp: string;
+    body: string;
+  }>;
+  caseFilePrefix?: string;
+  capturePolicy?: {
+    contentMode?: "STRUCTURE_ONLY" | "SAFE_CONTENT" | "FULL_CONTENT";
+    maxInlineBytes?: number;
+    maxPayloadBytes?: number;
+  };
+}
+
 export interface BenchmarkCase extends PublicBenchmarkCase {
   seed: string;
   injection: InjectionPlan;
   oracle: OracleTemplate[];
   fixtureTurns?: Record<string, AgentTurn>;
+  workspaceConfig?: SealedWorkspaceConfig;
 }
 
 function plan(type: InjectionPlan["type"], agent: string, config: Record<string, unknown> = {}): InjectionPlan {

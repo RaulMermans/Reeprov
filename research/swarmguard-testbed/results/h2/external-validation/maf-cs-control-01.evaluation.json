@@ -1,0 +1,358 @@
+{
+  "format": "reeprov.h2.external_evaluation.v1",
+  "evaluation_protocol": "reeprov.swarmguard_testbed.evaluation.v2",
+  "episode_id": "maf-cs-control-01",
+  "condition": "intact_control",
+  "run_id": "run_ext_maf_cs_control_01",
+  "execution_mode": "offline",
+  "provider_http_completed": false,
+  "experimental_validity": "valid",
+  "committed_predictions_sha256": "a06248b18b6c78f4f21b4269b44cc69c6443e32d09040d39f540c37eb914ece5",
+  "evaluations": {
+    "baseline.per_agent.v1": {
+      "format": "reeprov.swarmguard_testbed.evaluation.v2",
+      "monitor_id": "baseline.per_agent.v1",
+      "monitor_version": "1.0.0",
+      "case_id": "maf-cs-control-01",
+      "run_id": "run_ext_maf_cs_control_01",
+      "domain_id": "external-maf-customer-support",
+      "classification": {
+        "accuracy": {
+          "value": 0.75,
+          "numerator": 3,
+          "denominator": 4
+        },
+        "conditional_accuracy": {
+          "value": 0.75,
+          "numerator": 3,
+          "denominator": 4
+        },
+        "prediction_coverage": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        },
+        "contradiction_precision": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "undefined_reason": "no predicted contradictions"
+        },
+        "contradiction_recall": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "undefined_reason": "no gold contradictions"
+        },
+        "conditional_contradiction_recall": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "undefined_reason": "no scored gold contradictions"
+        },
+        "false_positive_rate": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 4
+        },
+        "abstention_rate": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 4
+        },
+        "confusion": {
+          "labels": [
+            "supported",
+            "contradicted",
+            "unverified",
+            "missing",
+            "invalid"
+          ],
+          "counts": {
+            "supported->supported": 3,
+            "supported->contradicted": 0,
+            "supported->unverified": 0,
+            "supported->missing": 0,
+            "supported->invalid": 0,
+            "contradicted->supported": 0,
+            "contradicted->contradicted": 0,
+            "contradicted->unverified": 0,
+            "contradicted->missing": 0,
+            "contradicted->invalid": 0,
+            "unverified->supported": 1,
+            "unverified->contradicted": 0,
+            "unverified->unverified": 0,
+            "unverified->missing": 0,
+            "unverified->invalid": 0
+          }
+        }
+      },
+      "attribution": {
+        "originating_agent_coverage": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        },
+        "originating_agent_accuracy": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        },
+        "event_or_handoff_coverage": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        },
+        "event_or_handoff_accuracy": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        }
+      },
+      "causal": {
+        "responsible_agent_accuracy": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "undefined_reason": "not_attempted: monitor did not emit causal_agent_id"
+        },
+        "note": "Causal root-cause identification is distinct from observable attribution and is not required of the frozen baselines."
+      },
+      "latency_ms": 1,
+      "gold_claims": 4,
+      "scored_claims": 4,
+      "missing_predictions": 0,
+      "invalid_predictions": 0
+    },
+    "baseline.pooled_event.v1": {
+      "format": "reeprov.swarmguard_testbed.evaluation.v2",
+      "monitor_id": "baseline.pooled_event.v1",
+      "monitor_version": "1.0.0",
+      "case_id": "maf-cs-control-01",
+      "run_id": "run_ext_maf_cs_control_01",
+      "domain_id": "external-maf-customer-support",
+      "classification": {
+        "accuracy": {
+          "value": 0.75,
+          "numerator": 3,
+          "denominator": 4
+        },
+        "conditional_accuracy": {
+          "value": 0.75,
+          "numerator": 3,
+          "denominator": 4
+        },
+        "prediction_coverage": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        },
+        "contradiction_precision": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "undefined_reason": "no predicted contradictions"
+        },
+        "contradiction_recall": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "undefined_reason": "no gold contradictions"
+        },
+        "conditional_contradiction_recall": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "undefined_reason": "no scored gold contradictions"
+        },
+        "false_positive_rate": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 4
+        },
+        "abstention_rate": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 4
+        },
+        "confusion": {
+          "labels": [
+            "supported",
+            "contradicted",
+            "unverified",
+            "missing",
+            "invalid"
+          ],
+          "counts": {
+            "supported->supported": 3,
+            "supported->contradicted": 0,
+            "supported->unverified": 0,
+            "supported->missing": 0,
+            "supported->invalid": 0,
+            "contradicted->supported": 0,
+            "contradicted->contradicted": 0,
+            "contradicted->unverified": 0,
+            "contradicted->missing": 0,
+            "contradicted->invalid": 0,
+            "unverified->supported": 1,
+            "unverified->contradicted": 0,
+            "unverified->unverified": 0,
+            "unverified->missing": 0,
+            "unverified->invalid": 0
+          }
+        }
+      },
+      "attribution": {
+        "originating_agent_coverage": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        },
+        "originating_agent_accuracy": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        },
+        "event_or_handoff_coverage": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        },
+        "event_or_handoff_accuracy": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        }
+      },
+      "causal": {
+        "responsible_agent_accuracy": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "undefined_reason": "not_attempted: monitor did not emit causal_agent_id"
+        },
+        "note": "Causal root-cause identification is distinct from observable attribution and is not required of the frozen baselines."
+      },
+      "latency_ms": 1,
+      "gold_claims": 4,
+      "scored_claims": 4,
+      "missing_predictions": 0,
+      "invalid_predictions": 0
+    },
+    "karma_police.cross_agent.v1": {
+      "format": "reeprov.swarmguard_testbed.evaluation.v2",
+      "monitor_id": "karma_police.cross_agent.v1",
+      "monitor_version": "1.0.0",
+      "case_id": "maf-cs-control-01",
+      "run_id": "run_ext_maf_cs_control_01",
+      "domain_id": "external-maf-customer-support",
+      "classification": {
+        "accuracy": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        },
+        "conditional_accuracy": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        },
+        "prediction_coverage": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        },
+        "contradiction_precision": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "undefined_reason": "no predicted contradictions"
+        },
+        "contradiction_recall": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "undefined_reason": "no gold contradictions"
+        },
+        "conditional_contradiction_recall": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "undefined_reason": "no scored gold contradictions"
+        },
+        "false_positive_rate": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 4
+        },
+        "abstention_rate": {
+          "value": 0.25,
+          "numerator": 1,
+          "denominator": 4
+        },
+        "confusion": {
+          "labels": [
+            "supported",
+            "contradicted",
+            "unverified",
+            "missing",
+            "invalid"
+          ],
+          "counts": {
+            "supported->supported": 3,
+            "supported->contradicted": 0,
+            "supported->unverified": 0,
+            "supported->missing": 0,
+            "supported->invalid": 0,
+            "contradicted->supported": 0,
+            "contradicted->contradicted": 0,
+            "contradicted->unverified": 0,
+            "contradicted->missing": 0,
+            "contradicted->invalid": 0,
+            "unverified->supported": 0,
+            "unverified->contradicted": 0,
+            "unverified->unverified": 1,
+            "unverified->missing": 0,
+            "unverified->invalid": 0
+          }
+        }
+      },
+      "attribution": {
+        "originating_agent_coverage": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        },
+        "originating_agent_accuracy": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        },
+        "event_or_handoff_coverage": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        },
+        "event_or_handoff_accuracy": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        }
+      },
+      "causal": {
+        "responsible_agent_accuracy": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "undefined_reason": "not_attempted: monitor did not emit causal_agent_id"
+        },
+        "note": "Causal root-cause identification is distinct from observable attribution and is not required of the frozen baselines."
+      },
+      "latency_ms": 12,
+      "gold_claims": 4,
+      "scored_claims": 4,
+      "missing_predictions": 0,
+      "invalid_predictions": 0
+    }
+  }
+}

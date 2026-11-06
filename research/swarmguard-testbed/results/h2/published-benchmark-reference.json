@@ -1,0 +1,1017 @@
+{
+  "format": "reeprov.h2.published_benchmark_reference.v1",
+  "benchmark_version": "p3.benchmark.v1.1",
+  "non_blind_public_benchmark": true,
+  "disclosure": "The 16 in-tree held-out cases from p3.benchmark.v1.1 have public oracle labels in Git history (PR #27) and are reported strictly as a non-blind regression benchmark, never as independent blind evidence.",
+  "frozen_detector_commit_sha": "5a4bcb59afa37e110b641b35db99c9a6b453137a",
+  "case_count": 16,
+  "aggregates": {
+    "baseline.per_agent.v1": {
+      "format": "reeprov.swarmguard_testbed.evaluation.v2",
+      "monitor_id": "baseline.per_agent.v1",
+      "monitor_version": "1.0.0",
+      "run_id": "aggregate",
+      "domain_id": "all",
+      "classification": {
+        "accuracy": {
+          "value": 0.4,
+          "numerator": 34,
+          "denominator": 85
+        },
+        "conditional_accuracy": {
+          "value": 0.4,
+          "numerator": 34,
+          "denominator": 85
+        },
+        "prediction_coverage": {
+          "value": 1,
+          "numerator": 85,
+          "denominator": 85
+        },
+        "contradiction_precision": {
+          "value": 0.6666666666666666,
+          "numerator": 2,
+          "denominator": 3
+        },
+        "contradiction_recall": {
+          "value": 0.14285714285714285,
+          "numerator": 2,
+          "denominator": 14
+        },
+        "conditional_contradiction_recall": {
+          "value": 0.14285714285714285,
+          "numerator": 2,
+          "denominator": 14
+        },
+        "false_positive_rate": {
+          "value": 0.014084507042253521,
+          "numerator": 1,
+          "denominator": 71
+        },
+        "abstention_rate": {
+          "value": 0.5529411764705883,
+          "numerator": 47,
+          "denominator": 85
+        },
+        "confusion": {
+          "labels": [
+            "supported",
+            "contradicted",
+            "unverified",
+            "missing",
+            "invalid"
+          ],
+          "counts": {
+            "supported->supported": 25,
+            "supported->contradicted": 1,
+            "supported->unverified": 34,
+            "supported->missing": 0,
+            "supported->invalid": 0,
+            "contradicted->supported": 6,
+            "contradicted->contradicted": 2,
+            "contradicted->unverified": 6,
+            "contradicted->missing": 0,
+            "contradicted->invalid": 0,
+            "unverified->supported": 4,
+            "unverified->contradicted": 0,
+            "unverified->unverified": 7,
+            "unverified->missing": 0,
+            "unverified->invalid": 0
+          }
+        }
+      },
+      "attribution": {
+        "originating_agent_coverage": {
+          "value": 1,
+          "numerator": 85,
+          "denominator": 85
+        },
+        "originating_agent_accuracy": {
+          "value": 1,
+          "numerator": 85,
+          "denominator": 85
+        },
+        "event_or_handoff_coverage": {
+          "value": 1,
+          "numerator": 85,
+          "denominator": 85
+        },
+        "event_or_handoff_accuracy": {
+          "value": 1,
+          "numerator": 85,
+          "denominator": 85
+        }
+      },
+      "causal": {
+        "responsible_agent_accuracy": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "undefined_reason": "not_attempted: monitor did not emit causal_agent_id"
+        },
+        "note": "Causal root-cause identification is distinct from observable attribution and is not required of the frozen baselines."
+      },
+      "latency_ms": 13,
+      "gold_claims": 85,
+      "scored_claims": 85,
+      "missing_predictions": 0,
+      "invalid_predictions": 0,
+      "per_domain": {
+        "software-engineering": {
+          "format": "reeprov.swarmguard_testbed.evaluation.v2",
+          "monitor_id": "baseline.per_agent.v1",
+          "monitor_version": "1.0.0",
+          "run_id": "aggregate",
+          "domain_id": "all",
+          "classification": {
+            "accuracy": {
+              "value": 0.525,
+              "numerator": 21,
+              "denominator": 40
+            },
+            "conditional_accuracy": {
+              "value": 0.525,
+              "numerator": 21,
+              "denominator": 40
+            },
+            "prediction_coverage": {
+              "value": 1,
+              "numerator": 40,
+              "denominator": 40
+            },
+            "contradiction_precision": {
+              "value": 0.6666666666666666,
+              "numerator": 2,
+              "denominator": 3
+            },
+            "contradiction_recall": {
+              "value": 0.25,
+              "numerator": 2,
+              "denominator": 8
+            },
+            "conditional_contradiction_recall": {
+              "value": 0.25,
+              "numerator": 2,
+              "denominator": 8
+            },
+            "false_positive_rate": {
+              "value": 0.03125,
+              "numerator": 1,
+              "denominator": 32
+            },
+            "abstention_rate": {
+              "value": 0.425,
+              "numerator": 17,
+              "denominator": 40
+            },
+            "confusion": {
+              "labels": [
+                "supported",
+                "contradicted",
+                "unverified",
+                "missing",
+                "invalid"
+              ],
+              "counts": {
+                "supported->supported": 15,
+                "supported->contradicted": 1,
+                "supported->unverified": 10,
+                "supported->missing": 0,
+                "supported->invalid": 0,
+                "contradicted->supported": 3,
+                "contradicted->contradicted": 2,
+                "contradicted->unverified": 3,
+                "contradicted->missing": 0,
+                "contradicted->invalid": 0,
+                "unverified->supported": 2,
+                "unverified->contradicted": 0,
+                "unverified->unverified": 4,
+                "unverified->missing": 0,
+                "unverified->invalid": 0
+              }
+            }
+          },
+          "attribution": {
+            "originating_agent_coverage": {
+              "value": 1,
+              "numerator": 40,
+              "denominator": 40
+            },
+            "originating_agent_accuracy": {
+              "value": 1,
+              "numerator": 40,
+              "denominator": 40
+            },
+            "event_or_handoff_coverage": {
+              "value": 1,
+              "numerator": 40,
+              "denominator": 40
+            },
+            "event_or_handoff_accuracy": {
+              "value": 1,
+              "numerator": 40,
+              "denominator": 40
+            }
+          },
+          "causal": {
+            "responsible_agent_accuracy": {
+              "value": null,
+              "numerator": 0,
+              "denominator": 0,
+              "undefined_reason": "not_attempted: monitor did not emit causal_agent_id"
+            },
+            "note": "Causal root-cause identification is distinct from observable attribution and is not required of the frozen baselines."
+          },
+          "latency_ms": 7,
+          "gold_claims": 40,
+          "scored_claims": 40,
+          "missing_predictions": 0,
+          "invalid_predictions": 0
+        },
+        "investigation": {
+          "format": "reeprov.swarmguard_testbed.evaluation.v2",
+          "monitor_id": "baseline.per_agent.v1",
+          "monitor_version": "1.0.0",
+          "run_id": "aggregate",
+          "domain_id": "all",
+          "classification": {
+            "accuracy": {
+              "value": 0.28888888888888886,
+              "numerator": 13,
+              "denominator": 45
+            },
+            "conditional_accuracy": {
+              "value": 0.28888888888888886,
+              "numerator": 13,
+              "denominator": 45
+            },
+            "prediction_coverage": {
+              "value": 1,
+              "numerator": 45,
+              "denominator": 45
+            },
+            "contradiction_precision": {
+              "value": null,
+              "numerator": 0,
+              "denominator": 0,
+              "undefined_reason": "no predicted contradictions"
+            },
+            "contradiction_recall": {
+              "value": 0,
+              "numerator": 0,
+              "denominator": 6
+            },
+            "conditional_contradiction_recall": {
+              "value": 0,
+              "numerator": 0,
+              "denominator": 6
+            },
+            "false_positive_rate": {
+              "value": 0,
+              "numerator": 0,
+              "denominator": 39
+            },
+            "abstention_rate": {
+              "value": 0.6666666666666666,
+              "numerator": 30,
+              "denominator": 45
+            },
+            "confusion": {
+              "labels": [
+                "supported",
+                "contradicted",
+                "unverified",
+                "missing",
+                "invalid"
+              ],
+              "counts": {
+                "supported->supported": 10,
+                "supported->contradicted": 0,
+                "supported->unverified": 24,
+                "supported->missing": 0,
+                "supported->invalid": 0,
+                "contradicted->supported": 3,
+                "contradicted->contradicted": 0,
+                "contradicted->unverified": 3,
+                "contradicted->missing": 0,
+                "contradicted->invalid": 0,
+                "unverified->supported": 2,
+                "unverified->contradicted": 0,
+                "unverified->unverified": 3,
+                "unverified->missing": 0,
+                "unverified->invalid": 0
+              }
+            }
+          },
+          "attribution": {
+            "originating_agent_coverage": {
+              "value": 1,
+              "numerator": 45,
+              "denominator": 45
+            },
+            "originating_agent_accuracy": {
+              "value": 1,
+              "numerator": 45,
+              "denominator": 45
+            },
+            "event_or_handoff_coverage": {
+              "value": 1,
+              "numerator": 45,
+              "denominator": 45
+            },
+            "event_or_handoff_accuracy": {
+              "value": 1,
+              "numerator": 45,
+              "denominator": 45
+            }
+          },
+          "causal": {
+            "responsible_agent_accuracy": {
+              "value": null,
+              "numerator": 0,
+              "denominator": 0,
+              "undefined_reason": "not_attempted: monitor did not emit causal_agent_id"
+            },
+            "note": "Causal root-cause identification is distinct from observable attribution and is not required of the frozen baselines."
+          },
+          "latency_ms": 6,
+          "gold_claims": 45,
+          "scored_claims": 45,
+          "missing_predictions": 0,
+          "invalid_predictions": 0
+        }
+      }
+    },
+    "baseline.pooled_event.v1": {
+      "format": "reeprov.swarmguard_testbed.evaluation.v2",
+      "monitor_id": "baseline.pooled_event.v1",
+      "monitor_version": "1.0.0",
+      "run_id": "aggregate",
+      "domain_id": "all",
+      "classification": {
+        "accuracy": {
+          "value": 0.7764705882352941,
+          "numerator": 66,
+          "denominator": 85
+        },
+        "conditional_accuracy": {
+          "value": 0.7764705882352941,
+          "numerator": 66,
+          "denominator": 85
+        },
+        "prediction_coverage": {
+          "value": 1,
+          "numerator": 85,
+          "denominator": 85
+        },
+        "contradiction_precision": {
+          "value": 0.8333333333333334,
+          "numerator": 5,
+          "denominator": 6
+        },
+        "contradiction_recall": {
+          "value": 0.35714285714285715,
+          "numerator": 5,
+          "denominator": 14
+        },
+        "conditional_contradiction_recall": {
+          "value": 0.35714285714285715,
+          "numerator": 5,
+          "denominator": 14
+        },
+        "false_positive_rate": {
+          "value": 0.014084507042253521,
+          "numerator": 1,
+          "denominator": 71
+        },
+        "abstention_rate": {
+          "value": 0.023529411764705882,
+          "numerator": 2,
+          "denominator": 85
+        },
+        "confusion": {
+          "labels": [
+            "supported",
+            "contradicted",
+            "unverified",
+            "missing",
+            "invalid"
+          ],
+          "counts": {
+            "supported->supported": 59,
+            "supported->contradicted": 1,
+            "supported->unverified": 0,
+            "supported->missing": 0,
+            "supported->invalid": 0,
+            "contradicted->supported": 9,
+            "contradicted->contradicted": 5,
+            "contradicted->unverified": 0,
+            "contradicted->missing": 0,
+            "contradicted->invalid": 0,
+            "unverified->supported": 9,
+            "unverified->contradicted": 0,
+            "unverified->unverified": 2,
+            "unverified->missing": 0,
+            "unverified->invalid": 0
+          }
+        }
+      },
+      "attribution": {
+        "originating_agent_coverage": {
+          "value": 1,
+          "numerator": 85,
+          "denominator": 85
+        },
+        "originating_agent_accuracy": {
+          "value": 1,
+          "numerator": 85,
+          "denominator": 85
+        },
+        "event_or_handoff_coverage": {
+          "value": 1,
+          "numerator": 85,
+          "denominator": 85
+        },
+        "event_or_handoff_accuracy": {
+          "value": 1,
+          "numerator": 85,
+          "denominator": 85
+        }
+      },
+      "causal": {
+        "responsible_agent_accuracy": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "undefined_reason": "not_attempted: monitor did not emit causal_agent_id"
+        },
+        "note": "Causal root-cause identification is distinct from observable attribution and is not required of the frozen baselines."
+      },
+      "latency_ms": 9,
+      "gold_claims": 85,
+      "scored_claims": 85,
+      "missing_predictions": 0,
+      "invalid_predictions": 0,
+      "per_domain": {
+        "software-engineering": {
+          "format": "reeprov.swarmguard_testbed.evaluation.v2",
+          "monitor_id": "baseline.pooled_event.v1",
+          "monitor_version": "1.0.0",
+          "run_id": "aggregate",
+          "domain_id": "all",
+          "classification": {
+            "accuracy": {
+              "value": 0.775,
+              "numerator": 31,
+              "denominator": 40
+            },
+            "conditional_accuracy": {
+              "value": 0.775,
+              "numerator": 31,
+              "denominator": 40
+            },
+            "prediction_coverage": {
+              "value": 1,
+              "numerator": 40,
+              "denominator": 40
+            },
+            "contradiction_precision": {
+              "value": 0.8333333333333334,
+              "numerator": 5,
+              "denominator": 6
+            },
+            "contradiction_recall": {
+              "value": 0.625,
+              "numerator": 5,
+              "denominator": 8
+            },
+            "conditional_contradiction_recall": {
+              "value": 0.625,
+              "numerator": 5,
+              "denominator": 8
+            },
+            "false_positive_rate": {
+              "value": 0.03125,
+              "numerator": 1,
+              "denominator": 32
+            },
+            "abstention_rate": {
+              "value": 0.025,
+              "numerator": 1,
+              "denominator": 40
+            },
+            "confusion": {
+              "labels": [
+                "supported",
+                "contradicted",
+                "unverified",
+                "missing",
+                "invalid"
+              ],
+              "counts": {
+                "supported->supported": 25,
+                "supported->contradicted": 1,
+                "supported->unverified": 0,
+                "supported->missing": 0,
+                "supported->invalid": 0,
+                "contradicted->supported": 3,
+                "contradicted->contradicted": 5,
+                "contradicted->unverified": 0,
+                "contradicted->missing": 0,
+                "contradicted->invalid": 0,
+                "unverified->supported": 5,
+                "unverified->contradicted": 0,
+                "unverified->unverified": 1,
+                "unverified->missing": 0,
+                "unverified->invalid": 0
+              }
+            }
+          },
+          "attribution": {
+            "originating_agent_coverage": {
+              "value": 1,
+              "numerator": 40,
+              "denominator": 40
+            },
+            "originating_agent_accuracy": {
+              "value": 1,
+              "numerator": 40,
+              "denominator": 40
+            },
+            "event_or_handoff_coverage": {
+              "value": 1,
+              "numerator": 40,
+              "denominator": 40
+            },
+            "event_or_handoff_accuracy": {
+              "value": 1,
+              "numerator": 40,
+              "denominator": 40
+            }
+          },
+          "causal": {
+            "responsible_agent_accuracy": {
+              "value": null,
+              "numerator": 0,
+              "denominator": 0,
+              "undefined_reason": "not_attempted: monitor did not emit causal_agent_id"
+            },
+            "note": "Causal root-cause identification is distinct from observable attribution and is not required of the frozen baselines."
+          },
+          "latency_ms": 4,
+          "gold_claims": 40,
+          "scored_claims": 40,
+          "missing_predictions": 0,
+          "invalid_predictions": 0
+        },
+        "investigation": {
+          "format": "reeprov.swarmguard_testbed.evaluation.v2",
+          "monitor_id": "baseline.pooled_event.v1",
+          "monitor_version": "1.0.0",
+          "run_id": "aggregate",
+          "domain_id": "all",
+          "classification": {
+            "accuracy": {
+              "value": 0.7777777777777778,
+              "numerator": 35,
+              "denominator": 45
+            },
+            "conditional_accuracy": {
+              "value": 0.7777777777777778,
+              "numerator": 35,
+              "denominator": 45
+            },
+            "prediction_coverage": {
+              "value": 1,
+              "numerator": 45,
+              "denominator": 45
+            },
+            "contradiction_precision": {
+              "value": null,
+              "numerator": 0,
+              "denominator": 0,
+              "undefined_reason": "no predicted contradictions"
+            },
+            "contradiction_recall": {
+              "value": 0,
+              "numerator": 0,
+              "denominator": 6
+            },
+            "conditional_contradiction_recall": {
+              "value": 0,
+              "numerator": 0,
+              "denominator": 6
+            },
+            "false_positive_rate": {
+              "value": 0,
+              "numerator": 0,
+              "denominator": 39
+            },
+            "abstention_rate": {
+              "value": 0.022222222222222223,
+              "numerator": 1,
+              "denominator": 45
+            },
+            "confusion": {
+              "labels": [
+                "supported",
+                "contradicted",
+                "unverified",
+                "missing",
+                "invalid"
+              ],
+              "counts": {
+                "supported->supported": 34,
+                "supported->contradicted": 0,
+                "supported->unverified": 0,
+                "supported->missing": 0,
+                "supported->invalid": 0,
+                "contradicted->supported": 6,
+                "contradicted->contradicted": 0,
+                "contradicted->unverified": 0,
+                "contradicted->missing": 0,
+                "contradicted->invalid": 0,
+                "unverified->supported": 4,
+                "unverified->contradicted": 0,
+                "unverified->unverified": 1,
+                "unverified->missing": 0,
+                "unverified->invalid": 0
+              }
+            }
+          },
+          "attribution": {
+            "originating_agent_coverage": {
+              "value": 1,
+              "numerator": 45,
+              "denominator": 45
+            },
+            "originating_agent_accuracy": {
+              "value": 1,
+              "numerator": 45,
+              "denominator": 45
+            },
+            "event_or_handoff_coverage": {
+              "value": 1,
+              "numerator": 45,
+              "denominator": 45
+            },
+            "event_or_handoff_accuracy": {
+              "value": 1,
+              "numerator": 45,
+              "denominator": 45
+            }
+          },
+          "causal": {
+            "responsible_agent_accuracy": {
+              "value": null,
+              "numerator": 0,
+              "denominator": 0,
+              "undefined_reason": "not_attempted: monitor did not emit causal_agent_id"
+            },
+            "note": "Causal root-cause identification is distinct from observable attribution and is not required of the frozen baselines."
+          },
+          "latency_ms": 5,
+          "gold_claims": 45,
+          "scored_claims": 45,
+          "missing_predictions": 0,
+          "invalid_predictions": 0
+        }
+      }
+    },
+    "karma_police.cross_agent.v1": {
+      "format": "reeprov.swarmguard_testbed.evaluation.v2",
+      "monitor_id": "karma_police.cross_agent.v1",
+      "monitor_version": "1.0.0",
+      "run_id": "aggregate",
+      "domain_id": "all",
+      "classification": {
+        "accuracy": {
+          "value": 0.8352941176470589,
+          "numerator": 71,
+          "denominator": 85
+        },
+        "conditional_accuracy": {
+          "value": 0.8352941176470589,
+          "numerator": 71,
+          "denominator": 85
+        },
+        "prediction_coverage": {
+          "value": 1,
+          "numerator": 85,
+          "denominator": 85
+        },
+        "contradiction_precision": {
+          "value": 0.7333333333333333,
+          "numerator": 11,
+          "denominator": 15
+        },
+        "contradiction_recall": {
+          "value": 0.7857142857142857,
+          "numerator": 11,
+          "denominator": 14
+        },
+        "conditional_contradiction_recall": {
+          "value": 0.7857142857142857,
+          "numerator": 11,
+          "denominator": 14
+        },
+        "false_positive_rate": {
+          "value": 0.056338028169014086,
+          "numerator": 4,
+          "denominator": 71
+        },
+        "abstention_rate": {
+          "value": 0.24705882352941178,
+          "numerator": 21,
+          "denominator": 85
+        },
+        "confusion": {
+          "labels": [
+            "supported",
+            "contradicted",
+            "unverified",
+            "missing",
+            "invalid"
+          ],
+          "counts": {
+            "supported->supported": 49,
+            "supported->contradicted": 4,
+            "supported->unverified": 7,
+            "supported->missing": 0,
+            "supported->invalid": 0,
+            "contradicted->supported": 0,
+            "contradicted->contradicted": 11,
+            "contradicted->unverified": 3,
+            "contradicted->missing": 0,
+            "contradicted->invalid": 0,
+            "unverified->supported": 0,
+            "unverified->contradicted": 0,
+            "unverified->unverified": 11,
+            "unverified->missing": 0,
+            "unverified->invalid": 0
+          }
+        }
+      },
+      "attribution": {
+        "originating_agent_coverage": {
+          "value": 1,
+          "numerator": 85,
+          "denominator": 85
+        },
+        "originating_agent_accuracy": {
+          "value": 1,
+          "numerator": 85,
+          "denominator": 85
+        },
+        "event_or_handoff_coverage": {
+          "value": 1,
+          "numerator": 85,
+          "denominator": 85
+        },
+        "event_or_handoff_accuracy": {
+          "value": 1,
+          "numerator": 85,
+          "denominator": 85
+        }
+      },
+      "causal": {
+        "responsible_agent_accuracy": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "undefined_reason": "not_attempted: monitor did not emit causal_agent_id"
+        },
+        "note": "Causal root-cause identification is distinct from observable attribution and is not required of the frozen baselines."
+      },
+      "latency_ms": 34,
+      "gold_claims": 85,
+      "scored_claims": 85,
+      "missing_predictions": 0,
+      "invalid_predictions": 0,
+      "per_domain": {
+        "software-engineering": {
+          "format": "reeprov.swarmguard_testbed.evaluation.v2",
+          "monitor_id": "karma_police.cross_agent.v1",
+          "monitor_version": "1.0.0",
+          "run_id": "aggregate",
+          "domain_id": "all",
+          "classification": {
+            "accuracy": {
+              "value": 0.95,
+              "numerator": 38,
+              "denominator": 40
+            },
+            "conditional_accuracy": {
+              "value": 0.95,
+              "numerator": 38,
+              "denominator": 40
+            },
+            "prediction_coverage": {
+              "value": 1,
+              "numerator": 40,
+              "denominator": 40
+            },
+            "contradiction_precision": {
+              "value": 1,
+              "numerator": 8,
+              "denominator": 8
+            },
+            "contradiction_recall": {
+              "value": 1,
+              "numerator": 8,
+              "denominator": 8
+            },
+            "conditional_contradiction_recall": {
+              "value": 1,
+              "numerator": 8,
+              "denominator": 8
+            },
+            "false_positive_rate": {
+              "value": 0,
+              "numerator": 0,
+              "denominator": 32
+            },
+            "abstention_rate": {
+              "value": 0.2,
+              "numerator": 8,
+              "denominator": 40
+            },
+            "confusion": {
+              "labels": [
+                "supported",
+                "contradicted",
+                "unverified",
+                "missing",
+                "invalid"
+              ],
+              "counts": {
+                "supported->supported": 24,
+                "supported->contradicted": 0,
+                "supported->unverified": 2,
+                "supported->missing": 0,
+                "supported->invalid": 0,
+                "contradicted->supported": 0,
+                "contradicted->contradicted": 8,
+                "contradicted->unverified": 0,
+                "contradicted->missing": 0,
+                "contradicted->invalid": 0,
+                "unverified->supported": 0,
+                "unverified->contradicted": 0,
+                "unverified->unverified": 6,
+                "unverified->missing": 0,
+                "unverified->invalid": 0
+              }
+            }
+          },
+          "attribution": {
+            "originating_agent_coverage": {
+              "value": 1,
+              "numerator": 40,
+              "denominator": 40
+            },
+            "originating_agent_accuracy": {
+              "value": 1,
+              "numerator": 40,
+              "denominator": 40
+            },
+            "event_or_handoff_coverage": {
+              "value": 1,
+              "numerator": 40,
+              "denominator": 40
+            },
+            "event_or_handoff_accuracy": {
+              "value": 1,
+              "numerator": 40,
+              "denominator": 40
+            }
+          },
+          "causal": {
+            "responsible_agent_accuracy": {
+              "value": null,
+              "numerator": 0,
+              "denominator": 0,
+              "undefined_reason": "not_attempted: monitor did not emit causal_agent_id"
+            },
+            "note": "Causal root-cause identification is distinct from observable attribution and is not required of the frozen baselines."
+          },
+          "latency_ms": 16,
+          "gold_claims": 40,
+          "scored_claims": 40,
+          "missing_predictions": 0,
+          "invalid_predictions": 0
+        },
+        "investigation": {
+          "format": "reeprov.swarmguard_testbed.evaluation.v2",
+          "monitor_id": "karma_police.cross_agent.v1",
+          "monitor_version": "1.0.0",
+          "run_id": "aggregate",
+          "domain_id": "all",
+          "classification": {
+            "accuracy": {
+              "value": 0.7333333333333333,
+              "numerator": 33,
+              "denominator": 45
+            },
+            "conditional_accuracy": {
+              "value": 0.7333333333333333,
+              "numerator": 33,
+              "denominator": 45
+            },
+            "prediction_coverage": {
+              "value": 1,
+              "numerator": 45,
+              "denominator": 45
+            },
+            "contradiction_precision": {
+              "value": 0.42857142857142855,
+              "numerator": 3,
+              "denominator": 7
+            },
+            "contradiction_recall": {
+              "value": 0.5,
+              "numerator": 3,
+              "denominator": 6
+            },
+            "conditional_contradiction_recall": {
+              "value": 0.5,
+              "numerator": 3,
+              "denominator": 6
+            },
+            "false_positive_rate": {
+              "value": 0.10256410256410256,
+              "numerator": 4,
+              "denominator": 39
+            },
+            "abstention_rate": {
+              "value": 0.28888888888888886,
+              "numerator": 13,
+              "denominator": 45
+            },
+            "confusion": {
+              "labels": [
+                "supported",
+                "contradicted",
+                "unverified",
+                "missing",
+                "invalid"
+              ],
+              "counts": {
+                "supported->supported": 25,
+                "supported->contradicted": 4,
+                "supported->unverified": 5,
+                "supported->missing": 0,
+                "supported->invalid": 0,
+                "contradicted->supported": 0,
+                "contradicted->contradicted": 3,
+                "contradicted->unverified": 3,
+                "contradicted->missing": 0,
+                "contradicted->invalid": 0,
+                "unverified->supported": 0,
+                "unverified->contradicted": 0,
+                "unverified->unverified": 5,
+                "unverified->missing": 0,
+                "unverified->invalid": 0
+              }
+            }
+          },
+          "attribution": {
+            "originating_agent_coverage": {
+              "value": 1,
+              "numerator": 45,
+              "denominator": 45
+            },
+            "originating_agent_accuracy": {
+              "value": 1,
+              "numerator": 45,
+              "denominator": 45
+            },
+            "event_or_handoff_coverage": {
+              "value": 1,
+              "numerator": 45,
+              "denominator": 45
+            },
+            "event_or_handoff_accuracy": {
+              "value": 1,
+              "numerator": 45,
+              "denominator": 45
+            }
+          },
+          "causal": {
+            "responsible_agent_accuracy": {
+              "value": null,
+              "numerator": 0,
+              "denominator": 0,
+              "undefined_reason": "not_attempted: monitor did not emit causal_agent_id"
+            },
+            "note": "Causal root-cause identification is distinct from observable attribution and is not required of the frozen baselines."
+          },
+          "latency_ms": 18,
+          "gold_claims": 45,
+          "scored_claims": 45,
+          "missing_predictions": 0,
+          "invalid_predictions": 0
+        }
+      }
+    }
+  }
+}
