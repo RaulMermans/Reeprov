@@ -30,8 +30,9 @@ import {
   type Partition,
 } from "../src/benchmark";
 import { FROZEN_BASELINES } from "../src/baselines";
-import { EVALUATION_FORMAT, EVALUATION_FORMAT_V1 } from "../src/evaluate";
+import { EVALUATION_FORMAT, EVALUATION_FORMAT_V1, evaluateMonitor } from "../src/evaluate";
 import { HELDOUT_ALLOW_ENV } from "../src/heldoutAccess";
+import { runKarmaPoliceWithFindings } from "../src/karmaPolice";
 
 function arg(flag: string): string | undefined {
   const index = process.argv.indexOf(flag);
@@ -47,6 +48,10 @@ const command = process.argv[2]?.startsWith("--") ? "legacy" : (process.argv[2] 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const BENCH_DIR = join(ROOT, "..", "benchmark");
 const defaultOutput = join(process.cwd(), "research/swarmguard-testbed/.output");
+
+if (!process.env["REEPROV_STORE_DIR"]) {
+  process.env["REEPROV_STORE_DIR"] = join(defaultOutput, ".reeprov-store");
+}
 
 async function freezeManifests(): Promise<void> {
   await mkdir(BENCH_DIR, { recursive: true });
@@ -123,7 +128,7 @@ if (command === "validate") {
   process.exit(schema.ok ? 0 : 1);
 }
 
-if (command === "run" || command === "baselines" || command === "score" || command === "experiment") {
+if (command === "run" || command === "baselines" || command === "score" || command === "experiment" || command === "karma-police") {
   const outputDir = arg("--output") ?? defaultOutput;
   const mode = arg("--mode") ?? "offline_fixture";
   const partition = (arg("--partition") as Partition | undefined) ?? (arg("--case") ? undefined : "development");
@@ -140,6 +145,23 @@ if (command === "run" || command === "baselines" || command === "score" || comma
   const reports = [];
   for (const id of caseIds) {
     const executed = await runAndEvaluate({ caseId: id, mode, outputDir, persist: true });
+    const evals = executed.evaluations.map((evaluation) => ({
+      monitor_id: evaluation.monitor_id,
+      accuracy: evaluation.classification.accuracy.value,
+      contradiction_recall: evaluation.classification.contradiction_recall.value,
+    }));
+    if (command === "karma-police") {
+      const { result: kpResult, findings: kpFindings } = runKarmaPoliceWithFindings(executed.result.artifact, {
+        caseId: id,
+        domainId: executed.result.domain_id,
+      });
+      const kpEval = evaluateMonitor({ prediction: kpResult, groundTruth: executed.result.ground_truth });
+      evals.unshift({
+        monitor_id: kpResult.monitor_id,
+        accuracy: kpEval.classification.accuracy.value,
+        contradiction_recall: kpEval.classification.contradiction_recall.value,
+      });
+    }
     reports.push({
       case_id: id,
       run_id: executed.result.run_id,
@@ -148,12 +170,8 @@ if (command === "run" || command === "baselines" || command === "score" || comma
       status: executed.result.status,
       validity: executed.result.ground_truth.experimental_validity,
       schema_ok: validateArtifactSchema(executed.result).ok,
-      baselines: executed.predictions.map((prediction) => prediction.monitor_id),
-      evaluations: executed.evaluations.map((evaluation) => ({
-        monitor_id: evaluation.monitor_id,
-        accuracy: evaluation.classification.accuracy.value,
-        contradiction_recall: evaluation.classification.contradiction_recall.value,
-      })),
+      baselines: command === "karma-police" ? ["karma_police.cross_agent.v1", ...executed.predictions.map((p) => p.monitor_id)] : executed.predictions.map((p) => p.monitor_id),
+      evaluations: evals,
       export: executed.result.persisted?.summary.detector_dir,
     });
   }
