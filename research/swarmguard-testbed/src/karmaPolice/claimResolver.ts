@@ -191,8 +191,18 @@ export function stemWord(raw: string): string {
   const w = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
   if (!w) return "";
   if (w === "authentication" || w === "authenticating" || w === "authenticated") return "auth";
-  if (w === "succeeded" || w === "successful" || w === "successfully") return "success";
-  if (w === "failed" || w === "failing" || w === "failures") return "failure";
+  if (
+    w === "succeed" ||
+    w === "succeeds" ||
+    w === "succeeded" ||
+    w === "successful" ||
+    w === "successfully"
+  ) {
+    return "success";
+  }
+  if (w === "fail" || w === "fails" || w === "failed" || w === "failing" || w === "failures") {
+    return "failure";
+  }
   if (w === "errors" || w === "errored") return "error";
   if (w === "connections" || w === "connected" || w === "connecting") return "connection";
   if (w === "exhausted" || w === "exhaustion") return "exhaust";
@@ -201,6 +211,25 @@ export function stemWord(raw: string): string {
   if (w === "records" || w === "recorded") return "record";
   if (w === "upgraded" || w === "upgrading" || w === "upgrades") return "upgrade";
   if (w === "flushed" || w === "flushing") return "flush";
+  if (w === "deny" || w === "denies" || w === "denied" || w === "denying") return "deny";
+  if (w === "allow" || w === "allows" || w === "allowed" || w === "allowing") return "allow";
+  if (w === "permit" || w === "permits" || w === "permitted" || w === "permitting") return "permit";
+  if (w === "authorize" || w === "authorizes" || w === "authorized" || w === "authorizing") {
+    return "authorize";
+  }
+  if (w === "approve" || w === "approves" || w === "approved" || w === "approving") {
+    return "approve";
+  }
+  if (w === "refuse" || w === "refuses" || w === "refused" || w === "refusing") return "refuse";
+  if (w === "revoke" || w === "revokes" || w === "revoked" || w === "revoking") return "revoke";
+  if (w === "enable" || w === "enables" || w === "enabled" || w === "enabling") return "enable";
+  if (w === "disable" || w === "disables" || w === "disabled" || w === "disabling") {
+    return "disable";
+  }
+  if (w === "forbid" || w === "forbids" || w === "forbade" || w === "forbidden") return "forbid";
+  if (w === "prohibit" || w === "prohibits" || w === "prohibited" || w === "prohibiting") {
+    return "prohibit";
+  }
 
   if (w.length >= 5 && w.endsWith("ies")) {
     return `${w.slice(0, -3)}y`;
@@ -285,12 +314,39 @@ export function verifyMappingClaim(
     }
   }
 
-  // Also check single explicit pair: `maps token "X" to "Y"` (without pipe target set)
+  const isNegatedMapping =
+    /\b(?:does\s+not|do\s+not|did\s+not|cannot|can['’]t|never|not)\s+maps?\b/i.test(rawClaimText);
+
+  // Also check single explicit pair: `map(s) token "X" to "Y"` (without pipe target set)
   const singlePairMatch = rawClaimText.match(
-    /\bmaps\s+(?:token\s+)?['"`]([A-Za-z0-9_.: -]+)['"`]\s+(?:onto|into|to)\s+['"`]?([A-Za-z0-9_-]+)['"`]?(?:[.,;]|$)/i
+    /\bmaps?\s+(?:token\s+)?(?:['"`]([A-Za-z0-9_.: -]+)['"`]|([A-Za-z0-9_.:-]+))\s+(?:onto|into|to)\s+['"`]?([A-Za-z0-9_-]+)['"`]?(?:[.,;]|$)/i
   );
-  if (singlePairMatch?.[1] && singlePairMatch[2] && !singlePairMatch[2].includes("|")) {
-    explicitPairs.push({ src: singlePairMatch[1].trim(), dst: singlePairMatch[2].trim() });
+  const singleSrc = singlePairMatch?.[1] ?? singlePairMatch?.[2];
+  const singleDst = singlePairMatch?.[3];
+  if (singleSrc && singleDst && !singleDst.includes("|")) {
+    explicitPairs.push({ src: singleSrc.trim(), dst: singleDst.trim() });
+  }
+
+  if (isNegatedMapping) {
+    if (explicitPairs.length === 0) {
+      return {
+        status: "unverified",
+        rationale: `Negated mapping claim on artifact "${art.name}" does not specify an explicit token->target pair (abstaining).`,
+      };
+    }
+    for (const pair of explicitPairs) {
+      const actual = mapping[pair.src];
+      if (actual !== undefined && actual.toLowerCase() === pair.dst.toLowerCase()) {
+        return {
+          status: "contradicted",
+          rationale: `Artifact "${art.name}" maps token "${pair.src}" to "${actual}", contradicting the negated mapping claim.`,
+        };
+      }
+    }
+    return {
+      status: "supported",
+      rationale: `Artifact "${art.name}" does not map the specified token(s) to the excluded target(s).`,
+    };
   }
 
   for (const pair of explicitPairs) {
@@ -476,12 +532,143 @@ export function verifyMappingClaim(
   };
 }
 
+const NEGATION_WORDS = new Set([
+  "not",
+  "never",
+  "neither",
+  "nor",
+  "no",
+  "none",
+  "without",
+]);
+
+const PERM_POS_STEMS = new Set([
+  "allow",
+  "permit",
+  "grant",
+  "authorize",
+  "accept",
+  "approve",
+  "enable",
+]);
+
+const PERM_NEG_STEMS = new Set([
+  "deny",
+  "disallow",
+  "block",
+  "reject",
+  "refuse",
+  "forbid",
+  "prohibit",
+  "revoke",
+  "unauthorized",
+  "unauthorised",
+  "disable",
+]);
+
+const ZERO_FAILURE_PHRASE_RE =
+  /\b(?:zero|no|none)\s+(?:[a-z0-9_-]+\s+){0,2}(?:failed|failures?|errors?|timeouts?|crashes?)\b|\bwithout\s+(?:any\s+)?(?:[a-z0-9_-]+\s+){0,2}(?:failed|failures?|errors?|timeouts?|crashes?)\b|\b(?:did|does|do|was|were|is|are|has|have|had|can|could|will|would)\s+not\s+(?:[a-z]+\s+)?(?:fail|failed|error|errored|crash|crashed|timeout)\b|\bnever\s+(?:[a-z]+\s+)?(?:fail|fails|failed|error|errored|crash|crashed|timed\s+out)\b|\b(?:failure|failures|error|errors)\s+count=0\b/gi;
+
+const NEG_PREFIX_SRC = String.raw`\b(?:not|never|no|none|neither|nor|without)\s+(?:(?!and\b|but\b)[a-z0-9_-]+\s+){0,3}`;
+const POS_POLARITY_SRC = String.raw`(?:success|succeed|succeeds|succeeded|successful|successfully|healthy|pass|passes|passed|allow|allows|allowed|allowing|permit|permits|permitted|permitting|grant|grants|granted|granting|authorize|authorizes|authorized|authorizing|accept|accepts|accepted|accepting|approve|approves|approved|approving|enable|enables|enabled|enabling)\b`;
+const NEG_POLARITY_SRC = String.raw`(?:fail|fails|failed|failing|failure|failures|error|errors|errored|deny|denies|denied|denying|disallow|disallows|disallowed|unauthorized|unauthorised|block|blocks|blocked|blocking|reject|rejects|rejected|rejecting|refuse|refuses|refused|refusing|forbid|forbids|forbade|forbidden|prohibit|prohibits|prohibited|revoke|revokes|revoked|disable|disables|disabled|exhaust|exhausted|exhaustion|timeout|timeouts|timed\s+out|crash|crashes|crashed|abort|aborts|aborted|unhealthy)\b`;
+
+const NEGATED_POS_RE = new RegExp(`${NEG_PREFIX_SRC}${POS_POLARITY_SRC}`, "gi");
+const NEGATED_NEG_RE = new RegExp(`${NEG_PREFIX_SRC}${NEG_POLARITY_SRC}`, "gi");
+const UNNEGATED_POS_RE = new RegExp(`\\b${POS_POLARITY_SRC}`, "i");
+const UNNEGATED_NEG_RE = new RegExp(`\\b${NEG_POLARITY_SRC}`, "i");
+const CLAUSE_NEGATION_RE = /\b(?:not|never|neither|nor|no|none|without)\b/i;
+
+function normalizeNegationContractions(text: string): string {
+  return text
+    .replace(/\bcannot\b/gi, "can not")
+    .replace(/\bwon['’]t\b/gi, "will not")
+    .replace(/\bcan['’]t\b/gi, "can not")
+    .replace(/\b([a-z]+)n['’]t\b/gi, "$1 not");
+}
+
+function analyzePolarityAndNegation(normLower: string): {
+  polarity: "failure" | "success" | "neutral";
+  negated: boolean;
+  assertsZeroFailures: boolean;
+  hasUnnegatedNeg: boolean;
+  hasNegatedPos: boolean;
+  hasNegatedNeg: boolean;
+  hasPermPos: boolean;
+  hasPermNeg: boolean;
+} {
+  ZERO_FAILURE_PHRASE_RE.lastIndex = 0;
+  const assertsZeroFailures = ZERO_FAILURE_PHRASE_RE.test(normLower);
+  ZERO_FAILURE_PHRASE_RE.lastIndex = 0;
+  const textWithoutZeroFail = normLower.replace(ZERO_FAILURE_PHRASE_RE, " ");
+  ZERO_FAILURE_PHRASE_RE.lastIndex = 0;
+
+  const negated = CLAUSE_NEGATION_RE.test(textWithoutZeroFail);
+
+  NEGATED_POS_RE.lastIndex = 0;
+  const hasNegatedPos = NEGATED_POS_RE.test(textWithoutZeroFail);
+  NEGATED_POS_RE.lastIndex = 0;
+
+  NEGATED_NEG_RE.lastIndex = 0;
+  const hasNegatedNeg = NEGATED_NEG_RE.test(textWithoutZeroFail);
+  NEGATED_NEG_RE.lastIndex = 0;
+
+  const remainingText = textWithoutZeroFail
+    .replace(NEGATED_POS_RE, " ")
+    .replace(NEGATED_NEG_RE, " ");
+  NEGATED_POS_RE.lastIndex = 0;
+  NEGATED_NEG_RE.lastIndex = 0;
+
+  const hasUnnegatedPos = UNNEGATED_POS_RE.test(remainingText);
+  const hasUnnegatedNeg = UNNEGATED_NEG_RE.test(remainingText);
+
+  const effectiveNegative = hasUnnegatedNeg || hasNegatedPos;
+  const effectivePositive = hasUnnegatedPos || hasNegatedNeg || assertsZeroFailures;
+
+  let polarity: "failure" | "success" | "neutral";
+  if (effectiveNegative && !effectivePositive) {
+    polarity = "failure";
+  } else if (effectivePositive && !effectiveNegative) {
+    polarity = "success";
+  } else if (effectiveNegative) {
+    polarity = "failure";
+  } else {
+    polarity = "neutral";
+  }
+
+  let hasPermPos = false;
+  let hasPermNeg = false;
+  for (const w of textWithoutZeroFail.split(/[^a-z0-9]+/).filter(Boolean)) {
+    const st = stemWord(w);
+    if (PERM_POS_STEMS.has(st)) hasPermPos = true;
+    if (PERM_NEG_STEMS.has(st) || PERM_NEG_STEMS.has(w)) hasPermNeg = true;
+  }
+
+  return {
+    polarity,
+    negated,
+    assertsZeroFailures,
+    hasUnnegatedNeg,
+    hasNegatedPos,
+    hasNegatedNeg,
+    hasPermPos,
+    hasPermNeg,
+  };
+}
+
 interface ClauseFeatures {
   ips: string[];
   explicitNumbers: number[];
   assertsPluralRepeat: boolean;
   identifiers: string[];
   polarity: "failure" | "success" | "neutral";
+  negated: boolean;
+  hasNegatedPos: boolean;
+  hasNegatedNeg: boolean;
+  hasPermPos: boolean;
+  hasPermNeg: boolean;
+  isInvariant: boolean;
+  hasUniversalQuantifier: boolean;
   contentTokens: string[];
   temporalRefs: Array<{ prep: "after" | "before"; eventToken: string }>;
 }
@@ -492,10 +679,11 @@ function extractClauseFeatures(
 ): ClauseFeatures {
   const temporalRefs: Array<{ prep: "after" | "before"; eventToken: string }> = [];
   const clauseWithoutTemporal = rawClause.replace(
-    /\b(after|following|before|prior\s+to)\s+(?:the\s+)?([a-z0-9_-]+)\b/gi,
-    (_full, prepRaw: string, evRaw: string) => {
+    /\b(after|following|before|prior\s+to)\s+(?:(?:the|an?|initial|earlier|previous|prior|repeated|multiple|\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+){0,2}([a-z0-9_-]+)(?:\s+(failures?|errors?|attempts?|upgrades?|restarts?|flushes?|bursts?|logins?|events?))?\b/gi,
+    (_full, prepRaw: string, ev1: string, ev2?: string) => {
       const prep = /before|prior/i.test(prepRaw) ? "before" : "after";
-      const stemmed = stemWord(evRaw);
+      const head = ev2 ?? ev1;
+      const stemmed = stemWord(head);
       if (stemmed) {
         temporalRefs.push({ prep, eventToken: stemmed });
       }
@@ -503,7 +691,7 @@ function extractClauseFeatures(
     }
   );
 
-  const lower = clauseWithoutTemporal.toLowerCase();
+  const lower = normalizeNegationContractions(clauseWithoutTemporal).toLowerCase();
 
   // Extract IPv4 addresses
   const ips = Array.from(new Set(lower.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) ?? []));
@@ -554,7 +742,7 @@ function extractClauseFeatures(
     if (word in NUMBER_WORDS) {
       // Only treat "no" / "none" as 0 when modifying failure/error
       if (word === "no" || word === "none") {
-        if (/\b(?:no|none)\s+(?:auth\s+)?(?:failure|failures|error|errors)\b/i.test(textForNumbers)) {
+        if (/\b(?:no|none)\s+(?:[a-z0-9_-]+\s+){0,2}(?:failure|failures|error|errors)\b/i.test(textForNumbers)) {
           explicitNumbersSet.add(0);
         }
       } else {
@@ -563,42 +751,42 @@ function extractClauseFeatures(
     }
   }
 
-  const assertsZeroFailures =
-    /\b(?:zero|no)\s+(?:[a-z]+\s+)?(?:failures?|errors?)\b|\bwithout\s+(?:any\s+)?(?:failures?|errors?)\b/i.test(
-      lower
-    );
-
-  const hasSuccessWord =
-    assertsZeroFailures ||
-    /\b(?:success|succeeded|successful|successfully|healthy|passed)\b/i.test(lower);
-  const hasFailureWord =
-    !assertsZeroFailures &&
-    /\b(?:failed|failure|failures|error|errors|denied|unauthorized|exhausted|timeout)\b/i.test(lower);
-
-  const polarity: "failure" | "success" | "neutral" = hasSuccessWord
-    ? "success"
-    : hasFailureWord
-      ? "failure"
-      : "neutral";
-
+  const pol = analyzePolarityAndNegation(lower);
+  const polarity = pol.polarity;
   const assertsPluralRepeat = /\b(?:repeated|multiple|burst)\b/i.test(lower);
+  const hasUniversalQuantifier = /\b(?:all|every|each|always)\b/i.test(lower);
+  const isInvariant =
+    hasUniversalQuantifier || /\b(?:never|zero|no|none)\b/i.test(lower);
 
-  // Content tokens: tokenize remaining words (excluding identifiers' subparts only if identifier already tracked,
-  // wait: keep substantive domain words so event/subject overlap works cleanly)
   const contentTokensSet = new Set<string>();
   const words = textForNumbers.split(/[^a-z0-9]+/).filter(Boolean);
   for (const w of words) {
     if (/^\d+$/.test(w)) continue;
+    if (NEGATION_WORDS.has(w)) continue;
     if (w in NUMBER_WORDS) continue;
     if (STOPWORDS.has(w)) continue;
+    if (w === "all" || w === "every" || w === "each" || w === "always") continue;
     const stemmed = stemWord(w);
     if (!stemmed || stemmed.length < 2) continue;
-    if (STOPWORDS.has(stemmed) || FRAMING_VERBS_AND_META.has(stemmed) || FRAMING_VERBS_AND_META.has(w)) {
+    if (
+      NEGATION_WORDS.has(stemmed) ||
+      STOPWORDS.has(stemmed) ||
+      FRAMING_VERBS_AND_META.has(stemmed) ||
+      FRAMING_VERBS_AND_META.has(w)
+    ) {
       continue;
     }
     // Exclude polarity-only generic token "success" from required content tokens so "successful sudo"
-    // doesn't fail when claim says "used sudo", while keeping "failure", "auth", "sudo", "backup", etc.
+    // doesn't fail when claim says "used sudo"
     if (stemmed === "success") continue;
+    // Exclude outcome nouns that appeared solely inside negated zero-failure phrases (e.g. "without any failure")
+    if (
+      pol.assertsZeroFailures &&
+      !pol.hasUnnegatedNeg &&
+      (stemmed === "failure" || stemmed === "error" || stemmed === "timeout" || stemmed === "crash")
+    ) {
+      continue;
+    }
     contentTokensSet.add(stemmed);
   }
 
@@ -608,6 +796,13 @@ function extractClauseFeatures(
     assertsPluralRepeat,
     identifiers,
     polarity,
+    negated: pol.negated,
+    hasNegatedPos: pol.hasNegatedPos,
+    hasNegatedNeg: pol.hasNegatedNeg,
+    hasPermPos: pol.hasPermPos,
+    hasPermNeg: pol.hasPermNeg,
+    isInvariant,
+    hasUniversalQuantifier,
     contentTokens: Array.from(contentTokensSet),
     temporalRefs,
   };
@@ -619,10 +814,14 @@ function extractRecordFeatures(rec: IndexedRecord): {
   explicitCount?: number;
   identifiers: Set<string>;
   polarity: "failure" | "success" | "neutral";
+  negated: boolean;
+  hasPermPos: boolean;
+  hasPermNeg: boolean;
   tokens: Set<string>;
+  substantiveTokens: string[];
   rawLower: string;
 } {
-  const rawLower = (rec.body ?? "").toLowerCase();
+  const rawLower = normalizeNegationContractions(rec.body ?? "").toLowerCase();
   const ips = new Set<string>(rawLower.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) ?? []);
 
   let textNoIp = rawLower;
@@ -653,30 +852,116 @@ function extractRecordFeatures(rec: IndexedRecord): {
     if (m[1] !== undefined) numbers.add(parseInt(m[1], 10));
   }
   for (const w of textNoIdent.split(/[^a-z0-9]+/).filter(Boolean)) {
-    if (w in NUMBER_WORDS && w !== "no" && w !== "none") {
-      numbers.add(NUMBER_WORDS[w]!);
+    if (w in NUMBER_WORDS) {
+      if (w === "no" || w === "none") {
+        if (/\b(?:no|none)\s+(?:[a-z0-9_-]+\s+){0,2}(?:failure|failures|error|errors)\b/i.test(textNoIdent)) {
+          numbers.add(0);
+        }
+      } else {
+        numbers.add(NUMBER_WORDS[w]!);
+      }
     }
   }
 
-  const hasFail = /\b(?:failed|failure|failures|error|errors|denied|unauthorized|exhausted|timeout)\b/i.test(
-    rawLower
-  );
-  const hasSucc = /\b(?:success|succeeded|successful|successfully|healthy|flushed)\b/i.test(rawLower);
-  const polarity: "failure" | "success" | "neutral" = hasFail
-    ? "failure"
-    : hasSucc
-      ? "success"
-      : "neutral";
+  const pol = analyzePolarityAndNegation(rawLower);
 
   const tokens = new Set<string>();
+  const substantiveSet = new Set<string>();
   // Include full words and subtokens of hyphenated/underscored identifiers (e.g. svc-worker -> svc, worker)
   for (const w of textNoIp.split(/[^a-z0-9]+/).filter(Boolean)) {
+    if (NEGATION_WORDS.has(w)) continue;
     const stemmed = stemWord(w);
-    if (stemmed) tokens.add(stemmed);
+    if (stemmed && !NEGATION_WORDS.has(stemmed)) tokens.add(stemmed);
     tokens.add(w);
   }
 
-  return { ips, numbers, explicitCount, identifiers, polarity, tokens, rawLower };
+  for (const w of textNoIdent.split(/[^a-z0-9]+/).filter(Boolean)) {
+    if (/^\d+$/.test(w)) continue;
+    if (NEGATION_WORDS.has(w) || w in NUMBER_WORDS || STOPWORDS.has(w)) continue;
+    if (w === "all" || w === "every" || w === "each" || w === "always") continue;
+    const stemmed = stemWord(w);
+    if (!stemmed || stemmed.length < 2) continue;
+    if (
+      NEGATION_WORDS.has(stemmed) ||
+      STOPWORDS.has(stemmed) ||
+      FRAMING_VERBS_AND_META.has(stemmed) ||
+      FRAMING_VERBS_AND_META.has(w) ||
+      stemmed === "success"
+    ) {
+      continue;
+    }
+    if (
+      pol.assertsZeroFailures &&
+      !pol.hasUnnegatedNeg &&
+      (stemmed === "failure" || stemmed === "error" || stemmed === "timeout" || stemmed === "crash")
+    ) {
+      continue;
+    }
+    substantiveSet.add(stemmed);
+  }
+
+  return {
+    ips,
+    numbers,
+    explicitCount,
+    identifiers,
+    polarity: pol.polarity,
+    negated: pol.negated,
+    hasPermPos: pol.hasPermPos,
+    hasPermNeg: pol.hasPermNeg,
+    tokens,
+    substantiveTokens: Array.from(substantiveSet),
+    rawLower,
+  };
+}
+
+function tokenSatisfiedByRecord(
+  tok: string,
+  clauseFeat: ClauseFeatures,
+  recFeat: ReturnType<typeof extractRecordFeatures>
+): boolean {
+  if (recFeat.tokens.has(tok)) return true;
+  // Negated allowance (e.g. "did not allow") is semantically satisfied by explicit denial (e.g. "denied"/"blocked")
+  if (
+    clauseFeat.polarity === "failure" &&
+    recFeat.polarity === "failure" &&
+    PERM_POS_STEMS.has(tok) &&
+    clauseFeat.hasNegatedPos &&
+    recFeat.hasPermNeg
+  ) {
+    return true;
+  }
+  // Explicit denial in claim (e.g. "denied") is semantically satisfied by negated allowance in record (e.g. "did not allow")
+  if (
+    clauseFeat.polarity === "failure" &&
+    recFeat.polarity === "failure" &&
+    PERM_NEG_STEMS.has(tok) &&
+    recFeat.negated &&
+    recFeat.hasPermPos
+  ) {
+    return true;
+  }
+  // Negated denial (e.g. "was not blocked") is satisfied by explicit allowance (e.g. "allowed")
+  if (
+    clauseFeat.polarity === "success" &&
+    recFeat.polarity === "success" &&
+    PERM_NEG_STEMS.has(tok) &&
+    clauseFeat.hasNegatedNeg &&
+    recFeat.hasPermPos
+  ) {
+    return true;
+  }
+  // Outcome failure token (e.g. "failed") is satisfied by negated outcome success (e.g. "did not succeed")
+  if (
+    tok === "failure" &&
+    clauseFeat.polarity === "failure" &&
+    recFeat.polarity === "failure" &&
+    recFeat.negated &&
+    recFeat.tokens.has("success")
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function evaluateClauseAgainstRecord(
@@ -696,25 +981,40 @@ function evaluateClauseAgainstRecord(
     (id) => recFeat.identifiers.has(id) || recFeat.rawLower.includes(id)
   );
   const sharedContent = clauseFeat.contentTokens.filter(
-    (t) => t !== "failure" && recFeat.tokens.has(t)
+    (t) =>
+      t !== "failure" &&
+      !PERM_POS_STEMS.has(t) &&
+      !PERM_NEG_STEMS.has(t) &&
+      recFeat.tokens.has(t)
   );
   const sharesFailureTopic =
     clauseFeat.contentTokens.includes("failure") && recFeat.tokens.has("failure");
+  const sharesPermissionTopic =
+    (clauseFeat.hasPermPos || clauseFeat.hasPermNeg) &&
+    (recFeat.hasPermPos || recFeat.hasPermNeg);
 
   const hasSubjectOrEventOverlap =
     sharedIps.length > 0 ||
     sharedIdents.length > 0 ||
     sharedContent.length > 0 ||
-    sharesFailureTopic;
+    sharesFailureTopic ||
+    sharesPermissionTopic;
 
   if (!hasSubjectOrEventOverlap) {
     return "unrelated";
   }
 
   // 1. Check Polarity Conflict on overlapping subject/event
+  const hasDisjointIps =
+    clauseFeat.ips.length > 0 && recFeat.ips.size > 0 && sharedIps.length === 0;
+  const hasDisjointIdents =
+    clauseFeat.identifiers.length > 0 && recFeat.identifiers.size > 0 && sharedIdents.length === 0;
+
   if (
-    (clauseFeat.polarity === "success" && recFeat.polarity === "failure") ||
-    (clauseFeat.polarity === "failure" && recFeat.polarity === "success")
+    !hasDisjointIps &&
+    !hasDisjointIdents &&
+    ((clauseFeat.polarity === "success" && recFeat.polarity === "failure") ||
+      (clauseFeat.polarity === "failure" && recFeat.polarity === "success"))
   ) {
     // Require specific entity or non-generic event token overlap so unrelated events don't collide
     if (sharedIps.length > 0 || sharedIdents.length > 0 || sharedContent.length > 0) {
@@ -788,13 +1088,38 @@ function evaluateClauseAgainstRecord(
     }
   }
 
-  // 6. Check Full Substantive Entailment
-  // Rumor records report unverified hearsay and cannot by themselves entail factual truth
+  // 6. Check Full Substantive Entailment & Neutral Predicate Negation Inversion
+  // Rumor records report unverified hearsay and cannot by themselves entail or contradict factual truth
   if (rec.kind === "rumor") {
     return "unrelated";
   }
 
-  const allContentMatched = clauseFeat.contentTokens.every((tok) => recFeat.tokens.has(tok));
+  const allContentMatched = clauseFeat.contentTokens.every((tok) =>
+    tokenSatisfiedByRecord(tok, clauseFeat, recFeat)
+  );
+
+  // Check neutral-predicate negation inversion: P(x) vs ¬P(x) when polarity words didn't already resolve sign
+  const sameNonNeutralPolarity =
+    clauseFeat.polarity !== "neutral" && clauseFeat.polarity === recFeat.polarity;
+  if (!sameNonNeutralPolarity && clauseFeat.negated !== recFeat.negated) {
+    const clauseTokenSet = new Set(clauseFeat.contentTokens);
+    const recSubsetOfClause =
+      (recFeat.substantiveTokens.length >= 2 ||
+        (recFeat.substantiveTokens.length === 1 &&
+          (sharedIps.length > 0 || sharedIdents.length > 0))) &&
+      recFeat.substantiveTokens.every((t) => clauseTokenSet.has(t));
+    if (
+      (allContentMatched &&
+        (clauseFeat.contentTokens.length > 0 ||
+          sharedIps.length > 0 ||
+          sharedIdents.length > 0)) ||
+      recSubsetOfClause
+    ) {
+      return "contradicts";
+    }
+    return "unrelated";
+  }
+
   if (!allContentMatched) {
     return "unrelated";
   }
@@ -814,10 +1139,11 @@ function evaluateClauseAgainstRecord(
 }
 
 /**
- * General evaluation of universal statements against their relevant documentary evidence set.
+ * General evaluation of universal statements (both affirmative `all/every/each`
+ * and negative `no/zero/none of the`) against their relevant documentary evidence set.
  * Uses three-valued quantification semantics:
- *   - contradicted if at least one observed record refutes or fails to confirm the proposition
- *   - supported only if the relevant record set is non-empty, completely observed, and every record entails it
+ *   - contradicted if at least one observed record refutes the universal claim
+ *   - supported only if the relevant record set is non-empty, completely observed, and every record satisfies it
  *   - unverified (abstain) otherwise
  */
 export function evaluateUniversalStatement(
@@ -830,15 +1156,23 @@ export function evaluateUniversalStatement(
   supportingIds?: string[];
   contradictingIds?: string[];
 } {
-  const match = rawText.match(
-    /(?:^|[.;]\s*)\b(?:all|every)\s+(?:(system|witness|rumor|incident|documentary)\s+)?(?:records?|logs?|sources?)\s+(?:confirm|show|indicate|state|prove|establish)(?:s|ed)?\b\s*(?:that\s+)?(.+)/i
+  const affirmMatch = rawText.match(
+    /^\s*(?:all|every|each)\s+(?:(system|witness|rumor|incident|documentary)\s+)?(?:records?|logs?|sources?)\s+(?:confirms?|confirmed|shows?|showed|shown|indicates?|indicated|states?|stated|proves?|proved|establish(?:es|ed)?|reports?|reported|agrees?|agreed|verif(?:y|ies|ied))\b\s*(?:that\s+)?([^;]+)\s*$/i
   );
-  if (!match) {
+  const negMatch = !affirmMatch
+    ? rawText.match(
+        /^\s*(?:no|zero|none\s+of\s+the)\s+(?:(system|witness|rumor|incident|documentary)\s+)?(?:records?|logs?|sources?)\s+(confirms?|confirmed|shows?|showed|shown|indicates?|indicated|states?|stated|proves?|proved|establish(?:es|ed)?|reports?|reported|mentions?|mentioned|contains?|contained|records?|recorded)\b\s*(?:that\s+|any\s+)?([^;]+)\s*$/i
+      )
+    : null;
+
+  if (!affirmMatch && !negMatch) {
     return { isUniversal: false };
   }
 
-  const scopeModifier = match[1]?.toLowerCase();
-  const prop = (match[2] ?? "").trim().replace(/[.,;:]+$/, "");
+  const isNegativeUniversal = Boolean(negMatch);
+  const scopeModifier = (affirmMatch?.[1] ?? negMatch?.[1])?.toLowerCase();
+  const negVerb = negMatch?.[2]?.toLowerCase() ?? "";
+  const prop = (affirmMatch?.[2] ?? negMatch?.[3] ?? "").trim().replace(/[.,;:]+$/, "");
 
   const scopedRecords = records.filter((rec) => {
     if (scopeModifier === "system") return rec.kind === "system_log";
@@ -871,6 +1205,74 @@ export function evaluateUniversalStatement(
     };
   }
 
+  if (isNegativeUniversal) {
+    const isMentionCheck = /^(?:mentions?|mentioned|contains?|contained)$/i.test(negVerb);
+    const counterexamples: IndexedRecord[] = [];
+    const unobserved: IndexedRecord[] = [];
+
+    for (const rec of scopedRecords) {
+      if (!rec.body || rec.body.trim().length === 0) {
+        unobserved.push(rec);
+        continue;
+      }
+
+      if (isMentionCheck || scopeModifier === "rumor") {
+        const recFeat = extractRecordFeatures(rec);
+        const ipsOk = propFeat.ips.every((ip) => recFeat.ips.has(ip));
+        const identsOk = propFeat.identifiers.every(
+          (id) => recFeat.identifiers.has(id) || recFeat.rawLower.includes(id)
+        );
+        const numsOk = propFeat.explicitNumbers.every((n) => recFeat.numbers.has(n));
+        const toksOk = propFeat.contentTokens.every((t) =>
+          tokenSatisfiedByRecord(t, propFeat, recFeat)
+        );
+        const signOk =
+          propFeat.polarity !== "neutral" && recFeat.polarity !== "neutral"
+            ? propFeat.polarity === recFeat.polarity
+            : propFeat.negated === recFeat.negated;
+        if (ipsOk && identsOk && numsOk && toksOk && signOk) {
+          counterexamples.push(rec);
+        }
+        continue;
+      }
+
+      const rel = evaluateClauseAgainstRecord(propFeat, rec, scopedRecords);
+      if (rel === "entails") {
+        counterexamples.push(rec);
+      }
+    }
+
+    if (counterexamples.length > 0) {
+      return {
+        isUniversal: true,
+        status: "contradicted",
+        contradictingIds: counterexamples.map((r) => r.id),
+        rationale: `Negative universal claim that no records show "${prop}" is contradicted by documentary record(s) [${counterexamples
+          .map((r) => r.id)
+          .join(", ")}].`,
+      };
+    }
+
+    if (unobserved.length > 0) {
+      return {
+        isUniversal: true,
+        status: "unverified",
+        rationale: `Negative universal claim "${prop}" cannot be conclusively verified because record(s) [${unobserved
+          .map((r) => r.id)
+          .join(", ")}] lack captured body content (abstaining).`,
+      };
+    }
+
+    return {
+      isUniversal: true,
+      status: "supported",
+      supportingIds: scopedRecords.map((r) => r.id),
+      rationale: `All scoped documentary records [${scopedRecords
+        .map((r) => r.id)
+        .join(", ")}] were observed and none establish "${prop}".`,
+    };
+  }
+
   const confirmingRecords: IndexedRecord[] = [];
   const counterexampleRecords: IndexedRecord[] = [];
   const unobservedRecords: IndexedRecord[] = [];
@@ -883,7 +1285,9 @@ export function evaluateUniversalStatement(
 
     if (scopeModifier === "rumor") {
       const recFeat = extractRecordFeatures(rec);
-      const matchesRumor = propFeat.contentTokens.every((t) => recFeat.tokens.has(t));
+      const matchesRumor =
+        propFeat.contentTokens.every((t) => recFeat.tokens.has(t)) &&
+        propFeat.negated === recFeat.negated;
       if (matchesRumor) confirmingRecords.push(rec);
       else counterexampleRecords.push(rec);
       continue;
@@ -1072,7 +1476,51 @@ function evaluateNegativeRumorClause(
  * Factual semantic entailment verification for documentary records.
  * Never classifies a claim as supported merely because a cited record ID exists.
  */
-export function evaluateDocumentaryRecordEntailment(
+export function hasPairwiseClauseSelfContradiction(
+  clauses: string[],
+  ignoreIds: Set<string>
+): string | undefined {
+  if (clauses.length < 2) return undefined;
+  const feats = clauses.map((raw) => ({ raw, feat: extractClauseFeatures(raw, ignoreIds) }));
+  for (let i = 0; i < feats.length; i += 1) {
+    for (let j = i + 1; j < feats.length; j += 1) {
+      const a = feats[i]!;
+      const b = feats[j]!;
+      if (a.feat.ips.join(",") !== b.feat.ips.join(",")) continue;
+      if (a.feat.identifiers.join(",") !== b.feat.identifiers.join(",")) continue;
+      if (a.feat.explicitNumbers.join(",") !== b.feat.explicitNumbers.join(",")) continue;
+
+      const aTokens = a.feat.contentTokens.filter(
+        (t) => t !== "failure" && !PERM_POS_STEMS.has(t) && !PERM_NEG_STEMS.has(t)
+      );
+      const bTokens = b.feat.contentTokens.filter(
+        (t) => t !== "failure" && !PERM_POS_STEMS.has(t) && !PERM_NEG_STEMS.has(t)
+      );
+      const sameCoreTokens =
+        aTokens.length === bTokens.length && aTokens.every((t) => bTokens.includes(t));
+      const hasSharedAnchor =
+        aTokens.length > 0 || a.feat.ips.length > 0 || a.feat.identifiers.length > 0;
+      if (!sameCoreTokens || !hasSharedAnchor) continue;
+
+      const oppositePolarity =
+        (a.feat.polarity === "success" && b.feat.polarity === "failure") ||
+        (a.feat.polarity === "failure" && b.feat.polarity === "success");
+      const oppositeNeutralNegation =
+        a.feat.polarity === "neutral" &&
+        b.feat.polarity === "neutral" &&
+        a.feat.negated !== b.feat.negated &&
+        a.feat.contentTokens.length === b.feat.contentTokens.length &&
+        a.feat.contentTokens.every((t) => b.feat.contentTokens.includes(t));
+
+      if (oppositePolarity || oppositeNeutralNegation) {
+        return `Compound claim is internally self-contradictory across clauses ("${a.raw}" vs "${b.raw}").`;
+      }
+    }
+  }
+  return undefined;
+}
+
+function evaluateDocumentaryRecordEntailment(
   rawText: string,
   records: IndexedRecord[],
   index: KarmaPoliceEvidenceIndex
@@ -1093,6 +1541,20 @@ export function evaluateDocumentaryRecordEntailment(
       supportingIds: [],
       contradictingIds: [],
       rationale: "Empty documentary claim cannot be verified.",
+    };
+  }
+
+  const ignoreIds = new Set([
+    ...records.map((r) => r.id.toLowerCase()),
+    ...index.canonicalRecords.map((r) => r.id.toLowerCase()),
+  ]);
+  const selfContraRationale = hasPairwiseClauseSelfContradiction(clauses, ignoreIds);
+  if (selfContraRationale) {
+    return {
+      status: "contradicted",
+      supportingIds: [],
+      contradictingIds: records.map((r) => r.id),
+      rationale: selfContraRationale,
     };
   }
 
@@ -1158,6 +1620,19 @@ function evaluateSingleDocumentaryClause(
       supportingIds: negRumor.supportingIds ?? [],
       contradictingIds: negRumor.contradictingIds ?? [],
       rationale: negRumor.rationale ?? "Rumor evaluation inconclusive.",
+    };
+  }
+
+  // 1b. Check Universal Documentary Statement Clause
+  const universalClause = evaluateUniversalStatement(clause, index.canonicalRecords);
+  if (universalClause.isUniversal) {
+    return {
+      status: universalClause.status ?? "unverified",
+      supportingIds: universalClause.supportingIds ?? [],
+      contradictingIds: universalClause.contradictingIds ?? [],
+      rationale:
+        universalClause.rationale ??
+        "Universal documentary clause cannot be established from available evidence (abstaining).",
     };
   }
 
@@ -1333,7 +1808,10 @@ function evaluateSingleDocumentaryClause(
     }
   }
 
-  if (contradictingIds.length > 0 && supportingIds.length === 0) {
+  if (
+    contradictingIds.length > 0 &&
+    (supportingIds.length === 0 || clauseFeat.isInvariant)
+  ) {
     const cRec = records.find((r) => r.id === contradictingIds[0]);
     return {
       status: "contradicted",
@@ -1345,12 +1823,62 @@ function evaluateSingleDocumentaryClause(
     };
   }
 
+  if (clauseFeat.isInvariant) {
+    for (const inRunRec of index.canonicalRecords) {
+      if (inRunRec.kind === "rumor" || !inRunRec.body) continue;
+      if (records.some((r) => r.id === inRunRec.id)) continue;
+      const rFeat = extractRecordFeatures(inRunRec);
+      const matchesClaimedEntities =
+        clauseFeat.ips.every((ip) => rFeat.ips.has(ip)) &&
+        clauseFeat.identifiers.every(
+          (id) =>
+            rFeat.identifiers.has(id) ||
+            rFeat.rawLower.includes(id) ||
+            id.split(/[-_]/).every((part) => rFeat.tokens.has(stemWord(part)) || rFeat.tokens.has(part))
+        );
+      if (!matchesClaimedEntities) continue;
+      const rel = evaluateClauseAgainstRecord(clauseFeat, inRunRec, index.canonicalRecords);
+      if (rel === "contradicts") {
+        return {
+          status: "contradicted",
+          supportingIds: [],
+          contradictingIds: [inRunRec.id],
+          rationale: `Invariant claim is contradicted by in-run documentary record ${inRunRec.id} ("${inRunRec.body}").`,
+        };
+      }
+    }
+  }
+
+  if (
+    clauseFeat.hasUniversalQuantifier &&
+    records.some((r) => r.kind !== "rumor" && (!r.body || r.body.trim().length === 0))
+  ) {
+    return {
+      status: "unverified",
+      supportingIds: [],
+      contradictingIds: [],
+      rationale: `Universal claim cannot be verified because one or more cited records lack captured content (abstaining).`,
+    };
+  }
+
   if (supportingIds.length > 0) {
     return {
       status: "supported",
       supportingIds,
       contradictingIds: [],
       rationale: `Documentary record(s) [${supportingIds.join(", ")}] corroborate the factual statements in the claim.`,
+    };
+  }
+
+  if (records.some((r) => !r.body || r.body.trim().length === 0)) {
+    return {
+      status: "unverified",
+      supportingIds: [],
+      contradictingIds: [],
+      rationale: `Cited record(s) [${records
+        .filter((r) => !r.body || r.body.trim().length === 0)
+        .map((r) => r.id)
+        .join(", ")}] lack captured body content (abstaining).`,
     };
   }
 
@@ -1842,7 +2370,58 @@ function evaluateAtomicSubClaim(
   const rawText = item.rawText.trim();
   const lowerText = rawText.toLowerCase();
 
-  // Category A: Universal Documentary Statement
+  // Category A: Universal Documentary Statement (single or semicolon-compound)
+  const semiClauses = rawText
+    .split(/\s*;\s*/)
+    .map((c) => c.trim())
+    .filter(Boolean);
+  if (semiClauses.length > 1) {
+    const ignoreIds = new Set(index.canonicalRecords.map((r) => r.id.toLowerCase()));
+    const selfContra = hasPairwiseClauseSelfContradiction(semiClauses, ignoreIds);
+    if (selfContra) {
+      return {
+        status: "contradicted",
+        rationale: selfContra,
+        supportingIds: [],
+        contradictingIds: [],
+        anomalies: [],
+      };
+    }
+    const uniResults = semiClauses.map((c) => evaluateUniversalStatement(c, index.canonicalRecords));
+    if (uniResults.every((u) => u.isUniversal)) {
+      const contra = uniResults.find((u) => u.status === "contradicted");
+      if (contra) {
+        return {
+          status: "contradicted",
+          rationale: contra.rationale ?? "Compound universal statement is contradicted.",
+          supportingIds: [],
+          contradictingIds: contra.contradictingIds ?? [],
+          anomalies: [],
+        };
+      }
+      if (uniResults.every((u) => u.status === "supported")) {
+        const supIds = Array.from(new Set(uniResults.flatMap((u) => u.supportingIds ?? [])));
+        return {
+          status: "supported",
+          rationale: uniResults[0]?.rationale ?? "Compound universal statement is supported.",
+          supportingIds: supIds,
+          contradictingIds: [],
+          anomalies: [],
+        };
+      }
+      const unv = uniResults.find((u) => u.status !== "supported");
+      return {
+        status: "unverified",
+        rationale:
+          unv?.rationale ??
+          "Compound universal statement cannot be established from available documentary evidence (abstaining).",
+        supportingIds: [],
+        contradictingIds: [],
+        anomalies: [],
+      };
+    }
+  }
+
   const universalRes = evaluateUniversalStatement(rawText, index.canonicalRecords);
   if (universalRes.isUniversal) {
     return {
@@ -1868,17 +2447,34 @@ function evaluateAtomicSubClaim(
   }
 
   // Category B: Observed Validation & Test Outcome Claims (only when not citing documentary incident records)
+  const normalizedTestText = normalizeNegationContractions(lowerText);
+  const hasNegatedFailInTestClaim =
+    /\b(?:without\s+(?:any\s+)?(?:test\s+|validation\s+)?failures?|(?:no|zero|0)\s+(?:test\s+|validation\s+)?failures?|(?:did\s+not|never)\s+fail)\b/i.test(
+      normalizedTestText
+    );
+  const hasNegatedPassInTestClaim =
+    /\b(?:(?:did\s+not|never)\s+(?:pass|succeed)|(?:was|were|is|are)\s+not\s+successful|(?:no|zero|0)\s+(?:gold[\s-]*)?(?:cases?|tests?)\s+(?:passed|succeeded))\b/i.test(
+      normalizedTestText
+    );
+
   const assertsUniversalTestFail =
-    /\bfailed\s+(?:every|all)\s+(?:gold[\s-]*)?(?:cases?|tests?)\b/i.test(lowerText);
+    /\bfailed\s+(?:every|all)\s+(?:gold[\s-]*)?(?:cases?|tests?)\b|\b(?:no|zero|0)\s+(?:gold[\s-]*)?(?:cases?|tests?)\s+(?:passed|succeeded)\b/i.test(
+      normalizedTestText
+    );
   const assertsTestFailure =
     assertsUniversalTestFail ||
-    /\b(?:validation|tests?|gold[\s-]cases?)\b.*\b(?:failed|did\s+not\s+pass)\b|\b(?:failed|did\s+not\s+pass)\b.*\b(?:validation|tests?|gold[\s-]cases?)\b/i.test(
-      lowerText
-    );
+    hasNegatedPassInTestClaim ||
+    (!hasNegatedFailInTestClaim &&
+      /\b(?:validation|tests?|gold[\s-]cases?)\b.*\bfailed\b|\bfailed\b.*\b(?:validation|tests?|gold[\s-]cases?)\b/i.test(
+        normalizedTestText
+      ));
   const assertsObservedPassOrCoverage =
-    /\b(?:observed\s+validation|observed\s+tests?|validation\s+(?:passed|succeeded|covers)|tests?\s+(?:passed|succeeded)|release\s+is\s+justified\b.*\btests?)\b/i.test(
-      lowerText
-    );
+    !hasNegatedPassInTestClaim &&
+    (/\b(?:observed\s+validation|observed\s+tests?|validation\s+(?:passed|succeeded|covers)|tests?\s+(?:passed|succeeded)|release\s+is\s+justified\b.*\btests?)\b/i.test(
+      normalizedTestText
+    ) ||
+      (hasNegatedFailInTestClaim &&
+        /\b(?:validation|tests?|gold[\s-]cases?)\b/i.test(normalizedTestText)));
 
   if (citedRecordsMap.size === 0 && (assertsTestFailure || assertsObservedPassOrCoverage)) {
     const testRes = resolveClaimSpecificTests(item, index);

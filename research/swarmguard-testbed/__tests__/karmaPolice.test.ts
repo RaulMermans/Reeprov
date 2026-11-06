@@ -1856,5 +1856,696 @@ describe("KARMA POLICE — Cross-Agent Evidence Verification Engine", () => {
         expect(findings.findings[0]?.provenance_anomalies).toEqual(["none"]);
       });
     });
+
+    // ── H2 Pre-Evaluation Correctness Gate — Negation & Universals ───────────
+    describe("H2 Pre-Evaluation Correctness Gate — Negation, Denial, Missing Observations & Universals", () => {
+      it("detects affirmative/negative inversions, explicit denials, contractions, and consistent negations without false support", () => {
+        const now = "2026-11-06T12:30:00.000Z";
+        const runId = "run_h2_gate_negation_inversions";
+        const artifact = buildStandaloneArtifact({
+          runId,
+          artifacts: [
+            {
+              artifact_id: "art_gw_deny",
+              name: "GW-101",
+              type: "incident_record/system_log",
+              created_at: now,
+              metadata: {
+                kind: "system_log",
+                body: "The gateway did not allow access from 203.0.113.7.",
+              },
+            },
+            {
+              artifact_id: "art_gw_allow",
+              name: "GW-102",
+              type: "incident_record/system_log",
+              created_at: now,
+              metadata: {
+                kind: "system_log",
+                body: "The gateway allowed access from 198.51.100.44.",
+              },
+            },
+            {
+              artifact_id: "art_fw_block",
+              name: "FW-201",
+              type: "incident_record/system_log",
+              created_at: now,
+              metadata: {
+                kind: "system_log",
+                body: "The firewall blocked egress to 192.0.2.88.",
+              },
+            },
+            {
+              artifact_id: "art_vault_ok",
+              name: "VLT-301",
+              type: "incident_record/system_log",
+              created_at: now,
+              metadata: {
+                kind: "system_log",
+                body: "Token rotation succeeded on vault-eu-1.",
+              },
+            },
+            {
+              artifact_id: "art_repl_zero",
+              name: "REP-401",
+              type: "incident_record/system_log",
+              created_at: now,
+              metadata: {
+                kind: "system_log",
+                body: "replication error count=0 on shard-4",
+              },
+            },
+          ],
+          evidence: {
+            test_results: [],
+            review_results: [],
+            approval_events: [],
+            security_events: [],
+            verification_events: [
+              {
+                // Affirmative claim against negated record ("did not allow") -> contradicted
+                event_id: "ev_affirm_vs_neg",
+                run_id: runId,
+                sequence_index: 0,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_affirm_vs_neg",
+                status: "PASSED",
+                actor: "alpha_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["record:GW-101"],
+                artifact_refs: [],
+                details: {
+                  claim: "The gateway allowed access from 203.0.113.7.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                // Negated claim against affirmative record ("allowed") -> contradicted
+                event_id: "ev_neg_vs_affirm",
+                run_id: runId,
+                sequence_index: 1,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_neg_vs_affirm",
+                status: "PASSED",
+                actor: "alpha_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["record:GW-102"],
+                artifact_refs: [],
+                details: {
+                  claim: "The gateway did not allow access from 198.51.100.44.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                // Consistent negated claim against negated record -> supported
+                event_id: "ev_neg_vs_neg",
+                run_id: runId,
+                sequence_index: 2,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_neg_vs_neg",
+                status: "PASSED",
+                actor: "alpha_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["record:GW-101"],
+                artifact_refs: [],
+                details: {
+                  claim: "The gateway did not allow access from 203.0.113.7.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                // Affirmative permission ("permitted") vs explicit denial ("blocked") -> contradicted
+                event_id: "ev_permit_vs_block",
+                run_id: runId,
+                sequence_index: 3,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_permit_vs_block",
+                status: "PASSED",
+                actor: "alpha_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["record:FW-201"],
+                artifact_refs: [],
+                details: {
+                  claim: "The firewall permitted egress to 192.0.2.88.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                // Negated permission ("did not permit") vs explicit denial ("blocked") -> supported
+                event_id: "ev_not_permit_vs_block",
+                run_id: runId,
+                sequence_index: 4,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_not_permit_vs_block",
+                status: "PASSED",
+                actor: "alpha_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["record:FW-201"],
+                artifact_refs: [],
+                details: {
+                  claim: "The firewall did not permit egress to 192.0.2.88.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                // Contraction ("didn't succeed") vs affirmative outcome ("succeeded") -> contradicted
+                event_id: "ev_contraction_contra",
+                run_id: runId,
+                sequence_index: 5,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_contraction_contra",
+                status: "PASSED",
+                actor: "alpha_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["record:VLT-301"],
+                artifact_refs: [],
+                details: {
+                  claim: "Token rotation didn't succeed on vault-eu-1.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                // Zero-error phrasing against count=0 log -> supported
+                event_id: "ev_zero_errors_sup",
+                run_id: runId,
+                sequence_index: 6,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_zero_errors_sup",
+                status: "PASSED",
+                actor: "alpha_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["record:REP-401"],
+                artifact_refs: [],
+                details: {
+                  claim: "Replication had zero errors on shard-4.",
+                  capture_status: "captured",
+                },
+              },
+            ],
+          },
+        });
+
+        const { result } = runKarmaPoliceWithFindings(artifact);
+        const byId = new Map(result.predictions.map((p) => [p.claim_id, p]));
+
+        expect(byId.get("claim_affirm_vs_neg")?.classification).toBe("contradicted");
+        expect(byId.get("claim_neg_vs_affirm")?.classification).toBe("contradicted");
+        expect(byId.get("claim_neg_vs_neg")?.classification).toBe("supported");
+        expect(byId.get("claim_permit_vs_block")?.classification).toBe("contradicted");
+        expect(byId.get("claim_not_permit_vs_block")?.classification).toBe("supported");
+        expect(byId.get("claim_contraction_contra")?.classification).toBe("contradicted");
+        expect(byId.get("claim_zero_errors_sup")?.classification).toBe("supported");
+      });
+
+      it("handles neutral-predicate 'not'/'never'/'without' inversions without falsely contradicting unrelated predicates", () => {
+        const now = "2026-11-06T12:35:00.000Z";
+        const runId = "run_h2_gate_neutral_negation";
+        const artifact = buildStandaloneArtifact({
+          runId,
+          artifacts: [
+            {
+              artifact_id: "art_sudo_log",
+              name: "AUD-11",
+              type: "incident_record/system_log",
+              created_at: now,
+              metadata: {
+                kind: "system_log",
+                body: "successful sudo by svc-sync on db-replica-9",
+              },
+            },
+            {
+              artifact_id: "art_maint_nosudo",
+              name: "AUD-12",
+              type: "incident_record/witness",
+              created_at: now,
+              metadata: {
+                kind: "witness",
+                body: "Operator ran maintenance without sudo on cache-node-2.",
+              },
+            },
+          ],
+          evidence: {
+            test_results: [],
+            review_results: [],
+            approval_events: [],
+            security_events: [],
+            verification_events: [
+              {
+                // "never used sudo" vs "successful sudo" -> contradicted
+                event_id: "ev_never_sudo",
+                run_id: runId,
+                sequence_index: 0,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_never_sudo",
+                status: "PASSED",
+                actor: "alpha_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["record:AUD-11"],
+                artifact_refs: [],
+                details: {
+                  claim: "svc-sync never sudo on db-replica-9.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                // "ran maintenance with sudo" vs "without sudo" -> contradicted
+                event_id: "ev_with_vs_without",
+                run_id: runId,
+                sequence_index: 1,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_with_vs_without",
+                status: "PASSED",
+                actor: "alpha_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["record:AUD-12"],
+                artifact_refs: [],
+                details: {
+                  claim: "Operator ran maintenance with sudo on cache-node-2.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                // Unrelated negated predicate on same host -> unverified (must not falsely contradict)
+                event_id: "ev_unrelated_neg",
+                run_id: runId,
+                sequence_index: 2,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_unrelated_neg",
+                status: "PASSED",
+                actor: "alpha_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["record:AUD-11"],
+                artifact_refs: [],
+                details: {
+                  claim: "svc-sync did not truncate tables on db-replica-9.",
+                  capture_status: "captured",
+                },
+              },
+            ],
+          },
+        });
+
+        const { result } = runKarmaPoliceWithFindings(artifact);
+        const byId = new Map(result.predictions.map((p) => [p.claim_id, p]));
+
+        expect(byId.get("claim_never_sudo")?.classification).toBe("contradicted");
+        expect(byId.get("claim_with_vs_without")?.classification).toBe("contradicted");
+        expect(byId.get("claim_unrelated_neg")?.classification).toBe("unverified");
+      });
+
+      it("evaluates missing observations, negative universals, cherry-picked invariants, and self-contradictory compound claims", () => {
+        const now = "2026-11-06T12:40:00.000Z";
+
+        // 1. Missing observation: uncaptured record body causes abstention on direct, affirmative-universal, and negative-universal claims
+        const missingRunId = "run_h2_gate_missing_obs";
+        const missingArtifact = buildStandaloneArtifact({
+          runId: missingRunId,
+          artifacts: [
+            {
+              artifact_id: "art_obs_1",
+              name: "OBS-1",
+              type: "incident_record/system_log",
+              created_at: now,
+              metadata: {
+                kind: "system_log",
+                body: "The gateway did not allow access from 203.0.113.7.",
+              },
+            },
+            {
+              artifact_id: "art_obs_2_uncaptured",
+              name: "OBS-2",
+              type: "incident_record/system_log",
+              created_at: now,
+              metadata: {
+                kind: "system_log",
+                // body intentionally omitted (missing observation)
+              },
+            },
+          ],
+          evidence: {
+            test_results: [],
+            review_results: [],
+            approval_events: [],
+            security_events: [],
+            verification_events: [
+              {
+                event_id: "ev_direct_missing",
+                run_id: missingRunId,
+                sequence_index: 0,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_direct_missing",
+                status: "PASSED",
+                actor: "alpha_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["record:OBS-2"],
+                artifact_refs: [],
+                details: {
+                  claim: "The gateway allowed access from 203.0.113.7.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                event_id: "ev_neg_univ_missing",
+                run_id: missingRunId,
+                sequence_index: 1,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_neg_univ_missing",
+                status: "PASSED",
+                actor: "alpha_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: [],
+                artifact_refs: [],
+                details: {
+                  claim: "No system logs show gateway allowed access from 203.0.113.7.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                event_id: "ev_affirm_univ_missing",
+                run_id: missingRunId,
+                sequence_index: 2,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_affirm_univ_missing",
+                status: "PASSED",
+                actor: "alpha_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: [],
+                artifact_refs: [],
+                details: {
+                  claim: "All system logs confirm the gateway did not allow access from 203.0.113.7.",
+                  capture_status: "captured",
+                },
+              },
+            ],
+          },
+        });
+
+        const missingRes = runKarmaPoliceWithFindings(missingArtifact);
+        for (const pred of missingRes.result.predictions) {
+          expect(pred.classification).toBe("unverified");
+          expect(pred.abstained).toBe(true);
+        }
+
+        // 2. Complete observations: negative universals, cherry-picked "never" claims, and compound self-contradictions
+        const univRunId = "run_h2_gate_conflicting_universals";
+        const univArtifact = buildStandaloneArtifact({
+          runId: univRunId,
+          artifacts: [
+            {
+              artifact_id: "art_log_t1",
+              name: "LOG-T1",
+              type: "incident_record/system_log",
+              created_at: "2026-11-06T12:01:00.000Z",
+              metadata: {
+                kind: "system_log",
+                body: "The gateway did not allow access from 203.0.113.7.",
+              },
+            },
+            {
+              artifact_id: "art_log_t2",
+              name: "LOG-T2",
+              type: "incident_record/system_log",
+              created_at: "2026-11-06T12:05:00.000Z",
+              metadata: {
+                kind: "system_log",
+                body: "The gateway allowed access from 203.0.113.7.",
+              },
+            },
+            {
+              artifact_id: "art_log_t3",
+              name: "LOG-T3",
+              type: "incident_record/system_log",
+              created_at: "2026-11-06T12:06:00.000Z",
+              metadata: {
+                kind: "system_log",
+                body: "The gateway did not allow access from 198.51.100.99.",
+              },
+            },
+          ],
+          evidence: {
+            test_results: [],
+            review_results: [],
+            approval_events: [],
+            security_events: [],
+            verification_events: [
+              {
+                // Negative universal refuted by LOG-T2 -> contradicted
+                event_id: "ev_neg_univ_contra",
+                run_id: univRunId,
+                sequence_index: 0,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_neg_univ_contra",
+                status: "PASSED",
+                actor: "beta_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: [],
+                artifact_refs: [],
+                details: {
+                  claim: "No system logs show the gateway allowed access from 203.0.113.7.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                // Negative universal genuinely true across all logs (for 198.51.100.99) -> supported
+                event_id: "ev_neg_univ_true",
+                run_id: univRunId,
+                sequence_index: 1,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_neg_univ_true",
+                status: "PASSED",
+                actor: "beta_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: [],
+                artifact_refs: [],
+                details: {
+                  claim: "No system logs show the gateway allowed access from 198.51.100.99.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                // Cherry-picked "never" claim citing LOG-T1 while LOG-T2 in the same run refutes it -> contradicted
+                event_id: "ev_cherry_pick_never",
+                run_id: univRunId,
+                sequence_index: 2,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_cherry_pick_never",
+                status: "PASSED",
+                actor: "beta_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["record:LOG-T1"],
+                artifact_refs: [],
+                details: {
+                  claim: "The gateway never allowed access from 203.0.113.7.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                // True "never" claim for 198.51.100.99 citing LOG-T3 (must NOT collide with LOG-T2's 203.0.113.7!) -> supported
+                event_id: "ev_true_never_other_ip",
+                run_id: univRunId,
+                sequence_index: 3,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_true_never_other_ip",
+                status: "PASSED",
+                actor: "beta_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["record:LOG-T3"],
+                artifact_refs: [],
+                details: {
+                  claim: "The gateway never allowed access from 198.51.100.99.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                // Self-contradictory compound claim (P ; not P) -> contradicted
+                event_id: "ev_self_contra",
+                run_id: univRunId,
+                sequence_index: 4,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_self_contra",
+                status: "PASSED",
+                actor: "beta_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["record:LOG-T3"],
+                artifact_refs: [],
+                details: {
+                  claim:
+                    "The gateway allowed access from 198.51.100.99; the gateway did not allow access from 198.51.100.99.",
+                  capture_status: "captured",
+                },
+              },
+            ],
+          },
+        });
+
+        const univRes = runKarmaPoliceWithFindings(univArtifact);
+        const byId = new Map(univRes.result.predictions.map((p) => [p.claim_id, p]));
+
+        expect(byId.get("claim_neg_univ_contra")?.classification).toBe("contradicted");
+        expect(byId.get("claim_neg_univ_true")?.classification).toBe("supported");
+        expect(byId.get("claim_cherry_pick_never")?.classification).toBe("contradicted");
+        expect(byId.get("claim_true_never_other_ip")?.classification).toBe("supported");
+        expect(byId.get("claim_self_contra")?.classification).toBe("contradicted");
+      });
+
+      it("verifies negated structured-artifact mapping claims and negated validation-outcome claims", () => {
+        const now = "2026-11-06T12:45:00.000Z";
+        const runId = "run_h2_gate_se_negation";
+        const artifact = buildStandaloneArtifact({
+          runId,
+          artifacts: [
+            {
+              artifact_id: "art_mapper_v1",
+              name: "mapper-v1.json",
+              type: "application/json",
+              created_at: now,
+              metadata: {
+                version: "1",
+                function_name: "mapper",
+                body: { mapping: { WARN: "warning", ERR: "error" } },
+              },
+            },
+          ],
+          evidence: {
+            test_results: [
+              {
+                test_id: "test_mapper_v1",
+                run_id: runId,
+                suite: "gold-suite",
+                name: "mapper-v1",
+                status: "PASSED",
+                attempt: 1,
+                origin: "system_recorded",
+                authority: "authoritative",
+                artifact_refs: ["art_mapper_v1"],
+                started_at: now,
+                completed_at: now,
+              },
+            ],
+            review_results: [],
+            approval_events: [],
+            security_events: [],
+            verification_events: [
+              {
+                event_id: "ev_neg_map_contra",
+                run_id: runId,
+                sequence_index: 0,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_neg_map_contra",
+                status: "PASSED",
+                actor: "alpha_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["artifact:mapper:v1"],
+                artifact_refs: ["art_mapper_v1"],
+                details: {
+                  claim: "Artifact mapper v1 does not map WARN onto warning.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                event_id: "ev_neg_map_sup",
+                run_id: runId,
+                sequence_index: 1,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_neg_map_sup",
+                status: "PASSED",
+                actor: "alpha_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["artifact:mapper:v1"],
+                artifact_refs: ["art_mapper_v1"],
+                details: {
+                  claim: "Artifact mapper v1 does not map INFO onto critical.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                event_id: "ev_neg_test_contra",
+                run_id: runId,
+                sequence_index: 2,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_neg_test_contra",
+                status: "PASSED",
+                actor: "beta_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["artifact:mapper:v1"],
+                artifact_refs: ["art_mapper_v1"],
+                details: {
+                  claim: "Validation tests did not pass for mapper v1.",
+                  capture_status: "captured",
+                },
+              },
+              {
+                event_id: "ev_zero_fail_test_sup",
+                run_id: runId,
+                sequence_index: 3,
+                event_type: "verification.passed",
+                target_type: "assertion",
+                target_id: "claim_zero_fail_test_sup",
+                status: "PASSED",
+                actor: "beta_agent",
+                origin: "agent_asserted",
+                authority: "asserted",
+                evidence_refs: ["artifact:mapper:v1"],
+                artifact_refs: ["art_mapper_v1"],
+                details: {
+                  claim: "Validation completed without any test failures for mapper v1.",
+                  capture_status: "captured",
+                },
+              },
+            ],
+          },
+        });
+
+        const { result } = runKarmaPoliceWithFindings(artifact);
+        const byId = new Map(result.predictions.map((p) => [p.claim_id, p]));
+
+        expect(byId.get("claim_neg_map_contra")?.classification).toBe("contradicted");
+        expect(byId.get("claim_neg_map_sup")?.classification).toBe("supported");
+        expect(byId.get("claim_neg_test_contra")?.classification).toBe("contradicted");
+        expect(byId.get("claim_zero_fail_test_sup")?.classification).toBe("supported");
+      });
+    });
   });
 });
