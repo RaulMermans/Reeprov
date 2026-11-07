@@ -45,7 +45,7 @@ export async function persistExperimentalRun(input: {
   summary: Omit<
     ExperimentalRunSummary,
     "artifact_dir" | "detector_dir" | "evaluator_dir" | "exit_status"
-  > & { exit_status?: string; cost_usd?: number; tokens?: number; duration_ms?: number };
+  > & { exit_status?: string; cost_usd?: number | null; tokens?: number | null; duration_ms?: number };
 }): Promise<PersistedExperimentalRun> {
   const isolation = assertIsolated(input.artifact);
   if (!isolation.isolated) {
@@ -82,8 +82,11 @@ export async function persistExperimentalRun(input: {
     },
     timing: input.summary.duration_ms !== undefined ? { duration_ms: input.summary.duration_ms } : undefined,
     cost:
-      input.summary.cost_usd !== undefined || input.summary.tokens !== undefined
-        ? { usd: input.summary.cost_usd, tokens: input.summary.tokens }
+      typeof input.summary.cost_usd === "number" || typeof input.summary.tokens === "number"
+        ? {
+            ...(typeof input.summary.cost_usd === "number" ? { usd: input.summary.cost_usd } : {}),
+            ...(typeof input.summary.tokens === "number" ? { tokens: input.summary.tokens } : {}),
+          }
         : undefined,
     exit_status: exitStatus,
   };
