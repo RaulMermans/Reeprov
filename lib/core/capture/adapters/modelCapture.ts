@@ -90,9 +90,19 @@ export async function captureModelInvocation(
   const safePolicy = { ...policy, redaction: { ...policy.redaction, enabled: true } };
   const responseRedaction = sanitizePayload(input.response, { policy: safePolicy });
   const responseHash = responseRedaction.persisted_hash;
-  const promptTokens = input.inputTokens ?? (contextSnapshot?.total_token_estimate || 0);
-  const completionTokens = input.outputTokens ?? 0;
-  const totalTokens = promptTokens + completionTokens;
+  // Callers that measured nothing must say so. Omitting tokens without this
+  // marker still falls back to zero so existing capture callers stay stable.
+  const usageExplicitlyUnavailable =
+    input.metadata?.["usage_status"] === "unavailable" &&
+    input.inputTokens === undefined &&
+    input.outputTokens === undefined;
+  const promptTokens = usageExplicitlyUnavailable
+    ? undefined
+    : input.inputTokens ?? (contextSnapshot?.total_token_estimate || 0);
+  const completionTokens = usageExplicitlyUnavailable ? undefined : input.outputTokens ?? 0;
+  const totalTokens = usageExplicitlyUnavailable
+    ? undefined
+    : (promptTokens ?? 0) + (completionTokens ?? 0);
 
   const modelInvocation: ModelInvocation = modelInvocationSchema.parse(sanitizeCanonicalRecord({
     invocation_id: invocationId,

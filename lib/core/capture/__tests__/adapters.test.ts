@@ -72,6 +72,23 @@ describe("Boundary Capture Adapters", () => {
       expect(res.contextSnapshot?.items[1].source_type).toBe("user_input");
       expect(res.contextSnapshot?.items[2].source_type).toBe("tool_definition");
     });
+
+    it("leaves token counts unset when the provider did not report usage", async () => {
+      const res = await captureModelInvocation({
+        runId: "run_model_usage_unavailable",
+        model: "qwen2.5:7b",
+        provider: "ollama",
+        prompt: "Check synthetic order ORD-8841.",
+        response: { text: "Order ORD-8841 is currently being processed." },
+        startedAt: "2026-11-07T19:00:00.000Z",
+        metadata: { usage_status: "unavailable", execution_mode: "live_llm" },
+      });
+
+      expect(res.modelInvocation.prompt_tokens).toBeUndefined();
+      expect(res.modelInvocation.completion_tokens).toBeUndefined();
+      expect(res.modelInvocation.total_tokens).toBeUndefined();
+      expect(res.modelInvocation.metadata?.["usage_status"]).toBe("unavailable");
+    });
   });
 
   describe("Tool Invocation Capture", () => {
