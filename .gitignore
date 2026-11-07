@@ -50,6 +50,10 @@ agentpulse.db*
 credentials.json
 .credentials
 
+# H2-C local experiment output and virtualenv
+/research/h2c-live-error-propagation/.venv/
+/research/h2c-live-error-propagation/.output/
+
 # Python & Package Builds
 .venv
 venv/
