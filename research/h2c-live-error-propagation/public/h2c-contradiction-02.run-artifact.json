@@ -1,0 +1,1490 @@
+{
+  "schema_version": "1.0.0-alpha",
+  "identity": {
+    "run_id": "run_ext_h2c_contradiction_02",
+    "project_id": "external-microsoft-agent-framework",
+    "project_name": "Microsoft Agent Framework (H2-C adapted sequential routing)",
+    "workflow_id": "customer_support_handoff_h2c",
+    "agent_id": "triage_agent",
+    "participating_agent_ids": [
+      "triage_agent",
+      "order_agent",
+      "refund_agent"
+    ],
+    "created_at": "2026-11-07T20:05:37.598Z"
+  },
+  "execution": {
+    "status": "completed",
+    "started_at": "2026-11-07T20:05:37.598Z",
+    "completed_at": "2026-11-07T20:05:37.606Z",
+    "duration_ms": 8,
+    "summary": "h2c:h2c-contradiction-02 mode=live_llm"
+  },
+  "environment": {
+    "runtime": "node",
+    "runtime_version": "v22.23.4",
+    "sdk_version": "1.0.0"
+  },
+  "trajectory": [
+    {
+      "step_id": "step_run_ext_h2c_contradiction_02_0",
+      "step_index": 0,
+      "step_type": "model_call",
+      "name": "h2c:order_agent:0",
+      "agent_id": "order_agent",
+      "started_at": "2026-11-07T20:05:37.598Z",
+      "completed_at": "2026-11-07T20:05:37.600Z",
+      "duration_ms": 2,
+      "status": "completed",
+      "state_snapshot_id": "state_run_ext_h2c_contradiction_02_1",
+      "context_snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+      "boundary_ids": [
+        "bnd_model_call_run_ext_h2c_contradiction_02_0",
+        "bnd_model_call_run_ext_h2c_contradiction_02_1",
+        "bnd_tool_call_run_ext_h2c_contradiction_02_2"
+      ],
+      "tool_invocation_ids": [
+        "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0"
+      ],
+      "model_invocation_ids": [
+        "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0"
+      ],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [
+        "art_run_ext_h2c_contradiction_02_0"
+      ]
+    },
+    {
+      "step_id": "step_run_ext_h2c_contradiction_02_1",
+      "step_index": 1,
+      "step_type": "model_call",
+      "name": "h2c:triage_agent:1",
+      "agent_id": "triage_agent",
+      "parent_step_id": "step_run_ext_h2c_contradiction_02_0",
+      "started_at": "2026-11-07T20:05:37.600Z",
+      "completed_at": "2026-11-07T20:05:37.605Z",
+      "duration_ms": 5,
+      "status": "completed",
+      "state_snapshot_id": "state_run_ext_h2c_contradiction_02_2",
+      "context_snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "boundary_ids": [
+        "bnd_model_call_run_ext_h2c_contradiction_02_3",
+        "bnd_model_call_run_ext_h2c_contradiction_02_4",
+        "bnd_model_call_run_ext_h2c_contradiction_02_5",
+        "bnd_tool_call_run_ext_h2c_contradiction_02_6",
+        "bnd_tool_call_run_ext_h2c_contradiction_02_7"
+      ],
+      "tool_invocation_ids": [
+        "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1"
+      ],
+      "model_invocation_ids": [
+        "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1"
+      ],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": []
+    },
+    {
+      "step_id": "step_run_ext_h2c_contradiction_02_2",
+      "step_index": 2,
+      "step_type": "model_call",
+      "name": "h2c:refund_agent:2",
+      "agent_id": "refund_agent",
+      "parent_step_id": "step_run_ext_h2c_contradiction_02_1",
+      "started_at": "2026-11-07T20:05:37.605Z",
+      "completed_at": "2026-11-07T20:05:37.606Z",
+      "duration_ms": 1,
+      "status": "completed",
+      "state_snapshot_id": "state_run_ext_h2c_contradiction_02_3",
+      "context_snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_2",
+      "boundary_ids": [
+        "bnd_model_call_run_ext_h2c_contradiction_02_8"
+      ],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [
+        "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_2"
+      ],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": []
+    },
+    {
+      "step_id": "step_run_ext_h2c_contradiction_02_3",
+      "step_index": 3,
+      "step_type": "handoff",
+      "name": "handoff:order_agent->triage_agent",
+      "agent_id": "order_agent",
+      "parent_step_id": "step_run_ext_h2c_contradiction_02_0",
+      "handoff_id": "handoff_run_ext_h2c_contradiction_02_0",
+      "started_at": "2026-11-07T20:05:37.606Z",
+      "completed_at": "2026-11-07T20:05:37.606Z",
+      "duration_ms": 0,
+      "status": "completed",
+      "boundary_ids": [],
+      "tool_invocation_ids": [],
+      "model_invocation_ids": [],
+      "memory_operation_ids": [],
+      "retrieval_operation_ids": [],
+      "eval_result_ids": [],
+      "artifact_ids": [],
+      "input_summary": "Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.",
+      "metadata": {
+        "original_event_type": "agent_handoff",
+        "from_agent_id": "order_agent",
+        "to_agent_id": "triage_agent",
+        "controller_mutated": true,
+        "receiving_agent_turn_observed": true,
+        "consumption_label": "consumed",
+        "routing": "deterministic_h2c_adapter"
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "boundary_id": "bnd_model_call_run_ext_h2c_contradiction_02_0",
+      "run_id": "run_ext_h2c_contradiction_02",
+      "step_id": "step_run_ext_h2c_contradiction_02_0",
+      "sequence_index": 0,
+      "boundary_type": "model_call",
+      "name": "ollama/qwen2.5:7b",
+      "status": "completed",
+      "started_at": "2026-11-07T20:05:07.987264+00:00",
+      "completed_at": "2026-11-07T20:05:37.598Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "model": "qwen2.5:7b",
+          "provider": "ollama",
+          "prompt": "[{\"role\":\"user\",\"author_name\":null,\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\",\"contents\":[{\"type\":\"text\",\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\"}]}]"
+        },
+        "hash": "sha256:5eae18f3ff62cbac6b95612fb644b676b252b65d198431ded3df0ceabdf5c83c",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 469
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "output_text": null,
+          "output_contents": [
+            {
+              "type": "function_call",
+              "text": null,
+              "name": "check_order_status",
+              "call_id": "88d8ad21-868b-42dc-bf88-f9cef35bdc32",
+              "arguments": {
+                "order_number": "ORD-8841"
+              }
+            }
+          ],
+          "decision": "live_model_response"
+        },
+        "hash": "sha256:db353fbbbc5a1a4acafbf9a67461bac40787ad90cead3c1524703e1ab2b02847",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 227
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "external_dependency": "ollama:qwen2.5:7b",
+      "dependency_identity": "ollama:qwen2.5:7b",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:5eae18f3ff62cbac6b95612fb644b676b252b65d198431ded3df0ceabdf5c83c",
+        "output_hash": "sha256:db353fbbbc5a1a4acafbf9a67461bac40787ad90cead3c1524703e1ab2b02847"
+      },
+      "linked_model_invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+      "timestamp": "2026-11-07T20:05:07.987264+00:00",
+      "duration_ms": 598,
+      "metadata": {
+        "context_snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+        "total_tokens": 218
+      }
+    },
+    {
+      "boundary_id": "bnd_model_call_run_ext_h2c_contradiction_02_1",
+      "run_id": "run_ext_h2c_contradiction_02",
+      "step_id": "step_run_ext_h2c_contradiction_02_0",
+      "sequence_index": 1,
+      "boundary_type": "model_call",
+      "name": "ollama/qwen2.5:7b",
+      "status": "completed",
+      "started_at": "2026-11-07T20:05:08.586799+00:00",
+      "completed_at": "2026-11-07T20:05:37.599Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "model": "qwen2.5:7b",
+          "provider": "ollama",
+          "prompt": "[{\"role\":\"user\",\"author_name\":null,\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\",\"contents\":[{\"type\":\"text\",\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\"}]},{\"role\":\"assistant\",\"author_name\":null,\"text\":\"\",\"contents\":[{\"type\":\"function_call\",\"name\":\"check_order_status\",\"call_id\":\"88d8ad21-868b-42dc-bf88-f9cef35bdc32\",\"arguments\":{\"order_number\":\"ORD-8841\"}}]},{\"role\":\"tool\",\"author_name\":null,\"text\":\"\",\"contents\":[{\"type\":\"function_result\",\"call_id\":\"88d8ad21-868b-42dc-bf88-f9cef35bdc32\",\"result\":\"Order ORD-8841 is currently being processed and will ship in 2 business days.\"}]}]"
+        },
+        "hash": "sha256:c969719bd0e53ddd260cb03a0f23c3ec21760900e86fbdd0daaf430cc56f7221",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 951
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "output_text": "The order ORD-8841 is currently being processed and is expected to ship in 2 business days. No refund will be issued at this time. If you have any other questions or need further assistance, feel free to ask!",
+          "output_contents": [
+            {
+              "type": "text",
+              "text": "The order ORD-8841 is currently being processed and is expected to ship in 2 business days. No refund will be issued at this time. If you have any other questions or need further assistance, feel free to ask!",
+              "name": null,
+              "call_id": null,
+              "arguments": null
+            }
+          ],
+          "decision": "live_model_response"
+        },
+        "hash": "sha256:91f8c9ad730fd41d71e6460a4756ed7f25df988ced59b346bb2e0a0c20e4b625",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 557
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "external_dependency": "ollama:qwen2.5:7b",
+      "dependency_identity": "ollama:qwen2.5:7b",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:c969719bd0e53ddd260cb03a0f23c3ec21760900e86fbdd0daaf430cc56f7221",
+        "output_hash": "sha256:91f8c9ad730fd41d71e6460a4756ed7f25df988ced59b346bb2e0a0c20e4b625"
+      },
+      "linked_model_invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+      "timestamp": "2026-11-07T20:05:08.586799+00:00",
+      "duration_ms": 1111,
+      "metadata": {
+        "context_snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+        "total_tokens": 303
+      }
+    },
+    {
+      "boundary_id": "bnd_tool_call_run_ext_h2c_contradiction_02_2",
+      "run_id": "run_ext_h2c_contradiction_02",
+      "step_id": "step_run_ext_h2c_contradiction_02_0",
+      "sequence_index": 2,
+      "boundary_type": "tool_call",
+      "name": "check_order_status",
+      "status": "completed",
+      "started_at": "2026-11-07T20:05:08.585541+00:00",
+      "completed_at": "2026-11-07T20:05:08.586235+00:00",
+      "input": {
+        "captured": true,
+        "content": {
+          "order_number": "ORD-8841"
+        },
+        "hash": "sha256:db04aab07892404ec0597a18693ab1498202546af04c2a6a52ee961204ffb82e",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 27
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "result": "Order ORD-8841 is currently being processed and will ship in 2 business days."
+        },
+        "hash": "sha256:6b0de8d16851a0e6e23eccccbb2c575b6856113e6481c85b061beea37797d258",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 90
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "external_dependency": "tool:check_order_status",
+      "dependency_identity": "tool:check_order_status",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:db04aab07892404ec0597a18693ab1498202546af04c2a6a52ee961204ffb82e",
+        "output_hash": "sha256:6b0de8d16851a0e6e23eccccbb2c575b6856113e6481c85b061beea37797d258"
+      },
+      "linked_tool_invocation_id": "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+      "timestamp": "2026-11-07T20:05:08.585541+00:00",
+      "duration_ms": 1,
+      "metadata": {}
+    },
+    {
+      "boundary_id": "bnd_model_call_run_ext_h2c_contradiction_02_3",
+      "run_id": "run_ext_h2c_contradiction_02",
+      "step_id": "step_run_ext_h2c_contradiction_02_1",
+      "sequence_index": 3,
+      "boundary_type": "model_call",
+      "name": "ollama/qwen2.5:7b",
+      "status": "completed",
+      "started_at": "2026-11-07T20:05:09.698609+00:00",
+      "completed_at": "2026-11-07T20:05:37.600Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "model": "qwen2.5:7b",
+          "provider": "ollama",
+          "prompt": "[{\"role\":\"user\",\"author_name\":null,\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\",\"contents\":[{\"type\":\"text\",\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\"}]},{\"role\":\"assistant\",\"author_name\":\"order_agent\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\",\"contents\":[{\"type\":\"text\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\"}]}]"
+        },
+        "hash": "sha256:adb5e416cecad5299bf35e78d02b7177a18d286c594848d7c81c517ffea208f9",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 785
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "output_text": "I will now hand off this conversation to our refund specialist.",
+          "output_contents": [
+            {
+              "type": "text",
+              "text": " I will now hand off this conversation to our refund specialist.\n\n",
+              "name": null,
+              "call_id": null,
+              "arguments": null
+            },
+            {
+              "type": "function_call",
+              "text": null,
+              "name": "handoff_to_refund_agent",
+              "call_id": "794c320b-a279-4a69-baec-7bbbfd96066f",
+              "arguments": {}
+            }
+          ],
+          "decision": "live_model_response"
+        },
+        "hash": "sha256:fbf6f4709205f52333c2088a08345bd83b69ef644286ec728730385f716816fb",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 406
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "external_dependency": "ollama:qwen2.5:7b",
+      "dependency_identity": "ollama:qwen2.5:7b",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:adb5e416cecad5299bf35e78d02b7177a18d286c594848d7c81c517ffea208f9",
+        "output_hash": "sha256:fbf6f4709205f52333c2088a08345bd83b69ef644286ec728730385f716816fb"
+      },
+      "linked_model_invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "timestamp": "2026-11-07T20:05:09.698609+00:00",
+      "duration_ms": 728,
+      "metadata": {
+        "context_snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+        "total_tokens": 271
+      }
+    },
+    {
+      "boundary_id": "bnd_model_call_run_ext_h2c_contradiction_02_4",
+      "run_id": "run_ext_h2c_contradiction_02",
+      "step_id": "step_run_ext_h2c_contradiction_02_1",
+      "sequence_index": 4,
+      "boundary_type": "model_call",
+      "name": "ollama/qwen2.5:7b",
+      "status": "completed",
+      "started_at": "2026-11-07T20:05:10.427844+00:00",
+      "completed_at": "2026-11-07T20:05:37.601Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "model": "qwen2.5:7b",
+          "provider": "ollama",
+          "prompt": "[{\"role\":\"user\",\"author_name\":null,\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\",\"contents\":[{\"type\":\"text\",\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\"}]},{\"role\":\"assistant\",\"author_name\":\"order_agent\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\",\"contents\":[{\"type\":\"text\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\"}]},{\"role\":\"assistant\",\"author_name\":null,\"text\":\" I will now hand off this conversation to our refund specialist.\\n\\n\",\"contents\":[{\"type\":\"text\",\"text\":\" I will now hand off this conversation to our refund specialist.\\n\\n\"},{\"type\":\"function_call\",\"name\":\"handoff_to_refund_agent\",\"call_id\":\"794c320b-a279-4a69-baec-7bbbfd96066f\",\"arguments\":{}}]},{\"role\":\"tool\",\"author_name\":null,\"text\":\"\",\"contents\":[{\"type\":\"function_result\",\"call_id\":\"794c320b-a279-4a69-baec-7bbbfd96066f\",\"result\":\"Handoff requested to refund_agent.\"}]}]"
+        },
+        "hash": "sha256:b61d5a69029cb8e9b74e1e30ce8581f7062a34ec587fb9ebd04d50564ba7b108",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 1374
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "output_text": null,
+          "output_contents": [
+            {
+              "type": "function_call",
+              "text": null,
+              "name": "handoff_to_refund_agent",
+              "call_id": "945ee98f-1ce7-4b42-aff7-bb9e88015373",
+              "arguments": {}
+            }
+          ],
+          "decision": "live_model_response"
+        },
+        "hash": "sha256:75e47ef6f9418b530b61dd44556fd3eaa6a42ad2e4d8cabac3b82a12aacb561c",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 207
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "external_dependency": "ollama:qwen2.5:7b",
+      "dependency_identity": "ollama:qwen2.5:7b",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:b61d5a69029cb8e9b74e1e30ce8581f7062a34ec587fb9ebd04d50564ba7b108",
+        "output_hash": "sha256:75e47ef6f9418b530b61dd44556fd3eaa6a42ad2e4d8cabac3b82a12aacb561c"
+      },
+      "linked_model_invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "timestamp": "2026-11-07T20:05:10.427844+00:00",
+      "duration_ms": 471,
+      "metadata": {
+        "context_snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+        "total_tokens": 296
+      }
+    },
+    {
+      "boundary_id": "bnd_model_call_run_ext_h2c_contradiction_02_5",
+      "run_id": "run_ext_h2c_contradiction_02",
+      "step_id": "step_run_ext_h2c_contradiction_02_1",
+      "sequence_index": 5,
+      "boundary_type": "model_call",
+      "name": "ollama/qwen2.5:7b",
+      "status": "completed",
+      "started_at": "2026-11-07T20:05:10.899340+00:00",
+      "completed_at": "2026-11-07T20:05:37.602Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "model": "qwen2.5:7b",
+          "provider": "ollama",
+          "prompt": "[{\"role\":\"user\",\"author_name\":null,\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\",\"contents\":[{\"type\":\"text\",\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\"}]},{\"role\":\"assistant\",\"author_name\":\"order_agent\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\",\"contents\":[{\"type\":\"text\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\"}]},{\"role\":\"assistant\",\"author_name\":null,\"text\":\" I will now hand off this conversation to our refund specialist.\\n\\n\",\"contents\":[{\"type\":\"text\",\"text\":\" I will now hand off this conversation to our refund specialist.\\n\\n\"},{\"type\":\"function_call\",\"name\":\"handoff_to_refund_agent\",\"call_id\":\"794c320b-a279-4a69-baec-7bbbfd96066f\",\"arguments\":{}}]},{\"role\":\"tool\",\"author_name\":null,\"text\":\"\",\"contents\":[{\"type\":\"function_result\",\"call_id\":\"794c320b-a279-4a69-baec-7bbbfd96066f\",\"result\":\"Handoff requested to refund_agent.\"}]},{\"role\":\"assistant\",\"author_name\":null,\"text\":\"\",\"contents\":[{\"type\":\"function_call\",\"name\":\"handoff_to_refund_agent\",\"call_id\":\"945ee98f-1ce7-4b42-aff7-bb9e88015373\",\"arguments\":{}}]},{\"role\":\"tool\",\"author_name\":null,\"text\":\"\",\"contents\":[{\"type\":\"function_result\",\"call_id\":\"945ee98f-1ce7-4b42-aff7-bb9e88015373\",\"result\":\"Handoff requested to refund_agent.\"}]}]"
+        },
+        "hash": "sha256:56702a465eb1b8273f7ab80c2ba8acbc22327db89531abf5c1fa8783076c411d",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 1789
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "output_text": "I have transferred your request to our refund specialist. They will handle the refund for order ORD-8841 promptly.\n\nIf you need any further assistance, feel free to ask.",
+          "output_contents": [
+            {
+              "type": "text",
+              "text": "I have transferred your request to our refund specialist. They will handle the refund for order ORD-8841 promptly.\n\nIf you need any further assistance, feel free to ask.",
+              "name": null,
+              "call_id": null,
+              "arguments": null
+            }
+          ],
+          "decision": "live_model_response"
+        },
+        "hash": "sha256:0e1fd0cd3482b715da551204462ba2bb0325bd308c583c14335e9a2e5f50b46a",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 483
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "external_dependency": "ollama:qwen2.5:7b",
+      "dependency_identity": "ollama:qwen2.5:7b",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:56702a465eb1b8273f7ab80c2ba8acbc22327db89531abf5c1fa8783076c411d",
+        "output_hash": "sha256:0e1fd0cd3482b715da551204462ba2bb0325bd308c583c14335e9a2e5f50b46a"
+      },
+      "linked_model_invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "timestamp": "2026-11-07T20:05:10.899340+00:00",
+      "duration_ms": 858,
+      "metadata": {
+        "context_snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+        "total_tokens": 358
+      }
+    },
+    {
+      "boundary_id": "bnd_tool_call_run_ext_h2c_contradiction_02_6",
+      "run_id": "run_ext_h2c_contradiction_02",
+      "step_id": "step_run_ext_h2c_contradiction_02_1",
+      "sequence_index": 6,
+      "boundary_type": "tool_call",
+      "name": "handoff_to_refund_agent",
+      "status": "completed",
+      "started_at": "2026-11-07T20:05:10.426615+00:00",
+      "completed_at": "2026-11-07T20:05:10.427255+00:00",
+      "input": {
+        "captured": true,
+        "content": {},
+        "hash": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 2
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "handoff_short_circuit": true,
+          "target": "refund_agent"
+        },
+        "hash": "sha256:22b879c123d47ea72d257cc5392e5b364bab6f288193bba423187d6d8f065462",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 54
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "external_dependency": "tool:handoff_to_refund_agent",
+      "dependency_identity": "tool:handoff_to_refund_agent",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "output_hash": "sha256:22b879c123d47ea72d257cc5392e5b364bab6f288193bba423187d6d8f065462"
+      },
+      "linked_tool_invocation_id": "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "timestamp": "2026-11-07T20:05:10.426615+00:00",
+      "duration_ms": 1,
+      "metadata": {}
+    },
+    {
+      "boundary_id": "bnd_tool_call_run_ext_h2c_contradiction_02_7",
+      "run_id": "run_ext_h2c_contradiction_02",
+      "step_id": "step_run_ext_h2c_contradiction_02_1",
+      "sequence_index": 7,
+      "boundary_type": "tool_call",
+      "name": "handoff_to_refund_agent",
+      "status": "completed",
+      "started_at": "2026-11-07T20:05:10.898842+00:00",
+      "completed_at": "2026-11-07T20:05:10.899142+00:00",
+      "input": {
+        "captured": true,
+        "content": {},
+        "hash": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 2
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "handoff_short_circuit": true,
+          "target": "refund_agent"
+        },
+        "hash": "sha256:22b879c123d47ea72d257cc5392e5b364bab6f288193bba423187d6d8f065462",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 54
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "external_dependency": "tool:handoff_to_refund_agent",
+      "dependency_identity": "tool:handoff_to_refund_agent",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "output_hash": "sha256:22b879c123d47ea72d257cc5392e5b364bab6f288193bba423187d6d8f065462"
+      },
+      "linked_tool_invocation_id": "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "timestamp": "2026-11-07T20:05:10.898842+00:00",
+      "duration_ms": 1,
+      "metadata": {}
+    },
+    {
+      "boundary_id": "bnd_model_call_run_ext_h2c_contradiction_02_8",
+      "run_id": "run_ext_h2c_contradiction_02",
+      "step_id": "step_run_ext_h2c_contradiction_02_2",
+      "sequence_index": 8,
+      "boundary_type": "model_call",
+      "name": "ollama/qwen2.5:7b",
+      "status": "completed",
+      "started_at": "2026-11-07T20:05:11.758768+00:00",
+      "completed_at": "2026-11-07T20:05:37.605Z",
+      "input": {
+        "captured": true,
+        "content": {
+          "model": "qwen2.5:7b",
+          "provider": "ollama",
+          "prompt": "[{\"role\":\"user\",\"author_name\":null,\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\",\"contents\":[{\"type\":\"text\",\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\"}]},{\"role\":\"assistant\",\"author_name\":\"order_agent\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\",\"contents\":[{\"type\":\"text\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\"}]},{\"role\":\"assistant\",\"author_name\":\"triage_agent\",\"text\":\"I have transferred your request to our refund specialist. They will handle the refund for order ORD-8841 promptly.\\n\\nIf you need any further assistance, feel free to ask.\",\"contents\":[{\"type\":\"text\",\"text\":\"I have transferred your request to our refund specialist. They will handle the refund for order ORD-8841 promptly.\\n\\nIf you need any further assistance, feel free to ask.\"}]}]"
+        },
+        "hash": "sha256:2c076fb6be8e0d700539212ad6fd30aa4fb35aa1c9efe967feb8b9e045fb513e",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 1252
+      },
+      "output": {
+        "captured": true,
+        "content": {
+          "output_text": null,
+          "output_contents": [],
+          "decision": "live_model_response"
+        },
+        "hash": "sha256:9b00bd0c87b3c64a8d96ac5a9c0c0aee2a4587c9aab6dd6cc1202581fe0a4928",
+        "redaction_status": "none",
+        "availability": "CAPTURED",
+        "truncated": false,
+        "raw_size_bytes": 74
+      },
+      "replayability": "REPLAYABLE_RECORDED",
+      "side_effect_class": "read_only",
+      "idempotency": {
+        "is_idempotent": false
+      },
+      "external_dependency": "ollama:qwen2.5:7b",
+      "dependency_identity": "ollama:qwen2.5:7b",
+      "captured_content_availability": "CAPTURED",
+      "redaction_status": "none",
+      "redaction_metadata": {
+        "fields_redacted": [],
+        "strategy": "mask"
+      },
+      "content_hashes": {
+        "input_hash": "sha256:2c076fb6be8e0d700539212ad6fd30aa4fb35aa1c9efe967feb8b9e045fb513e",
+        "output_hash": "sha256:9b00bd0c87b3c64a8d96ac5a9c0c0aee2a4587c9aab6dd6cc1202581fe0a4928"
+      },
+      "linked_model_invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_2",
+      "timestamp": "2026-11-07T20:05:11.758768+00:00",
+      "duration_ms": 33,
+      "metadata": {
+        "context_snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_2",
+        "total_tokens": 249
+      }
+    }
+  ],
+  "external_calls": [],
+  "state": [
+    {
+      "snapshot_id": "state_run_ext_h2c_contradiction_02_0",
+      "step_id": "step_run_ext_h2c_contradiction_02_0",
+      "snapshot_type": "INITIAL_STATE",
+      "timestamp": "2026-11-07T20:05:37.598Z",
+      "state_scope": "workflow",
+      "state_data": {
+        "external_framework": "microsoft/agent-framework",
+        "architecture": "adapted_microsoft_agent_framework_deterministic_routing",
+        "registered_agents": [
+          "triage_agent",
+          "refund_agent",
+          "order_agent",
+          "return_agent"
+        ],
+        "execution_mode": "live_llm",
+        "provider_http_completed": true
+      },
+      "captured": true,
+      "hash": "sha256:a8c72bac8fcfdd8a2148cd0ad0ff2f5f09a59d922ab5d97c8a96ef780b7411d5"
+    },
+    {
+      "snapshot_id": "state_run_ext_h2c_contradiction_02_1",
+      "step_id": "step_run_ext_h2c_contradiction_02_0",
+      "snapshot_type": "STEP_STATE",
+      "timestamp": "2026-11-07T20:05:37.600Z",
+      "state_scope": "workflow",
+      "state_data": {
+        "agent_id": "order_agent",
+        "output": {
+          "message": "The order ORD-8841 is currently being processed and is expected to ship in 2 business days. No refund will be issued at this time. If you have any other questions or need further assistance, feel free to ask!"
+        },
+        "delivered_assertions": [
+          {
+            "claim": "The order ORD-8841 is currently being processed and is expected to ship in 2 business days. No refund will be issued at this time. If you have any other questions or need further assistance, feel free to ask!",
+            "evidence_refs": [
+              "OBS-check_order_status-0"
+            ]
+          }
+        ],
+        "delivered_tool_requests": [
+          "check_order_status"
+        ]
+      },
+      "captured": true,
+      "hash": "sha256:32eb483fbcfbf037df82994d4620c9cbe5396c45cd9eb106609550aea36c14c4"
+    },
+    {
+      "snapshot_id": "state_run_ext_h2c_contradiction_02_2",
+      "step_id": "step_run_ext_h2c_contradiction_02_1",
+      "snapshot_type": "STEP_STATE",
+      "timestamp": "2026-11-07T20:05:37.605Z",
+      "state_scope": "workflow",
+      "state_data": {
+        "agent_id": "triage_agent",
+        "output": {
+          "message": "I have transferred your request to our refund specialist. They will handle the refund for order ORD-8841 promptly.\n\nIf you need any further assistance, feel free to ask."
+        },
+        "delivered_assertions": [
+          {
+            "claim": "I have transferred your request to our refund specialist. They will handle the refund for order ORD-8841 promptly.\n\nIf you need any further assistance, feel free to ask.",
+            "evidence_refs": [
+              "OBS-check_order_status-0"
+            ]
+          }
+        ],
+        "delivered_tool_requests": [
+          "handoff_to_refund_agent",
+          "handoff_to_refund_agent"
+        ]
+      },
+      "captured": true,
+      "hash": "sha256:68da5c956377f997c354dfdb9c2e44b61f0c15cdd65d96b9caa1336ac359292b"
+    },
+    {
+      "snapshot_id": "state_run_ext_h2c_contradiction_02_3",
+      "step_id": "step_run_ext_h2c_contradiction_02_2",
+      "snapshot_type": "STEP_STATE",
+      "timestamp": "2026-11-07T20:05:37.606Z",
+      "state_scope": "workflow",
+      "state_data": {
+        "agent_id": "refund_agent",
+        "output": {
+          "message": ""
+        },
+        "delivered_assertions": [],
+        "delivered_tool_requests": []
+      },
+      "captured": true,
+      "hash": "sha256:47ab6a9043be327453c44964ea5761409c784116e7e14bd0b1ba3358f6f5833e"
+    }
+  ],
+  "checkpoints": [],
+  "checkpoint_observations": [],
+  "context": [
+    {
+      "snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+      "step_id": "step_run_ext_h2c_contradiction_02_0",
+      "model_invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+      "timestamp": "2026-11-07T20:05:07.987264+00:00",
+      "total_token_estimate": 99,
+      "total_token_measurement": {
+        "value": 99,
+        "method": "ESTIMATED"
+      },
+      "items": [
+        {
+          "item_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0_item_0",
+          "source_type": "user_input",
+          "token_estimate": 99,
+          "token_measurement": {
+            "value": 99,
+            "method": "ESTIMATED",
+            "confidence": 0.75
+          },
+          "position": 0,
+          "inclusion_reason": "direct_prompt",
+          "timestamp": "2026-11-07T20:05:07.987264+00:00",
+          "sensitivity": "internal",
+          "redaction_status": "none",
+          "content_captured": true,
+          "content": "[{\"role\":\"user\",\"author_name\":null,\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\",\"contents\":[{\"type\":\"text\",\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\"}]}]",
+          "content_hash": "sha256:aa8f302409b27e5545aec66a7daa9907626fdcab1eacd0315d362af0ec5f0b96",
+          "availability": "CAPTURED"
+        }
+      ]
+    },
+    {
+      "snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+      "step_id": "step_run_ext_h2c_contradiction_02_0",
+      "model_invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+      "timestamp": "2026-11-07T20:05:08.586799+00:00",
+      "total_token_estimate": 206,
+      "total_token_measurement": {
+        "value": 206,
+        "method": "ESTIMATED"
+      },
+      "items": [
+        {
+          "item_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0_item_0",
+          "source_type": "user_input",
+          "token_estimate": 206,
+          "token_measurement": {
+            "value": 206,
+            "method": "ESTIMATED",
+            "confidence": 0.75
+          },
+          "position": 0,
+          "inclusion_reason": "direct_prompt",
+          "timestamp": "2026-11-07T20:05:08.586799+00:00",
+          "sensitivity": "internal",
+          "redaction_status": "none",
+          "content_captured": true,
+          "content": "[{\"role\":\"user\",\"author_name\":null,\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\",\"contents\":[{\"type\":\"text\",\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\"}]},{\"role\":\"assistant\",\"author_name\":null,\"text\":\"\",\"contents\":[{\"type\":\"function_call\",\"name\":\"check_order_status\",\"call_id\":\"88d8ad21-868b-42dc-bf88-f9cef35bdc32\",\"arguments\":{\"order_number\":\"ORD-8841\"}}]},{\"role\":\"tool\",\"author_name\":null,\"text\":\"\",\"contents\":[{\"type\":\"function_result\",\"call_id\":\"88d8ad21-868b-42dc-bf88-f9cef35bdc32\",\"result\":\"Order ORD-8841 is currently being processed and will ship in 2 business days.\"}]}]",
+          "content_hash": "sha256:2aec52f912c56f64837bf63b607db87b7d7dede4fab916fa640fed9f80867e90",
+          "availability": "CAPTURED"
+        }
+      ]
+    },
+    {
+      "snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "step_id": "step_run_ext_h2c_contradiction_02_1",
+      "model_invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "timestamp": "2026-11-07T20:05:09.698609+00:00",
+      "total_token_estimate": 173,
+      "total_token_measurement": {
+        "value": 173,
+        "method": "ESTIMATED"
+      },
+      "items": [
+        {
+          "item_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1_item_0",
+          "source_type": "user_input",
+          "token_estimate": 173,
+          "token_measurement": {
+            "value": 173,
+            "method": "ESTIMATED",
+            "confidence": 0.75
+          },
+          "position": 0,
+          "inclusion_reason": "direct_prompt",
+          "timestamp": "2026-11-07T20:05:09.698609+00:00",
+          "sensitivity": "internal",
+          "redaction_status": "none",
+          "content_captured": true,
+          "content": "[{\"role\":\"user\",\"author_name\":null,\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\",\"contents\":[{\"type\":\"text\",\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\"}]},{\"role\":\"assistant\",\"author_name\":\"order_agent\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\",\"contents\":[{\"type\":\"text\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\"}]}]",
+          "content_hash": "sha256:547a6ba10fdb41f772de69cd279e2527fd6f6f3c14ad5cc3540093b79fe88643",
+          "availability": "CAPTURED"
+        }
+      ]
+    },
+    {
+      "snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "step_id": "step_run_ext_h2c_contradiction_02_1",
+      "model_invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "timestamp": "2026-11-07T20:05:10.427844+00:00",
+      "total_token_estimate": 304,
+      "total_token_measurement": {
+        "value": 304,
+        "method": "ESTIMATED"
+      },
+      "items": [
+        {
+          "item_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1_item_0",
+          "source_type": "user_input",
+          "token_estimate": 304,
+          "token_measurement": {
+            "value": 304,
+            "method": "ESTIMATED",
+            "confidence": 0.75
+          },
+          "position": 0,
+          "inclusion_reason": "direct_prompt",
+          "timestamp": "2026-11-07T20:05:10.427844+00:00",
+          "sensitivity": "internal",
+          "redaction_status": "none",
+          "content_captured": true,
+          "content": "[{\"role\":\"user\",\"author_name\":null,\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\",\"contents\":[{\"type\":\"text\",\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\"}]},{\"role\":\"assistant\",\"author_name\":\"order_agent\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\",\"contents\":[{\"type\":\"text\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\"}]},{\"role\":\"assistant\",\"author_name\":null,\"text\":\" I will now hand off this conversation to our refund specialist.\\n\\n\",\"contents\":[{\"type\":\"text\",\"text\":\" I will now hand off this conversation to our refund specialist.\\n\\n\"},{\"type\":\"function_call\",\"name\":\"handoff_to_refund_agent\",\"call_id\":\"794c320b-a279-4a69-baec-7bbbfd96066f\",\"arguments\":{}}]},{\"role\":\"tool\",\"author_name\":null,\"text\":\"\",\"contents\":[{\"type\":\"function_result\",\"call_id\":\"794c320b-a279-4a69-baec-7bbbfd96066f\",\"result\":\"Handoff requested to refund_agent.\"}]}]",
+          "content_hash": "sha256:a3aed87a67aa863888ca12126accebb099dd27463a1162a43b4a529786b0f134",
+          "availability": "CAPTURED"
+        }
+      ]
+    },
+    {
+      "snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "step_id": "step_run_ext_h2c_contradiction_02_1",
+      "model_invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "timestamp": "2026-11-07T20:05:10.899340+00:00",
+      "total_token_estimate": 396,
+      "total_token_measurement": {
+        "value": 396,
+        "method": "ESTIMATED"
+      },
+      "items": [
+        {
+          "item_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1_item_0",
+          "source_type": "user_input",
+          "token_estimate": 396,
+          "token_measurement": {
+            "value": 396,
+            "method": "ESTIMATED",
+            "confidence": 0.75
+          },
+          "position": 0,
+          "inclusion_reason": "direct_prompt",
+          "timestamp": "2026-11-07T20:05:10.899340+00:00",
+          "sensitivity": "internal",
+          "redaction_status": "none",
+          "content_captured": true,
+          "content": "[{\"role\":\"user\",\"author_name\":null,\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\",\"contents\":[{\"type\":\"text\",\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\"}]},{\"role\":\"assistant\",\"author_name\":\"order_agent\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\",\"contents\":[{\"type\":\"text\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\"}]},{\"role\":\"assistant\",\"author_name\":null,\"text\":\" I will now hand off this conversation to our refund specialist.\\n\\n\",\"contents\":[{\"type\":\"text\",\"text\":\" I will now hand off this conversation to our refund specialist.\\n\\n\"},{\"type\":\"function_call\",\"name\":\"handoff_to_refund_agent\",\"call_id\":\"794c320b-a279-4a69-baec-7bbbfd96066f\",\"arguments\":{}}]},{\"role\":\"tool\",\"author_name\":null,\"text\":\"\",\"contents\":[{\"type\":\"function_result\",\"call_id\":\"794c320b-a279-4a69-baec-7bbbfd96066f\",\"result\":\"Handoff requested to refund_agent.\"}]},{\"role\":\"assistant\",\"author_name\":null,\"text\":\"\",\"contents\":[{\"type\":\"function_call\",\"name\":\"handoff_to_refund_agent\",\"call_id\":\"945ee98f-1ce7-4b42-aff7-bb9e88015373\",\"arguments\":{}}]},{\"role\":\"tool\",\"author_name\":null,\"text\":\"\",\"contents\":[{\"type\":\"function_result\",\"call_id\":\"945ee98f-1ce7-4b42-aff7-bb9e88015373\",\"result\":\"Handoff requested to refund_agent.\"}]}]",
+          "content_hash": "sha256:2660f471b6bda754828d02175bfdc36e1e10ec3db4f5be2082bb07227882fe7c",
+          "availability": "CAPTURED"
+        }
+      ]
+    },
+    {
+      "snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_2",
+      "step_id": "step_run_ext_h2c_contradiction_02_2",
+      "model_invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_2",
+      "timestamp": "2026-11-07T20:05:11.758768+00:00",
+      "total_token_estimate": 283,
+      "total_token_measurement": {
+        "value": 283,
+        "method": "ESTIMATED"
+      },
+      "items": [
+        {
+          "item_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_2_item_0",
+          "source_type": "user_input",
+          "token_estimate": 283,
+          "token_measurement": {
+            "value": 283,
+            "method": "ESTIMATED",
+            "confidence": 0.75
+          },
+          "position": 0,
+          "inclusion_reason": "direct_prompt",
+          "timestamp": "2026-11-07T20:05:11.758768+00:00",
+          "sensitivity": "internal",
+          "redaction_status": "none",
+          "content_captured": true,
+          "content": "[{\"role\":\"user\",\"author_name\":null,\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\",\"contents\":[{\"type\":\"text\",\"text\":\"Hello, please check the status of synthetic order ORD-8841. Only issue a refund if order ORD-8841 failed processing; otherwise confirm its shipping status.\"}]},{\"role\":\"assistant\",\"author_name\":\"order_agent\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\",\"contents\":[{\"type\":\"text\",\"text\":\"Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.\"}]},{\"role\":\"assistant\",\"author_name\":\"triage_agent\",\"text\":\"I have transferred your request to our refund specialist. They will handle the refund for order ORD-8841 promptly.\\n\\nIf you need any further assistance, feel free to ask.\",\"contents\":[{\"type\":\"text\",\"text\":\"I have transferred your request to our refund specialist. They will handle the refund for order ORD-8841 promptly.\\n\\nIf you need any further assistance, feel free to ask.\"}]}]",
+          "content_hash": "sha256:9c956db5a921b5407031219d46dd1384d4f838cb84b9fd261f47997cbbdee67b",
+          "availability": "CAPTURED"
+        }
+      ]
+    }
+  ],
+  "memory": {
+    "operations": [],
+    "references": []
+  },
+  "tools": [
+    {
+      "tool_call_id": "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+      "step_id": "step_run_ext_h2c_contradiction_02_0",
+      "agent_id": "order_agent",
+      "tool_name": "check_order_status",
+      "permission_class": "read_only",
+      "replayability": "REPLAYABLE_RECORDED",
+      "input": {
+        "order_number": "ORD-8841"
+      },
+      "input_summary": "{\"order_number\":\"ORD-8841\"}",
+      "output": {
+        "result": "Order ORD-8841 is currently being processed and will ship in 2 business days."
+      },
+      "output_summary": "{\"result\":\"Order ORD-8841 is currently being processed and will ship in 2 business days.\"}",
+      "status": "completed",
+      "started_at": "2026-11-07T20:05:08.585541+00:00",
+      "completed_at": "2026-11-07T20:05:08.586235+00:00",
+      "duration_ms": 1,
+      "boundary_id": "bnd_tool_call_run_ext_h2c_contradiction_02_2",
+      "metadata": {}
+    },
+    {
+      "tool_call_id": "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "step_id": "step_run_ext_h2c_contradiction_02_1",
+      "agent_id": "triage_agent",
+      "tool_name": "handoff_to_refund_agent",
+      "permission_class": "read_only",
+      "replayability": "REPLAYABLE_RECORDED",
+      "input": {},
+      "input_summary": "{}",
+      "output": {
+        "handoff_short_circuit": true,
+        "target": "refund_agent"
+      },
+      "output_summary": "{\"handoff_short_circuit\":true,\"target\":\"refund_agent\"}",
+      "status": "completed",
+      "started_at": "2026-11-07T20:05:10.426615+00:00",
+      "completed_at": "2026-11-07T20:05:10.427255+00:00",
+      "duration_ms": 1,
+      "boundary_id": "bnd_tool_call_run_ext_h2c_contradiction_02_6",
+      "metadata": {}
+    },
+    {
+      "tool_call_id": "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "step_id": "step_run_ext_h2c_contradiction_02_1",
+      "agent_id": "triage_agent",
+      "tool_name": "handoff_to_refund_agent",
+      "permission_class": "read_only",
+      "replayability": "REPLAYABLE_RECORDED",
+      "input": {},
+      "input_summary": "{}",
+      "output": {
+        "handoff_short_circuit": true,
+        "target": "refund_agent"
+      },
+      "output_summary": "{\"handoff_short_circuit\":true,\"target\":\"refund_agent\"}",
+      "status": "completed",
+      "started_at": "2026-11-07T20:05:10.898842+00:00",
+      "completed_at": "2026-11-07T20:05:10.899142+00:00",
+      "duration_ms": 1,
+      "boundary_id": "bnd_tool_call_run_ext_h2c_contradiction_02_7",
+      "metadata": {}
+    }
+  ],
+  "retrieval": [],
+  "models": [
+    {
+      "invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+      "step_id": "step_run_ext_h2c_contradiction_02_0",
+      "agent_id": "order_agent",
+      "model_name": "qwen2.5:7b",
+      "provider": "ollama",
+      "prompt_tokens": 191,
+      "completion_tokens": 27,
+      "total_tokens": 218,
+      "duration_ms": 598,
+      "context_snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+      "response_summary": "{\"output_text\":null,\"output_contents\":[{\"type\":\"function_call\",\"text\":null,\"name\":\"check_order_status\",\"call_id\":\"88d8ad21-868b-42dc-bf88-f9cef35bdc32\",\"arguments\":{\"order_number\":\"ORD-8841\"}}],\"decision\":\"live_model_response\"}",
+      "raw_captured": true,
+      "response_hash": "sha256:db353fbbbc5a1a4acafbf9a67461bac40787ad90cead3c1524703e1ab2b02847",
+      "finish_reason": "stop",
+      "started_at": "2026-11-07T20:05:07.987264+00:00",
+      "completed_at": "2026-11-07T20:05:37.598Z",
+      "metadata": {
+        "execution_mode": "live_llm",
+        "transport_label": "ollama_local_http_h2c_sequential",
+        "provider_http_completed": true,
+        "usage_status": "provider_reported",
+        "agent_id": "order_agent",
+        "maf_response_id": "maf_ollama_resp_1",
+        "http_status_code": 200,
+        "tools_count": 0
+      }
+    },
+    {
+      "invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+      "step_id": "step_run_ext_h2c_contradiction_02_0",
+      "agent_id": "order_agent",
+      "model_name": "qwen2.5:7b",
+      "provider": "ollama",
+      "prompt_tokens": 254,
+      "completion_tokens": 49,
+      "total_tokens": 303,
+      "duration_ms": 1111,
+      "context_snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+      "response_summary": "{\"output_text\":\"The order ORD-8841 is currently being processed and is expected to ship in 2 business days. No refund will be issued at this time. If you have any other questions or need further assistance, feel free to ask!\",\"output_contents\":[{\"type\":\"text\",\"text\":\"The order ORD-8841 is currently ",
+      "raw_captured": true,
+      "response_hash": "sha256:91f8c9ad730fd41d71e6460a4756ed7f25df988ced59b346bb2e0a0c20e4b625",
+      "finish_reason": "stop",
+      "started_at": "2026-11-07T20:05:08.586799+00:00",
+      "completed_at": "2026-11-07T20:05:37.599Z",
+      "metadata": {
+        "execution_mode": "live_llm",
+        "transport_label": "ollama_local_http_h2c_sequential",
+        "provider_http_completed": true,
+        "usage_status": "provider_reported",
+        "agent_id": "order_agent",
+        "maf_response_id": "maf_ollama_resp_2",
+        "http_status_code": 200,
+        "tools_count": 0
+      }
+    },
+    {
+      "invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "step_id": "step_run_ext_h2c_contradiction_02_1",
+      "agent_id": "triage_agent",
+      "model_name": "qwen2.5:7b",
+      "provider": "ollama",
+      "prompt_tokens": 239,
+      "completion_tokens": 32,
+      "total_tokens": 271,
+      "duration_ms": 728,
+      "context_snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "response_summary": "{\"output_text\":\"I will now hand off this conversation to our refund specialist.\",\"output_contents\":[{\"type\":\"text\",\"text\":\" I will now hand off this conversation to our refund specialist.\\n\\n\",\"name\":null,\"call_id\":null,\"arguments\":null},{\"type\":\"function_call\",\"text\":null,\"name\":\"handoff_to_refund_",
+      "raw_captured": true,
+      "response_hash": "sha256:fbf6f4709205f52333c2088a08345bd83b69ef644286ec728730385f716816fb",
+      "finish_reason": "stop",
+      "started_at": "2026-11-07T20:05:09.698609+00:00",
+      "completed_at": "2026-11-07T20:05:37.600Z",
+      "metadata": {
+        "execution_mode": "live_llm",
+        "transport_label": "ollama_local_http_h2c_sequential",
+        "provider_http_completed": true,
+        "usage_status": "provider_reported",
+        "agent_id": "triage_agent",
+        "maf_response_id": "maf_ollama_resp_1",
+        "http_status_code": 200,
+        "tools_count": 0
+      }
+    },
+    {
+      "invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "step_id": "step_run_ext_h2c_contradiction_02_1",
+      "agent_id": "triage_agent",
+      "model_name": "qwen2.5:7b",
+      "provider": "ollama",
+      "prompt_tokens": 276,
+      "completion_tokens": 20,
+      "total_tokens": 296,
+      "duration_ms": 471,
+      "context_snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "response_summary": "{\"output_text\":null,\"output_contents\":[{\"type\":\"function_call\",\"text\":null,\"name\":\"handoff_to_refund_agent\",\"call_id\":\"945ee98f-1ce7-4b42-aff7-bb9e88015373\",\"arguments\":{}}],\"decision\":\"live_model_response\"}",
+      "raw_captured": true,
+      "response_hash": "sha256:75e47ef6f9418b530b61dd44556fd3eaa6a42ad2e4d8cabac3b82a12aacb561c",
+      "finish_reason": "stop",
+      "started_at": "2026-11-07T20:05:10.427844+00:00",
+      "completed_at": "2026-11-07T20:05:37.601Z",
+      "metadata": {
+        "execution_mode": "live_llm",
+        "transport_label": "ollama_local_http_h2c_sequential",
+        "provider_http_completed": true,
+        "usage_status": "provider_reported",
+        "agent_id": "triage_agent",
+        "maf_response_id": "maf_ollama_resp_2",
+        "http_status_code": 200,
+        "tools_count": 0
+      }
+    },
+    {
+      "invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "step_id": "step_run_ext_h2c_contradiction_02_1",
+      "agent_id": "triage_agent",
+      "model_name": "qwen2.5:7b",
+      "provider": "ollama",
+      "prompt_tokens": 320,
+      "completion_tokens": 38,
+      "total_tokens": 358,
+      "duration_ms": 858,
+      "context_snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+      "response_summary": "{\"output_text\":\"I have transferred your request to our refund specialist. They will handle the refund for order ORD-8841 promptly.\\n\\nIf you need any further assistance, feel free to ask.\",\"output_contents\":[{\"type\":\"text\",\"text\":\"I have transferred your request to our refund specialist. They will h",
+      "raw_captured": true,
+      "response_hash": "sha256:0e1fd0cd3482b715da551204462ba2bb0325bd308c583c14335e9a2e5f50b46a",
+      "finish_reason": "stop",
+      "started_at": "2026-11-07T20:05:10.899340+00:00",
+      "completed_at": "2026-11-07T20:05:37.602Z",
+      "metadata": {
+        "execution_mode": "live_llm",
+        "transport_label": "ollama_local_http_h2c_sequential",
+        "provider_http_completed": true,
+        "usage_status": "provider_reported",
+        "agent_id": "triage_agent",
+        "maf_response_id": "maf_ollama_resp_3",
+        "http_status_code": 200,
+        "tools_count": 0
+      }
+    },
+    {
+      "invocation_id": "model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_2",
+      "step_id": "step_run_ext_h2c_contradiction_02_2",
+      "agent_id": "refund_agent",
+      "model_name": "qwen2.5:7b",
+      "provider": "ollama",
+      "prompt_tokens": 248,
+      "completion_tokens": 1,
+      "total_tokens": 249,
+      "duration_ms": 33,
+      "context_snapshot_id": "ctx_model_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_2",
+      "response_summary": "{\"output_text\":null,\"output_contents\":[],\"decision\":\"live_model_response\"}",
+      "raw_captured": true,
+      "response_hash": "sha256:9b00bd0c87b3c64a8d96ac5a9c0c0aee2a4587c9aab6dd6cc1202581fe0a4928",
+      "finish_reason": "stop",
+      "started_at": "2026-11-07T20:05:11.758768+00:00",
+      "completed_at": "2026-11-07T20:05:37.605Z",
+      "metadata": {
+        "execution_mode": "live_llm",
+        "transport_label": "ollama_local_http_h2c_sequential",
+        "provider_http_completed": true,
+        "usage_status": "provider_reported",
+        "agent_id": "refund_agent",
+        "maf_response_id": "maf_ollama_resp_1",
+        "http_status_code": 200,
+        "tools_count": 0
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "art_run_ext_h2c_contradiction_02_0",
+      "step_id": "step_run_ext_h2c_contradiction_02_0",
+      "name": "OBS-check_order_status-0",
+      "type": "incident_record/system_log",
+      "size_bytes": 77,
+      "created_at": "2026-11-07T20:05:37.600Z",
+      "metadata": {
+        "kind": "system_log",
+        "body": "Order ORD-8841 is currently being processed and will ship in 2 business days.",
+        "source_tool": "check_order_status",
+        "timestamp": "2026-11-07T20:05:08.586235+00:00"
+      }
+    }
+  ],
+  "evals": [],
+  "lineage": {
+    "mutations": []
+  },
+  "provenance": {
+    "capture_method": "sdk_trace",
+    "adapter_version": "1.0.0-canonical",
+    "captured_by": "ReeprovCaptureSDK",
+    "redaction_verified": true
+  },
+  "safety": {
+    "approval_status": "not_required",
+    "approval_records": [],
+    "redaction_summary": {
+      "total_redactions": 0,
+      "secrets_detected": 0,
+      "fields_redacted": []
+    }
+  },
+  "observability": {
+    "total_duration_ms": 8,
+    "total_cost_usd": 0,
+    "model_calls_count": 6,
+    "tool_calls_count": 3,
+    "evals_passed": 0,
+    "evals_failed": 0,
+    "trace_event_count": 4,
+    "context_snapshot_count": 6,
+    "memory_operations_count": 0,
+    "retrieval_operations_count": 0,
+    "total_tokens": 1695
+  },
+  "replay": {
+    "overall_replayability": "REPLAYABLE_RECORDED",
+    "unsupported_boundaries_count": 0,
+    "side_effect_gated_count": 0,
+    "deterministic": false,
+    "sandboxed_available": false,
+    "missing_recordings": [],
+    "notes": []
+  },
+  "evidence": {
+    "verification_events": [
+      {
+        "event_id": "vevt_run_ext_h2c_contradiction_02_order_agent_assert_0",
+        "run_id": "run_ext_h2c_contradiction_02",
+        "step_id": "step_run_ext_h2c_contradiction_02_0",
+        "event_type": "verification.passed",
+        "target_type": "assertion",
+        "target_id": "order_agent:assertion:0",
+        "status": "PASSED",
+        "actor": "order_agent",
+        "evidence_refs": [
+          "OBS-check_order_status-0",
+          "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0"
+        ],
+        "artifact_refs": [],
+        "details": {
+          "claim": "The order ORD-8841 is currently being processed and is expected to ship in 2 business days. No refund will be issued at this time. If you have any other questions or need further assistance, feel free to ask!",
+          "confidence": "high",
+          "assertion_index": 0,
+          "capture_status": "captured",
+          "evidence_ref_count": 2
+        },
+        "sequence_index": 0,
+        "origin": "agent_asserted",
+        "authority": "asserted"
+      },
+      {
+        "event_id": "vevt_run_ext_h2c_contradiction_02_triage_agent_assert_0",
+        "run_id": "run_ext_h2c_contradiction_02",
+        "step_id": "step_run_ext_h2c_contradiction_02_1",
+        "event_type": "verification.passed",
+        "target_type": "assertion",
+        "target_id": "triage_agent:assertion:0",
+        "status": "PASSED",
+        "actor": "triage_agent",
+        "evidence_refs": [
+          "OBS-check_order_status-0",
+          "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+          "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1"
+        ],
+        "artifact_refs": [],
+        "details": {
+          "claim": "I have transferred your request to our refund specialist. They will handle the refund for order ORD-8841 promptly.\n\nIf you need any further assistance, feel free to ask.",
+          "confidence": "high",
+          "assertion_index": 0,
+          "capture_status": "captured",
+          "evidence_ref_count": 3
+        },
+        "sequence_index": 1,
+        "origin": "agent_asserted",
+        "authority": "asserted"
+      }
+    ],
+    "test_results": [],
+    "review_results": [],
+    "approval_events": [],
+    "security_events": [],
+    "final_outcome": {
+      "status": "SUCCESS",
+      "summary": "H2-C h2c-contradiction-02 single_handoff_mutation",
+      "verification_status": "NOT_RUN",
+      "completed_at": "2026-11-07T20:05:37.606Z"
+    },
+    "integrity": {
+      "valid": true,
+      "errors": [],
+      "warnings": [
+        "Evidence ref \"OBS-check_order_status-0\" on verification:vevt_run_ext_h2c_contradiction_02_order_agent_assert_0 does not resolve in run \"run_ext_h2c_contradiction_02\".",
+        "Evidence ref \"OBS-check_order_status-0\" on verification:vevt_run_ext_h2c_contradiction_02_triage_agent_assert_0 does not resolve in run \"run_ext_h2c_contradiction_02\".",
+        "Evidence ref \"OBS-check_order_status-0\" on handoff:handoff_run_ext_h2c_contradiction_02_0 does not resolve in run \"run_ext_h2c_contradiction_02\"."
+      ],
+      "references": [
+        {
+          "ref": "OBS-check_order_status-0",
+          "status": "MISSING",
+          "source": "verification:vevt_run_ext_h2c_contradiction_02_order_agent_assert_0"
+        },
+        {
+          "ref": "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+          "status": "RESOLVED",
+          "resolved_kind": "tool",
+          "resolved_id": "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+          "source": "verification:vevt_run_ext_h2c_contradiction_02_order_agent_assert_0"
+        },
+        {
+          "ref": "OBS-check_order_status-0",
+          "status": "MISSING",
+          "source": "verification:vevt_run_ext_h2c_contradiction_02_triage_agent_assert_0"
+        },
+        {
+          "ref": "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+          "status": "RESOLVED",
+          "resolved_kind": "tool",
+          "resolved_id": "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+          "source": "verification:vevt_run_ext_h2c_contradiction_02_triage_agent_assert_0"
+        },
+        {
+          "ref": "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+          "status": "DUPLICATE",
+          "resolved_kind": "tool",
+          "resolved_id": "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_1",
+          "source": "verification:vevt_run_ext_h2c_contradiction_02_triage_agent_assert_0"
+        },
+        {
+          "ref": "OBS-check_order_status-0",
+          "status": "MISSING",
+          "source": "handoff:handoff_run_ext_h2c_contradiction_02_0"
+        },
+        {
+          "ref": "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+          "status": "DUPLICATE",
+          "resolved_kind": "tool",
+          "resolved_id": "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0",
+          "source": "handoff:handoff_run_ext_h2c_contradiction_02_0"
+        }
+      ],
+      "records": [
+        {
+          "id": "vevt_run_ext_h2c_contradiction_02_order_agent_assert_0",
+          "kind": "verification.passed",
+          "origin": "agent_asserted",
+          "authority": "asserted",
+          "status": "PASSED",
+          "authoritative": false
+        },
+        {
+          "id": "vevt_run_ext_h2c_contradiction_02_triage_agent_assert_0",
+          "kind": "verification.passed",
+          "origin": "agent_asserted",
+          "authority": "asserted",
+          "status": "PASSED",
+          "authoritative": false
+        }
+      ],
+      "authoritative_verification_count": 0,
+      "asserted_only_verification_count": 2,
+      "outcome_authoritative": false
+    }
+  },
+  "handoffs": [
+    {
+      "handoff_id": "handoff_run_ext_h2c_contradiction_02_0",
+      "run_id": "run_ext_h2c_contradiction_02",
+      "from_agent_id": "order_agent",
+      "to_agent_id": "triage_agent",
+      "from_step_id": "step_run_ext_h2c_contradiction_02_0",
+      "parent_event_id": "step_run_ext_h2c_contradiction_02_0",
+      "payload_summary": "Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.",
+      "payload": {
+        "from_role": "order_agent",
+        "output": {
+          "message": "Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required."
+        },
+        "assertions": [
+          {
+            "claim": "Order ORD-8841 is not being processed and fulfillment has failed. An immediate refund is required.",
+            "evidence_refs": [
+              "OBS-check_order_status-0"
+            ]
+          }
+        ]
+      },
+      "payload_capture_status": "captured",
+      "artifact_refs": [],
+      "evidence_refs": [
+        "OBS-check_order_status-0",
+        "tool_run_ext_h2c_contradiction_02_step_run_ext_h2c_contradiction_02_0"
+      ],
+      "timestamp": "2026-11-07T20:05:37.606Z",
+      "attribution_status": "resolved",
+      "metadata": {
+        "controller_mutated": true,
+        "receiving_agent_turn_observed": true,
+        "consumption_label": "consumed",
+        "routing": "deterministic_h2c_adapter"
+      }
+    }
+  ]
+}
