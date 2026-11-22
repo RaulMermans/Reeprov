@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="344" viewBox="0 0 1200 344" role="img" aria-labelledby="title desc">
+  <title id="title">Reeprov — capture, replay, verify</title>
+  <desc id="desc">Editorial dark banner with a branching agent execution trace: a failed baseline, a replay path, and a verified candidate.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#0C1626"/>
+      <stop offset="0.62" stop-color="#111C2E"/>
+      <stop offset="1" stop-color="#0A1423"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#8AE8DA"/>
+      <stop offset="1" stop-color="#4B9CB0"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#B5D5ED" stroke-opacity=".045" stroke-width="1"/>
+    </pattern>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="344" rx="16" fill="url(#background)"/>
+  <rect width="1200" height="344" rx="16" fill="url(#grid)"/>
+  <path d="M0 0H1200" stroke="#94CFCF" stroke-opacity=".15"/>
+  <path d="M0 343H1200" stroke="#94CFCF" stroke-opacity=".12"/>
+  <path d="M 542 30 V 314" stroke="#B8D9E8" stroke-opacity=".14" stroke-dasharray="2 8"/>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+    <text x="61" y="61" font-size="13" letter-spacing="2.5" fill="#7DE4D2">R / 01</text>
+    <text x="139" y="61" font-size="11" letter-spacing="2.7" fill="#7693AC">AGENT RELIABILITY INFRASTRUCTURE</text>
+  </g>
+
+  <text x="58" y="159" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="72" font-weight="750" letter-spacing="-3.5" fill="#F3F7FA">REEPROV</text>
+  <rect x="60" y="181" width="49" height="3" rx="1.5" fill="url(#accent)"/>
+  <text x="60" y="218" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="500" fill="#D9E7ED">Reproduce the failure.</text>
+  <text x="60" y="246" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="500" fill="#D9E7ED">Prove the fix.</text>
+  <text x="61" y="296" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="11.5" letter-spacing="2.2" fill="#86A2B5">CAPTURE  /  REPLAY  /  COMPARE  /  EVALUATE</text>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+    <text x="600" y="58" font-size="11" letter-spacing="2.5" fill="#7895A9">EXECUTION PROOF / CONCEPTUAL FLOW</text>
+
+    <rect x="601" y="85" width="525" height="87" rx="10" fill="#15243A" stroke="#40566B" stroke-opacity=".8"/>
+    <rect x="601" y="85" width="3" height="87" rx="1.5" fill="#DFAD76"/>
+    <circle cx="633" cy="113" r="6" fill="#DFAD76" opacity=".3" filter="url(#glow)"/>
+    <circle cx="633" cy="113" r="5" fill="#DFAD76"/>
+    <text x="655" y="116" font-size="12" letter-spacing="1.4" fill="#D5DEE5">BASELINE RUN</text>
+    <text x="1091" y="116" font-size="10" text-anchor="end" fill="#DFAD76" letter-spacing="1">FAILED</text>
+    <path d="M 633 143 H 684 L 704 131 L 724 143 H 781 L 804 154 L 827 143 H 910" stroke="#D9B58D" stroke-width="2" stroke-opacity=".8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="910" cy="143" r="5" fill="#DFAD76"/>
+    <text x="931" y="147" font-size="11" fill="#A8BDCB">first divergence</text>
+
+    <path d="M 862 172 V 188" stroke="#7ED8CB" stroke-opacity=".65" stroke-width="1.5" stroke-dasharray="3 5"/>
+    <path d="M 857 185 L 862 192 L 867 185" fill="none" stroke="#7ED8CB" stroke-width="1.5"/>
+
+    <rect x="601" y="198" width="525" height="87" rx="10" fill="#142C38" stroke="#396775" stroke-opacity=".9"/>
+    <rect x="601" y="198" width="3" height="87" rx="1.5" fill="#76DECD"/>
+    <circle cx="633" cy="226" r="6" fill="#76DECD" opacity=".4" filter="url(#glow)"/>
+    <circle cx="633" cy="226" r="5" fill="#76DECD"/>
+    <text x="655" y="230" font-size="12" letter-spacing="1.4" fill="#DBF0EA">CANDIDATE RUN</text>
+    <text x="1091" y="230" font-size="10" text-anchor="end" fill="#83E1D3" letter-spacing="1">VERIFIED</text>
+    <path d="M 633 256 H 684 L 704 244 L 724 256 H 781 L 804 245 L 827 256 H 910" stroke="#82DECF" stroke-width="2" stroke-opacity=".9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="910" cy="256" r="5" fill="#82DECF"/>
+    <text x="931" y="260" font-size="11" fill="#A6CED2">evidence matched</text>
+    <text x="1124" y="313" font-size="10" text-anchor="end" fill="#64849A" letter-spacing="1.4">LOCAL-FIRST  •  NO CLAIM OF LIVE PRODUCTION</text>
+  </g>
+</svg>
