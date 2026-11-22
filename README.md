@@ -240,7 +240,17 @@ Reeprov records canonical evidence; compatible host adapters own re-execution. *
 | <code>self_hosted</code> | Private server / Docker | Password-protected Studio; operator-controlled network binding |
 | <code>headless_ci</code> | Automated capture and checks | Ingest-key operation; no Studio required |
 
-**Local-first:** Reeprov does not operate a managed cloud service for your traces. Data stays in a store you control (local files by default, or optional self-hosted PostgreSQL).
+### Configuration reference
+
+| Variable | Purpose |
+| :-- | :-- |
+| <code>REEPROV_MODE</code> | Select <code>personal_local</code>, <code>self_hosted</code>, or <code>headless_ci</code> |
+| <code>REEPROV_HOME</code> | Local evidence and configuration root |
+| <code>REEPROV_INGEST_KEY</code> | Agent SDK ingestion credential (legacy fallback: <code>AGENTPULSE_INGEST_KEY</code>) |
+| <code>REEPROV_ACCESS_KEY</code> | Self-hosted Studio access secret; **use a different value from the ingest key** |
+| <code>DATABASE_URL</code> | Persistent **Postgres** connection for production / multi-container self-hosting; leave unset for single-machine filesystem development |
+
+**Local-first:** Reeprov does not operate a managed cloud service for your traces. Data stays in a store you control (local files by default, or an operator-managed Postgres instance in production).
 
 > [!IMPORTANT]
 > **Offline replay is not an OS sandbox.** Strict replay substitutes recorded outputs and intercepts known Node network and subprocess APIs. It does not guarantee zero egress from untrusted host code. Use a separately network-isolated process or container for stronger guarantees. Missing or redacted payloads may prevent full verification. [Replay safety model](docs/security/offline-replay-safety.md).
