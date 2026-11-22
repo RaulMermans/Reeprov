@@ -1,10 +1,8 @@
 <div align="center">
 
-  <p><sub>AGENT RELIABILITY &nbsp; / &nbsp; DEVELOPER INFRASTRUCTURE &nbsp; / &nbsp; LOCAL-FIRST</sub></p>
+  <img src="docs/assets/reeprov-hero.svg" alt="Reeprov — capture, replay, compare and verify agent executions; conceptual run comparison illustration" width="100%" />
 
-  # REEPROV
-
-  ### Reproduce the failure. Prove the fix.
+  <h1>REEPROV</h1>
 
   **The debugging and regression lab for AI agents.**
 
