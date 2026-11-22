@@ -1,355 +1,304 @@
-# Reeprov
+<div align="center">
 
-**Reproduce the failure. Prove the fix.**
+  <p><sub>AGENT RELIABILITY &nbsp; / &nbsp; DEVELOPER INFRASTRUCTURE &nbsp; / &nbsp; LOCAL-FIRST</sub></p>
 
-Reeprov is local-first debugging and reproducibility infrastructure for AI agents.
+  # REEPROV
 
-Capture execution evidence, reproduce failures, fork from checkpoints, compare behavior, evaluate candidate fixes, and turn production failures into regression tests.
+  ### Reproduce the failure. Prove the fix.
 
-```
-CAPTURE
-→ INSPECT
-→ REPLAY
-→ FORK
-→ COMPARE
-→ EVALUATE
-→ REGRESSION
-```
+  **The debugging and regression lab for AI agents.**
 
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![npm version](https://img.shields.io/npm/v/@reeprov/client.svg)](https://www.npmjs.com/package/@reeprov/client)
-[![Status](https://img.shields.io/badge/status-public--beta-orange.svg)](CHANGELOG.md)
+  Capture what happened. Replay recorded boundaries. Find the first divergence.<br>
+  Test a candidate fix before the same failure reaches production again.
 
-Reeprov accepts execution evidence, causal trajectories, and boundary snapshots from external AI agents, validates them against canonical schemas, stores them locally, and provides offline reproducibility, diagnostic comparison, automated evaluations, and regression gates.
+  <p>
+    <a href="https://github.com/RaulMermans/Reeprov/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/RaulMermans/Reeprov/actions/workflows/ci.yml/badge.svg"></a>
+    <a href="LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/license-Apache%202.0-63758e"></a>
+    <a href="CHANGELOG.md"><img alt="Public beta" src="https://img.shields.io/badge/status-public%20beta-c49043"></a>
+    <a href="https://www.npmjs.com/package/@reeprov/client"><img alt="TypeScript SDK on npm" src="https://img.shields.io/npm/v/@reeprov/client?label=TypeScript%20SDK&color=557f90"></a>
+  </p>
 
-Reeprov is **not a public SaaS**. There are no subscriptions, cloud accounts, multi-tenant organizations, invitations, or telemetry uploads to external servers. Your execution evidence stays under your direct control.
+  [**Get started**](#quick-start) &nbsp;·&nbsp; [**Workflow**](#the-debugging-loop) &nbsp;·&nbsp; [**SDKs**](#instrument-your-agent) &nbsp;·&nbsp; [**Evidence**](#verified-behavior) &nbsp;·&nbsp; [**Docs**](docs/README.md)
 
-```
-External Agent (TypeScript / Python / REST)
-       │  (standard HTTP contracts)
-       ▼
- ┌─────────────────────────────────────────────────────────────┐
- │ Reeprov Engine (Local Loopback or Private Server)           │
- │                                                             │
- │   CAPTURE  ──►  INSPECT  ──►  REPLAY  ──►  FORK  ──► COMPARE│
- │                                                   │         │
- │   REGRESSION GATES  ◄──  EVALUATE  ◄──────────────┘         │
- └─────────────────────────────────────────────────────────────┘
-       │
-       ▼
- Reeprov Studio (Web UI)  /  `reeprov` CLI (Automated CI)
-```
+</div>
 
 ---
 
-## About the Name
+## When a trace is not enough
 
-"Reeprov" (pronounced *ree-proove*) combines the ideas of **reproducing** an execution and **proving** whether a change actually fixed it.
+An agent reports *"done."* But the API state is wrong, a tool was called twice, or the next run makes a different decision. A trace tells you **what** happened. It rarely gives you a safe way to reproduce **why**, change one variable, and determine whether a fix holds.
+
+Reeprov is built around a different workflow.
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+**01 / CAPTURE THE EVIDENCE**
+
+Record model, tool and retrieval boundaries with stable identities, content availability and execution outcomes.
+
+</td>
+<td width="33%" valign="top">
+
+**02 / RECREATE THE FAILURE**
+
+Re-execute compatible host logic against recorded responses. Refuse missing or changed evidence rather than silently inventing it.
+
+</td>
+<td width="33%" valign="top">
+
+**03 / QUALIFY THE FIX**
+
+Compare trajectories, inspect the first divergence, evaluate assertions and gate regressions before release.
+
+</td>
+</tr>
+</table>
+
+## The debugging loop
+
+~~~mermaid
+flowchart LR
+    A["Agent execution"] --> B["Capture evidence"]
+    B --> C["Inspect trajectory"]
+    C --> D["Offline replay"]
+    D --> E["Fork at checkpoint"]
+    E --> F["Compare outcomes"]
+    F --> G["Evaluate"]
+    G --> H{"Regression gate"}
+    H -->|"Pass"| I["Release evidence"]
+    H -->|"Fail"| C
+~~~
+
+| Capability | What it gives you |
+| :-- | :-- |
+| **Boundary-aware capture** | Model, tool and retrieval events, canonical hashes, secret redaction and an inspectable timeline |
+| **Offline replay** | Recorded boundary substitution with explicit match, divergence, block or unsupported outcomes |
+| **Checkpoint-based forks** | Resume compatible host adapters from verified checkpoints with controlled state mutations |
+| **Run comparison** | Aligned differences, first divergence and evidence-linked candidate comparisons |
+| **Evaluation & regression gates** | Versioned checks, baseline comparisons and CI-friendly pass/fail evidence |
+| **Studio · CLI · SDKs** | Visual investigation, scriptable workflows and TypeScript, Python or REST ingestion |
+
+**Positioning:** Reeprov is not a model provider, agent orchestrator or hosted observability SaaS. It is an **evidence and verification layer** around agents you already run.
+
+## Failure → fix: a reproducible example
+
+The [Sprint 13 acceptance exercise](docs/testing/S13-acceptance.md) uses a **synthetic incident-triage agent** to test the full journey, not merely a dashboard mock-up.
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**BASELINE / FAILED**
+
+- Incident classified and deferred
+- **1 / 5** evaluation assertions passed
+- Original execution captured as replay evidence
+
+</td>
+<td width="50%" valign="top">
+
+**CANDIDATE / VERIFIED IN TEST**
+
+- Compatible host adapter resumed from checkpoint
+- Changed policy produced a different action
+- **5 / 5** evaluation assertions passed
+- Comparison identified the meaningful divergence
+
+</td>
+</tr>
+</table>
+
+That acceptance also exercises changed-input replay, redacted-content partial verification, checkpoint persistence and blocked simulated side effects. **These results are synthetic and bounded.** They are not production success rates or evidence of universal agent reliability. [Inspect the methodology and results](docs/testing/S13-acceptance.md).
 
 ---
 
-## Why Reeprov?
+## Quick start
 
-When complex autonomous agents fail, traditional logging leaves developers stranded:
-- **Nondeterminism:** The same prompt may succeed today and hallucinate tomorrow.
-- **Side Effects:** Re-running an agent against live APIs risks sending duplicate emails, charging cards twice, or mutating production databases.
-- **Opaque Context:** Prompts grow silently, vector lookups drift, and memory state evolves invisibly across turns.
+**Requires Node.js 20+ and npm.** The root application runs from source; it is not published as an npm package.
 
-Reeprov treats agent execution as **cryptographically verifiable evidence**:
-1. **Replay-Grade Capture:** Intercepts nondeterministic boundaries (LLM calls, tool executions, vector searches) and stores content-addressed input/output pairs.
-2. **Server-Side Secret Redaction:** Scrub API keys, bearer tokens, and credentials before persistence or export.
-3. **Deterministic Offline Replay:** Verify logic by substituting recorded boundary responses with live network access disabled.
-4. **Causal Diffing:** Pinpoint the exact step where candidate execution diverged from a golden baseline.
-5. **Pre-Merge Regression Gates:** Block CI merges when agent behavior, cost, or output accuracy drifts beyond policy thresholds.
-
----
-
-## Operating Modes & Privacy
-
-Reeprov operates across three distinct postures using the exact same core engine:
-
-| Mode | Trigger | Auth Posture | Network Binding | Primary Use Case |
-|---|---|---|---|---|
-| **`PERSONAL_LOCAL`** (Default) | `REEPROV_MODE=personal_local` | None (zero login screen, instant startup) | Loopback only (`127.0.0.1` / `::1`) | Single developer local workstation |
-| **`PRIVATE_SELF_HOSTED`** | `REEPROV_MODE=self_hosted` | Mandatory password (`REEPROV_ACCESS_KEY` → HttpOnly session cookie) | Configurable network interface | Private VM, Docker host, internal company server |
-| **`HEADLESS_CI`** | `REEPROV_MODE=headless_ci` | Ingest key (`ree_live_...`) | Headless (no Studio required) | Automated CI regression gates and evaluations |
-
-### Loopback Privacy Guarantee
-In `PERSONAL_LOCAL` mode, Reeprov enforces a strict loopback binding policy (`127.0.0.1` / `::1`). It cannot be bound to public interfaces (`0.0.0.0`) without explicit mode transition to `PRIVATE_SELF_HOSTED`. Zero bytes of telemetry are transmitted to third-party clouds.
-
-### Environment Variables & Security Posture
-
-| Variable | Operating Mode | Description | Legacy Fallback |
-|---|---|---|---|
-| `REEPROV_MODE` | All | `personal_local` (default), `self_hosted`, or `headless_ci` | `AGENTPULSE_MODE` |
-| `REEPROV_HOME` | All | Custom local data root (defaults to `~/.reeprov`) | `AGENTPULSE_HOME` |
-| `REEPROV_ACCESS_KEY` | `self_hosted` | Instance owner password for unlocking Studio | `AGENTPULSE_ACCESS_KEY` |
-| `REEPROV_INGEST_KEY` | Dev / CI | Global fallback ingest key. Prefer project-scoped keys (`ree_live_...`) | `AGENTPULSE_INGEST_KEY` |
-| `DATABASE_URL` | Self-Hosted / Prod | Optional Postgres connection string (uses local filesystem store when unset) | — |
-
-> [!IMPORTANT]
-> In deployed self-hosted environments, `REEPROV_INGEST_KEY` and `REEPROV_ACCESS_KEY` must be **different** to prevent external agents from accessing Studio administration.
-> For multi-container deployments, configure `DATABASE_URL` with a persistent Postgres database.
-
----
-
-## Quick Start
-
-### Option A: Local Development (Git + Node.js)
-
-**Prerequisites:** Node.js `>=20` and npm.
-
-```bash
-# 1. Clone repository
+~~~bash
 git clone https://github.com/RaulMermans/Reeprov.git
 cd Reeprov
-
-# 2. Install dependencies reproducibly
 npm ci
-
-# 3. Start Studio in local mode
 npm run dev
-```
+~~~
 
-Open `http://localhost:3000/dashboard` in your browser. Studio opens immediately with zero account prompts.
+Open **http://localhost:3000/dashboard**. Default <code>personal_local</code> mode stays on loopback with no dashboard login.
 
-### Option B: Docker Compose (Self-Hosted)
+**No external agent yet?** Load a deterministic example:
 
-```bash
-# Set your private instance password
-export REEPROV_ACCESS_KEY="replace_with_long_random_private_key"
-export REEPROV_INGEST_KEY="replace_with_different_long_random_key"
+~~~bash
+npm run reeprov -- demo setup
+# Explore Projects, Runs, Compare, Evals and Regressions
+npm run reeprov -- demo reset
+~~~
 
-docker compose up -d
-```
+To run a private Docker instance, configure distinct <code>REEPROV_ACCESS_KEY</code> and <code>REEPROV_INGEST_KEY</code> secrets, then execute <code>docker compose up -d</code>. The supplied Compose file binds to loopback by default. [Deployment guide](docs/DEPLOYMENT.md).
 
-Studio will be bound to `http://127.0.0.1:3000` with session authentication enforced.
+## Instrument your agent
 
----
+Connect using the [TypeScript SDK](packages/client-typescript/README.md), [Python SDK](packages/client-python/README.md) or [REST API](examples/integrations/rest/README.md). Create a project in Studio and obtain a project-scoped ingest key. **Do not commit credentials.**
 
-## Connect Your First Agent
-
-Instrumenting an agent requires only standard HTTP calls using our official client SDKs:
-
-### TypeScript / Node.js (`@reeprov/client`)
-
-```bash
+~~~bash
 npm install @reeprov/client
-```
+~~~
 
-```typescript
+~~~typescript
 import { ReeprovClient } from "@reeprov/client";
 
-const reeprov = new ReeprovClient({
-  endpoint: process.env.REEPROV_URL ?? "http://127.0.0.1:3000",
-  apiKey: process.env.REEPROV_INGEST_KEY!, // Project-scoped ingest key (ree_live_...)
-  projectId: "support-agent",
-  workflowId: "refund-flow-v1",
+const client = new ReeprovClient({
+  url: process.env.REEPROV_URL ?? "http://127.0.0.1:3000",
+  ingestKey: process.env.REEPROV_INGEST_KEY!,
+  projectId: "incident-triage",
+  workflowId: "triage-v1",
 });
 
-// 1. Start execution run
-const run = await reeprov.startRun({ summary: "Process refund request #9821" });
+const run = await client.startRun({ summary: "Investigate incident INC-2041" });
 
-// 2. Capture model boundary
-await reeprov.modelCallCompleted({
+await client.modelCallCompleted({
   run_id: run.run_id,
-  model: "claude-sonnet-4-6",
   provider: "anthropic",
-  prompt: "Classify refund request for order #9821...",
-  response: { eligible: true, refund_amount_usd: 49.00 },
-  input_tokens: 380,
-  output_tokens: 45,
-  cost_usd: 0.0018,
+  model: "example-model",
+  prompt: "Classify this incident",
+  response: { severity: "SEV3" },
 });
 
-// 3. Capture tool execution
-await reeprov.toolCallCompleted({
+await client.toolCallCompleted({
   run_id: run.run_id,
-  tool_name: "stripe.refund",
-  arguments: { order_id: "9821", amount_cents: 4900 },
-  output: { status: "succeeded", refund_id: "re_12345" },
+  tool_name: "tickets.create",
+  arguments: { incident_id: "INC-2041" },
+  output: { ticket_id: "T-2041" },
   permission_class: "external_side_effect",
 });
 
-// 4. Complete run
-await reeprov.completeRun({
+await client.completeRun({
   run_id: run.run_id,
-  summary: "Refund processed successfully.",
+  summary: "Run captured for inspection",
 });
-```
+~~~
 
-### Python (`reeprov-client`)
+*Illustrative data only.* Capture alone does **not** make arbitrary agent code replayable. Replay and fork require steps built around injectable host dependencies and a compatible host adapter; the runner executes on your machine rather than inside the Reeprov server. [Host adapter documentation](packages/client-typescript/README.md#acknowledgements-checkpoints-and-replay) · [External-agent acceptance](docs/testing/S13-acceptance.md).
 
-The Python SDK source is included in this repository. The package is not yet
-available on PyPI; install it from a local checkout:
+<details>
+<summary><strong>Python SDK and package availability</strong></summary>
 
-```bash
+The Python client is source-installable and supports evidence capture, but **is not published to PyPI**. The JavaScript/TypeScript host replay/fork runner does not execute Python host code.
+
+~~~bash
 pip install ./packages/client-python
-```
+~~~
 
-```python
-import os
-from reeprov_client import ReeprovClient
+[Python SDK guide](packages/client-python/README.md).
 
-reeprov = ReeprovClient(
-    url=os.environ.get("REEPROV_URL", "http://127.0.0.1:3000"),
-    ingest_key=os.environ.get("REEPROV_INGEST_KEY", "ree_live_..."),
-    project_id="support-agent",
-    workflow_id="refund-flow-v1",
-)
+</details>
 
-# 1. Start execution
-run_id = reeprov.start_run(summary="Process refund request #9821")
+### Use the CLI
 
-# 2. Capture model boundary
-reeprov.model_call_completed(
-    run_id=run_id,
-    model="claude-sonnet-4-6",
-    provider="anthropic",
-    prompt="Classify refund request for order #9821...",
-    response={"eligible": True, "refund_amount_usd": 49.00},
-    input_tokens=380,
-    output_tokens=45,
-    cost_usd=0.0018,
-)
-
-# 3. Capture tool execution
-reeprov.tool_call_completed(
-    run_id=run_id,
-    tool_name="stripe.refund",
-    arguments={"order_id": "9821", "amount_cents": 4900},
-    output={"status": "succeeded", "refund_id": "re_12345"},
-    permission_class="external_side_effect",
-)
-
-# 4. Complete run
-reeprov.complete_run(run_id=run_id, summary="Refund processed successfully.")
-```
-
----
-
-## Exploring Studio & Deterministic Demo
-
-If you don't have an external agent running yet, explore Reeprov using our pre-seeded deterministic demo:
-
-```bash
-# Setup demo project with golden baseline & drifted failure run
-npm run reeprov -- demo setup
-```
-
-Navigate to:
-- **Projects** (`/dashboard/projects`) — Inspect project fleet, capture readiness scores, and ingest keys.
-- **Runs** (`/dashboard/runs`) — Visual causal step graph, token breakdowns, and boundary payloads.
-- **Compare** (`/dashboard/runs/compare`) — Side-by-side run diff highlighting the first divergence point.
-- **Evaluate** (`/dashboard/evals`) — Automated eval suites and test case assertions.
-- **Regressions** (`/dashboard/regressions`) — Release baselines, drift detection, and pre-merge gate reports.
-- **Settings & Privacy** (`/dashboard/settings`) — Local storage directory path and privacy posture.
-
-To clean up:
-```bash
-npm run reeprov -- demo reset
-```
-
----
-
-## Local CLI Reference (`reeprov`)
-
-Reeprov includes the `reeprov` CLI for terminal productivity and headless CI automation.
-
-> [!NOTE]
-> The root `reeprov` repository maintains `"private": true` and is not published to the npm registry. The `reeprov` CLI is classified as **REPO-LOCAL PUBLIC/BETA**. Within the cloned repository, run commands using `npm run reeprov -- <command>` (or directly via `node bin/reeprov.mjs <command>` / `./bin/reeprov.mjs <command>`). Legacy command `npm run pulse -- <command>` remains supported as an alias.
-
-```bash
-# Version & help
-npm run reeprov -- --version
+~~~bash
 npm run reeprov -- --help
-
-# Inspect local data root and privacy posture
-npm run reeprov -- data-path
-npm run reeprov -- data-path --json
-
-# List configured projects
 npm run reeprov -- projects list
-
-# Export project bundle (sanitized of raw secret keys)
-npm run reeprov -- export project <project-id> --out ./backup.json
-
-# Run offline deterministic replay
 npm run reeprov -- replay <run-id-or-path> --strict
-
-# Side-by-side run comparison
 npm run reeprov -- diff <run-a> <run-b> --first-divergence
-
-# Pre-merge CI regression check
 npm run reeprov -- regression check <candidate-run-id> --baseline <baseline-id>
-
-# Migrate data from legacy AgentPulse directory (~/.agentpulse -> ~/.reeprov)
-npm run reeprov -- migrate-brand
-```
+~~~
 
 ---
 
-## Migrating from AgentPulse
+## Architecture
 
-If you used previous development builds under the AgentPulse name:
-- Run `npm run reeprov -- migrate-brand` to safely copy existing traces from `~/.agentpulse` to `~/.reeprov`.
-- Detailed migration instructions, environment variable compatibility, and rollback guidance are available in the [Migration Guide](docs/migration/agentpulse-to-reeprov.md).
+~~~mermaid
+flowchart TB
+    subgraph Host["Your agent / your runtime"]
+        SDK["TypeScript SDK · Python SDK · REST"]
+        ADAPTER["Optional host replay adapter"]
+    end
 
----
+    subgraph App["Reeprov · local or private self-hosted"]
+        API["Run and boundary contracts"]
+        DB[("Evidence store")]
+        REPLAY["Replay & fork"]
+        CHECK["Compare · evaluate · regressions"]
+        STUDIO["Studio & CLI"]
+    end
 
-## Replay Semantics & Honesty
+    SDK --> API --> DB
+    DB --> REPLAY --> CHECK
+    ADAPTER <--> REPLAY
+    DB --> STUDIO
+    CHECK --> STUDIO
+~~~
 
-Reeprov provides **deterministic offline boundary substitution**, not full-system virtualization:
+Reeprov records canonical evidence; compatible host adapters own re-execution. **Observing a trace does not recreate an entire operating environment.**
 
-- **What Replay Does:** When an agent invokes a recorded model call or tool, the replay harness verifies that the input matches the recorded cryptographic hash and substitutes the recorded response. Its in-process guard blocks known Node network and subprocess APIs; arbitrary host code needs separate process or container isolation for a zero-egress guarantee.
-- **What Replay Does NOT Do:** It does not snapshot arbitrary operating system kernels, process memory heaps, or uncaptured external environments.
-- **Side-Effect Safety:** Tools classified as `external_side_effect` or `destructive` are gated during replay to prevent accidental mutations.
+[System architecture](docs/ARCHITECTURE.md) · [Boundary model](docs/architecture/boundary-model.md) · [Replay](docs/architecture/offline-replay-runtime.md) · [Forking](docs/architecture/fork-runtime.md) · [Regression gates](docs/architecture/regression-gates.md)
 
----
+## Privacy, operating modes & limits
 
-## Quality & Continuous Integration
+| Mode | Intended use | Boundary |
+| :-- | :-- | :-- |
+| <code>personal_local</code> **(default)** | Individual workstation | Loopback only; no dashboard login |
+| <code>self_hosted</code> | Private server / Docker | Password-protected Studio; operator-controlled network binding |
+| <code>headless_ci</code> | Automated capture and checks | Ingest-key operation; no Studio required |
 
-Reeprov maintains rigorous deterministic test coverage:
+**Local-first:** Reeprov does not operate a managed cloud service for your traces. Data stays in a store you control (local files by default, or optional self-hosted PostgreSQL).
 
-```bash
-# Run complete CI validation pipeline:
-# 1. Lint (ESLint with strict boundary rules)
-# 2. Typecheck (tsc --noEmit)
-# 3. Unit, Integration, & Replay Proof Tests (Vitest)
-# 4. Next.js Production Build
+> [!IMPORTANT]
+> **Offline replay is not an OS sandbox.** Strict replay substitutes recorded outputs and intercepts known Node network and subprocess APIs. It does not guarantee zero egress from untrusted host code. Use a separately network-isolated process or container for stronger guarantees. Missing or redacted payloads may prevent full verification. [Replay safety model](docs/security/offline-replay-safety.md).
+
+For private deployments, keep the access password distinct from the ingest key. [Capture/redaction](docs/security/capture-and-redaction.md) · [Security policy](SECURITY.md) · [Modes](docs/architecture/deployment-modes.md)
+
+## Verified behavior
+
+| Evidence | Scope |
+| :-- | :-- |
+| **Automated CI** | Rename and private-path audits, lint, typecheck, deterministic tests and Next.js production build |
+| **Replay proofs** | Boundary divergence, side-effect blocking, checkpoint integrity and run differences |
+| **Sprint 13 acceptance** | Synthetic external SDK run, strict host replay, resumed fork, evaluation, Docker persistence and Playwright walkthrough |
+| **Research testbed** | Separate matched offline cross-agent verification study; **not** a production-effectiveness benchmark |
+
+[![CI history](https://img.shields.io/badge/View-CI%20history-557f90)](https://github.com/RaulMermans/Reeprov/actions/workflows/ci.yml)
+[Acceptance evidence](docs/testing/S13-acceptance.md) · [Replay proof](docs/testing/offline-replay-proof.md) · [Regression proof](docs/testing/regression-drift-proof.md)
+
+<details>
+<summary><strong>Research extension · KARMA POLICE</strong></summary>
+
+The research testbed evaluates cross-agent claim verification and handoff inconsistencies. In a 16-scenario offline, post-freeze evaluation pack, the selected detector correctly classified **68 / 88** claims and detected **16 / 20** contradictions. This is a small, evaluator-controlled study—not independent blinded validation, live production deployment or a general capability benchmark.
+
+[Methods, raw counts and limitations](docs/research/karma-police-h2-results.md).
+
+</details>
+
+### Reproduce the quality gates
+
+~~~bash
+npm ci
 npm run ci
-```
+~~~
 
-All default CI tests execute 100% offline with zero live external API dependencies.
-
----
-
-## Architecture Specifications
-
-For in-depth architectural contracts, refer to the documentation index:
-- [Complete Documentation Index](docs/README.md)
-- [System Architecture](docs/ARCHITECTURE.md)
-- [Data Model & Entities](docs/DATA_MODEL.md)
-- [Public API Stability Classification](docs/architecture/api-stability.md)
-- [Execution Boundary Model](docs/architecture/boundary-model.md)
-- [Framework Integration Strategy](docs/integrations/frameworks.md)
-- [Maintainer Release Process](docs/maintainers/release-process.md)
-- [Migration Guide](docs/migration/agentpulse-to-reeprov.md)
+The standard CI pipeline runs without requiring live calls to external model providers.
 
 ---
 
-## Security & Vulnerability Reporting
+## Status & documentation
 
-Please review our [SECURITY.md](SECURITY.md) for vulnerability disclosure procedures and privacy guidelines. Do not report security vulnerabilities via public GitHub issues.
+**Public beta · local-first developer tooling.** Studio and CLI run from the repository; the TypeScript SDK has an npm package, while the Python SDK is source-installable. No claim of independent security certification, unattended production readiness or universal replay support.
+
+| Explore | Documentation |
+| :-- | :-- |
+| Product | [Studio navigation](docs/product/studio-navigation.md) · [Connect an agent](docs/product/connect-agent.md) |
+| Engineering | [Architecture](docs/ARCHITECTURE.md) · [API stability](docs/architecture/api-stability.md) · [Data model](docs/DATA_MODEL.md) |
+| Evidence | [Acceptance](docs/testing/S13-acceptance.md) · [Research](docs/research/karma-police-h2-results.md) |
+| Operations | [Deployment](docs/DEPLOYMENT.md) · [AgentPulse migration](docs/migration/agentpulse-to-reeprov.md) |
+| Collaboration | [Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) · [Security](SECURITY.md) |
+
+<div align="center">
 
 ---
 
-## Contributing
+<sub>REEPROV &nbsp; / &nbsp; CAPTURE WHAT HAPPENED. REPRODUCE WHAT MATTERS. VERIFY WHAT CHANGED.</sub>
 
-We welcome contributions! Please review [CONTRIBUTING.md](CONTRIBUTING.md) and our [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before submitting pull requests.
+<sub>Open source under <a href="LICENSE">Apache License 2.0</a>.</sub>
 
----
-
-## License
-
-Reeprov is open-source software licensed under the [Apache License, Version 2.0](LICENSE).
+</div>
